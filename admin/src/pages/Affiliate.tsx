@@ -14,7 +14,7 @@ const AffiliatePage: React.FC = () => {
     try {
       const response = await affiliateService.getStats(userId);
       // Giả sử API trả về data
-      setAffiliates([response.data] || []);
+      setAffiliates(response?.data ? [response.data] : []);
     } catch (error) {
       console.error('Failed to fetch affiliate data');
     } finally {
