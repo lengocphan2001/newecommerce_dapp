@@ -72,3 +72,6 @@ backend/.env.local
 admin/build/
 admin/.env
 admin/.env.local
+
+.vercel
+.env*.local
