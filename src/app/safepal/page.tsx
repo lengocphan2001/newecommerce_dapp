@@ -148,6 +148,46 @@ export default function SafePalConnectPage() {
     []
   );
 
+  const switchToBsc = useCallback(async () => {
+    setLastError("");
+    const eth = getEthereum();
+    if (!eth) {
+      setLastError("Không tìm thấy provider (window.ethereum)");
+      return;
+    }
+
+    try {
+      // Try switch to BSC Mainnet (chainId 56 => 0x38)
+      await eth.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x38" }],
+      });
+    } catch (e: any) {
+      // 4902: unknown chain -> add it
+      const code = e?.code;
+      if (code === 4902 || `${code}` === "4902") {
+        await eth.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0x38",
+              chainName: "BNB Smart Chain",
+              nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+              rpcUrls: ["https://bsc-dataseed.binance.org/"],
+              blockExplorerUrls: ["https://bscscan.com"],
+            },
+          ],
+        });
+      } else {
+        setLastError(e?.message ?? String(e));
+        return;
+      }
+    }
+
+    // Refresh after switching chain
+    await refresh({ silent: true });
+  }, [refresh]);
+
   const connect = useCallback(async () => {
     setLastError("");
     const eth = getEthereum();
@@ -343,6 +383,13 @@ export default function SafePalConnectPage() {
               ) : (
                 "Kết nối ví (eth_requestAccounts)"
               )}
+            </button>
+            <button
+              onClick={switchToBsc}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-solid border-black/[.08] bg-white px-4 text-sm font-semibold text-zinc-900 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+              title="Chuyển sang BSC để đọc USDT BEP-20 (0x55d398...)"
+            >
+              Switch to BSC (BEP20)
             </button>
             <button
               onClick={() => refresh()}
