@@ -23,6 +23,21 @@ export class User {
   @Column({ nullable: true })
   phone: string;
 
+  @Column({ nullable: true })
+  username: string;
+
+  @Column({ nullable: true })
+  country: string;
+
+  @Column({ nullable: true, unique: true })
+  walletAddress: string;
+
+  @Column({ nullable: true })
+  chainId: string;
+
+  @Column({ nullable: true })
+  referralUser: string;
+
   @Column({ default: 'ACTIVE' })
   status: string;
 

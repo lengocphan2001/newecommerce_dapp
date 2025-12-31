@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "../services/api";
+import { getUSDTBalance, formatUSDT } from "../utils/wallet";
 
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<unknown>;
@@ -45,7 +47,11 @@ export default function SafePalConnectPage() {
   const [address, setAddress] = useState<string>("");
   const [chainIdHex, setChainIdHex] = useState<string>("");
   const [balanceWei, setBalanceWei] = useState<bigint>(BigInt(0));
+  const [usdtBalance, setUsdtBalance] = useState<string>("");
+  const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
   const [lastError, setLastError] = useState<string>("");
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [isNavigating, setIsNavigating] = useState<boolean>(false);
 
   const isSafePal = !!ethereum?.isSafePal;
 
@@ -77,9 +83,16 @@ export default function SafePalConnectPage() {
             params: [addr, "latest"],
           })) as string;
           setBalanceWei(hexToBigInt(balHex));
+          
+          // Load USDT balance if chainId is available
+          if (cid) {
+            loadUSDTBalance(eth, addr, cid);
+          }
+          
           if (!silent) setStatus("Đã kết nối");
         } else {
           setBalanceWei(BigInt(0));
+          setUsdtBalance("");
           if (!silent) setStatus("Chưa cấp quyền ví (chưa có account)");
         }
       } catch (e: any) {
@@ -99,18 +112,58 @@ export default function SafePalConnectPage() {
     }
 
     try {
+      setIsConnecting(true);
       setStatus("Đang yêu cầu kết nối...");
       const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
       await refresh();
-      // Chuyển đến màn hình chính sau khi kết nối thành công
+      
+      // Check if user exists after connecting wallet
       if (accounts && accounts.length > 0) {
-        router.push("/home");
+        const walletAddress = accounts[0];
+        // Get chainId if not already available
+        let currentChainId = chainIdHex;
+        if (!currentChainId) {
+          currentChainId = (await eth.request({ method: "eth_chainId" })) as string;
+        }
+        
+        try {
+          setStatus("Đang kiểm tra tài khoản...");
+          const checkResult = await api.checkWallet(walletAddress);
+          
+          if (checkResult.exists) {
+            // User exists, go to home
+            setIsNavigating(true);
+            setStatus("Đang chuyển đến trang chính...");
+            // Store wallet info
+            localStorage.setItem('walletAddress', walletAddress);
+            if (currentChainId) {
+              localStorage.setItem('chainId', currentChainId);
+            }
+            router.push("/home");
+          } else {
+            // User doesn't exist, redirect to registration
+            setIsNavigating(true);
+            setStatus("Đang chuyển đến trang đăng ký...");
+            // Store wallet info for registration
+            localStorage.setItem('walletAddress', walletAddress);
+            if (currentChainId) {
+              localStorage.setItem('chainId', currentChainId);
+            }
+            router.push(`/register?address=${encodeURIComponent(walletAddress)}&chainId=${encodeURIComponent(currentChainId)}`);
+          }
+        } catch (error: any) {
+          // If API fails, still allow navigation but show error
+          console.error("Error checking wallet:", error);
+          setLastError("Không thể kiểm tra tài khoản. Vui lòng thử lại.");
+          setIsConnecting(false);
+        }
       }
     } catch (e: any) {
       setStatus("Người dùng từ chối hoặc lỗi kết nối");
       setLastError(e?.message ?? String(e));
+      setIsConnecting(false);
     }
-  }, [refresh, router]);
+  }, [refresh, router, chainIdHex]);
 
   useEffect(() => {
     // initial best-effort refresh
@@ -149,8 +202,33 @@ export default function SafePalConnectPage() {
     }
   }, [chainIdHex]);
 
+  const loadUSDTBalance = useCallback(async (eth: Eip1193Provider, addr: string, chainId: string) => {
+    setIsLoadingUSDT(true);
+    try {
+      const result = await getUSDTBalance(eth, addr, chainId);
+      if (result) {
+        const formatted = formatUSDT(result.balance, result.decimals);
+        setUsdtBalance(formatted);
+      } else {
+        setUsdtBalance("N/A");
+      }
+    } catch (error) {
+      console.error("Error loading USDT balance:", error);
+      setUsdtBalance("Error");
+    } finally {
+      setIsLoadingUSDT(false);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
+      {/* Loading Overlay */}
+      {(isConnecting || isNavigating) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-white border-t-zinc-900"></div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-2xl px-6 py-10">
         <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
           <div className="flex items-start justify-between gap-4">
@@ -197,6 +275,39 @@ export default function SafePalConnectPage() {
               <div className="text-zinc-600">Balance (native)</div>
               <div className="font-mono text-xs">{address ? `${formatEther(balanceWei)} ETH` : "-"}</div>
             </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-zinc-600">Balance (USDT)</div>
+              <div className="font-mono text-xs">
+                {isLoadingUSDT ? (
+                  <span className="inline-flex items-center gap-1">
+                    <svg
+                      className="h-3 w-3 animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Loading...
+                  </span>
+                ) : (
+                  address ? `${usdtBalance || "0"} USDT` : "-"
+                )}
+              </div>
+            </div>
           </div>
 
           {lastError ? (
@@ -209,9 +320,33 @@ export default function SafePalConnectPage() {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={connect}
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800 active:bg-zinc-950"
+              disabled={isConnecting || isNavigating}
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800 active:bg-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Kết nối ví (eth_requestAccounts)
+              {isConnecting || isNavigating ? (
+                <svg
+                  className="h-5 w-5 animate-spin"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              ) : (
+                "Kết nối ví (eth_requestAccounts)"
+              )}
             </button>
             <button
               onClick={() => refresh()}

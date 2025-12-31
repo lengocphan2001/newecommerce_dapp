@@ -1,131 +1,334 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import BottomNav from "../../components/BottomNav";
+import { getUSDTBalance, formatUSDT } from "../../utils/wallet";
 
 export default function ProfilePage() {
-  const pathname = usePathname();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [chainId, setChainId] = useState<string>("");
+  const [usdtBalance, setUsdtBalance] = useState<string>("");
+  const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+
+    // Get wallet address and chainId from localStorage or window.ethereum
+    if (typeof window !== "undefined") {
+      const getWalletInfo = async () => {
+        const eth = (window as any).ethereum;
+        if (eth) {
+          try {
+            const accounts = (await eth.request({
+              method: "eth_accounts",
+            })) as string[];
+            if (accounts && accounts.length > 0) {
+              const address = accounts[0];
+              setWalletAddress(address);
+              
+              // Get chain ID
+              const chainIdHex = (await eth.request({
+                method: "eth_chainId",
+              })) as string;
+              setChainId(chainIdHex);
+              
+              // Load USDT balance
+              if (address && chainIdHex) {
+                loadUSDTBalance(eth, address, chainIdHex);
+              }
+            }
+          } catch (error) {
+            console.error("Error getting wallet info:", error);
+          }
+        }
+      };
+      getWalletInfo();
+    }
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900"></div>
+      </div>
+    );
+  }
+
+  const shortAddress = (addr: string) => {
+    if (!addr) return "-";
+    if (addr.length < 10) return addr;
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  };
+
+  const loadUSDTBalance = async (eth: any, address: string, chainIdHex: string) => {
+    setIsLoadingUSDT(true);
+    try {
+      const result = await getUSDTBalance(eth, address, chainIdHex);
+      if (result) {
+        const formatted = formatUSDT(result.balance, result.decimals);
+        setUsdtBalance(formatted);
+      } else {
+        setUsdtBalance("N/A");
+      }
+    } catch (error) {
+      console.error("Error loading USDT balance:", error);
+      setUsdtBalance("Error");
+    } finally {
+      setIsLoadingUSDT(false);
+    }
+  };
 
   const menuItems = [
     {
-      href: "/home",
-      label: "Trang chủ",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-          />
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
+      title: "Địa chỉ giao hàng",
+      subtitle: "Quản lý địa chỉ nhận hàng",
+      action: ">",
     },
     {
-      href: "/home/products",
-      label: "Sản phẩm",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-          />
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v4a3 3 0 003 3zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       ),
+      title: "Phương thức thanh toán",
+      subtitle: "Thẻ, ví điện tử",
+      action: ">",
     },
     {
-      href: "/home/orders",
-      label: "Đơn hàng",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-          />
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
         </svg>
       ),
+      title: "Mã giảm giá",
+      subtitle: "3 mã có sẵn",
+      action: ">",
     },
     {
-      href: "/home/profile",
-      label: "Cá nhân",
       icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-          />
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
         </svg>
       ),
+      title: "Đánh giá của tôi",
+      subtitle: "Xem đánh giá đã viết",
+      action: ">",
+    },
+    {
+      icon: (
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      ),
+      title: "Thông báo",
+      subtitle: "Cài đặt thông báo",
+      action: ">",
+    },
+    {
+      icon: (
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+      title: "Cài đặt",
+      subtitle: "Cài đặt ứng dụng",
+      action: ">",
     },
   ];
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white shadow-sm">
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <h1 className="text-xl font-bold text-zinc-900">Cá nhân</h1>
+        </div>
+      </header>
+
       <main className="flex-1 pb-20">
-        <div className="mx-auto max-w-2xl px-6 py-10">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Cá nhân
-            </h1>
-            <p className="mt-2 text-sm text-zinc-600">
-              Thông tin cá nhân và cài đặt sẽ được hiển thị ở đây.
-            </p>
+        {/* Profile Card */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20">
+                <svg
+                  className="h-8 w-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-bold">Người dùng</h2>
+                <p className="mt-1 text-sm opacity-90">
+                  {walletAddress ? shortAddress(walletAddress) : "Chưa kết nối ví"}
+                </p>
+              </div>
+            </div>
+            {walletAddress && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-2 rounded-lg bg-white/20 px-3 py-2">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  <span className="text-xs font-medium">Ví đã kết nối</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-white/20 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-xs font-medium">Số dư USDT</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">
+                      {isLoadingUSDT ? (
+                        <svg
+                          className="h-4 w-4 animate-spin"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      ) : (
+                        `${usdtBalance || "0"} USDT`
+                      )}
+                    </span>
+                    {walletAddress && chainId && !isLoadingUSDT && (
+                      <button
+                        onClick={() => {
+                          const eth = (window as any).ethereum;
+                          if (eth) {
+                            loadUSDTBalance(eth, walletAddress, chainId);
+                          }
+                        }}
+                        className="rounded p-1 hover:bg-white/30"
+                        title="Làm mới số dư"
+                      >
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Stats */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-white p-4 text-center shadow-sm">
+              <p className="text-2xl font-bold text-zinc-900">12</p>
+              <p className="mt-1 text-xs text-zinc-500">Đơn hàng</p>
+            </div>
+            <div className="rounded-xl bg-white p-4 text-center shadow-sm">
+              <p className="text-2xl font-bold text-zinc-900">8</p>
+              <p className="mt-1 text-xs text-zinc-500">Đánh giá</p>
+            </div>
+            <div className="rounded-xl bg-white p-4 text-center shadow-sm">
+              <p className="text-2xl font-bold text-zinc-900">3</p>
+              <p className="mt-1 text-xs text-zinc-500">Mã giảm giá</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Menu Items */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="space-y-2">
+            {menuItems.map((item, index) => (
+              <button
+                key={index}
+                className="flex w-full items-center gap-4 rounded-xl bg-white p-4 shadow-sm transition-colors hover:bg-zinc-50"
+              >
+                <div className="text-zinc-600">{item.icon}</div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-zinc-900">
+                    {item.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {item.subtitle}
+                  </p>
+                </div>
+                <div className="text-zinc-400">{item.action}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Logout Button */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <button className="w-full rounded-xl border border-red-300 bg-white px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50">
+            Đăng xuất
+          </button>
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white shadow-lg">
-        <div className="mx-auto flex max-w-2xl items-center justify-around px-4 py-2">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 rounded-lg px-4 py-2 transition-colors ${
-                  isActive
-                    ? "text-zinc-900"
-                    : "text-zinc-500 hover:text-zinc-700"
-                }`}
-              >
-                <div
-                  className={`${isActive ? "text-zinc-900" : "text-zinc-500"}`}
-                >
-                  {item.icon}
-                </div>
-                <span className="text-xs font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <BottomNav />
     </div>
   );
 }

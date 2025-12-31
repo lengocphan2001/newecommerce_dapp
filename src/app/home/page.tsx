@@ -1,133 +1,207 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import BottomNav from "../components/BottomNav";
 
 export default function HomePage() {
-  const pathname = usePathname();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const menuItems = [
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900"></div>
+      </div>
+    );
+  }
+
+  const categories = [
+    { id: 1, name: "Điện tử", icon: "📱", color: "bg-blue-100" },
+    { id: 2, name: "Thời trang", icon: "👕", color: "bg-pink-100" },
+    { id: 3, name: "Đồ gia dụng", icon: "🏠", color: "bg-green-100" },
+    { id: 4, name: "Thể thao", icon: "⚽", color: "bg-orange-100" },
+  ];
+
+  const featuredProducts = [
     {
-      href: "/home",
-      label: "Trang chủ",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-          />
-        </svg>
-      ),
+      id: 1,
+      name: "iPhone 15 Pro Max",
+      price: "29.990.000",
+      image: "📱",
+      rating: 4.8,
     },
     {
-      href: "/home/products",
-      label: "Sản phẩm",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-          />
-        </svg>
-      ),
+      id: 2,
+      name: "Áo thun nam cao cấp",
+      price: "299.000",
+      image: "👕",
+      rating: 4.5,
     },
     {
-      href: "/home/orders",
-      label: "Đơn hàng",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-          />
-        </svg>
-      ),
+      id: 3,
+      name: "Máy lọc không khí",
+      price: "3.990.000",
+      image: "🏠",
+      rating: 4.7,
     },
     {
-      href: "/home/profile",
-      label: "Cá nhân",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-          />
-        </svg>
-      ),
+      id: 4,
+      name: "Giày thể thao",
+      price: "1.990.000",
+      image: "👟",
+      rating: 4.6,
     },
   ];
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
-      {/* Main Content */}
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white shadow-sm">
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-zinc-900">Shop dApp</h1>
+            <div className="flex items-center gap-3">
+              <button className="relative">
+                <svg
+                  className="h-6 w-6 text-zinc-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  />
+                </svg>
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                  3
+                </span>
+              </button>
+              <button>
+                <svg
+                  className="h-6 w-6 text-zinc-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <main className="flex-1 pb-20">
-        <div className="mx-auto max-w-2xl px-6 py-10">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Chào mừng đến với dApp
-            </h1>
-            <p className="mt-2 text-sm text-zinc-600">
-              Ví của bạn đã được kết nối thành công!
-            </p>
+        {/* Banner */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white shadow-lg">
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold">Khuyến mãi đặc biệt</h2>
+              <p className="mt-2 text-sm opacity-90">
+                Giảm giá lên đến 50% cho tất cả sản phẩm
+              </p>
+              <button className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-zinc-100">
+                Mua ngay
+              </button>
+            </div>
+            <div className="absolute right-0 top-0 h-full w-32 bg-white/10"></div>
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <h3 className="mb-3 text-lg font-semibold text-zinc-900">
+            Danh mục
+          </h3>
+          <div className="grid grid-cols-4 gap-3">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                className="flex flex-col items-center gap-2 rounded-xl bg-white p-4 shadow-sm transition-transform hover:scale-105"
+              >
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl ${category.color}`}
+                >
+                  {category.icon}
+                </div>
+                <span className="text-xs font-medium text-zinc-700">
+                  {category.name}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Featured Products */}
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-zinc-900">
+              Sản phẩm nổi bật
+            </h3>
+            <button className="text-sm font-medium text-blue-600">
+              Xem tất cả
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {featuredProducts.map((product) => (
+              <div
+                key={product.id}
+                className="group cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
+              >
+                <div className="relative aspect-square bg-zinc-100 flex items-center justify-center text-4xl">
+                  {product.image}
+                </div>
+                <div className="p-3">
+                  <h4 className="line-clamp-2 text-sm font-medium text-zinc-900">
+                    {product.name}
+                  </h4>
+                  <div className="mt-1 flex items-center gap-1">
+                    <div className="flex items-center">
+                      {[...Array(5)].map((_, i) => (
+                        <svg
+                          key={i}
+                          className={`h-3 w-3 ${
+                            i < Math.floor(product.rating)
+                              ? "text-yellow-400"
+                              : "text-zinc-300"
+                          }`}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-xs text-zinc-500">
+                      {product.rating}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-base font-bold text-blue-600">
+                    {product.price} đ
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </main>
 
-      {/* Bottom Navigation Menu */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white shadow-lg">
-        <div className="mx-auto flex max-w-2xl items-center justify-around px-4 py-2">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center gap-1 rounded-lg px-4 py-2 transition-colors ${
-                  isActive
-                    ? "text-zinc-900"
-                    : "text-zinc-500 hover:text-zinc-700"
-                }`}
-              >
-                <div
-                  className={`${isActive ? "text-zinc-900" : "text-zinc-500"}`}
-                >
-                  {item.icon}
-                </div>
-                <span className="text-xs font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <BottomNav />
     </div>
   );
 }

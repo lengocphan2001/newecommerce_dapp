@@ -25,12 +25,21 @@ export class UserService {
     return this.userRepository.findOne({ where: { email } });
   }
 
+  async findByWalletAddress(walletAddress: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { walletAddress } });
+  }
+
   async create(createUserDto: any) {
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-    const user = this.userRepository.create({
-      ...createUserDto,
-      password: hashedPassword,
-    });
+    // Only hash password if it exists (wallet registration doesn't need password)
+    const userData = { ...createUserDto };
+    if (createUserDto.password) {
+      userData.password = await bcrypt.hash(createUserDto.password, 10);
+    } else {
+      // Generate a random password for wallet users (they won't use it)
+      userData.password = await bcrypt.hash(Math.random().toString(36), 10);
+    }
+    
+    const user = this.userRepository.create(userData);
     const savedUser = await this.userRepository.save(user);
     // Remove password from response
     const { password: _, ...result } = savedUser as unknown as User;
