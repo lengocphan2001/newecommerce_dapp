@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "../services/api";
-import { getUSDTBalance, formatUSDT } from "../utils/wallet";
+import { BrowserProvider, Contract, formatEther, formatUnits, getAddress } from "ethers";
 
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<unknown>;
@@ -14,23 +12,30 @@ type Eip1193Provider = {
   isMetaMask?: boolean;
 };
 
+const ERC20_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+] as const;
+
+// Common USDT addresses (EVM) by chainId (hex string)
+const USDT_BY_CHAIN: Record<string, string> = {
+  "0x1": "0xdAC17F958D2ee523a2206206994597C13D831ec7", // Ethereum
+  "0x38": "0x55d398326f99059fF775485246999027B3197955", // BSC
+  "0x89": "0xc2132D05D31c914a87C6611C10748AaCBdA1D28", // Polygon
+  "0xa": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", // Optimism
+  "0xa4b1": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // Arbitrum One
+  "0xa86a": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", // Avalanche C-Chain (USDT.e)
+};
+
 function getEthereum(): Eip1193Provider | undefined {
   if (typeof window === "undefined") return undefined;
   const anyWindow = window as any;
   return anyWindow.ethereum as Eip1193Provider | undefined;
 }
 
-function hexToBigInt(hex: string): bigint {
-  if (!hex) return BigInt(0);
-  return BigInt(hex);
-}
-
-function formatEther(wei: bigint, decimals = 18): string {
-  const base = BigInt(10) ** BigInt(decimals);
-  const whole = wei / base;
-  const fraction = wei % base;
-  const fractionStr = fraction.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return fractionStr ? `${whole.toString()}.${fractionStr}` : whole.toString();
+function isAddress(addr: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(addr);
 }
 
 function shortAddress(addr?: string) {
@@ -39,19 +44,26 @@ function shortAddress(addr?: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+function getTokenOverrideFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  return (params.get("usdt") || params.get("token") || "").trim();
+}
+
 export default function SafePalConnectPage() {
-  const router = useRouter();
   const ethereum = useMemo(() => getEthereum(), []);
 
   const [status, setStatus] = useState<string>("Chưa kết nối");
   const [address, setAddress] = useState<string>("");
   const [chainIdHex, setChainIdHex] = useState<string>("");
-  const [balanceWei, setBalanceWei] = useState<bigint>(BigInt(0));
+  const [nativeBalance, setNativeBalance] = useState<string>("");
   const [usdtBalance, setUsdtBalance] = useState<string>("");
+  const [usdtAddress, setUsdtAddress] = useState<string>("");
+  const [usdtDecimals, setUsdtDecimals] = useState<number>(0);
+  const [usdtSymbol, setUsdtSymbol] = useState<string>("USDT");
   const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
   const [lastError, setLastError] = useState<string>("");
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
-  const [isNavigating, setIsNavigating] = useState<boolean>(false);
 
   const isSafePal = !!ethereum?.isSafePal;
 
@@ -65,7 +77,11 @@ export default function SafePalConnectPage() {
         if (!silent) setStatus("Không tìm thấy provider (window.ethereum)");
         setAddress("");
         setChainIdHex("");
-        setBalanceWei(BigInt(0));
+        setNativeBalance("");
+        setUsdtBalance("");
+        setUsdtAddress("");
+        setUsdtDecimals(0);
+        setUsdtSymbol("USDT");
         return;
       }
 
@@ -78,20 +94,49 @@ export default function SafePalConnectPage() {
         setChainIdHex(cid ?? "");
 
         if (addr) {
-          const balHex = (await eth.request({
-            method: "eth_getBalance",
-            params: [addr, "latest"],
-          })) as string;
-          setBalanceWei(hexToBigInt(balHex));
+          const provider = new BrowserProvider(eth as any);
+
+          // Native balance
+          const native = await provider.getBalance(addr);
+          setNativeBalance(formatEther(native));
           
-          // Load USDT balance if chainId is available
-          if (cid) {
-            loadUSDTBalance(eth, addr, cid);
+          // USDT via direct contract call (ethers)
+          const override = getTokenOverrideFromUrl();
+          const token = override && isAddress(override) ? override : USDT_BY_CHAIN[(cid ?? "").toLowerCase()] ?? "";
+          setUsdtAddress(token);
+
+          if (token) {
+            setIsLoadingUSDT(true);
+            try {
+              const contract = new Contract(getAddress(token), ERC20_ABI, provider);
+              const [decRaw, balRaw] = await Promise.all([
+                contract.decimals(),
+                contract.balanceOf(getAddress(addr)),
+              ]);
+              // symbol() sometimes fails on some tokens; best-effort
+              try {
+                const sym = await contract.symbol();
+                if (typeof sym === "string" && sym) setUsdtSymbol(sym);
+              } catch {
+                setUsdtSymbol("USDT");
+              }
+
+              const decimals = Number(decRaw);
+              setUsdtDecimals(Number.isFinite(decimals) ? decimals : 0);
+              setUsdtBalance(formatUnits(balRaw as bigint, Number.isFinite(decimals) ? decimals : 0));
+            } catch (e: any) {
+              setUsdtBalance("Error");
+              setLastError(e?.message ?? String(e));
+            } finally {
+              setIsLoadingUSDT(false);
+            }
+          } else {
+            setUsdtBalance("N/A");
           }
           
           if (!silent) setStatus("Đã kết nối");
         } else {
-          setBalanceWei(BigInt(0));
+          setNativeBalance("");
           setUsdtBalance("");
           if (!silent) setStatus("Chưa cấp quyền ví (chưa có account)");
         }
@@ -114,60 +159,15 @@ export default function SafePalConnectPage() {
     try {
       setIsConnecting(true);
       setStatus("Đang yêu cầu kết nối...");
-      const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+      await eth.request({ method: "eth_requestAccounts" });
       await refresh();
-      
-      // Check if user exists after connecting wallet
-      // Temporarily disabled - backend not deployed yet
-      if (accounts && accounts.length > 0) {
-        const walletAddress = accounts[0];
-        // Get chainId if not already available
-        let currentChainId = chainIdHex;
-        if (!currentChainId) {
-          currentChainId = (await eth.request({ method: "eth_chainId" })) as string;
-        }
-        
-        // Store wallet info
-        localStorage.setItem('walletAddress', walletAddress);
-        if (currentChainId) {
-          localStorage.setItem('chainId', currentChainId);
-        }
-        
-        // Directly go to home (skip user check for now)
-        setIsNavigating(true);
-        setStatus("Đang chuyển đến trang chính...");
-        router.push("/home");
-        
-        /* User check disabled - uncomment when backend is deployed
-        try {
-          setStatus("Đang kiểm tra tài khoản...");
-          const checkResult = await api.checkWallet(walletAddress);
-          
-          if (checkResult.exists) {
-            // User exists, go to home
-            setIsNavigating(true);
-            setStatus("Đang chuyển đến trang chính...");
-            router.push("/home");
-          } else {
-            // User doesn't exist, redirect to registration
-            setIsNavigating(true);
-            setStatus("Đang chuyển đến trang đăng ký...");
-            router.push(`/register?address=${encodeURIComponent(walletAddress)}&chainId=${encodeURIComponent(currentChainId)}`);
-          }
-        } catch (error: any) {
-          // If API fails, still allow navigation but show error
-          console.error("Error checking wallet:", error);
-          setLastError("Không thể kiểm tra tài khoản. Vui lòng thử lại.");
-          setIsConnecting(false);
-        }
-        */
-      }
     } catch (e: any) {
       setStatus("Người dùng từ chối hoặc lỗi kết nối");
       setLastError(e?.message ?? String(e));
+    } finally {
       setIsConnecting(false);
     }
-  }, [refresh, router, chainIdHex]);
+  }, [refresh]);
 
   useEffect(() => {
     // initial best-effort refresh
@@ -206,28 +206,10 @@ export default function SafePalConnectPage() {
     }
   }, [chainIdHex]);
 
-  const loadUSDTBalance = useCallback(async (eth: Eip1193Provider, addr: string, chainId: string) => {
-    setIsLoadingUSDT(true);
-    try {
-      const result = await getUSDTBalance(eth, addr, chainId);
-      if (result) {
-        const formatted = formatUSDT(result.balance, result.decimals);
-        setUsdtBalance(formatted);
-      } else {
-        setUsdtBalance("N/A");
-      }
-    } catch (error) {
-      console.error("Error loading USDT balance:", error);
-      setUsdtBalance("Error");
-    } finally {
-      setIsLoadingUSDT(false);
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
       {/* Loading Overlay */}
-      {(isConnecting || isNavigating) && (
+      {isConnecting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-white border-t-zinc-900"></div>
         </div>
@@ -277,7 +259,7 @@ export default function SafePalConnectPage() {
 
             <div className="flex items-center justify-between gap-4">
               <div className="text-zinc-600">Balance (native)</div>
-              <div className="font-mono text-xs">{address ? `${formatEther(balanceWei)} ETH` : "-"}</div>
+              <div className="font-mono text-xs">{address ? `${nativeBalance || "0"} (native)` : "-"}</div>
             </div>
 
             <div className="flex items-center justify-between gap-4">
@@ -308,9 +290,19 @@ export default function SafePalConnectPage() {
                     Loading...
                   </span>
                 ) : (
-                  address ? `${usdtBalance || "0"} USDT` : "-"
+                  address ? `${usdtBalance || "0"} ${usdtSymbol || "USDT"}` : "-"
                 )}
               </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-zinc-600">USDT contract</div>
+              <div className="font-mono text-xs">{usdtAddress || "N/A"}</div>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-zinc-600">USDT decimals</div>
+              <div className="font-mono text-xs">{usdtDecimals ? String(usdtDecimals) : "-"}</div>
             </div>
           </div>
 
@@ -324,10 +316,10 @@ export default function SafePalConnectPage() {
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={connect}
-              disabled={isConnecting || isNavigating}
+              disabled={isConnecting}
               className="inline-flex h-11 items-center justify-center rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800 active:bg-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isConnecting || isNavigating ? (
+              {isConnecting ? (
                 <svg
                   className="h-5 w-5 animate-spin"
                   xmlns="http://www.w3.org/2000/svg"
@@ -361,7 +353,8 @@ export default function SafePalConnectPage() {
           </div>
 
           <div className="mt-6 text-xs text-zinc-500">
-            Gợi ý: nếu bạn mở bằng browser thường mà không có ví, trang sẽ báo <span className="font-mono">provider: none</span>.
+            Gợi ý: USDT là ERC-20 nên phải gọi contract <span className="font-mono">balanceOf(address)</span>.
+            Bạn có thể override token: <span className="font-mono">/safepal?usdt=0x...</span>
           </div>
         </div>
       </div>

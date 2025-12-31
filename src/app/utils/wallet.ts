@@ -2,9 +2,10 @@
 const USDT_CONTRACTS: Record<string, string> = {
   "0x1": "0xdAC17F958D2ee523a2206206994597C13D831ec7", // Ethereum Mainnet
   "0x38": "0x55d398326f99059fF775485246999027B3197955", // BSC
-  "0x89": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", // Polygon
+  "0x89": "0xc2132D05D31c914a87C6611C10748AaCBdA1D28", // Polygon
   "0xa": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", // Optimism
   "0xa4b1": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // Arbitrum
+  "0xa86a": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", // Avalanche C-Chain (USDT.e)
 };
 
 // ERC-20 ABI for balanceOf function
