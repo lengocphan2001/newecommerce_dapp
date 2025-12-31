@@ -157,6 +157,11 @@ export default function SafePalPage() {
 
   return (
     <div className="min-h-screen bg-[#0f7c66] text-white">
+      {isBusy ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/60 border-t-white"></div>
+        </div>
+      ) : null}
       <div className="mx-auto max-w-md px-6 py-8">
         <div className="flex items-center justify-between">
           <div className="text-xs opacity-80">{ethereum ? "provider: OK" : "provider: none"}</div>
@@ -180,7 +185,12 @@ export default function SafePalPage() {
               onClick={async () => {
                 setIsBusy(true);
                 try {
-                  await refreshAddress();
+                  // If chưa connect thì eth_accounts sẽ rỗng -> gọi connect để user approve
+                  if (!address) {
+                    await connectWallet();
+                  } else {
+                    await refreshAddress();
+                  }
                 } finally {
                   setIsBusy(false);
                 }
@@ -188,7 +198,7 @@ export default function SafePalPage() {
               disabled={isBusy}
               className="w-full rounded-2xl bg-[#2f9e8f] py-4 text-lg font-bold text-yellow-200 transition-colors hover:bg-[#2aa193] disabled:opacity-60"
             >
-              {t("reload")}
+              {isBusy ? "..." : t("reload")}
             </button>
 
             <button
@@ -196,7 +206,7 @@ export default function SafePalPage() {
               disabled={isBusy}
               className="w-full rounded-2xl bg-[#f6a500] py-4 text-lg font-bold text-yellow-200 transition-colors hover:bg-[#ffb11a] disabled:opacity-60"
             >
-              {t("nextToLogin")}
+              {isBusy ? "..." : t("nextToLogin")}
             </button>
           </div>
 

@@ -1,9 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getUSDTBalance, formatUSDT } from "../../utils/wallet";
+import { Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { useI18n } from "@/app/i18n/I18nProvider";
+
+const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
+const BSC_RPC = "https://bsc-dataseed.binance.org/";
+const ERC20_ABI = ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"] as const;
 
 export default function ProfilePage() {
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -16,6 +20,22 @@ export default function ProfilePage() {
     // Get wallet address and chainId from localStorage or window.ethereum
     if (typeof window !== "undefined") {
       const getWalletInfo = async () => {
+        // Fast path: show cached BEP-20 USDT from /safepal (if any)
+        try {
+          const cached = localStorage.getItem("usdtBep20Balance");
+          if (cached) setUsdtBalance(cached);
+        } catch {
+          // ignore
+        }
+
+        // Prefer stored wallet address (from /safepal), fallback to injected provider
+        try {
+          const storedAddr = localStorage.getItem("walletAddress") || "";
+          if (storedAddr) setWalletAddress(storedAddr);
+        } catch {
+          // ignore
+        }
+
         const eth = (window as any).ethereum;
         if (eth) {
           try {
@@ -32,13 +52,23 @@ export default function ProfilePage() {
               })) as string;
               setChainId(chainIdHex);
               
-              // Load USDT balance
-              if (address && chainIdHex) {
-                loadUSDTBalance(eth, address, chainIdHex);
+              // Load BEP-20 USDT balance (BSC) regardless of wallet network
+              if (address) {
+                loadUsdtBep20Balance(address);
               }
             }
           } catch (error) {
             console.error("Error getting wallet info:", error);
+          }
+        } else {
+          // If no injected provider, but we have walletAddress from storage, still try BEP-20 balance
+          try {
+            const storedAddr = localStorage.getItem("walletAddress") || "";
+            if (storedAddr) {
+              loadUsdtBep20Balance(storedAddr);
+            }
+          } catch {
+            // ignore
           }
         }
       };
@@ -52,15 +82,24 @@ export default function ProfilePage() {
     return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
   };
 
-  const loadUSDTBalance = async (eth: any, address: string, chainIdHex: string) => {
+  const loadUsdtBep20Balance = async (address: string) => {
     setIsLoadingUSDT(true);
     try {
-      const result = await getUSDTBalance(eth, address, chainIdHex);
-      if (result) {
-        const formatted = formatUSDT(result.balance, result.decimals);
-        setUsdtBalance(formatted);
-      } else {
-        setUsdtBalance("N/A");
+      const provider = new JsonRpcProvider(BSC_RPC);
+      const contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
+      const [decimals, balance] = await Promise.all([
+        contract.decimals(),
+        contract.balanceOf(getAddress(address)),
+      ]);
+      const formatted = formatUnits(balance as bigint, Number(decimals));
+      setUsdtBalance(formatted);
+      try {
+        localStorage.setItem("usdtBep20Contract", USDT_BSC);
+        localStorage.setItem("usdtBep20Decimals", String(Number(decimals)));
+        localStorage.setItem("usdtBep20Balance", formatted);
+        localStorage.setItem("usdtBep20UpdatedAt", String(Date.now()));
+      } catch {
+        // ignore
       }
     } catch (error) {
       console.error("Error loading USDT balance:", error);
@@ -239,10 +278,7 @@ export default function ProfilePage() {
                     {walletAddress && chainId && !isLoadingUSDT && (
                       <button
                         onClick={() => {
-                          const eth = (window as any).ethereum;
-                          if (eth) {
-                            loadUSDTBalance(eth, walletAddress, chainId);
-                          }
+                          loadUsdtBep20Balance(walletAddress);
                         }}
                         className="rounded p-1 hover:bg-white/30"
                         title="Làm mới số dư"
