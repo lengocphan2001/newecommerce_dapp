@@ -2,10 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import BottomNav from "../../components/BottomNav";
+import LanguageSelect from "@/app/components/LanguageSelect";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const { t } = useI18n();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -103,12 +106,15 @@ export default function ProductsPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white shadow-sm">
         <div className="mx-auto max-w-2xl px-4 py-4">
-          <h1 className="mb-3 text-xl font-bold text-zinc-900">Sản phẩm</h1>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h1 className="text-xl font-bold text-zinc-900">{t("productsTitle")}</h1>
+            <LanguageSelect variant="light" />
+          </div>
           {/* Search Bar */}
           <div className="relative">
             <input
               type="text"
-              placeholder="Tìm kiếm sản phẩm..."
+              placeholder={t("searchProductsPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"

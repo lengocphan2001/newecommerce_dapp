@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import BottomNav from "../../components/BottomNav";
 import { getUSDTBalance, formatUSDT } from "../../utils/wallet";
+import LanguageSelect from "@/app/components/LanguageSelect";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -10,6 +12,7 @@ export default function ProfilePage() {
   const [chainId, setChainId] = useState<string>("");
   const [usdtBalance, setUsdtBalance] = useState<string>("");
   const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -153,7 +156,10 @@ export default function ProfilePage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white shadow-sm">
         <div className="mx-auto max-w-2xl px-4 py-4">
-          <h1 className="text-xl font-bold text-zinc-900">Cá nhân</h1>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-xl font-bold text-zinc-900">{t("profileTitle")}</h1>
+            <LanguageSelect variant="light" />
+          </div>
         </div>
       </header>
 

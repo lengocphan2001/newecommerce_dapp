@@ -2,12 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import BottomNav from "../../components/BottomNav";
+import LanguageSelect from "@/app/components/LanguageSelect";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function OrdersPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "completed">(
     "all"
   );
+  const { t } = useI18n();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -90,7 +93,10 @@ export default function OrdersPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white shadow-sm">
         <div className="mx-auto max-w-2xl px-4 py-4">
-          <h1 className="text-xl font-bold text-zinc-900">Đơn hàng của tôi</h1>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-xl font-bold text-zinc-900">{t("ordersTitle")}</h1>
+            <LanguageSelect variant="light" />
+          </div>
         </div>
       </header>
 

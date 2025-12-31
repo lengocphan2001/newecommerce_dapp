@@ -3,14 +3,16 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   const menuItems = [
     {
       href: "/home",
-      label: "Trang chủ",
+      label: t("navHome"),
       icon: (
         <svg
           className="w-6 h-6"
@@ -29,7 +31,7 @@ export default function BottomNav() {
     },
     {
       href: "/home/products",
-      label: "Sản phẩm",
+      label: t("navProducts"),
       icon: (
         <svg
           className="w-6 h-6"
@@ -48,7 +50,7 @@ export default function BottomNav() {
     },
     {
       href: "/home/orders",
-      label: "Đơn hàng",
+      label: t("navOrders"),
       icon: (
         <svg
           className="w-6 h-6"
@@ -67,7 +69,7 @@ export default function BottomNav() {
     },
     {
       href: "/home/profile",
-      label: "Cá nhân",
+      label: t("navProfile"),
       icon: (
         <svg
           className="w-6 h-6"
