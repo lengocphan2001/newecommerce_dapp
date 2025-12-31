@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import BottomNav from "../../components/BottomNav";
 import { getUSDTBalance, formatUSDT } from "../../utils/wallet";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function ProfilePage() {
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [chainId, setChainId] = useState<string>("");
   const [usdtBalance, setUsdtBalance] = useState<string>("");
@@ -15,10 +13,6 @@ export default function ProfilePage() {
   const { t } = useI18n();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-
     // Get wallet address and chainId from localStorage or window.ethereum
     if (typeof window !== "undefined") {
       const getWalletInfo = async () => {
@@ -50,17 +44,7 @@ export default function ProfilePage() {
       };
       getWalletInfo();
     }
-
-    return () => clearTimeout(timer);
   }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900"></div>
-      </div>
-    );
-  }
 
   const shortAddress = (addr: string) => {
     if (!addr) return "-";
@@ -152,7 +136,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
+    <div className="flex flex-col bg-zinc-50">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white shadow-sm">
         <div className="mx-auto max-w-2xl px-4 py-4">
@@ -163,7 +147,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="flex-1 pb-20">
+      <main className="flex-1">
         {/* Profile Card */}
         <div className="mx-auto max-w-2xl px-4 py-4">
           <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white shadow-lg">
@@ -334,7 +318,6 @@ export default function ProfilePage() {
         </div>
       </main>
 
-      <BottomNav />
     </div>
   );
 }

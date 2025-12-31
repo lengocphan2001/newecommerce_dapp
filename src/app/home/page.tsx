@@ -1,28 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import BottomNav from "../components/BottomNav";
+import React from "react";
 import AppHeader from "@/app/components/AppHeader";
 
 export default function HomePage() {
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900"></div>
-      </div>
-    );
-  }
-
   const categories = [
     { id: 1, name: "Điện tử", icon: "📱", color: "bg-blue-100" },
     { id: 2, name: "Thời trang", icon: "👕", color: "bg-pink-100" },
@@ -62,7 +43,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
+    <div className="flex flex-col bg-zinc-50">
       {/* Header */}
       <AppHeader
         titleKey="homeTitle"
@@ -105,7 +86,7 @@ export default function HomePage() {
         }
       />
 
-      <main className="flex-1 pb-20">
+      <main className="flex-1">
         {/* Banner */}
         <div className="mx-auto max-w-2xl px-4 py-4">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white shadow-lg">
@@ -200,7 +181,6 @@ export default function HomePage() {
         </div>
       </main>
 
-      <BottomNav />
     </div>
   );
 }

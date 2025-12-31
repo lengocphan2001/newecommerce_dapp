@@ -1,30 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import BottomNav from "../../components/BottomNav";
+import React, { useState } from "react";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function ProductsPage() {
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState("");
   const { t } = useI18n();
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900"></div>
-      </div>
-    );
-  }
 
   const products = [
     {
@@ -102,7 +84,7 @@ export default function ProductsPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50">
+    <div className="flex flex-col bg-zinc-50">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white shadow-sm">
         <div className="mx-auto max-w-2xl px-4 py-4">
@@ -136,7 +118,7 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      <main className="flex-1 pb-20">
+      <main className="flex-1">
         {/* Filter Bar */}
         <div className="mx-auto max-w-2xl border-b border-zinc-200 bg-white px-4 py-3">
           <div className="flex items-center gap-2 overflow-x-auto">
@@ -221,7 +203,6 @@ export default function ProductsPage() {
         </div>
       </main>
 
-      <BottomNav />
     </div>
   );
 }
