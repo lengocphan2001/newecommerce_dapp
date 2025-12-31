@@ -118,6 +118,7 @@ export default function SafePalConnectPage() {
       await refresh();
       
       // Check if user exists after connecting wallet
+      // Temporarily disabled - backend not deployed yet
       if (accounts && accounts.length > 0) {
         const walletAddress = accounts[0];
         // Get chainId if not already available
@@ -126,6 +127,18 @@ export default function SafePalConnectPage() {
           currentChainId = (await eth.request({ method: "eth_chainId" })) as string;
         }
         
+        // Store wallet info
+        localStorage.setItem('walletAddress', walletAddress);
+        if (currentChainId) {
+          localStorage.setItem('chainId', currentChainId);
+        }
+        
+        // Directly go to home (skip user check for now)
+        setIsNavigating(true);
+        setStatus("Đang chuyển đến trang chính...");
+        router.push("/home");
+        
+        /* User check disabled - uncomment when backend is deployed
         try {
           setStatus("Đang kiểm tra tài khoản...");
           const checkResult = await api.checkWallet(walletAddress);
@@ -134,21 +147,11 @@ export default function SafePalConnectPage() {
             // User exists, go to home
             setIsNavigating(true);
             setStatus("Đang chuyển đến trang chính...");
-            // Store wallet info
-            localStorage.setItem('walletAddress', walletAddress);
-            if (currentChainId) {
-              localStorage.setItem('chainId', currentChainId);
-            }
             router.push("/home");
           } else {
             // User doesn't exist, redirect to registration
             setIsNavigating(true);
             setStatus("Đang chuyển đến trang đăng ký...");
-            // Store wallet info for registration
-            localStorage.setItem('walletAddress', walletAddress);
-            if (currentChainId) {
-              localStorage.setItem('chainId', currentChainId);
-            }
             router.push(`/register?address=${encodeURIComponent(walletAddress)}&chainId=${encodeURIComponent(currentChainId)}`);
           }
         } catch (error: any) {
@@ -157,6 +160,7 @@ export default function SafePalConnectPage() {
           setLastError("Không thể kiểm tra tài khoản. Vui lòng thử lại.");
           setIsConnecting(false);
         }
+        */
       }
     } catch (e: any) {
       setStatus("Người dùng từ chối hoặc lỗi kết nối");
