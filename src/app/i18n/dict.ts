@@ -22,7 +22,7 @@ export const DEFAULT_LANG: Lang = "vi";
 
 export const DICT: Record<Lang, Record<I18nKey, string>> = {
   vi: {
-    appName: "ShopVerse",
+    appName: "VinMall",
     login: "Đăng nhập",
     reload: "Tải lại",
     nextToLogin: "Vào trang chủ",
@@ -40,7 +40,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     langLabel: "Ngôn ngữ",
   },
   en: {
-    appName: "ShopVerse",
+    appName: "VinMall",
     login: "Login",
     reload: "Reload",
     nextToLogin: "Go to Home",
@@ -58,7 +58,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     langLabel: "Language",
   },
   ko: {
-    appName: "ShopVerse",
+    appName: "VinMall",
     login: "로그인",
     reload: "새로고침",
     nextToLogin: "홈으로",

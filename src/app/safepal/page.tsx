@@ -42,6 +42,8 @@ export default function SafePalPage() {
 
   const [address, setAddress] = useState<string>("");
   const [isBusy, setIsBusy] = useState<boolean>(false);
+  const [isReloading, setIsReloading] = useState<boolean>(false);
+  const [isNextLoading, setIsNextLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
   const isSafePal =
@@ -108,7 +110,7 @@ export default function SafePalPage() {
 
   const nextToHome = useCallback(async () => {
     setError("");
-    setIsBusy(true);
+    setIsNextLoading(true);
     try {
       const eth = getEthereum();
       const injectedProvider = eth ? new BrowserProvider(eth as any) : null;
@@ -138,7 +140,7 @@ export default function SafePalPage() {
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
-      setIsBusy(false);
+      setIsNextLoading(false);
     }
   }, [address, connectWallet, fetchUsdtBep20AndStore, router]);
 
@@ -156,34 +158,35 @@ export default function SafePalPage() {
   }, [refreshAddress]);
 
   return (
-    <div className="min-h-screen bg-[#0f7c66] text-white">
-      {isBusy ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/60 border-t-white"></div>
-        </div>
-      ) : null}
-      <div className="mx-auto max-w-md px-6 py-8">
+    <div className="relative min-h-screen overflow-hidden bg-[#0f7c66] text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -right-24 top-24 h-72 w-72 rounded-full bg-black/10 blur-3xl" />
+        <div className="absolute bottom-0 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-md px-6 py-8">
         <div className="flex items-center justify-between">
-          <div className="text-xs opacity-80">{ethereum ? "provider: OK" : "provider: none"}</div>
+          <div className="text-xs opacity-80"></div>
           <LanguageSelect variant="dark" />
         </div>
 
         <div className="mt-10 flex flex-col items-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#0a5b4c]">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
             <div className="h-14 w-14 rounded-2xl border-4 border-white/80" />
           </div>
 
           <div className="mt-6 text-4xl font-bold tracking-tight">{t("appName")}</div>
           <div className="mt-10 text-3xl font-semibold">{t("login")}</div>
 
-          <div className="mt-6 w-full rounded-2xl bg-[#0c6a58] px-6 py-4 text-center text-xl font-semibold">
+          <div className="mt-6 w-full rounded-2xl bg-white/10 px-6 py-4 text-center text-xl font-semibold ring-1 ring-white/20 backdrop-blur-sm">
             {address ? shortAddress(address) : "0x----‑----‑----"}
           </div>
 
           <div className="mt-5 w-full space-y-4">
             <button
               onClick={async () => {
-                setIsBusy(true);
+                setIsReloading(true);
                 try {
                   // If chưa connect thì eth_accounts sẽ rỗng -> gọi connect để user approve
                   if (!address) {
@@ -192,27 +195,49 @@ export default function SafePalPage() {
                     await refreshAddress();
                   }
                 } finally {
-                  setIsBusy(false);
+                  setIsReloading(false);
                 }
               }}
-              disabled={isBusy}
-              className="w-full rounded-2xl bg-[#2f9e8f] py-4 text-lg font-bold text-yellow-200 transition-colors hover:bg-[#2aa193] disabled:opacity-60"
+              disabled={isReloading || isNextLoading}
+              className="group w-full rounded-2xl bg-white/10 py-4 text-lg font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition-colors hover:bg-white/15 disabled:opacity-60"
             >
-              {isBusy ? "..." : t("reload")}
+              <span className="inline-flex items-center justify-center gap-2">
+                {isReloading ? (
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+                ) : (
+                  <svg className="h-5 w-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                )}
+                {t("reload")}
+              </span>
             </button>
 
             <button
               onClick={nextToHome}
-              disabled={isBusy}
-              className="w-full rounded-2xl bg-[#f6a500] py-4 text-lg font-bold text-yellow-200 transition-colors hover:bg-[#ffb11a] disabled:opacity-60"
+              disabled={isReloading || isNextLoading}
+              className="w-full rounded-2xl bg-gradient-to-r from-[#ffb11a] to-[#f6a500] py-4 text-lg font-bold text-white shadow-lg shadow-black/10 transition-all hover:brightness-105 active:brightness-95 disabled:opacity-60"
             >
-              {isBusy ? "..." : t("nextToLogin")}
+              <span className="inline-flex items-center justify-center gap-2">
+                {isNextLoading ? (
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
+                ) : null}
+                {t("nextToLogin")}
+              </span>
             </button>
           </div>
 
-          {error ? <div className="mt-6 w-full text-sm text-white/90">{error}</div> : null}
+          {error ? (
+            <div className="mt-6 w-full rounded-2xl bg-black/10 p-3 text-sm text-white/90 ring-1 ring-white/15">
+              {error}
+            </div>
+          ) : null}
 
-          <div className="mt-6 text-xs text-white/70">SafePal: {isSafePal ? "true" : "unknown/false"}</div>
         </div>
       </div>
     </div>
