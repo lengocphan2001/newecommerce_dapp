@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<unknown>;
@@ -37,6 +38,7 @@ function shortAddress(addr?: string) {
 }
 
 export default function SafePalConnectPage() {
+  const router = useRouter();
   const ethereum = useMemo(() => getEthereum(), []);
 
   const [status, setStatus] = useState<string>("Chưa kết nối");
@@ -98,13 +100,17 @@ export default function SafePalConnectPage() {
 
     try {
       setStatus("Đang yêu cầu kết nối...");
-      await eth.request({ method: "eth_requestAccounts" });
+      const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
       await refresh();
+      // Chuyển đến màn hình chính sau khi kết nối thành công
+      if (accounts && accounts.length > 0) {
+        router.push("/home");
+      }
     } catch (e: any) {
       setStatus("Người dùng từ chối hoặc lỗi kết nối");
       setLastError(e?.message ?? String(e));
     }
-  }, [refresh]);
+  }, [refresh, router]);
 
   useEffect(() => {
     // initial best-effort refresh
