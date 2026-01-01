@@ -18,7 +18,7 @@ const KYC: React.FC = () => {
     setLoading(true);
     try {
       const response = await kycService.getAll();
-      setKycs(response.data?.data || []);
+      setKycs(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch KYC requests');
     } finally {

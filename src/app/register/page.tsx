@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api } from "../services/api";
 
 function RegisterForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     username: "",
+    fullName: "",
     country: "",
+    address: "",
     phoneNumber: "",
     email: "",
     referralUser: "",
@@ -22,9 +23,9 @@ function RegisterForm() {
   const [chainId, setChainId] = useState("");
 
   useEffect(() => {
-    // Get wallet address and chainId from URL params or localStorage
-    const address = searchParams.get("address") || localStorage.getItem("walletAddress") || "";
-    const chainIdParam = searchParams.get("chainId") || localStorage.getItem("chainId") || "";
+    // Get wallet address and chainId from localStorage (not URL for security)
+    const address = localStorage.getItem("walletAddress") || "";
+    const chainIdParam = localStorage.getItem("chainId") || "";
 
     if (!address) {
       router.push("/safepal");
@@ -33,17 +34,35 @@ function RegisterForm() {
 
     setWalletAddress(address);
     setChainId(chainIdParam);
-  }, [searchParams, router]);
+
+    // Get referral code and leg from URL parameter
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get("ref");
+      const leg = urlParams.get("leg"); // left or right
+      if (refCode) {
+        setFormData((prev) => ({ ...prev, referralUser: refCode }));
+        // Store leg in localStorage to send with registration
+        if (leg === "left" || leg === "right") {
+          localStorage.setItem("referralLeg", leg);
+          console.log(`[Referral] Stored leg: ${leg} for referral code: ${refCode}`);
+        } else {
+          // Clear any existing leg if not specified
+          localStorage.removeItem("referralLeg");
+        }
+      }
+    }
+  }, [router]);
 
   const countries = [
-    { code: "VN", name: "Việt Nam" },
-    { code: "US", name: "United States" },
-    { code: "GB", name: "United Kingdom" },
-    { code: "JP", name: "Japan" },
-    { code: "KR", name: "South Korea" },
-    { code: "CN", name: "China" },
-    { code: "SG", name: "Singapore" },
-    { code: "TH", name: "Thailand" },
+    { code: "US", name: "United States", dialCode: "+1" },
+    { code: "GB", name: "United Kingdom", dialCode: "+44" },
+    { code: "SG", name: "Singapore", dialCode: "+65" },
+    { code: "TH", name: "Thailand", dialCode: "+66" },
+    { code: "KR", name: "South Korea", dialCode: "+82" },
+    { code: "VN", name: "Vietnam", dialCode: "+84" },
+    { code: "CN", name: "China", dialCode: "+86" },
+    { code: "JP", name: "Japan", dialCode: "+81" },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +72,10 @@ function RegisterForm() {
     // Validation
     if (!formData.username.trim()) {
       setError("Vui lòng nhập tên người dùng");
+      return;
+    }
+    if (!formData.fullName.trim()) {
+      setError("Vui lòng nhập họ tên");
       return;
     }
     if (!formData.country) {
@@ -80,15 +103,27 @@ function RegisterForm() {
     setIsLoading(true);
 
     try {
+      // Get leg from localStorage if exists
+      const leg = localStorage.getItem("referralLeg") as 'left' | 'right' | null;
+      console.log(`[Referral] Registering with leg: ${leg}, referralUser: ${formData.referralUser.trim() || 'none'}`);
+      
       const result = await api.walletRegister({
         walletAddress,
         chainId,
         username: formData.username.trim(),
+        fullName: formData.fullName.trim(),
         country: formData.country,
+        address: formData.address.trim() || undefined,
         phoneNumber: formData.phoneNumber.trim(),
         email: formData.email.trim(),
         referralUser: formData.referralUser.trim() || undefined,
+        leg: leg || undefined,
       });
+      
+      // Clear leg from localStorage after registration
+      if (leg) {
+        localStorage.removeItem("referralLeg");
+      }
 
       // Store token
       if (result.token) {
@@ -149,8 +184,24 @@ function RegisterForm() {
               id="username"
               value={formData.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Nhập tên người dùng"
+              required
+            />
+          </div>
+
+          {/* Full Name */}
+          <div>
+            <label htmlFor="fullName" className="mb-1 block text-sm font-medium text-zinc-700">
+              Họ tên <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="fullName"
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="Nhập họ tên đầy đủ"
               required
             />
           </div>
@@ -164,16 +215,31 @@ function RegisterForm() {
               id="country"
               value={formData.country}
               onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full appearance-none rounded-lg border border-zinc-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%209L1%204h10z%22/%3E%3C/svg%3E')] bg-[length:12px_12px] bg-[right_12px_center] bg-no-repeat px-4 py-2.5 pr-10 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               required
             >
-              <option value="">Chọn quốc gia</option>
+              <option value="" className="text-zinc-400">Chọn quốc gia</option>
               {countries.map((country) => (
-                <option key={country.code} value={country.code}>
-                  {country.name}
+                <option key={country.code} value={country.code} className="text-zinc-900">
+                  {country.name} ({country.dialCode})
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Address */}
+          <div>
+            <label htmlFor="address" className="mb-1 block text-sm font-medium text-zinc-700">
+              Địa chỉ
+            </label>
+            <input
+              type="text"
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="Nhập địa chỉ"
+            />
           </div>
 
           {/* Phone Number */}
@@ -186,7 +252,7 @@ function RegisterForm() {
               id="phoneNumber"
               value={formData.phoneNumber}
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Nhập số điện thoại"
               required
             />
@@ -202,7 +268,7 @@ function RegisterForm() {
               id="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Nhập email"
               required
             />
@@ -218,7 +284,7 @@ function RegisterForm() {
               id="referralUser"
               value={formData.referralUser}
               onChange={(e) => setFormData({ ...formData, referralUser: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder="Nhập mã giới thiệu"
             />
           </div>

@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto } from './dto';
+import { JwtAuthGuard } from '../common/guards';
 
 @Controller('auth')
 export class AuthController {
@@ -9,6 +10,11 @@ export class AuthController {
   @Post('login')
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('admin/login')
+  async adminLogin(@Body() loginDto: LoginDto) {
+    return this.authService.adminLogin(loginDto);
   }
 
   @Post('register')
@@ -29,6 +35,17 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body() refreshDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshDto);
+  }
+
+  @Get('referral/check')
+  async checkReferral(@Query('username') username: string) {
+    return this.authService.checkReferral(username);
+  }
+
+  @Get('referral/info')
+  @UseGuards(JwtAuthGuard)
+  async getReferralInfo(@Request() req: any) {
+    return this.authService.getReferralInfo(req.user.sub);
   }
 }
 

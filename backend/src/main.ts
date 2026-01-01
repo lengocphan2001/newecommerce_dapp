@@ -1,10 +1,22 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { UserService } from './user/user.service';
+import { AdminSeedService } from './common/seed/admin-seed.service';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Serve uploaded files
+  const uploadDir = join(process.cwd(), 'uploads');
+  if (!existsSync(uploadDir)) {
+    mkdirSync(uploadDir, { recursive: true });
+  }
+  // IMPORTANT: don't use "/uploads" here because it conflicts with UploadController routes
+  // (e.g. POST /uploads/image). Serve files under a different prefix.
+  app.useStaticAssets(uploadDir, { prefix: '/files' });
   
   // Enable CORS
   app.enableCors({
@@ -21,29 +33,19 @@ async function bootstrap() {
     }),
   );
 
-  // Create default admin user
+  // Seed default admin user (code-based; not ENV-based)
   try {
-    const userService = app.get(UserService);
-    const adminEmail = 'admin@example.com';
-    const existingAdmin = await userService.findByEmail(adminEmail);
-    
-    if (!existingAdmin) {
-      await userService.create({
-        email: adminEmail,
-        password: 'admin123',
-        fullName: 'Admin User',
-        isAdmin: true,
-        status: 'ACTIVE',
-      });
-      console.log('Default admin user created:');
-      console.log('Email: admin@example.com');
-      console.log('Password: admin123');
-    }
+    const adminSeedService = app.get(AdminSeedService);
+    await adminSeedService.seed();
   } catch (error) {
-    console.error('Error creating admin user:', error.message);
+    // eslint-disable-next-line no-console
+    console.error('Error seeding admin user:', error.message);
   }
 
-  const port = process.env.PORT || 3000;
+  // Default to 3002 to avoid clashing with:
+  // - Next.js frontend (usually 3000)
+  // - Admin React app (usually 3001)
+  const port = process.env.PORT || 3002;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
 }

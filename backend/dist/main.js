@@ -3,9 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const app_module_1 = require("./app.module");
-const user_service_1 = require("./user/user.service");
+const admin_seed_service_1 = require("./common/seed/admin-seed.service");
+const path_1 = require("path");
+const fs_1 = require("fs");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const uploadDir = (0, path_1.join)(process.cwd(), 'uploads');
+    if (!(0, fs_1.existsSync)(uploadDir)) {
+        (0, fs_1.mkdirSync)(uploadDir, { recursive: true });
+    }
+    app.useStaticAssets(uploadDir, { prefix: '/files' });
     app.enableCors({
         origin: true,
         credentials: true,
@@ -16,26 +23,13 @@ async function bootstrap() {
         transform: true,
     }));
     try {
-        const userService = app.get(user_service_1.UserService);
-        const adminEmail = 'admin@example.com';
-        const existingAdmin = await userService.findByEmail(adminEmail);
-        if (!existingAdmin) {
-            await userService.create({
-                email: adminEmail,
-                password: 'admin123',
-                fullName: 'Admin User',
-                isAdmin: true,
-                status: 'ACTIVE',
-            });
-            console.log('Default admin user created:');
-            console.log('Email: admin@example.com');
-            console.log('Password: admin123');
-        }
+        const adminSeedService = app.get(admin_seed_service_1.AdminSeedService);
+        await adminSeedService.seed();
     }
     catch (error) {
-        console.error('Error creating admin user:', error.message);
+        console.error('Error seeding admin user:', error.message);
     }
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 3002;
     await app.listen(port);
     console.log(`Application is running on: http://localhost:${port}`);
 }

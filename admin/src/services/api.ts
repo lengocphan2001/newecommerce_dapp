@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+// IMPORTANT:
+// - :3000 is the Next.js frontend in this repo
+// - Admin panel runs on :3001
+// - Backend should run on a separate port (default here: :3002) or be configured via REACT_APP_API_URL
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -25,7 +29,13 @@ api.interceptors.request.use(
 
 // Response interceptor để xử lý lỗi
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Normalize response shape:
+    // - If backend returns { data: ... } (e.g. via a transform interceptor), unwrap it
+    // - Else keep original payload
+    response.data = response.data?.data ?? response.data;
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');

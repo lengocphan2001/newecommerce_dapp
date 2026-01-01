@@ -14,6 +14,8 @@ import { AdminModule } from './admin/admin.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { CommonModule } from './common/common.module';
 import { User } from './user/entities/user.entity';
+import { Product } from './product/entities/product.entity';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -24,13 +26,19 @@ import { User } from './user/entities/user.entity';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
+        type: (configService.get<string>('DB_TYPE') || 'postgres') as any,
         host: configService.get<string>('DB_HOST') || 'localhost',
-        port: configService.get<number>('DB_PORT') || 5432,
-        username: configService.get<string>('DB_USERNAME') || 'postgres',
-        password: configService.get<string>('DB_PASSWORD') || 'postgres',
+        port:
+          configService.get<number>('DB_PORT') ||
+          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 3306 : 5432),
+        username:
+          configService.get<string>('DB_USERNAME') ||
+          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
+        password:
+          configService.get<string>('DB_PASSWORD') ||
+          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User],
+        entities: [User, Product],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),
@@ -46,6 +54,7 @@ import { User } from './user/entities/user.entity';
     AffiliateModule,
     AdminModule,
     AuditLogModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

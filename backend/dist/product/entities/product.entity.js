@@ -15,13 +15,10 @@ let Product = class Product {
     id;
     name;
     description;
-    pointPrice;
-    vndPrice;
+    price;
     stock;
-    category;
-    image;
-    affiliatePercent;
-    isActive;
+    thumbnailUrl;
+    detailImageUrls;
     createdAt;
     updatedAt;
 };
@@ -39,13 +36,18 @@ __decorate([
     __metadata("design:type", String)
 ], Product.prototype, "description", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'decimal', precision: 15, scale: 2 }),
+    (0, typeorm_1.Column)({
+        type: 'decimal',
+        precision: 36,
+        scale: 18,
+        default: 0,
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseFloat(value),
+        },
+    }),
     __metadata("design:type", Number)
-], Product.prototype, "pointPrice", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: 'decimal', precision: 15, scale: 2, nullable: true }),
-    __metadata("design:type", Number)
-], Product.prototype, "vndPrice", void 0);
+], Product.prototype, "price", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 0 }),
     __metadata("design:type", Number)
@@ -53,19 +55,11 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
-], Product.prototype, "category", void 0);
+], Product.prototype, "thumbnailUrl", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
-    __metadata("design:type", String)
-], Product.prototype, "image", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: 'decimal', precision: 5, scale: 2, default: 0 }),
-    __metadata("design:type", Number)
-], Product.prototype, "affiliatePercent", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ default: true }),
-    __metadata("design:type", Boolean)
-], Product.prototype, "isActive", void 0);
+    (0, typeorm_1.Column)({ type: 'simple-json', nullable: true }),
+    __metadata("design:type", Array)
+], Product.prototype, "detailImageUrls", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

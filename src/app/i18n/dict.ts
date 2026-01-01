@@ -16,6 +16,10 @@ export type I18nKey =
   | "navProducts"
   | "navOrders"
   | "navProfile"
+  | "navAffiliate"
+  | "navShopping"
+  | "navWallets"
+  | "navAccount"
   | "langLabel";
 
 export const DEFAULT_LANG: Lang = "vi";
@@ -37,6 +41,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     navProducts: "Sản phẩm",
     navOrders: "Đơn hàng",
     navProfile: "Cá nhân",
+    navAffiliate: "Giới thiệu",
+    navShopping: "Mua sắm",
+    navWallets: "Ví",
+    navAccount: "Tài khoản",
     langLabel: "Ngôn ngữ",
   },
   en: {
@@ -55,6 +63,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     navProducts: "Products",
     navOrders: "Orders",
     navProfile: "Profile",
+    navAffiliate: "Affiliate",
+    navShopping: "Shopping",
+    navWallets: "Wallets",
+    navAccount: "Account",
     langLabel: "Language",
   },
   ko: {
@@ -73,6 +85,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     navProducts: "상품",
     navOrders: "주문",
     navProfile: "프로필",
+    navAffiliate: "제휴",
+    navShopping: "쇼핑",
+    navWallets: "지갑",
+    navAccount: "계정",
     langLabel: "언어",
   },
 };

@@ -11,7 +11,7 @@ const Login: React.FC = () => {
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
-      const response = await api.post('/auth/login', values);
+      const response = await api.post('/auth/admin/login', values);
       localStorage.setItem('token', response.data.token);
       message.success('Login successful');
       navigate('/dashboard');

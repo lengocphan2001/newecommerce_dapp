@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import LanguageSelect from "@/app/components/LanguageSelect";
+import AppHeader from "@/app/components/AppHeader";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function OrdersPage() {
@@ -73,16 +73,9 @@ export default function OrdersPage() {
   return (
     <div className="flex flex-col bg-zinc-50">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white shadow-sm">
-        <div className="mx-auto max-w-2xl px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-xl font-bold text-zinc-900">{t("ordersTitle")}</h1>
-            <LanguageSelect variant="light" />
-          </div>
-        </div>
-      </header>
+      <AppHeader titleKey="ordersTitle" />
 
-      <main className="flex-1">
+      <main className="flex-1 pb-28">
         {/* Tabs */}
         <div className="mx-auto max-w-2xl border-b border-zinc-200 bg-white px-4">
           <div className="flex gap-4">

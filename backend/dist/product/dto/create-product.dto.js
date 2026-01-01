@@ -16,7 +16,8 @@ class CreateProductDto {
     description;
     price;
     stock;
-    category;
+    thumbnailUrl;
+    detailImageUrls;
 }
 exports.CreateProductDto = CreateProductDto;
 __decorate([
@@ -42,8 +43,20 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateProductDto.prototype, "stock", void 0);
 __decorate([
-    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^https?:\/\/.+/, {
+        message: 'thumbnailUrl must be a valid URL (http:// or https://)',
+    }),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateProductDto.prototype, "category", void 0);
+], CreateProductDto.prototype, "thumbnailUrl", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayUnique)(),
+    (0, class_validator_1.Matches)(/^https?:\/\/.+/, {
+        each: true,
+        message: 'each value in detailImageUrls must be a valid URL (http:// or https://)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateProductDto.prototype, "detailImageUrls", void 0);
 //# sourceMappingURL=create-product.dto.js.map

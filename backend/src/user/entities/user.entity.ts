@@ -29,6 +29,9 @@ export class User {
   @Column({ nullable: true })
   country: string;
 
+  @Column({ type: 'text', nullable: true })
+  address: string;
+
   @Column({ nullable: true, unique: true })
   walletAddress: string;
 
@@ -36,7 +39,13 @@ export class User {
   chainId: string;
 
   @Column({ nullable: true })
-  referralUser: string;
+  referralUser: string; // Username of referrer (for display)
+
+  @Column({ nullable: true })
+  parentId: string; // ID of direct parent (for tree structure)
+
+  @Column({ type: 'enum', enum: ['left', 'right'], nullable: true })
+  position: 'left' | 'right'; // Position in binary tree
 
   @Column({ default: 'ACTIVE' })
   status: string;

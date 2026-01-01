@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import LanguageSelect from "@/app/components/LanguageSelect";
+import { api } from "@/app/services/api";
 
 type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<unknown>;
@@ -118,10 +119,18 @@ export default function HomePage() {
       const addr = address || (await connectWallet());
       if (!addr) return;
 
+      // Store wallet address in localStorage (for register flow if needed)
+      try {
+        localStorage.setItem("walletAddress", addr);
+      } catch {
+        // ignore
+      }
+
       // Store current chainId (for register flow), but still fetch USDT on BSC by default.
+      let chainIdHex = "";
       try {
         if (eth) {
-          const chainIdHex = (await eth.request({ method: "eth_chainId" })) as string;
+          chainIdHex = (await eth.request({ method: "eth_chainId" })) as string;
           if (chainIdHex) localStorage.setItem("chainId", chainIdHex);
         }
       } catch {
@@ -135,6 +144,20 @@ export default function HomePage() {
         // ignore
       }
 
+      // Check if wallet address is already registered
+      try {
+        const checkResult = await api.checkWallet(addr);
+        if (!checkResult.exists) {
+          // User not registered, redirect to register page (wallet info already in localStorage)
+          router.push("/register");
+          return;
+        }
+      } catch (e: any) {
+        // If check fails, assume user exists and continue (fallback behavior)
+        console.warn("Failed to check wallet:", e);
+      }
+
+      // User exists, continue to home
       await fetchUsdtBep20AndStore(addr);
       router.push("/home");
     } catch (e: any) {

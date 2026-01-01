@@ -14,7 +14,7 @@ const Orders: React.FC = () => {
     setLoading(true);
     try {
       const response = await orderService.getAll();
-      setOrders(response.data?.data || []);
+      setOrders(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch orders');
     } finally {

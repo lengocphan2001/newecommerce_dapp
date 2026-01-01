@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
-import LanguageSelect from "@/app/components/LanguageSelect";
+import AppHeader from "@/app/components/AppHeader";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
@@ -177,16 +177,9 @@ export default function ProfilePage() {
   return (
     <div className="flex flex-col bg-zinc-50">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white shadow-sm">
-        <div className="mx-auto max-w-2xl px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-xl font-bold text-zinc-900">{t("profileTitle")}</h1>
-            <LanguageSelect variant="light" />
-          </div>
-        </div>
-      </header>
+      <AppHeader titleKey="profileTitle" />
 
-      <main className="flex-1">
+      <main className="flex-1 pb-28">
         {/* Profile Card */}
         <div className="mx-auto max-w-2xl px-4 py-4">
           <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 p-6 text-white shadow-lg">

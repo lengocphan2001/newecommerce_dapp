@@ -1,14 +1,11 @@
 export declare class Product {
     id: string;
     name: string;
-    description: string;
-    pointPrice: number;
-    vndPrice: number;
+    description?: string;
+    price: number;
     stock: number;
-    category: string;
-    image: string;
-    affiliatePercent: number;
-    isActive: boolean;
+    thumbnailUrl?: string;
+    detailImageUrls?: string[];
     createdAt: Date;
     updatedAt: Date;
 }

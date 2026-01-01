@@ -14,17 +14,32 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 const STORAGE_KEY = "lang";
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
-
-  useEffect(() => {
+  // Initialize with stored language immediately to avoid flash of default language
+  const [lang, setLangState] = useState<Lang>(() => {
+    if (typeof window === "undefined") return DEFAULT_LANG;
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
       if (stored && (stored === "vi" || stored === "en" || stored === "ko")) {
-        setLangState(stored);
+        return stored;
       }
     } catch {
       // ignore
     }
+    return DEFAULT_LANG;
+  });
+
+  // Sync with localStorage changes from other tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        const newLang = e.newValue as Lang;
+        if (newLang === "vi" || newLang === "en" || newLang === "ko") {
+          setLangState(newLang);
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const setLang = useCallback((next: Lang) => {

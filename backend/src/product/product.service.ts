@@ -1,30 +1,52 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Product } from './entities/product.entity';
+import { CreateProductDto, UpdateProductDto } from './dto';
 
 @Injectable()
 export class ProductService {
-  async findAll(query: any) {
-    // TODO: Implement find all products logic
-    return { message: 'Find all products' };
+  constructor(
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
+  ) {}
+
+  async findAll(_query: any) {
+    return this.productRepository.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findOne(id: string) {
-    // TODO: Implement find one product logic
-    return { message: `Find product ${id}` };
+    const product = await this.productRepository.findOne({ where: { id } });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+    return product;
   }
 
-  async create(createProductDto: any) {
-    // TODO: Implement create product logic
-    return { message: 'Create product' };
+  async create(createProductDto: CreateProductDto) {
+    const product = this.productRepository.create({
+      ...createProductDto,
+      stock: createProductDto.stock ?? 0,
+      detailImageUrls: createProductDto.detailImageUrls ?? [],
+    });
+    return this.productRepository.save(product);
   }
 
-  async update(id: string, updateProductDto: any) {
-    // TODO: Implement update product logic
-    return { message: `Update product ${id}` };
+  async update(id: string, updateProductDto: UpdateProductDto) {
+    const product = await this.findOne(id);
+    const merged = this.productRepository.merge(product, {
+      ...updateProductDto,
+      ...(updateProductDto.detailImageUrls ? { detailImageUrls: updateProductDto.detailImageUrls } : {}),
+    });
+    return this.productRepository.save(merged);
   }
 
   async remove(id: string) {
-    // TODO: Implement remove product logic
-    return { message: `Remove product ${id}` };
+    const product = await this.findOne(id);
+    await this.productRepository.remove(product);
+    return { deleted: true };
   }
 }
 

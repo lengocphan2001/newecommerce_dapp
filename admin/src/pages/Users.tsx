@@ -30,7 +30,7 @@ const Users: React.FC = () => {
     setLoading(true);
     try {
       const response = await userService.getAll();
-      setUsers(response.data?.data || []);
+      setUsers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch users');
     } finally {

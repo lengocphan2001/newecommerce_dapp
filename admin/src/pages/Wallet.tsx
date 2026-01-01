@@ -13,7 +13,7 @@ const Wallet: React.FC = () => {
     setLoading(true);
     try {
       const response = await walletService.getTransactions(userId);
-      setTransactions(response.data?.data || []);
+      setTransactions(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Failed to fetch transactions');
     } finally {

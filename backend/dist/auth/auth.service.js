@@ -75,6 +75,30 @@ let AuthService = class AuthService {
             },
         };
     }
+    async adminLogin(loginDto) {
+        const user = await this.userService.findByEmail(loginDto.email);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        if (!user.isAdmin) {
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+        const token = this.jwtService.sign(payload);
+        return {
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                fullName: user.fullName,
+                isAdmin: user.isAdmin,
+            },
+        };
+    }
     async register(registerDto) {
         const existingUser = await this.userService.findByEmail(registerDto.email);
         if (existingUser) {
@@ -102,6 +126,108 @@ let AuthService = class AuthService {
         catch (error) {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
+    }
+    async checkWallet(walletAddress) {
+        const user = await this.userService.findByWalletAddress(walletAddress);
+        return {
+            exists: !!user,
+            user: user ? {
+                id: user.id,
+                email: user.email,
+                username: user.username,
+                walletAddress: user.walletAddress,
+            } : null,
+        };
+    }
+    async checkReferral(username) {
+        const user = await this.userService.findByUsername(username);
+        return {
+            exists: !!user,
+            user: user ? {
+                id: user.id,
+                username: user.username,
+                fullName: user.fullName,
+            } : null,
+        };
+    }
+    async getReferralInfo(userId) {
+        const user = await this.userService.findOne(userId);
+        if (!user || !user.username) {
+            throw new common_1.UnauthorizedException('User not found or username not set');
+        }
+        const referralCode = user.username;
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const referralLink = `${baseUrl}/register?ref=${referralCode}`;
+        const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
+        const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
+        const treeStats = await this.userService.getBinaryTreeStats(userId);
+        return {
+            referralCode,
+            referralLink,
+            leftLink,
+            rightLink,
+            username: user.username,
+            fullName: user.fullName,
+            treeStats,
+        };
+    }
+    async walletRegister(walletRegisterDto) {
+        const existingWalletUser = await this.userService.findByWalletAddress(walletRegisterDto.walletAddress);
+        if (existingWalletUser) {
+            throw new common_1.ConflictException('Wallet address already registered');
+        }
+        const existingEmailUser = await this.userService.findByEmail(walletRegisterDto.email);
+        if (existingEmailUser) {
+            throw new common_1.ConflictException('Email already exists');
+        }
+        const existingUsername = await this.userService.findByUsername(walletRegisterDto.username);
+        if (existingUsername) {
+            throw new common_1.ConflictException('Username already exists');
+        }
+        let parentId = null;
+        let position = null;
+        if (walletRegisterDto.referralUser) {
+            const referralUser = await this.userService.findByUsername(walletRegisterDto.referralUser);
+            if (!referralUser) {
+                throw new common_1.ConflictException('Referral code (username) does not exist');
+            }
+            parentId = referralUser.id;
+            console.log(`[Referral Debug] Received leg value:`, walletRegisterDto.leg, `Type:`, typeof walletRegisterDto.leg);
+            if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {
+                position = walletRegisterDto.leg;
+                console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg by referral ${walletRegisterDto.referralUser}`);
+            }
+            else {
+                position = await this.userService.getWeakLeg(parentId);
+                console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg (weak leg) by referral ${walletRegisterDto.referralUser}. Received leg: ${walletRegisterDto.leg || 'undefined'}`);
+            }
+        }
+        const user = await this.userService.create({
+            walletAddress: walletRegisterDto.walletAddress,
+            chainId: walletRegisterDto.chainId,
+            username: walletRegisterDto.username,
+            country: walletRegisterDto.country,
+            address: walletRegisterDto.address,
+            phone: walletRegisterDto.phoneNumber,
+            email: walletRegisterDto.email,
+            fullName: walletRegisterDto.fullName,
+            referralUser: walletRegisterDto.referralUser,
+            parentId,
+            position,
+            status: 'ACTIVE',
+        });
+        const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+        const token = this.jwtService.sign(payload);
+        return {
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                username: user.username,
+                walletAddress: user.walletAddress,
+                chainId: user.chainId,
+            },
+        };
     }
 };
 exports.AuthService = AuthService;

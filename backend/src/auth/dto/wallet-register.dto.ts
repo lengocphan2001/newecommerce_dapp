@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, IsPhoneNumber } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, IsPhoneNumber, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class WalletRegisterDto {
   @IsString()
@@ -15,7 +16,15 @@ export class WalletRegisterDto {
 
   @IsString()
   @IsNotEmpty()
+  fullName: string;
+
+  @IsString()
+  @IsNotEmpty()
   country: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -28,4 +37,10 @@ export class WalletRegisterDto {
   @IsString()
   @IsOptional()
   referralUser?: string;
+
+  @IsString()
+  @IsOptional()
+  @Transform(({ value }) => value?.trim()?.toLowerCase())
+  @IsIn(['left', 'right'])
+  leg?: 'left' | 'right';
 }

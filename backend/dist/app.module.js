@@ -23,6 +23,8 @@ const admin_module_1 = require("./admin/admin.module");
 const audit_log_module_1 = require("./audit-log/audit-log.module");
 const common_module_1 = require("./common/common.module");
 const user_entity_1 = require("./user/entities/user.entity");
+const product_entity_1 = require("./product/entities/product.entity");
+const upload_module_1 = require("./upload/upload.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -36,13 +38,16 @@ exports.AppModule = AppModule = __decorate([
             typeorm_1.TypeOrmModule.forRootAsync({
                 imports: [config_1.ConfigModule],
                 useFactory: (configService) => ({
-                    type: 'postgres',
+                    type: (configService.get('DB_TYPE') || 'postgres'),
                     host: configService.get('DB_HOST') || 'localhost',
-                    port: configService.get('DB_PORT') || 5432,
-                    username: configService.get('DB_USERNAME') || 'postgres',
-                    password: configService.get('DB_PASSWORD') || 'postgres',
+                    port: configService.get('DB_PORT') ||
+                        ((configService.get('DB_TYPE') || 'postgres') === 'mysql' ? 3306 : 5432),
+                    username: configService.get('DB_USERNAME') ||
+                        ((configService.get('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
+                    password: configService.get('DB_PASSWORD') ||
+                        ((configService.get('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
                     database: configService.get('DB_NAME') || 'ecommerce_dapp',
-                    entities: [user_entity_1.User],
+                    entities: [user_entity_1.User, product_entity_1.Product],
                     synchronize: configService.get('NODE_ENV') !== 'production',
                     logging: configService.get('NODE_ENV') === 'development',
                 }),
@@ -58,6 +63,7 @@ exports.AppModule = AppModule = __decorate([
             affiliate_module_1.AffiliateModule,
             admin_module_1.AdminModule,
             audit_log_module_1.AuditLogModule,
+            upload_module_1.UploadModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

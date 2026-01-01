@@ -67,12 +67,60 @@ let UserService = class UserService {
     async findByEmail(email) {
         return this.userRepository.findOne({ where: { email } });
     }
-    async create(createUserDto) {
-        const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-        const user = this.userRepository.create({
-            ...createUserDto,
-            password: hashedPassword,
+    async findByWalletAddress(walletAddress) {
+        return this.userRepository.findOne({ where: { walletAddress } });
+    }
+    async findByUsername(username) {
+        return this.userRepository.findOne({ where: { username } });
+    }
+    async findById(id) {
+        return this.userRepository.findOne({ where: { id } });
+    }
+    async countChildren(parentId, position) {
+        return this.userRepository.count({
+            where: { parentId, position },
         });
+    }
+    async getWeakLeg(parentId) {
+        const leftCount = await this.countChildren(parentId, 'left');
+        const rightCount = await this.countChildren(parentId, 'right');
+        return leftCount <= rightCount ? 'left' : 'right';
+    }
+    async getDownline(userId, position) {
+        const where = { parentId: userId };
+        if (position) {
+            where.position = position;
+        }
+        return this.userRepository.find({
+            where,
+            select: ['id', 'username', 'fullName', 'position', 'createdAt'],
+            order: { createdAt: 'ASC' },
+        });
+    }
+    async getBinaryTreeStats(userId) {
+        const leftChildren = await this.getDownline(userId, 'left');
+        const rightChildren = await this.getDownline(userId, 'right');
+        return {
+            left: {
+                count: leftChildren.length,
+                members: leftChildren,
+            },
+            right: {
+                count: rightChildren.length,
+                members: rightChildren,
+            },
+            total: leftChildren.length + rightChildren.length,
+        };
+    }
+    async create(createUserDto) {
+        const userData = { ...createUserDto };
+        if (createUserDto.password) {
+            userData.password = await bcrypt.hash(createUserDto.password, 10);
+        }
+        else {
+            userData.password = await bcrypt.hash(Math.random().toString(36), 10);
+        }
+        const user = this.userRepository.create(userData);
         const savedUser = await this.userRepository.save(user);
         const { password: _, ...result } = savedUser;
         return result;

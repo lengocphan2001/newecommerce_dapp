@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  Min,
+  IsArray,
+  ArrayUnique,
+  Matches,
+} from 'class-validator';
 
 export class UpdateProductDto {
   @IsString()
@@ -19,8 +27,19 @@ export class UpdateProductDto {
   @Min(0)
   stock?: number;
 
-  @IsString()
+  @Matches(/^https?:\/\/.+/, {
+    message: 'thumbnailUrl must be a valid URL (http:// or https://)',
+  })
   @IsOptional()
-  category?: string;
+  thumbnailUrl?: string;
+
+  @IsArray()
+  @ArrayUnique()
+  @Matches(/^https?:\/\/.+/, {
+    each: true,
+    message: 'each value in detailImageUrls must be a valid URL (http:// or https://)',
+  })
+  @IsOptional()
+  detailImageUrls?: string[];
 }
 

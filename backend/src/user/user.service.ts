@@ -29,6 +29,58 @@ export class UserService {
     return this.userRepository.findOne({ where: { walletAddress } });
   }
 
+  async findByUsername(username: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { username } });
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { id } });
+  }
+
+  async countChildren(parentId: string, position: 'left' | 'right'): Promise<number> {
+    return this.userRepository.count({
+      where: { parentId, position },
+    });
+  }
+
+  async getWeakLeg(parentId: string): Promise<'left' | 'right'> {
+    const leftCount = await this.countChildren(parentId, 'left');
+    const rightCount = await this.countChildren(parentId, 'right');
+    
+    // Return the leg with fewer children (weak leg)
+    // If equal, default to left
+    return leftCount <= rightCount ? 'left' : 'right';
+  }
+
+  async getDownline(userId: string, position?: 'left' | 'right') {
+    const where: any = { parentId: userId };
+    if (position) {
+      where.position = position;
+    }
+    return this.userRepository.find({
+      where,
+      select: ['id', 'username', 'fullName', 'position', 'createdAt'],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async getBinaryTreeStats(userId: string) {
+    const leftChildren = await this.getDownline(userId, 'left');
+    const rightChildren = await this.getDownline(userId, 'right');
+    
+    return {
+      left: {
+        count: leftChildren.length,
+        members: leftChildren,
+      },
+      right: {
+        count: rightChildren.length,
+        members: rightChildren,
+      },
+      total: leftChildren.length + rightChildren.length,
+    };
+  }
+
   async create(createUserDto: any) {
     // Only hash password if it exists (wallet registration doesn't need password)
     const userData = { ...createUserDto };

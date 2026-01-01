@@ -30,8 +30,8 @@ export default function BottomNav() {
       ),
     },
     {
-      href: "/home/products",
-      label: t("navProducts"),
+      href: "/home/affiliate",
+      label: t("navAffiliate"),
       icon: (
         <svg
           className="w-6 h-6"
@@ -43,7 +43,26 @@ export default function BottomNav() {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      href: "/home/shopping",
+      label: t("navShopping"),
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
           />
         </svg>
       ),
@@ -68,8 +87,27 @@ export default function BottomNav() {
       ),
     },
     {
-      href: "/home/profile",
-      label: t("navProfile"),
+      href: "/home/wallets",
+      label: t("navWallets"),
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      href: "/home/account",
+      label: t("navAccount"),
       icon: (
         <svg
           className="w-6 h-6"
@@ -92,19 +130,15 @@ export default function BottomNav() {
     // Prevent navigation if already on that page
     if (pathname === href) return;
     
-    // Use window.location for faster navigation in static export
-    if (typeof window !== "undefined") {
-      window.location.href = href;
-    } else {
-      router.push(href);
-    }
+    // Use Next.js router to preserve state and avoid full page reload
+    router.push(href);
   };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-zinc-200 bg-white shadow-lg safe-area-inset-bottom">
       <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-2">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href === "/home" && pathname === "/home");
           return (
             <button
               key={item.href}
