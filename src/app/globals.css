@@ -24,3 +24,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Safe area support for mobile devices (especially iOS) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-inset-bottom {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Prevent text selection on buttons for better mobile UX */
+button {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
