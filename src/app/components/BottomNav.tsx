@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
@@ -8,7 +8,6 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
-  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   const menuItems = [
     {
@@ -93,21 +92,12 @@ export default function BottomNav() {
     // Prevent navigation if already on that page
     if (pathname === href) return;
     
-    // Prevent multiple rapid clicks
-    if (navigatingTo) return;
-    
-    setNavigatingTo(href);
-    
-    // Small delay to show loading state, then navigate
     // Use window.location for faster navigation in static export
-    setTimeout(() => {
-      if (typeof window !== "undefined") {
-        window.location.href = href;
-      } else {
-        router.push(href);
-        setNavigatingTo(null);
-      }
-    }, 50);
+    if (typeof window !== "undefined") {
+      window.location.href = href;
+    } else {
+      router.push(href);
+    }
   };
 
   return (
@@ -115,7 +105,6 @@ export default function BottomNav() {
       <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-2">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
-          const isNavigating = navigatingTo === item.href;
           return (
             <button
               key={item.href}
@@ -128,32 +117,24 @@ export default function BottomNav() {
                 // Prevent double-tap zoom on mobile
                 e.currentTarget.style.touchAction = "manipulation";
               }}
-              disabled={isActive || isNavigating}
+              disabled={isActive}
               className={`relative flex min-h-[60px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all active:scale-95 ${
                 isActive
                   ? "text-blue-600"
                   : "text-zinc-500 active:bg-zinc-100"
-              } ${isNavigating ? "opacity-50" : ""}`}
+              }`}
               type="button"
               style={{
                 touchAction: "manipulation",
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              {isNavigating ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                </div>
-              ) : (
-                <>
-                  <div
-                    className={`${isActive ? "text-blue-600" : "text-zinc-500"}`}
-                  >
-                    {item.icon}
-                  </div>
-                  <span className="text-xs font-medium">{item.label}</span>
-                </>
-              )}
+              <div
+                className={`${isActive ? "text-blue-600" : "text-zinc-500"}`}
+              >
+                {item.icon}
+              </div>
+              <span className="text-xs font-medium">{item.label}</span>
             </button>
           );
         })}
