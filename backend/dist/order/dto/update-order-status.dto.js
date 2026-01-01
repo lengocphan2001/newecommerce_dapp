@@ -13,11 +13,12 @@ exports.UpdateOrderStatusDto = exports.OrderStatus = void 0;
 const class_validator_1 = require("class-validator");
 var OrderStatus;
 (function (OrderStatus) {
-    OrderStatus["PENDING"] = "PENDING";
-    OrderStatus["PROCESSING"] = "PROCESSING";
-    OrderStatus["SHIPPED"] = "SHIPPED";
-    OrderStatus["DELIVERED"] = "DELIVERED";
-    OrderStatus["CANCELLED"] = "CANCELLED";
+    OrderStatus["PENDING"] = "pending";
+    OrderStatus["CONFIRMED"] = "confirmed";
+    OrderStatus["PROCESSING"] = "processing";
+    OrderStatus["SHIPPED"] = "shipped";
+    OrderStatus["DELIVERED"] = "delivered";
+    OrderStatus["CANCELLED"] = "cancelled";
 })(OrderStatus || (exports.OrderStatus = OrderStatus = {}));
 class UpdateOrderStatusDto {
     status;

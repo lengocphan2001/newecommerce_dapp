@@ -195,11 +195,14 @@ export default function HomePage() {
         </div>
 
         <div className="mt-10 flex flex-col items-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
-            <div className="h-14 w-14 rounded-2xl border-4 border-white/80" />
+          <div className="flex h-44 w-80 items-center justify-center">
+            <img
+              src="/images/logo1.png"
+              alt="VinMall Logo"
+              className="h-full w-full object-contain"
+            />
           </div>
 
-          <div className="mt-6 text-4xl font-bold tracking-tight">{t("appName")}</div>
           <div className="mt-10 text-3xl font-semibold">{t("login")}</div>
 
           <div className="mt-6 w-full rounded-2xl bg-white/10 px-6 py-4 text-center text-xl font-semibold ring-1 ring-white/20 backdrop-blur-sm">

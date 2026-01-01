@@ -79,4 +79,63 @@ export const api = {
     }
     return response.json();
   },
+
+  async createOrder(
+    items: Array<{ productId: string; quantity: number }>,
+    transactionHash?: string,
+    shippingAddress?: string
+  ) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ items, transactionHash, shippingAddress }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create order');
+    }
+    return response.json();
+  },
+
+  async getOrders(userId?: string) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const url = userId 
+      ? `${API_BASE_URL}/orders?userId=${userId}`
+      : `${API_BASE_URL}/orders`;
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch orders');
+    }
+    return response.json();
+  },
+
+  async getOrder(id: string) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/orders/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch order');
+    }
+    return response.json();
+  },
 };

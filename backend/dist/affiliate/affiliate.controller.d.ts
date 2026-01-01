@@ -6,13 +6,10 @@ export declare class AffiliateController {
     register(registerDto: RegisterAffiliateDto): Promise<{
         message: string;
     }>;
-    getStats(userId: string): Promise<{
-        message: string;
-    }>;
-    getCommissions(userId: string, query: any): Promise<{
-        message: string;
-    }>;
-    withdraw(withdrawDto: WithdrawAffiliateDto): Promise<{
+    getAllStats(req: any): Promise<any[]>;
+    getStats(userId: string, req: any): Promise<any>;
+    getCommissions(userId: string, query: any, req: any): Promise<import("./entities/commission.entity").Commission[]>;
+    withdraw(withdrawDto: WithdrawAffiliateDto, req: any): Promise<{
         message: string;
     }>;
 }

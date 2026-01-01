@@ -1,101 +1,74 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
+import { api } from "@/app/services/api";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  thumbnailUrl?: string;
+  stock: number;
+}
 
 export default function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const { t } = useI18n();
+  const { addItem } = useShoppingCart();
+  const router = useRouter();
 
-  const products = [
-    {
-      id: 1,
-      name: "iPhone 15 Pro Max 256GB",
-      price: "29.990.000",
-      originalPrice: "34.990.000",
-      image: "📱",
-      rating: 4.8,
-      sold: 1250,
-    },
-    {
-      id: 2,
-      name: "Áo thun nam cao cấp",
-      price: "299.000",
-      originalPrice: "499.000",
-      image: "👕",
-      rating: 4.5,
-      sold: 3200,
-    },
-    {
-      id: 3,
-      name: "Máy lọc không khí Xiaomi",
-      price: "3.990.000",
-      originalPrice: "4.990.000",
-      image: "🏠",
-      rating: 4.7,
-      sold: 856,
-    },
-    {
-      id: 4,
-      name: "Giày thể thao Nike",
-      price: "1.990.000",
-      originalPrice: "2.490.000",
-      image: "👟",
-      rating: 4.6,
-      sold: 2100,
-    },
-    {
-      id: 5,
-      name: "Tai nghe AirPods Pro",
-      price: "5.990.000",
-      originalPrice: "6.990.000",
-      image: "🎧",
-      rating: 4.9,
-      sold: 4500,
-    },
-    {
-      id: 6,
-      name: "Laptop MacBook Pro M3",
-      price: "49.990.000",
-      originalPrice: "54.990.000",
-      image: "💻",
-      rating: 4.8,
-      sold: 320,
-    },
-    {
-      id: 7,
-      name: "Đồng hồ thông minh",
-      price: "2.990.000",
-      originalPrice: "3.990.000",
-      image: "⌚",
-      rating: 4.4,
-      sold: 1800,
-    },
-    {
-      id: 8,
-      name: "Balo du lịch cao cấp",
-      price: "899.000",
-      originalPrice: "1.299.000",
-      image: "🎒",
-      rating: 4.5,
-      sold: 950,
-    },
-  ];
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getProducts();
+      setProducts(Array.isArray(response) ? response : response.data || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToCart = (product: Product) => {
+    if (product.stock <= 0) {
+      alert("Sản phẩm đã hết hàng");
+      return;
+    }
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      price: product.price,
+      thumbnailUrl: product.thumbnailUrl,
+    });
+  };
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="flex flex-col bg-zinc-50">
-      {/* Header */}
       <AppHeader titleKey="productsTitle" />
       <div className="mx-auto max-w-2xl px-4 pb-3">
-        {/* Search Bar */}
         <div className="relative">
           <input
             type="text"
             placeholder={t("searchProductsPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 bg-zinc-50 px-4 py-2.5 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
           <svg
             className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400"
@@ -114,90 +87,79 @@ export default function ProductsPage() {
       </div>
 
       <main className="flex-1 pb-28">
-        {/* Filter Bar */}
-        <div className="mx-auto max-w-2xl border-b border-zinc-200 bg-white px-4 py-3">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <button className="whitespace-nowrap rounded-full bg-blue-600 px-4 py-1.5 text-xs font-medium text-white">
-              Tất cả
-            </button>
-            <button className="whitespace-nowrap rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-medium text-zinc-700">
-              Điện tử
-            </button>
-            <button className="whitespace-nowrap rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-medium text-zinc-700">
-              Thời trang
-            </button>
-            <button className="whitespace-nowrap rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-medium text-zinc-700">
-              Gia dụng
-            </button>
-            <button className="whitespace-nowrap rounded-full bg-zinc-100 px-4 py-1.5 text-xs font-medium text-zinc-700">
-              Thể thao
-            </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-zinc-500">Đang tải...</div>
           </div>
-        </div>
-
-        {/* Products Grid */}
-        <div className="mx-auto max-w-2xl px-4 py-4">
-          <div className="grid grid-cols-2 gap-3">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="group cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="relative aspect-square bg-zinc-100 flex items-center justify-center text-4xl">
-                  {product.image}
-                  {product.originalPrice && (
-                    <div className="absolute right-2 top-2 rounded-full bg-red-500 px-2 py-1 text-xs font-semibold text-white">
-                      -{Math.round(
-                        ((parseInt(product.originalPrice.replace(/\./g, "")) -
-                          parseInt(product.price.replace(/\./g, ""))) /
-                          parseInt(product.originalPrice.replace(/\./g, ""))) *
-                          100
-                      )}%
-                    </div>
-                  )}
-                </div>
-                <div className="p-3">
-                  <h4 className="line-clamp-2 text-sm font-medium text-zinc-900">
-                    {product.name}
-                  </h4>
-                  <div className="mt-1 flex items-center gap-1">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className={`h-3 w-3 ${
-                            i < Math.floor(product.rating)
-                              ? "text-yellow-400"
-                              : "text-zinc-300"
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-xs text-zinc-500">
-                      ({product.sold})
-                    </span>
+        ) : error ? (
+          <div className="px-4 py-8 text-center text-red-500">{error}</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="px-4 py-8 text-center text-zinc-500">
+            Không tìm thấy sản phẩm
+          </div>
+        ) : (
+          <div className="mx-auto max-w-2xl px-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="group cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
+                  onClick={() => router.push(`/home/products/${product.id}`)}
+                >
+                  <div className="relative aspect-square bg-zinc-100">
+                    {product.thumbnailUrl ? (
+                      <img
+                        src={product.thumbnailUrl}
+                        alt={product.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-4xl">
+                        📦
+                      </div>
+                    )}
+                    {product.stock <= 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <span className="rounded bg-red-500 px-3 py-1 text-sm font-semibold text-white">
+                          Hết hàng
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <p className="text-base font-bold text-blue-600">
-                      {product.price} đ
-                    </p>
-                    {product.originalPrice && (
-                      <p className="text-xs text-zinc-400 line-through">
-                        {product.originalPrice} đ
+                  <div className="p-3">
+                    <h4 className="line-clamp-2 text-sm font-medium text-zinc-900">
+                      {product.name}
+                    </h4>
+                    <div className="mt-2 flex items-center justify-between">
+                      <p className="text-base font-bold text-blue-600">
+                        ${product.price.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 6,
+                        })}
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(product);
+                        }}
+                        disabled={product.stock <= 0}
+                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:bg-zinc-300 disabled:cursor-not-allowed"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+                    {product.stock > 0 && (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Còn {product.stock} sản phẩm
                       </p>
                     )}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </main>
-
     </div>
   );
 }

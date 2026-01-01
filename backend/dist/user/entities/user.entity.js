@@ -25,6 +25,12 @@ let User = class User {
     referralUser;
     parentId;
     position;
+    packageType;
+    totalPurchaseAmount;
+    totalCommissionReceived;
+    totalReconsumptionAmount;
+    leftBranchTotal;
+    rightBranchTotal;
     status;
     isAdmin;
     createdAt;
@@ -83,6 +89,75 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'enum', enum: ['left', 'right'], nullable: true }),
     __metadata("design:type", String)
 ], User.prototype, "position", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'enum', enum: ['NONE', 'CTV', 'NPP'], default: 'NONE' }),
+    __metadata("design:type", String)
+], User.prototype, "packageType", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'decimal',
+        precision: 36,
+        scale: 18,
+        default: 0,
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseFloat(value),
+        },
+    }),
+    __metadata("design:type", Number)
+], User.prototype, "totalPurchaseAmount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'decimal',
+        precision: 36,
+        scale: 18,
+        default: 0,
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseFloat(value),
+        },
+    }),
+    __metadata("design:type", Number)
+], User.prototype, "totalCommissionReceived", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'decimal',
+        precision: 36,
+        scale: 18,
+        default: 0,
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseFloat(value),
+        },
+    }),
+    __metadata("design:type", Number)
+], User.prototype, "totalReconsumptionAmount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'decimal',
+        precision: 36,
+        scale: 18,
+        default: 0,
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseFloat(value),
+        },
+    }),
+    __metadata("design:type", Number)
+], User.prototype, "leftBranchTotal", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'decimal',
+        precision: 36,
+        scale: 18,
+        default: 0,
+        transformer: {
+            to: (value) => value,
+            from: (value) => parseFloat(value),
+        },
+    }),
+    __metadata("design:type", Number)
+], User.prototype, "rightBranchTotal", void 0);
 __decorate([
     (0, typeorm_1.Column)({ default: 'ACTIVE' }),
     __metadata("design:type", String)

@@ -28,6 +28,8 @@ __decorate([
 ], OrderItemDto.prototype, "quantity", void 0);
 class CreateOrderDto {
     items;
+    transactionHash;
+    shippingAddress;
 }
 exports.CreateOrderDto = CreateOrderDto;
 __decorate([
@@ -37,4 +39,14 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", Array)
 ], CreateOrderDto.prototype, "items", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateOrderDto.prototype, "transactionHash", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateOrderDto.prototype, "shippingAddress", void 0);
 //# sourceMappingURL=create-order.dto.js.map

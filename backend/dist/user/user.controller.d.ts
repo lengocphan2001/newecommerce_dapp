@@ -18,6 +18,12 @@ export declare class UserController {
         referralUser: string;
         parentId: string;
         position: "left" | "right";
+        packageType: "NONE" | "CTV" | "NPP";
+        totalPurchaseAmount: number;
+        totalCommissionReceived: number;
+        totalReconsumptionAmount: number;
+        leftBranchTotal: number;
+        rightBranchTotal: number;
         status: string;
         isAdmin: boolean;
         createdAt: Date;

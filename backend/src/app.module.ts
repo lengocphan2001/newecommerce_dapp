@@ -15,6 +15,8 @@ import { AuditLogModule } from './audit-log/audit-log.module';
 import { CommonModule } from './common/common.module';
 import { User } from './user/entities/user.entity';
 import { Product } from './product/entities/product.entity';
+import { Order } from './order/entities/order.entity';
+import { Commission } from './affiliate/entities/commission.entity';
 import { UploadModule } from './upload/upload.module';
 
 @Module({
@@ -38,7 +40,7 @@ import { UploadModule } from './upload/upload.module';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Product],
+        entities: [User, Product, Order, Commission],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),

@@ -138,7 +138,11 @@ export default function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-zinc-200 bg-white shadow-lg safe-area-inset-bottom">
       <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-2">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href || (item.href === "/home" && pathname === "/home");
+          // Shopping should be active for /home/shopping, /home/cart, and /home/checkout
+          let isActive = pathname === item.href || (item.href === "/home" && pathname === "/home");
+          if (item.href === "/home/shopping") {
+            isActive = pathname === "/home/shopping" || pathname === "/home/cart" || pathname === "/home/checkout";
+          }
           return (
             <button
               key={item.href}

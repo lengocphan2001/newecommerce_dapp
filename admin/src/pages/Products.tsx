@@ -173,6 +173,12 @@ const Products: React.FC = () => {
       width: 200,
       ellipsis: true,
       responsive: ['lg'] as any, // Hide on mobile/tablet
+      render: (text?: string) => {
+        if (!text) return '-';
+        const maxLength = 100;
+        if (text.length <= maxLength) return text;
+        return `${text.substring(0, maxLength)}...`;
+      },
     },
     {
       title: 'Price',

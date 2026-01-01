@@ -4,4 +4,6 @@ export declare class OrderItemDto {
 }
 export declare class CreateOrderDto {
     items: OrderItemDto[];
+    transactionHash?: string;
+    shippingAddress?: string;
 }

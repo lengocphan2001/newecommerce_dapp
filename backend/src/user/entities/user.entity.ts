@@ -47,6 +47,69 @@ export class User {
   @Column({ type: 'enum', enum: ['left', 'right'], nullable: true })
   position: 'left' | 'right'; // Position in binary tree
 
+  @Column({ type: 'enum', enum: ['NONE', 'CTV', 'NPP'], default: 'NONE' })
+  packageType: 'NONE' | 'CTV' | 'NPP'; // Loại gói user
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  totalPurchaseAmount: number; // Tổng giá trị đã mua (để tính lên gói)
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  totalCommissionReceived: number; // Tổng hoa hồng đã nhận
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  totalReconsumptionAmount: number; // Tổng doanh số tái tiêu dùng
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  leftBranchTotal: number; // Tổng doanh số nhánh trái (cho binary tree)
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  rightBranchTotal: number; // Tổng doanh số nhánh phải (cho binary tree)
+
   @Column({ default: 'ACTIVE' })
   status: string;
 
