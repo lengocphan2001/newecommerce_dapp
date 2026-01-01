@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "next build",
+    "build:all": "npm run build:static && cd admin && npm run build",
     "start": "next start",
     "lint": "eslint"
   },
