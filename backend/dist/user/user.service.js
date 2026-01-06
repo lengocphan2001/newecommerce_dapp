@@ -86,6 +86,39 @@ let UserService = class UserService {
         const rightCount = await this.countChildren(parentId, 'right');
         return leftCount <= rightCount ? 'left' : 'right';
     }
+    async findAvailableSlotInBranch(startUserId, targetPosition) {
+        const directChildCount = await this.countChildren(startUserId, targetPosition);
+        if (directChildCount === 0) {
+            return { parentId: startUserId, position: targetPosition };
+        }
+        const directChildren = await this.userRepository.find({
+            where: { parentId: startUserId, position: targetPosition },
+            order: { createdAt: 'ASC' },
+        });
+        if (directChildren.length === 0) {
+            return { parentId: startUserId, position: targetPosition };
+        }
+        const queue = directChildren.map(child => child.id);
+        while (queue.length > 0) {
+            const currentNodeId = queue.shift();
+            const leftCount = await this.countChildren(currentNodeId, 'left');
+            const rightCount = await this.countChildren(currentNodeId, 'right');
+            if (leftCount === 0 || rightCount === 0) {
+                const weakLeg = leftCount <= rightCount ? 'left' : 'right';
+                return { parentId: currentNodeId, position: weakLeg };
+            }
+            const children = await this.userRepository.find({
+                where: { parentId: currentNodeId },
+                order: { createdAt: 'ASC' },
+            });
+            for (const child of children) {
+                queue.push(child.id);
+            }
+        }
+        const firstChild = directChildren[0];
+        const weakLeg = await this.getWeakLeg(firstChild.id);
+        return { parentId: firstChild.id, position: weakLeg };
+    }
     async getDownline(userId, position) {
         const where = { parentId: userId };
         if (position) {

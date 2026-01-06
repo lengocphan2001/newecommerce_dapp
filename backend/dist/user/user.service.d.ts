@@ -11,6 +11,10 @@ export declare class UserService {
     findById(id: string): Promise<User | null>;
     countChildren(parentId: string, position: 'left' | 'right'): Promise<number>;
     getWeakLeg(parentId: string): Promise<'left' | 'right'>;
+    findAvailableSlotInBranch(startUserId: string, targetPosition: 'left' | 'right'): Promise<{
+        parentId: string;
+        position: 'left' | 'right';
+    }>;
     getDownline(userId: string, position?: 'left' | 'right'): Promise<User[]>;
     getBinaryTreeStats(userId: string): Promise<{
         left: {
@@ -34,6 +38,7 @@ export declare class UserService {
         walletAddress: string;
         chainId: string;
         referralUser: string;
+        referralUserId: string;
         parentId: string;
         position: "left" | "right";
         packageType: "NONE" | "CTV" | "NPP";

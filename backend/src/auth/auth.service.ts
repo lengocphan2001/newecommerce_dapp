@@ -111,6 +111,29 @@ export class AuthService {
     };
   }
 
+  async walletLogin(walletAddress: string) {
+    const user = await this.userService.findByWalletAddress(walletAddress);
+    if (!user) {
+      throw new UnauthorizedException('Wallet address not registered');
+    }
+
+    // Generate JWT token
+    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        walletAddress: user.walletAddress,
+        chainId: user.chainId,
+        fullName: user.fullName,
+      },
+    };
+  }
+
   async checkReferral(username: string) {
     const user = await this.userService.findByUsername(username);
     return {
@@ -139,6 +162,21 @@ export class AuthService {
     // Get binary tree stats
     const treeStats = await this.userService.getBinaryTreeStats(userId);
 
+    // Format decimal numbers with full precision
+    const formatDecimal = (value: number | string): string => {
+      if (value === null || value === undefined || value === 0) return '0.00';
+      if (typeof value === 'string') {
+        const [intPart, decPart] = value.split('.');
+        if (decPart) {
+          return `${intPart}.${decPart}`;
+        }
+        return `${intPart}.00`;
+      }
+      const numStr = value.toFixed(18);
+      const [intPart, decPart] = numStr.split('.');
+      return `${intPart}.${decPart}`;
+    };
+
     return {
       referralCode,
       referralLink,
@@ -147,6 +185,10 @@ export class AuthService {
       username: user.username,
       fullName: user.fullName,
       treeStats,
+      accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
+      bonusCommission: formatDecimal(user.totalCommissionReceived),
+      packageType: user.packageType,
+      totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
     };
   }
 
@@ -174,6 +216,7 @@ export class AuthService {
     // Validate referral code (username) if provided and determine position in binary tree
     let parentId: string | null = null;
     let position: 'left' | 'right' | null = null;
+    let referralUserId: string | null = null; // Lưu ID của referral user (người giới thiệu ban đầu)
 
     if (walletRegisterDto.referralUser) {
       const referralUser = await this.userService.findByUsername(walletRegisterDto.referralUser);
@@ -181,7 +224,7 @@ export class AuthService {
         throw new ConflictException('Referral code (username) does not exist');
       }
       
-      parentId = referralUser.id;
+      referralUserId = referralUser.id; // Lưu ID của người giới thiệu ban đầu
       
       // Debug: Log received leg value (already transformed by DTO)
       // eslint-disable-next-line no-console
@@ -190,18 +233,31 @@ export class AuthService {
       // Check if leg is specified in DTO (from URL parameter ?leg=left or ?leg=right)
       // Value is already normalized by @Transform decorator in DTO
       if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {
-        position = walletRegisterDto.leg;
+        // User chỉ định nhánh cụ thể, tìm slot trống trong nhánh đó
+        const slot = await this.userService.findAvailableSlotInBranch(
+          referralUserId,
+          walletRegisterDto.leg,
+        );
+        parentId = slot.parentId; // Parent trực tiếp trong tree (có thể khác referralUser nếu đã đầy)
+        position = slot.position;
         // eslint-disable-next-line no-console
-        console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg by referral ${walletRegisterDto.referralUser}`);
+        console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg of parent ${slot.parentId} (requested ${walletRegisterDto.leg} branch of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId})`);
       } else {
-        // Automatically place in weak leg (leg with fewer children)
-        position = await this.userService.getWeakLeg(parentId);
+        // Automatically place in weak leg (leg with fewer children) của referral user
+        const weakLeg = await this.userService.getWeakLeg(referralUserId);
+        const slot = await this.userService.findAvailableSlotInBranch(referralUserId, weakLeg);
+        parentId = slot.parentId; // Parent trực tiếp trong tree
+        position = slot.position;
         // eslint-disable-next-line no-console
-        console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg (weak leg) by referral ${walletRegisterDto.referralUser}. Received leg: ${walletRegisterDto.leg || 'undefined'}`);
+        console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg of parent ${slot.parentId} (weak leg of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId}). Received leg: ${walletRegisterDto.leg || 'undefined'}`);
       }
     }
 
     // Create user without password
+    // Lưu ý: 
+    // - referralUser: username của người giới thiệu ban đầu (cho display)
+    // - referralUserId: ID của người giới thiệu ban đầu (cho tính hoa hồng trực tiếp)
+    // - parentId: ID của parent trực tiếp trong tree (có thể khác referralUserId nếu referral user đã đầy)
     const user = await this.userService.create({
       walletAddress: walletRegisterDto.walletAddress,
       chainId: walletRegisterDto.chainId,
@@ -212,6 +268,7 @@ export class AuthService {
       email: walletRegisterDto.email,
       fullName: walletRegisterDto.fullName,
       referralUser: walletRegisterDto.referralUser, // Store username for display
+      referralUserId: referralUserId || null, // Store ID of referrer for direct commission
       parentId, // Store parent ID for tree structure
       position, // Store position (left/right) in binary tree
       status: 'ACTIVE',

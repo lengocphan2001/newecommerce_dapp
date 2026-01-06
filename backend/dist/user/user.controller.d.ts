@@ -16,6 +16,7 @@ export declare class UserController {
         walletAddress: string;
         chainId: string;
         referralUser: string;
+        referralUserId: string;
         parentId: string;
         position: "left" | "right";
         packageType: "NONE" | "CTV" | "NPP";

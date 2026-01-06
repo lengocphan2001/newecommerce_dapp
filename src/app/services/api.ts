@@ -40,6 +40,23 @@ export const api = {
     return response.json();
   },
 
+  async walletLogin(walletAddress: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/wallet/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ walletAddress }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Wallet login failed');
+    }
+    
+    return response.json();
+  },
+
   async getProducts() {
     const response = await fetch(`${API_BASE_URL}/products`);
     if (!response.ok) {
@@ -75,7 +92,13 @@ export const api = {
       },
     });
     if (!response.ok) {
-      throw new Error('Failed to get referral info');
+      if (response.status === 401) {
+        // Clear invalid token
+        localStorage.removeItem('token');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to get referral info' }));
+      throw new Error(error.message || 'Failed to get referral info');
     }
     return response.json();
   },

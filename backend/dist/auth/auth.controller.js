@@ -37,6 +37,9 @@ let AuthController = class AuthController {
     async checkWallet(address) {
         return this.authService.checkWallet(address);
     }
+    async walletLogin(walletLoginDto) {
+        return this.authService.walletLogin(walletLoginDto.walletAddress);
+    }
     async refresh(refreshDto) {
         return this.authService.refreshToken(refreshDto);
     }
@@ -83,6 +86,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "checkWallet", null);
+__decorate([
+    (0, common_1.Post)('wallet/login'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.WalletLoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "walletLogin", null);
 __decorate([
     (0, common_1.Post)('refresh'),
     __param(0, (0, common_1.Body)()),

@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto } from './dto';
+import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
 
 @Controller('auth')
@@ -30,6 +30,11 @@ export class AuthController {
   @Get('wallet/check')
   async checkWallet(@Query('address') address: string) {
     return this.authService.checkWallet(address);
+  }
+
+  @Post('wallet/login')
+  async walletLogin(@Body() walletLoginDto: WalletLoginDto) {
+    return this.authService.walletLogin(walletLoginDto.walletAddress);
   }
 
   @Post('refresh')

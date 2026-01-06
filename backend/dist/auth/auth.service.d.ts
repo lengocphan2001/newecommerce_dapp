@@ -36,6 +36,7 @@ export declare class AuthService {
             walletAddress: string;
             chainId: string;
             referralUser: string;
+            referralUserId: string;
             parentId: string;
             position: "left" | "right";
             packageType: "NONE" | "CTV" | "NPP";
@@ -61,6 +62,17 @@ export declare class AuthService {
             username: string;
             walletAddress: string;
         } | null;
+    }>;
+    walletLogin(walletAddress: string): Promise<{
+        token: string;
+        user: {
+            id: string;
+            email: string;
+            username: string;
+            walletAddress: string;
+            chainId: string;
+            fullName: string;
+        };
     }>;
     checkReferral(username: string): Promise<{
         exists: boolean;
@@ -88,6 +100,10 @@ export declare class AuthService {
             };
             total: number;
         };
+        accumulatedPurchases: string;
+        bonusCommission: string;
+        packageType: "NONE" | "CTV" | "NPP";
+        totalReconsumptionAmount: string;
     }>;
     walletRegister(walletRegisterDto: WalletRegisterDto): Promise<{
         token: string;

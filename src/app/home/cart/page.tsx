@@ -4,10 +4,12 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, totalAmount, totalItems } = useShoppingCart();
   const router = useRouter();
+  const { t } = useI18n();
 
   if (items.length === 0) {
     return (
@@ -17,16 +19,16 @@ export default function CartPage() {
           <div className="mx-auto max-w-2xl px-4 py-12 text-center">
             <div className="mb-4 text-6xl">🛒</div>
             <h2 className="mb-2 text-xl font-semibold text-zinc-900">
-              Giỏ hàng trống
+              {t("cartEmpty")}
             </h2>
             <p className="mb-6 text-zinc-500">
-              Hãy thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm
+              {t("cartEmptyMessage")}
             </p>
             <button
               onClick={() => router.push("/home/products")}
               className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700"
             >
-              Mua sắm ngay
+              {t("shopNow")}
             </button>
           </div>
         </main>
@@ -106,7 +108,7 @@ export default function CartPage() {
 
           <div className="sticky bottom-20 rounded-xl bg-white p-4 shadow-lg">
             <div className="mb-4 flex items-center justify-between border-b border-zinc-200 pb-4">
-              <span className="text-sm font-medium text-zinc-800">Tổng cộng ({totalItems} sản phẩm):</span>
+              <span className="text-sm font-medium text-zinc-800">{t("total")} ({totalItems} {t("items")}):</span>
               <span className="text-xl font-bold text-blue-600">
                 ${totalAmount.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
@@ -118,7 +120,7 @@ export default function CartPage() {
               onClick={() => router.push("/home/checkout")}
               className="w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700"
             >
-              Thanh toán
+              {t("checkout")}
             </button>
           </div>
         </div>

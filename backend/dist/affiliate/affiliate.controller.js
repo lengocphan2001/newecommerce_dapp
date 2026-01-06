@@ -47,6 +47,18 @@ let AffiliateController = class AffiliateController {
         const userId = req.user.userId || req.user.sub;
         return this.affiliateService.withdraw({ ...withdrawDto, userId });
     }
+    async getAllCommissions(query) {
+        return this.affiliateService.getAllCommissions(query);
+    }
+    async getCommissionDetail(id) {
+        return this.affiliateService.getCommissionDetail(id);
+    }
+    async approveCommission(id, approveDto) {
+        return this.affiliateService.approveCommission(id, approveDto.notes);
+    }
+    async approveCommissions(approveDto) {
+        return this.affiliateService.approveCommissions(approveDto.commissionIds);
+    }
 };
 exports.AffiliateController = AffiliateController;
 __decorate([
@@ -88,6 +100,39 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.WithdrawAffiliateDto, Object]),
     __metadata("design:returntype", Promise)
 ], AffiliateController.prototype, "withdraw", null);
+__decorate([
+    (0, common_1.Get)('admin/commissions'),
+    (0, common_1.UseGuards)(guards_1.JwtAuthGuard, guards_1.AdminGuard),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AffiliateController.prototype, "getAllCommissions", null);
+__decorate([
+    (0, common_1.Get)('admin/commissions/:id'),
+    (0, common_1.UseGuards)(guards_1.JwtAuthGuard, guards_1.AdminGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AffiliateController.prototype, "getCommissionDetail", null);
+__decorate([
+    (0, common_1.Put)('admin/commissions/:id/approve'),
+    (0, common_1.UseGuards)(guards_1.JwtAuthGuard, guards_1.AdminGuard),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.ApproveSingleCommissionDto]),
+    __metadata("design:returntype", Promise)
+], AffiliateController.prototype, "approveCommission", null);
+__decorate([
+    (0, common_1.Post)('admin/commissions/approve-batch'),
+    (0, common_1.UseGuards)(guards_1.JwtAuthGuard, guards_1.AdminGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.ApproveCommissionDto]),
+    __metadata("design:returntype", Promise)
+], AffiliateController.prototype, "approveCommissions", null);
 exports.AffiliateController = AffiliateController = __decorate([
     (0, common_1.Controller)('affiliate'),
     (0, common_1.UseGuards)(guards_1.JwtAuthGuard),

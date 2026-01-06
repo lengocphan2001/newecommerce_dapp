@@ -152,6 +152,17 @@ export default function HomePage() {
           router.push("/register");
           return;
         }
+        
+        // User exists, authenticate them to get a token
+        try {
+          const loginResult = await api.walletLogin(addr);
+          if (loginResult.token) {
+            localStorage.setItem("token", loginResult.token);
+          }
+        } catch (loginError: any) {
+          // If login fails, log but continue (user might still have a valid token)
+          console.warn("Failed to authenticate wallet:", loginError);
+        }
       } catch (e: any) {
         // If check fails, assume user exists and continue (fallback behavior)
         console.warn("Failed to check wallet:", e);

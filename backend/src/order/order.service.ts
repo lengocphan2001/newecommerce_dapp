@@ -209,12 +209,12 @@ export class OrderService {
     const config =
       user.packageType === 'NPP'
         ? {
-            RECONSUMPTION_THRESHOLD: 1600,
-            RECONSUMPTION_REQUIRED: 400,
+            RECONSUMPTION_THRESHOLD: 0.01, // TEST: giảm từ 1600 - Ngưỡng hoa hồng để cần tái tiêu dùng
+            RECONSUMPTION_REQUIRED: 0.001, // TEST: giảm từ 400 - Số tiền tái tiêu dùng cần thiết
           }
         : {
-            RECONSUMPTION_THRESHOLD: 160,
-            RECONSUMPTION_REQUIRED: 40,
+            RECONSUMPTION_THRESHOLD: 0.001, // TEST: giảm từ 160 - Ngưỡng hoa hồng để cần tái tiêu dùng
+            RECONSUMPTION_REQUIRED: 0.0001, // TEST: giảm từ 40 - Số tiền tái tiêu dùng cần thiết
           };
 
     // Nếu đã đạt ngưỡng hoa hồng và chưa đủ tái tiêu dùng

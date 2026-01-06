@@ -23,6 +23,7 @@ let User = class User {
     walletAddress;
     chainId;
     referralUser;
+    referralUserId;
     parentId;
     position;
     packageType;
@@ -81,6 +82,10 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], User.prototype, "referralUser", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], User.prototype, "referralUserId", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)

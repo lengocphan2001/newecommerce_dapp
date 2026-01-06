@@ -55,8 +55,7 @@ export default function OrdersPage() {
       const ordersList = Array.isArray(data) ? data : (data?.data || []);
       setOrders(ordersList);
     } catch (err: any) {
-      setError(err.message || "Không thể tải danh sách đơn hàng");
-      console.error("Failed to fetch orders:", err);
+      setError(err.message || t("failedToLoadOrders"));
     } finally {
       setLoading(false);
     }
@@ -81,17 +80,17 @@ export default function OrdersPage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case "pending":
-        return "Chờ duyệt";
+        return t("orderStatusPending");
       case "confirmed":
-        return "Đã xác nhận";
+        return t("orderStatusConfirmed");
       case "processing":
-        return "Đang xử lý";
+        return t("orderStatusProcessing");
       case "shipped":
-        return "Đang vận chuyển";
+        return t("orderStatusShipped");
       case "delivered":
-        return "Đã giao";
+        return t("orderStatusDelivered");
       case "cancelled":
-        return "Đã hủy";
+        return t("orderStatusCancelled");
       default:
         return status;
     }
@@ -135,7 +134,7 @@ export default function OrdersPage() {
 
       <main className="flex-1 pb-28">
         {/* Tabs */}
-        <div className="mx-auto max-w-2xl border-b border-zinc-200 bg-white px-4">
+        <div className="mt-4 mx-auto max-w-2xl border-b border-zinc-200 bg-white px-4">
           <div className="flex gap-4">
             <button
               onClick={() => setActiveTab("all")}
@@ -145,7 +144,7 @@ export default function OrdersPage() {
                   : "border-transparent text-zinc-500"
               }`}
             >
-              Tất cả ({orders.length})
+              {t("all")} ({orders.length})
             </button>
             <button
               onClick={() => setActiveTab("pending")}
@@ -155,7 +154,7 @@ export default function OrdersPage() {
                   : "border-transparent text-zinc-500"
               }`}
             >
-              Đang xử lý ({pendingCount})
+              {t("processing")} ({pendingCount})
             </button>
             <button
               onClick={() => setActiveTab("completed")}
@@ -165,7 +164,7 @@ export default function OrdersPage() {
                   : "border-transparent text-zinc-500"
               }`}
             >
-              Đã giao ({deliveredCount})
+              {t("completed")} ({deliveredCount})
             </button>
           </div>
         </div>
@@ -175,7 +174,7 @@ export default function OrdersPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="mb-4 text-6xl">⏳</div>
-              <p className="text-zinc-500">Đang tải...</p>
+              <p className="text-zinc-500">{t("loading")}</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-12">
@@ -185,13 +184,13 @@ export default function OrdersPage() {
                 onClick={fetchOrders}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
-                Thử lại
+                {t("retry")}
               </button>
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="mb-4 text-6xl">📦</div>
-              <p className="text-zinc-500">Chưa có đơn hàng nào</p>
+              <p className="text-zinc-500">{t("noOrders")}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -205,7 +204,7 @@ export default function OrdersPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-zinc-900">
-                          Mã đơn: {order.id.slice(0, 8)}...
+                          {t("orderId")}: {order.id.slice(0, 8)}...
                         </p>
                         <p className="mt-1 text-xs text-zinc-500">
                           {formatDate(order.createdAt)}
@@ -217,7 +216,7 @@ export default function OrdersPage() {
                             rel="noopener noreferrer"
                             className="mt-1 text-xs text-blue-600 hover:underline"
                           >
-                            Xem giao dịch: {order.transactionHash.slice(0, 10)}...
+                            {t("viewTransaction")}: {order.transactionHash.slice(0, 10)}...
                           </a>
                         )}
                       </div>

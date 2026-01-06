@@ -52,6 +52,74 @@ export class UserService {
     return leftCount <= rightCount ? 'left' : 'right';
   }
 
+  /**
+   * Tìm node đầu tiên trong nhánh chỉ định còn slot trống (chưa đủ 2 con)
+   * Sử dụng BFS (Breadth First Search) để tìm slot trống từ trên xuống
+   * 
+   * @param startUserId - User ID bắt đầu tìm kiếm (referral user)
+   * @param targetPosition - Nhánh cần tìm ('left' hoặc 'right')
+   * @returns { parentId: string, position: 'left' | 'right' } - Thông tin parent và position để đặt user mới
+   */
+  async findAvailableSlotInBranch(
+    startUserId: string,
+    targetPosition: 'left' | 'right',
+  ): Promise<{ parentId: string; position: 'left' | 'right' }> {
+    // Kiểm tra node bắt đầu có slot trống ở nhánh chỉ định không
+    const directChildCount = await this.countChildren(startUserId, targetPosition);
+    
+    if (directChildCount === 0) {
+      // Node này chưa có con ở nhánh chỉ định, có thể đặt trực tiếp
+      return { parentId: startUserId, position: targetPosition };
+    }
+
+    // Node này đã có con ở nhánh chỉ định, tìm con đầu tiên trong nhánh đó
+    const directChildren = await this.userRepository.find({
+      where: { parentId: startUserId, position: targetPosition },
+      order: { createdAt: 'ASC' }, // Lấy con đầu tiên (theo thời gian đăng ký)
+    });
+
+    if (directChildren.length === 0) {
+      // Không tìm thấy con (không nên xảy ra nhưng để an toàn)
+      return { parentId: startUserId, position: targetPosition };
+    }
+
+    // Tìm node đầu tiên trong nhánh có slot trống
+    // Duyệt theo thứ tự từ trên xuống (BFS - Breadth First Search)
+    const queue: string[] = directChildren.map(child => child.id);
+    
+    while (queue.length > 0) {
+      const currentNodeId = queue.shift()!;
+      
+      // Kiểm tra node này có đủ 2 con chưa
+      const leftCount = await this.countChildren(currentNodeId, 'left');
+      const rightCount = await this.countChildren(currentNodeId, 'right');
+      
+      // Nếu chưa đủ 2 con, tìm nhánh yếu để đặt
+      if (leftCount === 0 || rightCount === 0) {
+        // Có ít nhất 1 slot trống, đặt vào nhánh yếu
+        const weakLeg = leftCount <= rightCount ? 'left' : 'right';
+        return { parentId: currentNodeId, position: weakLeg };
+      }
+      
+      // Node này đã đủ 2 con, thêm các con của nó vào queue để tiếp tục tìm
+      const children = await this.userRepository.find({
+        where: { parentId: currentNodeId },
+        order: { createdAt: 'ASC' },
+      });
+      
+      // Thêm các con vào queue theo thứ tự (left trước, right sau)
+      for (const child of children) {
+        queue.push(child.id);
+      }
+    }
+
+    // Nếu không tìm thấy slot (không nên xảy ra trong thực tế), 
+    // trả về node đầu tiên trong nhánh với nhánh yếu của nó
+    const firstChild = directChildren[0];
+    const weakLeg = await this.getWeakLeg(firstChild.id);
+    return { parentId: firstChild.id, position: weakLeg };
+  }
+
   async getDownline(userId: string, position?: 'left' | 'right') {
     const where: any = { parentId: userId };
     if (position) {

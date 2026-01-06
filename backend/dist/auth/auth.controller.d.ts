@@ -1,5 +1,5 @@
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto } from './dto';
+import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginDto } from './dto';
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
@@ -34,6 +34,7 @@ export declare class AuthController {
             walletAddress: string;
             chainId: string;
             referralUser: string;
+            referralUserId: string;
             parentId: string;
             position: "left" | "right";
             packageType: "NONE" | "CTV" | "NPP";
@@ -67,6 +68,17 @@ export declare class AuthController {
             walletAddress: string;
         } | null;
     }>;
+    walletLogin(walletLoginDto: WalletLoginDto): Promise<{
+        token: string;
+        user: {
+            id: string;
+            email: string;
+            username: string;
+            walletAddress: string;
+            chainId: string;
+            fullName: string;
+        };
+    }>;
     refresh(refreshDto: RefreshTokenDto): Promise<{
         token: string;
     }>;
@@ -96,5 +108,9 @@ export declare class AuthController {
             };
             total: number;
         };
+        accumulatedPurchases: string;
+        bonusCommission: string;
+        packageType: "NONE" | "CTV" | "NPP";
+        totalReconsumptionAmount: string;
     }>;
 }

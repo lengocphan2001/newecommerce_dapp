@@ -77,5 +77,36 @@ export class AffiliateService {
 
     return Promise.all(statsPromises);
   }
+
+  /**
+   * Lấy tất cả commissions (chỉ admin)
+   */
+  async getAllCommissions(query: any) {
+    const type = query.type as CommissionType | undefined;
+    const status = query.status as CommissionStatus | undefined;
+    const userId = query.userId as string | undefined;
+    return this.commissionService.getAllCommissions({ type, status, userId });
+  }
+
+  /**
+   * Duyệt commission (chỉ admin)
+   */
+  async approveCommission(commissionId: string, notes?: string) {
+    return this.commissionService.approveCommission(commissionId, notes);
+  }
+
+  /**
+   * Duyệt nhiều commissions (chỉ admin)
+   */
+  async approveCommissions(commissionIds: string[]) {
+    return this.commissionService.approveCommissions(commissionIds);
+  }
+
+  /**
+   * Lấy chi tiết commission (chỉ admin)
+   */
+  async getCommissionDetail(commissionId: string) {
+    return this.commissionService.getCommissionDetail(commissionId);
+  }
 }
 

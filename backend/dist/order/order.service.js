@@ -169,12 +169,12 @@ let OrderService = class OrderService {
         }
         const config = user.packageType === 'NPP'
             ? {
-                RECONSUMPTION_THRESHOLD: 1600,
-                RECONSUMPTION_REQUIRED: 400,
+                RECONSUMPTION_THRESHOLD: 0.01,
+                RECONSUMPTION_REQUIRED: 0.001,
             }
             : {
-                RECONSUMPTION_THRESHOLD: 160,
-                RECONSUMPTION_REQUIRED: 40,
+                RECONSUMPTION_THRESHOLD: 0.001,
+                RECONSUMPTION_REQUIRED: 0.0001,
             };
         if (user.totalCommissionReceived >= config.RECONSUMPTION_THRESHOLD) {
             const cycles = Math.floor(user.totalCommissionReceived / config.RECONSUMPTION_THRESHOLD);

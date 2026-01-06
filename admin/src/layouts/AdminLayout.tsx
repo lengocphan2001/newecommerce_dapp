@@ -12,6 +12,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -61,6 +62,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       key: '/affiliate',
       icon: <TeamOutlined />,
       label: 'Affiliate',
+    },
+    {
+      key: '/commissions',
+      icon: <DollarOutlined />,
+      label: 'Commissions',
     },
     {
       key: '/audit-log',

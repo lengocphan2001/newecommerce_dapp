@@ -139,6 +139,25 @@ let AuthService = class AuthService {
             } : null,
         };
     }
+    async walletLogin(walletAddress) {
+        const user = await this.userService.findByWalletAddress(walletAddress);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Wallet address not registered');
+        }
+        const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+        const token = this.jwtService.sign(payload);
+        return {
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                username: user.username,
+                walletAddress: user.walletAddress,
+                chainId: user.chainId,
+                fullName: user.fullName,
+            },
+        };
+    }
     async checkReferral(username) {
         const user = await this.userService.findByUsername(username);
         return {
@@ -161,6 +180,20 @@ let AuthService = class AuthService {
         const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
         const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
         const treeStats = await this.userService.getBinaryTreeStats(userId);
+        const formatDecimal = (value) => {
+            if (value === null || value === undefined || value === 0)
+                return '0.00';
+            if (typeof value === 'string') {
+                const [intPart, decPart] = value.split('.');
+                if (decPart) {
+                    return `${intPart}.${decPart}`;
+                }
+                return `${intPart}.00`;
+            }
+            const numStr = value.toFixed(18);
+            const [intPart, decPart] = numStr.split('.');
+            return `${intPart}.${decPart}`;
+        };
         return {
             referralCode,
             referralLink,
@@ -169,6 +202,10 @@ let AuthService = class AuthService {
             username: user.username,
             fullName: user.fullName,
             treeStats,
+            accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
+            bonusCommission: formatDecimal(user.totalCommissionReceived),
+            packageType: user.packageType,
+            totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
         };
     }
     async walletRegister(walletRegisterDto) {
@@ -186,20 +223,26 @@ let AuthService = class AuthService {
         }
         let parentId = null;
         let position = null;
+        let referralUserId = null;
         if (walletRegisterDto.referralUser) {
             const referralUser = await this.userService.findByUsername(walletRegisterDto.referralUser);
             if (!referralUser) {
                 throw new common_1.ConflictException('Referral code (username) does not exist');
             }
-            parentId = referralUser.id;
+            referralUserId = referralUser.id;
             console.log(`[Referral Debug] Received leg value:`, walletRegisterDto.leg, `Type:`, typeof walletRegisterDto.leg);
             if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {
-                position = walletRegisterDto.leg;
-                console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg by referral ${walletRegisterDto.referralUser}`);
+                const slot = await this.userService.findAvailableSlotInBranch(referralUserId, walletRegisterDto.leg);
+                parentId = slot.parentId;
+                position = slot.position;
+                console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg of parent ${slot.parentId} (requested ${walletRegisterDto.leg} branch of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId})`);
             }
             else {
-                position = await this.userService.getWeakLeg(parentId);
-                console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg (weak leg) by referral ${walletRegisterDto.referralUser}. Received leg: ${walletRegisterDto.leg || 'undefined'}`);
+                const weakLeg = await this.userService.getWeakLeg(referralUserId);
+                const slot = await this.userService.findAvailableSlotInBranch(referralUserId, weakLeg);
+                parentId = slot.parentId;
+                position = slot.position;
+                console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg of parent ${slot.parentId} (weak leg of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId}). Received leg: ${walletRegisterDto.leg || 'undefined'}`);
             }
         }
         const user = await this.userService.create({
@@ -212,6 +255,7 @@ let AuthService = class AuthService {
             email: walletRegisterDto.email,
             fullName: walletRegisterDto.fullName,
             referralUser: walletRegisterDto.referralUser,
+            referralUserId: referralUserId || null,
             parentId,
             position,
             status: 'ACTIVE',

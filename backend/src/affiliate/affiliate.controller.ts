@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Request, UseGuards, Put } from '@nestjs/common';
 import { AffiliateService } from './affiliate.service';
-import { RegisterAffiliateDto, WithdrawAffiliateDto } from './dto';
-import { JwtAuthGuard } from '../common/guards';
+import { RegisterAffiliateDto, WithdrawAffiliateDto, ApproveCommissionDto, ApproveSingleCommissionDto } from './dto';
+import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('affiliate')
 @UseGuards(JwtAuthGuard)
@@ -46,6 +46,32 @@ export class AffiliateController {
     // User chỉ có thể rút tiền của mình
     const userId = req.user.userId || req.user.sub;
     return this.affiliateService.withdraw({ ...withdrawDto, userId });
+  }
+
+  // ========== Admin endpoints ==========
+
+  @Get('admin/commissions')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getAllCommissions(@Query() query: any) {
+    return this.affiliateService.getAllCommissions(query);
+  }
+
+  @Get('admin/commissions/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getCommissionDetail(@Param('id') id: string) {
+    return this.affiliateService.getCommissionDetail(id);
+  }
+
+  @Put('admin/commissions/:id/approve')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async approveCommission(@Param('id') id: string, @Body() approveDto: ApproveSingleCommissionDto) {
+    return this.affiliateService.approveCommission(id, approveDto.notes);
+  }
+
+  @Post('admin/commissions/approve-batch')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async approveCommissions(@Body() approveDto: ApproveCommissionDto) {
+    return this.affiliateService.approveCommissions(approveDto.commissionIds);
   }
 }
 

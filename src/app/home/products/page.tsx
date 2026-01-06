@@ -35,7 +35,7 @@ export default function ProductsPage() {
       const response = await api.getProducts();
       setProducts(Array.isArray(response) ? response : response.data || []);
     } catch (err: any) {
-      setError(err.message || "Failed to load products");
+      setError(err.message || t("failedToLoadProducts"));
     } finally {
       setLoading(false);
     }
@@ -43,7 +43,7 @@ export default function ProductsPage() {
 
   const handleAddToCart = (product: Product) => {
     if (product.stock <= 0) {
-      alert("Sản phẩm đã hết hàng");
+      alert(t("productOutOfStock"));
       return;
     }
     addItem({
@@ -89,13 +89,13 @@ export default function ProductsPage() {
       <main className="flex-1 pb-28">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-zinc-500">Đang tải...</div>
+            <div className="text-zinc-500">{t("loading")}</div>
           </div>
         ) : error ? (
           <div className="px-4 py-8 text-center text-red-500">{error}</div>
         ) : filteredProducts.length === 0 ? (
           <div className="px-4 py-8 text-center text-zinc-500">
-            Không tìm thấy sản phẩm
+            {t("noProducts")}
           </div>
         ) : (
           <div className="mx-auto max-w-2xl px-4 py-4">
@@ -121,7 +121,7 @@ export default function ProductsPage() {
                     {product.stock <= 0 && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                         <span className="rounded bg-red-500 px-3 py-1 text-sm font-semibold text-white">
-                          Hết hàng
+                          {t("outOfStock")}
                         </span>
                       </div>
                     )}
@@ -145,12 +145,12 @@ export default function ProductsPage() {
                         disabled={product.stock <= 0}
                         className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:bg-zinc-300 disabled:cursor-not-allowed"
                       >
-                        Thêm
+                        {t("add")}
                       </button>
                     </div>
                     {product.stock > 0 && (
                       <p className="mt-1 text-xs text-zinc-500">
-                        Còn {product.stock} sản phẩm
+                        {t("stockAvailable").replace("{count}", product.stock.toString())}
                       </p>
                     )}
                   </div>

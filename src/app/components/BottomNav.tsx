@@ -158,7 +158,7 @@ export default function BottomNav() {
               disabled={isActive}
               className={`relative flex min-h-[60px] min-w-[60px] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 transition-all active:scale-95 ${
                 isActive
-                  ? "text-blue-600"
+                  ? "text-blue-600 md:bg-blue-50"
                   : "text-zinc-500 active:bg-zinc-100"
               }`}
               type="button"

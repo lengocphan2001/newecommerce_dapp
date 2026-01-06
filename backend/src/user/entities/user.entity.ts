@@ -42,6 +42,9 @@ export class User {
   referralUser: string; // Username of referrer (for display)
 
   @Column({ nullable: true })
+  referralUserId: string; // ID of referrer (for direct commission calculation)
+
+  @Column({ nullable: true })
   parentId: string; // ID of direct parent (for tree structure)
 
   @Column({ type: 'enum', enum: ['left', 'right'], nullable: true })

@@ -75,6 +75,21 @@ let AffiliateService = class AffiliateService {
         });
         return Promise.all(statsPromises);
     }
+    async getAllCommissions(query) {
+        const type = query.type;
+        const status = query.status;
+        const userId = query.userId;
+        return this.commissionService.getAllCommissions({ type, status, userId });
+    }
+    async approveCommission(commissionId, notes) {
+        return this.commissionService.approveCommission(commissionId, notes);
+    }
+    async approveCommissions(commissionIds) {
+        return this.commissionService.approveCommissions(commissionIds);
+    }
+    async getCommissionDetail(commissionId) {
+        return this.commissionService.getCommissionDetail(commissionId);
+    }
 };
 exports.AffiliateService = AffiliateService;
 exports.AffiliateService = AffiliateService = __decorate([

@@ -43,11 +43,48 @@ const AffiliatePage: React.FC = () => {
     }
   };
 
-  const formatPrice = (amount: number) => {
-    return amount?.toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    });
+  const formatPrice = (amount: number | string) => {
+    // Handle null/undefined/zero
+    if (amount === 0 || amount === null || amount === undefined || amount === '0') {
+      return '0.00';
+    }
+    
+    // If already a string, use it directly to preserve precision
+    let amountStr: string;
+    if (typeof amount === 'string') {
+      amountStr = amount;
+    } else {
+      // Convert number to string, but use toFixed with high precision to avoid scientific notation
+      // Use 18 decimal places (matching database precision)
+      amountStr = amount.toFixed(18);
+    }
+    
+    // Handle scientific notation (e.g., 1e-8)
+    if (amountStr.includes('e') || amountStr.includes('E')) {
+      // Convert from scientific notation to fixed decimal with full precision (18 digits)
+      const num = typeof amount === 'number' ? amount : parseFloat(amountStr);
+      amountStr = num.toFixed(18);
+    }
+    
+    // Remove trailing zeros but keep at least 2 decimal places
+    // Split into integer and decimal parts
+    let [integerPart, decimalPart = ''] = amountStr.split('.');
+    
+    // Remove trailing zeros from decimal part
+    decimalPart = decimalPart.replace(/0+$/, '');
+    
+    // If no decimal part or all zeros, use .00
+    if (!decimalPart) {
+      decimalPart = '00';
+    } else if (decimalPart.length < 2) {
+      // Ensure at least 2 decimal places for display
+      decimalPart = decimalPart.padEnd(2, '0');
+    }
+    
+    // Format integer part with thousand separators
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    return `${formattedInteger}.${decimalPart}`;
   };
 
   const getPackageTypeColor = (type: string) => {
@@ -103,16 +140,18 @@ const AffiliatePage: React.FC = () => {
       title: 'Total Purchase',
       dataIndex: 'totalPurchaseAmount',
       key: 'totalPurchaseAmount',
-      width: 120,
-      render: (amount: number) => `$${formatPrice(amount || 0)}`,
+      width: 140,
+      render: (amount: number) => (
+        <span style={{ fontWeight: 500 }}>${formatPrice(amount || 0)}</span>
+      ),
     },
     {
       title: 'Total Commission',
       dataIndex: 'totalCommissionReceived',
       key: 'totalCommissionReceived',
-      width: 140,
+      width: 160,
       render: (amount: number) => (
-        <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
+        <span style={{ fontWeight: 'bold', color: '#1890ff', fontSize: '14px' }}>
           ${formatPrice(amount || 0)}
         </span>
       ),
@@ -120,12 +159,38 @@ const AffiliatePage: React.FC = () => {
     {
       title: 'Commissions Breakdown',
       key: 'commissions',
-      width: 200,
+      width: 220,
       render: (_: any, record: Affiliate) => (
-        <div style={{ fontSize: '12px' }}>
-          <div>Direct: ${formatPrice(record.commissions?.direct || 0)}</div>
-          <div>Group: ${formatPrice(record.commissions?.group || 0)}</div>
-          <div>Management: ${formatPrice(record.commissions?.management || 0)}</div>
+        <div style={{ fontSize: '12px', lineHeight: '1.6' }}>
+          <div style={{ marginBottom: '4px' }}>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Direct:</span>{' '}
+            <span style={{ color: '#52c41a' }}>${formatPrice(record.commissions?.direct || 0)}</span>
+          </div>
+          <div style={{ marginBottom: '4px' }}>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Group:</span>{' '}
+            <span style={{ color: '#1890ff' }}>${formatPrice(record.commissions?.group || 0)}</span>
+          </div>
+          <div>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Management:</span>{' '}
+            <span style={{ color: '#722ed1' }}>${formatPrice(record.commissions?.management || 0)}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 140,
+      render: (_: any, record: Affiliate) => (
+        <div style={{ fontSize: '12px', lineHeight: '1.6' }}>
+          <div style={{ marginBottom: '4px' }}>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Pending:</span>{' '}
+            <span style={{ color: '#faad14' }}>${formatPrice(record.pending || 0)}</span>
+          </div>
+          <div>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Paid:</span>{' '}
+            <span style={{ color: '#52c41a' }}>${formatPrice(record.paid || 0)}</span>
+          </div>
         </div>
       ),
     },
@@ -133,28 +198,27 @@ const AffiliatePage: React.FC = () => {
       title: 'Reconsumption',
       dataIndex: 'totalReconsumptionAmount',
       key: 'totalReconsumptionAmount',
-      width: 120,
-      render: (amount: number) => `$${formatPrice(amount || 0)}`,
+      width: 140,
+      render: (amount: number) => (
+        <span style={{ fontWeight: 500, color: '#722ed1' }}>
+          ${formatPrice(amount || 0)}
+        </span>
+      ),
     },
     {
       title: 'Branch Totals',
       key: 'branchTotals',
-      width: 150,
+      width: 160,
       render: (_: any, record: Affiliate) => (
-        <div style={{ fontSize: '12px' }}>
-          <div>Left: ${formatPrice(record.leftBranchTotal || 0)}</div>
-          <div>Right: ${formatPrice(record.rightBranchTotal || 0)}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      width: 120,
-      render: (_: any, record: Affiliate) => (
-        <div style={{ fontSize: '12px' }}>
-          <div>Pending: ${formatPrice(record.pending || 0)}</div>
-          <div>Paid: ${formatPrice(record.paid || 0)}</div>
+        <div style={{ fontSize: '12px', lineHeight: '1.6' }}>
+          <div style={{ marginBottom: '4px' }}>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Left:</span>{' '}
+            <span style={{ color: '#1890ff' }}>${formatPrice(record.leftBranchTotal || 0)}</span>
+          </div>
+          <div>
+            <span style={{ fontWeight: 500, color: '#595959' }}>Right:</span>{' '}
+            <span style={{ color: '#52c41a' }}>${formatPrice(record.rightBranchTotal || 0)}</span>
+          </div>
         </div>
       ),
     },

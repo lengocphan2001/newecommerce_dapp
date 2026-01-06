@@ -8,6 +8,7 @@ import Orders from './pages/Orders';
 import KYC from './pages/KYC';
 import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
+import Commissions from './pages/Commissions';
 import AuditLog from './pages/AuditLog';
 import Login from './pages/Login';
 import './App.css';
@@ -98,6 +99,16 @@ function App() {
             <PrivateRoute>
               <AdminLayout>
                 <Affiliate />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/commissions"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <Commissions />
               </AdminLayout>
             </PrivateRoute>
           }
