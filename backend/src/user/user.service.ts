@@ -133,6 +133,11 @@ export class UserService {
   }
 
   async getBinaryTreeStats(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
     const leftChildren = await this.getDownline(userId, 'left');
     const rightChildren = await this.getDownline(userId, 'right');
     
@@ -140,10 +145,12 @@ export class UserService {
       left: {
         count: leftChildren.length,
         members: leftChildren,
+        volume: user.leftBranchTotal || 0,
       },
       right: {
         count: rightChildren.length,
         members: rightChildren,
+        volume: user.rightBranchTotal || 0,
       },
       total: leftChildren.length + rightChildren.length,
     };

@@ -1,6 +1,7 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { CommissionService } from '../affiliate/commission.service';
 import * as bcrypt from 'bcryptjs';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 
@@ -9,6 +10,8 @@ export class AuthService {
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
+    @Inject(forwardRef(() => CommissionService))
+    private commissionService: CommissionService,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -177,6 +180,18 @@ export class AuthService {
       return `${intPart}.${decPart}`;
     };
 
+    // Get pending commissions for recent activity
+    const pendingCommissions = await this.commissionService.getCommissions(userId, { status: 'PENDING' });
+    const recentCommissions = await this.commissionService.getCommissions(userId, {});
+    const recentActivity = recentCommissions.slice(0, 5).map((c: any) => ({
+      id: c.id,
+      type: c.type,
+      amount: formatDecimal(c.amount),
+      status: c.status,
+      createdAt: c.createdAt,
+      fromUserId: c.fromUserId,
+    }));
+
     return {
       referralCode,
       referralLink,
@@ -184,11 +199,17 @@ export class AuthService {
       rightLink,
       username: user.username,
       fullName: user.fullName,
+      walletAddress: user.walletAddress,
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
       packageType: user.packageType,
       totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
+      pendingRewards: formatDecimal(pendingCommissions.reduce((sum: number, c: any) => {
+        const amount = typeof c.amount === 'string' ? parseFloat(c.amount) : c.amount;
+        return sum + amount;
+      }, 0)),
+      recentActivity,
     };
   }
 
