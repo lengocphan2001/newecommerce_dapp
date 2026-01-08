@@ -299,32 +299,6 @@ export default function AffiliatePage() {
             <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">Referral Tools</h3>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <div className="flex flex-col gap-4">
-                {/* Personal Link */}
-                <div className="flex gap-4 items-center">
-                  <div className="bg-white p-2 rounded-lg shrink-0">
-                    <div className="w-16 h-16 bg-black flex items-center justify-center">
-                      <span className="material-symbols-outlined text-white text-2xl">qr_code</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="text-xs text-gray-600 mb-1 block">Your Personal Link</label>
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
-                      <input
-                        className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
-                        readOnly
-                        type="text"
-                        value={referralInfo.referralLink}
-                      />
-                      <button
-                        onClick={() => copyToClipboard(referralInfo.referralLink, "personal")}
-                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0"
-                      >
-                        <span className="material-symbols-outlined text-lg">content_copy</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Left Branch Link */}
                 <div className="flex gap-4 items-center">
                   <div className="bg-gray-50 p-2 rounded-lg shrink-0 border border-gray-200">

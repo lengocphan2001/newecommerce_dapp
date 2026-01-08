@@ -26,6 +26,12 @@ export default function BottomNav() {
       badge: totalItems > 0 ? totalItems : undefined,
     },
     {
+      href: "/home/orders",
+      label: t("navOrders"),
+      icon: "receipt_long",
+      activePaths: ["/home/orders"],
+    },
+    {
       href: "/home/wallets",
       label: t("navWallets"),
       icon: "account_balance_wallet",
@@ -33,7 +39,7 @@ export default function BottomNav() {
     },
     {
       href: "/home/affiliate",
-      label: "Team",
+      label: t("navAffiliate"),
       icon: "group_work",
       activePaths: ["/home/affiliate"],
     },
@@ -64,21 +70,19 @@ export default function BottomNav() {
       <div className="flex justify-between items-center max-w-md mx-auto px-4 pt-3 pb-5 safe-area-inset-bottom">
         {menuItems.map((item) => {
           const active = isActive(item);
-          
+
           return (
             <button
               key={item.href}
               onClick={() => handleNavigate(item.href)}
-              className={`flex flex-col items-center gap-1 transition-colors group relative min-w-[60px] ${
-                active
+              className={`flex flex-col items-center gap-1 transition-colors group relative min-w-[60px] ${active
                   ? "text-primary-dark"
                   : "text-gray-400 hover:text-gray-600"
-              }`}
+                }`}
               type="button"
             >
-              <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${
-                active ? "font-bold" : ""
-              }`}>
+              <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${active ? "font-bold" : ""
+                }`}>
                 {item.icon}
               </span>
               {item.badge && (
@@ -86,9 +90,8 @@ export default function BottomNav() {
                   {item.badge > 9 ? "9+" : item.badge}
                 </span>
               )}
-              <span className={`text-[10px] transition-all ${
-                active ? "font-bold text-primary-dark" : "font-medium"
-              }`}>
+              <span className={`text-[10px] transition-all ${active ? "font-bold text-primary-dark" : "font-medium"
+                }`}>
                 {item.label}
               </span>
             </button>

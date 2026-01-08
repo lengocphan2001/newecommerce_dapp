@@ -278,37 +278,6 @@ export default function WalletsPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-4 gap-3">
-          <button className="flex flex-col items-center gap-2 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-md shadow-primary/30 group-active:scale-95 transition-all">
-              <span className="material-symbols-outlined">arrow_downward</span>
-            </div>
-            <span className="text-xs font-medium text-gray-600">Deposit</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-200 shadow-sm group-active:scale-95 transition-all hover:bg-gray-50">
-              <span className="material-symbols-outlined">send</span>
-            </div>
-            <span className="text-xs font-medium text-gray-600">Send</span>
-          </button>
-          <button className="flex flex-col items-center gap-2 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-200 shadow-sm group-active:scale-95 transition-all hover:bg-gray-50">
-              <span className="material-symbols-outlined">swap_horiz</span>
-            </div>
-            <span className="text-xs font-medium text-gray-600">Swap</span>
-          </button>
-          <button
-            onClick={() => router.push('/home/orders')}
-            className="flex flex-col items-center gap-2 group"
-          >
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-200 shadow-sm group-active:scale-95 transition-all hover:bg-gray-50">
-              <span className="material-symbols-outlined">history</span>
-            </div>
-            <span className="text-xs font-medium text-gray-600">History</span>
-          </button>
-        </div>
-
         {/* Affiliate Stats */}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2 rounded-xl bg-white p-4 border border-gray-100 shadow-sm">

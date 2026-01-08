@@ -78,7 +78,41 @@ export type I18nKey =
   | "continueShopping"
   | "productOutOfStock"
   | "failedToLoadOrders"
-  | "failedToLoadProducts";
+  | "failedToLoadProducts"
+  | "addressTitle"
+  | "addNewAddress"
+  | "editAddress"
+  | "defaultAddress"
+  | "setAsDefault"
+  | "confirmDeleteAddress"
+  | "placeholderName"
+  | "placeholderPhone"
+  | "placeholderAddress"
+  | "editProfileTitle"
+  | "uploadAvatar"
+  | "saveChanges"
+  | "paymentMethod"
+  | "transactionHash"
+  | "copy"
+  | "copied"
+  | "processingTitle"
+  | "processingMessage"
+  | "confirmingTitle"
+  | "confirmingMessage"
+  | "creatingOrderTitle"
+  | "creatingOrderMessage"
+  | "paymentSuccessTitle"
+  | "paymentSuccessMessage"
+  | "paymentFailedTitle"
+  | "close"
+  | "back"
+  | "change"
+  | "addressList"
+  | "noAddresses"
+  | "confirm"
+  | "confirmAddress"
+  | "saveAddress"
+  | "update";
 
 export const DEFAULT_LANG: Lang = "vi";
 
@@ -95,15 +129,15 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     ordersTitle: "Đơn hàng của tôi",
     profileTitle: "Cá nhân",
     searchProductsPlaceholder: "Tìm kiếm sản phẩm...",
-    navHome: "Home",
-    navProducts: "Products",
-    navOrders: "Orders",
-    navProfile: "Profile",
-    navAffiliate: "Affiliate",
-    navShopping: "Shopping",
-    navWallets: "Wallets",
-    navAccount: "Account",
-    langLabel: "Language",
+    navHome: "Trang chủ",
+    navProducts: "Sản phẩm",
+    navOrders: "Đơn hàng",
+    navProfile: "Cá nhân",
+    navAffiliate: "Đội nhóm",
+    navShopping: "Mua sắm",
+    navWallets: "Ví",
+    navAccount: "Tài khoản",
+    langLabel: "Ngôn ngữ",
     affiliateLoading: "Đang tải...",
     affiliateError: "Không thể tải thông tin giới thiệu",
     affiliateNotFound: "Không tìm thấy thông tin giới thiệu",
@@ -162,6 +196,40 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productOutOfStock: "Sản phẩm đã hết hàng",
     failedToLoadOrders: "Không thể tải danh sách đơn hàng",
     failedToLoadProducts: "Không thể tải danh sách sản phẩm",
+    addressTitle: "Địa chỉ giao hàng",
+    addNewAddress: "Thêm địa chỉ mới",
+    editAddress: "Chỉnh sửa địa chỉ",
+    defaultAddress: "Mặc định",
+    setAsDefault: "Đặt làm mặc định",
+    confirmDeleteAddress: "Bạn có chắc chắn muốn xóa địa chỉ này?",
+    placeholderName: "Họ và tên",
+    placeholderPhone: "Số điện thoại",
+    placeholderAddress: "Địa chỉ chi tiết (Số nhà, đường, phường/xã...)",
+    editProfileTitle: "Chỉnh sửa hồ sơ",
+    uploadAvatar: "Tải ảnh đại diện",
+    saveChanges: "Lưu thay đổi",
+    paymentMethod: "Phương thức thanh toán",
+    transactionHash: "Mã giao dịch",
+    copy: "Sao chép",
+    copied: "Đã sao chép",
+    processingTitle: "Đang xử lý",
+    processingMessage: "Giao dịch đang được ghi nhận trên Blockchain...",
+    confirmingTitle: "Xác nhận thanh toán",
+    confirmingMessage: "Vui lòng xác nhận giao dịch trên ví của bạn",
+    creatingOrderTitle: "Đang tạo đơn hàng",
+    creatingOrderMessage: "Hệ thống đang hoàn tất đơn hàng của bạn...",
+    paymentSuccessTitle: "Thanh toán thành công!",
+    paymentSuccessMessage: "Đang chuyển hướng đến đơn hàng của bạn...",
+    paymentFailedTitle: "Thanh toán thất bại",
+    close: "Đóng",
+    back: "Quay lại",
+    change: "Thay đổi",
+    addressList: "Danh sách địa chỉ",
+    noAddresses: "Chưa có địa chỉ nào",
+    confirm: "Xác nhận",
+    confirmAddress: "Xác nhận địa chỉ này",
+    saveAddress: "Lưu địa chỉ",
+    update: "Cập nhật"
   },
   en: {
     appName: "VinMall",
@@ -179,7 +247,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     navProducts: "Products",
     navOrders: "Orders",
     navProfile: "Profile",
-    navAffiliate: "Affiliate",
+    navAffiliate: "Team",
     navShopping: "Shopping",
     navWallets: "Wallets",
     navAccount: "Account",
@@ -242,6 +310,40 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productOutOfStock: "Product is out of stock",
     failedToLoadOrders: "Failed to load orders",
     failedToLoadProducts: "Failed to load products",
+    addressTitle: "Shipping Address",
+    addNewAddress: "Add New Address",
+    editAddress: "Edit Address",
+    defaultAddress: "Default",
+    setAsDefault: "Set as Default",
+    confirmDeleteAddress: "Are you sure you want to delete this address?",
+    placeholderName: "Full Name",
+    placeholderPhone: "Phone Number",
+    placeholderAddress: "Detail Address",
+    editProfileTitle: "Edit Profile",
+    uploadAvatar: "Upload Avatar",
+    saveChanges: "Save Changes",
+    paymentMethod: "Payment Method",
+    transactionHash: "Transaction Hash",
+    copy: "Copy",
+    copied: "Copied",
+    processingTitle: "Processing",
+    processingMessage: "Transaction is being recorded on Blockchain...",
+    confirmingTitle: "Confirm Payment",
+    confirmingMessage: "Please confirm transaction in your wallet",
+    creatingOrderTitle: "Creating Order",
+    creatingOrderMessage: "System is creating your order...",
+    paymentSuccessTitle: "Payment Successful!",
+    paymentSuccessMessage: "Redirecting to your order...",
+    paymentFailedTitle: "Payment Failed",
+    close: "Close",
+    back: "Back",
+    change: "Change",
+    addressList: "Address List",
+    noAddresses: "No addresses found",
+    confirm: "Confirm",
+    confirmAddress: "Confirm this address",
+    saveAddress: "Save Address",
+    update: "Update"
   },
   ko: {
     appName: "VinMall",
@@ -259,7 +361,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     navProducts: "상품",
     navOrders: "주문",
     navProfile: "프로필",
-    navAffiliate: "제휴",
+    navAffiliate: "팀",
     navShopping: "쇼핑",
     navWallets: "지갑",
     navAccount: "계정",
@@ -322,7 +424,39 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productOutOfStock: "상품이 품절되었습니다",
     failedToLoadOrders: "주문 목록을 불러올 수 없습니다",
     failedToLoadProducts: "상품 목록을 불러올 수 없습니다",
+    addressTitle: "배송 주소",
+    addNewAddress: "새 주소 추가",
+    editAddress: "주소 수정",
+    defaultAddress: "기본",
+    setAsDefault: "기본으로 설정",
+    confirmDeleteAddress: "이 주소를 삭제하시겠습니까?",
+    placeholderName: "이름",
+    placeholderPhone: "전화번호",
+    placeholderAddress: "상세 주소",
+    editProfileTitle: "프로필 수정",
+    uploadAvatar: "아바타 업로드",
+    saveChanges: "변경 사항 저장",
+    paymentMethod: "결제 방법",
+    transactionHash: "거래 해시",
+    copy: "복사",
+    copied: "복사됨",
+    processingTitle: "처리 중",
+    processingMessage: "블록체인에 거래를 기록 중입니다...",
+    confirmingTitle: "결제 확인",
+    confirmingMessage: "지갑에서 거래를 확인해주세요",
+    creatingOrderTitle: "주문 생성 중",
+    creatingOrderMessage: "주문을 완료하는 중입니다...",
+    paymentSuccessTitle: "결제 성공!",
+    paymentSuccessMessage: "주문 페이지로 이동 중...",
+    paymentFailedTitle: "결제 실패",
+    close: "닫기",
+    back: "뒤로",
+    change: "변경",
+    addressList: "배송 주소 목록",
+    noAddresses: "주소가 없습니다",
+    confirm: "확인",
+    confirmAddress: "이 주소 사용",
+    saveAddress: "주소 저장",
+    update: "업데이트"
   },
 };
-
-
