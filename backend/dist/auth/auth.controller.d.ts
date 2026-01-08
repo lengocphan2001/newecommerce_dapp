@@ -3,6 +3,7 @@ import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginD
 export declare class AuthController {
     private readonly authService;
     constructor(authService: AuthService);
+    updateProfile(req: any, data: any): Promise<import("../user/entities/user.entity").User | null>;
     login(loginDto: LoginDto): Promise<{
         token: string;
         user: {
@@ -25,6 +26,8 @@ export declare class AuthController {
         message: string;
         user: {
             id: string;
+            avatar: string;
+            addresses: import("../user/entities/address.entity").Address[];
             email: string;
             fullName: string;
             phone: string;
@@ -97,14 +100,19 @@ export declare class AuthController {
         rightLink: string;
         username: string;
         fullName: string;
+        walletAddress: string;
+        phone: string;
+        address: string;
         treeStats: {
             left: {
                 count: number;
                 members: import("../user/entities/user.entity").User[];
+                volume: number;
             };
             right: {
                 count: number;
                 members: import("../user/entities/user.entity").User[];
+                volume: number;
             };
             total: number;
         };
@@ -112,5 +120,15 @@ export declare class AuthController {
         bonusCommission: string;
         packageType: "NONE" | "CTV" | "NPP";
         totalReconsumptionAmount: string;
+        pendingRewards: string;
+        recentActivity: {
+            id: any;
+            type: any;
+            amount: string;
+            status: any;
+            createdAt: any;
+            fromUserId: any;
+        }[];
+        avatar: string;
     }>;
 }

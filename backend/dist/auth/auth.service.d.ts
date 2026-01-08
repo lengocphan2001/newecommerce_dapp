@@ -1,10 +1,12 @@
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { CommissionService } from '../affiliate/commission.service';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 export declare class AuthService {
     private userService;
     private jwtService;
-    constructor(userService: UserService, jwtService: JwtService);
+    private commissionService;
+    constructor(userService: UserService, jwtService: JwtService, commissionService: CommissionService);
     login(loginDto: LoginDto): Promise<{
         token: string;
         user: {
@@ -27,6 +29,8 @@ export declare class AuthService {
         message: string;
         user: {
             id: string;
+            avatar: string;
+            addresses: import("../user/entities/address.entity").Address[];
             email: string;
             fullName: string;
             phone: string;
@@ -89,14 +93,19 @@ export declare class AuthService {
         rightLink: string;
         username: string;
         fullName: string;
+        walletAddress: string;
+        phone: string;
+        address: string;
         treeStats: {
             left: {
                 count: number;
                 members: import("../user/entities/user.entity").User[];
+                volume: number;
             };
             right: {
                 count: number;
                 members: import("../user/entities/user.entity").User[];
+                volume: number;
             };
             total: number;
         };
@@ -104,7 +113,18 @@ export declare class AuthService {
         bonusCommission: string;
         packageType: "NONE" | "CTV" | "NPP";
         totalReconsumptionAmount: string;
+        pendingRewards: string;
+        recentActivity: {
+            id: any;
+            type: any;
+            amount: string;
+            status: any;
+            createdAt: any;
+            fromUserId: any;
+        }[];
+        avatar: string;
     }>;
+    updateProfile(userId: string, data: any): Promise<import("../user/entities/user.entity").User | null>;
     walletRegister(walletRegisterDto: WalletRegisterDto): Promise<{
         token: string;
         user: {

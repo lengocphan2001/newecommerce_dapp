@@ -1,8 +1,10 @@
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
+import { Address } from './entities/address.entity';
 export declare class UserService {
     private userRepository;
-    constructor(userRepository: Repository<User>);
+    private addressRepository;
+    constructor(userRepository: Repository<User>, addressRepository: Repository<Address>);
     findAll(): Promise<User[]>;
     findOne(id: string): Promise<User | null>;
     findByEmail(email: string): Promise<User | null>;
@@ -20,15 +22,19 @@ export declare class UserService {
         left: {
             count: number;
             members: User[];
+            volume: number;
         };
         right: {
             count: number;
             members: User[];
+            volume: number;
         };
         total: number;
     }>;
     create(createUserDto: any): Promise<{
         id: string;
+        avatar: string;
+        addresses: Address[];
         email: string;
         fullName: string;
         phone: string;
@@ -54,4 +60,8 @@ export declare class UserService {
     }>;
     update(id: string, updateUserDto: any): Promise<User | null>;
     remove(id: string): Promise<import("typeorm").DeleteResult>;
+    getAddresses(userId: string): Promise<Address[]>;
+    addAddress(userId: string, data: any): Promise<Address[]>;
+    updateAddress(userId: string, addressId: string, data: any): Promise<Address | null>;
+    deleteAddress(userId: string, addressId: string): Promise<import("typeorm").DeleteResult>;
 }

@@ -50,11 +50,14 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("./entities/user.entity");
+const address_entity_1 = require("./entities/address.entity");
 const bcrypt = __importStar(require("bcryptjs"));
 let UserService = class UserService {
     userRepository;
-    constructor(userRepository) {
+    addressRepository;
+    constructor(userRepository, addressRepository) {
         this.userRepository = userRepository;
+        this.addressRepository = addressRepository;
     }
     async findAll() {
         return this.userRepository.find({
@@ -131,16 +134,22 @@ let UserService = class UserService {
         });
     }
     async getBinaryTreeStats(userId) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) {
+            throw new Error('User not found');
+        }
         const leftChildren = await this.getDownline(userId, 'left');
         const rightChildren = await this.getDownline(userId, 'right');
         return {
             left: {
                 count: leftChildren.length,
                 members: leftChildren,
+                volume: user.leftBranchTotal || 0,
             },
             right: {
                 count: rightChildren.length,
                 members: rightChildren,
+                volume: user.rightBranchTotal || 0,
             },
             total: leftChildren.length + rightChildren.length,
         };
@@ -168,11 +177,36 @@ let UserService = class UserService {
     async remove(id) {
         return this.userRepository.delete(id);
     }
+    async getAddresses(userId) {
+        return this.addressRepository.find({ where: { userId } });
+    }
+    async addAddress(userId, data) {
+        const address = this.addressRepository.create({ ...data, userId });
+        if (data.isDefault) {
+            await this.addressRepository.update({ userId }, { isDefault: false });
+        }
+        return this.addressRepository.save(address);
+    }
+    async updateAddress(userId, addressId, data) {
+        if (data.isDefault) {
+            await this.addressRepository.update({ userId }, { isDefault: false });
+        }
+        const updateResult = await this.addressRepository.update({ id: addressId, userId }, data);
+        if (updateResult.affected === 0) {
+            throw new common_1.NotFoundException(`Address with ID ${addressId} not found`);
+        }
+        return this.addressRepository.findOne({ where: { id: addressId } });
+    }
+    async deleteAddress(userId, addressId) {
+        return this.addressRepository.delete({ id: addressId, userId });
+    }
 };
 exports.UserService = UserService;
 exports.UserService = UserService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __param(1, (0, typeorm_1.InjectRepository)(address_entity_1.Address)),
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository])
 ], UserService);
 //# sourceMappingURL=user.service.js.map

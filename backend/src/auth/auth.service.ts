@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException, Inject, forwardRe
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
+import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import * as bcrypt from 'bcryptjs';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 
@@ -12,7 +13,7 @@ export class AuthService {
     private jwtService: JwtService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
-  ) {}
+  ) { }
 
   async login(loginDto: LoginDto) {
     const user = await this.userService.findByEmail(loginDto.email);
@@ -181,7 +182,7 @@ export class AuthService {
     };
 
     // Get pending commissions for recent activity
-    const pendingCommissions = await this.commissionService.getCommissions(userId, { status: 'PENDING' });
+    const pendingCommissions = await this.commissionService.getCommissions(userId, { status: CommissionStatus.PENDING });
     const recentCommissions = await this.commissionService.getCommissions(userId, {});
     const recentActivity = recentCommissions.slice(0, 5).map((c: any) => ({
       id: c.id,
@@ -200,6 +201,8 @@ export class AuthService {
       username: user.username,
       fullName: user.fullName,
       walletAddress: user.walletAddress,
+      phone: user.phone,
+      address: user.address,
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
@@ -210,7 +213,23 @@ export class AuthService {
         return sum + amount;
       }, 0)),
       recentActivity,
+      avatar: user.avatar,
     };
+  }
+
+  async updateProfile(userId: string, data: any) {
+    // Whitelist fields allow to update
+    const allowed = ['fullName', 'email', 'phone', 'avatar'];
+    const updateData: any = {};
+
+    for (const key of allowed) {
+      if (data[key] !== undefined) updateData[key] = data[key];
+    }
+
+    // Handle phoneNumber vs phone
+    if (data.phoneNumber) updateData.phone = data.phoneNumber;
+
+    return this.userService.update(userId, updateData);
   }
 
   async walletRegister(walletRegisterDto: WalletRegisterDto) {
@@ -244,13 +263,13 @@ export class AuthService {
       if (!referralUser) {
         throw new ConflictException('Referral code (username) does not exist');
       }
-      
+
       referralUserId = referralUser.id; // Lưu ID của người giới thiệu ban đầu
-      
+
       // Debug: Log received leg value (already transformed by DTO)
       // eslint-disable-next-line no-console
       console.log(`[Referral Debug] Received leg value:`, walletRegisterDto.leg, `Type:`, typeof walletRegisterDto.leg);
-      
+
       // Check if leg is specified in DTO (from URL parameter ?leg=left or ?leg=right)
       // Value is already normalized by @Transform decorator in DTO
       if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {

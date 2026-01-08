@@ -7,6 +7,8 @@ export declare class UserController {
     findOne(id: string): Promise<import("./entities/user.entity").User | null>;
     create(createUserDto: CreateUserDto): Promise<{
         id: string;
+        avatar: string;
+        addresses: import("./entities/address.entity").Address[];
         email: string;
         fullName: string;
         phone: string;

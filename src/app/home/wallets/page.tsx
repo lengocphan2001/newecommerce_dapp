@@ -40,10 +40,22 @@ export default function WalletsPage() {
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [usdtBalance, setUsdtBalance] = useState<string>("0");
   const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
+  const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
     fetchWalletData();
+    fetchOrders();
   }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const data = await api.getOrders();
+      const ordersList = Array.isArray(data) ? data : (data?.data || []);
+      setOrders(ordersList);
+    } catch (err) {
+      // User might not be logged in
+    }
+  };
 
   const loadUsdtBep20Balance = async (address: string) => {
     setIsLoadingUSDT(true);
@@ -166,27 +178,51 @@ export default function WalletsPage() {
     },
   ];
 
-  // Recent transactions (mock data for now, can be fetched from API)
-  const transactions: Transaction[] = [
-    ...(referralInfo?.recentActivity?.slice(0, 3).map((activity: any) => ({
+  // Recent transactions - combine commissions and orders
+  const allTransactions: Transaction[] = [
+    // Commissions
+    ...(referralInfo?.recentActivity?.map((activity: any) => ({
       id: activity.id,
       type: 'commission' as const,
       title: activity.type === 'DIRECT' ? 'Direct Commission' : activity.type === 'GROUP' ? 'Group Commission' : 'Management Commission',
       amount: parseFloat(activity.amount),
       status: activity.status === 'PENDING' ? 'Pending' : 'Completed',
       date: new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      createdAt: activity.createdAt, // Keep original for sorting
       icon: 'call_received',
       iconColor: 'text-[#13ec5b]',
     })) || []),
+    // Orders
+    ...(orders.map((order: any) => ({
+      id: order.id,
+      type: 'order' as const,
+      title: 'Order Purchase',
+      amount: -order.totalAmount, // Negative for purchases
+      status: order.status === 'delivered' ? 'Completed' : 'Pending',
+      date: new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      createdAt: order.createdAt, // Keep original for sorting
+      icon: 'shopping_cart',
+      iconColor: 'text-blue-600',
+    })) || []),
   ];
+  
+  // Sort by createdAt descending and take top 5
+  const transactions: Transaction[] = allTransactions
+    .sort((a: any, b: any) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    })
+    .slice(0, 5)
+    .map(({ createdAt, ...rest }: any) => rest); // Remove createdAt before displaying
 
   if (loading) {
     return (
-      <div className="flex flex-col bg-[#f6f8f6] dark:bg-[#102216] min-h-screen">
-        <AppHeader titleKey="navWallets" theme="dark" />
-        <main className="flex-1 pb-28">
+      <div className="flex flex-col bg-background-gray">
+        <AppHeader titleKey="navWallets" />
+        <main className="flex-1 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="px-4 py-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">Loading...</p>
+            <p className="text-gray-500">Loading...</p>
           </div>
         </main>
       </div>
@@ -194,31 +230,28 @@ export default function WalletsPage() {
   }
 
   return (
-    <div className="flex flex-col bg-[#f6f8f6] dark:bg-[#102216] min-h-screen overflow-x-hidden">
+    <div className="flex flex-col bg-background-gray min-h-screen overflow-x-hidden">
       {/* Top App Bar */}
       <AppHeader 
         titleKey="navWallets" 
-        theme="dark" 
         showMenu={true} 
         showQRScanner={true}
         centerTitle={true}
         showActions={false}
       />
 
-      <main className="flex-1 flex flex-col gap-6 p-4">
+      <main className="flex-1 flex flex-col gap-6 p-4 bg-white">
         {/* Main Balance Card */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#193322] to-[#23482f] p-6 shadow-xl border border-[#23482f]">
-          {/* Decorative Glow */}
-          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#13ec5b]/20 blur-3xl"></div>
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-gray-100">
           <div className="relative z-10 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1 backdrop-blur-sm">
-                <span className="h-2 w-2 rounded-full bg-[#13ec5b] animate-pulse"></span>
-                <span className="text-xs font-medium text-[#92c9a4]">Connected to SafePal</span>
+              <div className="flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1">
+                <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+                <span className="text-xs font-medium text-primary-dark">Connected to SafePal</span>
               </div>
               <button
                 onClick={() => setBalanceVisible(!balanceVisible)}
-                className="text-[#92c9a4] hover:text-white transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <span className="material-symbols-outlined text-[20px]">
                   {balanceVisible ? 'visibility' : 'visibility_off'}
@@ -226,18 +259,18 @@ export default function WalletsPage() {
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-[#92c9a4]">Total Net Worth</p>
-              <h2 className="text-4xl font-bold tracking-tight text-white">
+              <p className="text-sm font-medium text-gray-600">Total Net Worth</p>
+              <h2 className="text-4xl font-bold tracking-tight text-text-dark">
                 {balanceVisible ? `$${formatUSDT(totalNetWorth)}` : '••••••'}
               </h2>
               <div
                 onClick={copyAddress}
                 className="flex items-center gap-2 mt-1 cursor-pointer group"
               >
-                <p className="text-sm font-mono text-[#92c9a4] group-hover:text-[#13ec5b] transition-colors">
+                <p className="text-sm font-mono text-gray-500 group-hover:text-primary-dark transition-colors">
                   {shortAddress(walletAddress)}
                 </p>
-                <span className="material-symbols-outlined text-[16px] text-[#92c9a4] group-hover:text-[#13ec5b] transition-colors">
+                <span className="material-symbols-outlined text-[16px] text-gray-400 group-hover:text-primary-dark transition-colors">
                   content_copy
                 </span>
               </div>
@@ -248,51 +281,51 @@ export default function WalletsPage() {
         {/* Action Buttons */}
         <div className="grid grid-cols-4 gap-3">
           <button className="flex flex-col items-center gap-2 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#13ec5b] text-[#102216] shadow-lg shadow-[#13ec5b]/20 group-active:scale-95 transition-all">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-md shadow-primary/30 group-active:scale-95 transition-all">
               <span className="material-symbols-outlined">arrow_downward</span>
             </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-[#92c9a4]">Deposit</span>
+            <span className="text-xs font-medium text-gray-600">Deposit</span>
           </button>
           <button className="flex flex-col items-center gap-2 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#23482f] text-white border border-[#193322] shadow-md group-active:scale-95 transition-all">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-200 shadow-sm group-active:scale-95 transition-all hover:bg-gray-50">
               <span className="material-symbols-outlined">send</span>
             </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-[#92c9a4]">Send</span>
+            <span className="text-xs font-medium text-gray-600">Send</span>
           </button>
           <button className="flex flex-col items-center gap-2 group">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#23482f] text-white border border-[#193322] shadow-md group-active:scale-95 transition-all">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-200 shadow-sm group-active:scale-95 transition-all hover:bg-gray-50">
               <span className="material-symbols-outlined">swap_horiz</span>
             </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-[#92c9a4]">Swap</span>
+            <span className="text-xs font-medium text-gray-600">Swap</span>
           </button>
           <button
             onClick={() => router.push('/home/orders')}
             className="flex flex-col items-center gap-2 group"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#23482f] text-white border border-[#193322] shadow-md group-active:scale-95 transition-all">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-600 border border-gray-200 shadow-sm group-active:scale-95 transition-all hover:bg-gray-50">
               <span className="material-symbols-outlined">history</span>
             </div>
-            <span className="text-xs font-medium text-gray-600 dark:text-[#92c9a4]">History</span>
+            <span className="text-xs font-medium text-gray-600">History</span>
           </button>
         </div>
 
         {/* Affiliate Stats */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-2 rounded-xl bg-[#193322] p-4 border border-[#23482f]">
+          <div className="flex flex-col gap-2 rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#13ec5b] text-[20px]">shopping_cart</span>
-              <p className="text-xs font-medium text-[#92c9a4]">Shopping</p>
+              <span className="material-symbols-outlined text-primary-dark text-[20px]">shopping_cart</span>
+              <p className="text-xs font-medium text-gray-600">Shopping</p>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xl font-bold text-text-dark">
               ${formatUSDT(shoppingBalance)}
             </p>
           </div>
-          <div className="flex flex-col gap-2 rounded-xl bg-[#193322] p-4 border border-[#23482f]">
+          <div className="flex flex-col gap-2 rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-yellow-400 text-[20px]">group_work</span>
-              <p className="text-xs font-medium text-[#92c9a4]">Affiliate</p>
+              <span className="material-symbols-outlined text-yellow-500 text-[20px]">group_work</span>
+              <p className="text-xs font-medium text-gray-600">Affiliate</p>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-xl font-bold text-text-dark">
               ${formatUSDT(affiliateBalance)}
             </p>
           </div>
@@ -300,12 +333,12 @@ export default function WalletsPage() {
 
         {/* Assets List */}
         <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-bold px-1 text-gray-900 dark:text-white">Assets</h3>
+          <h3 className="text-lg font-bold px-1 text-text-dark">Assets</h3>
           <div className="flex flex-col gap-3">
             {assets.map((asset, index) => (
               <div
                 key={asset.symbol}
-                className="flex items-center justify-between rounded-xl bg-[#193322] p-4 border border-transparent hover:border-[#23482f] transition-colors cursor-pointer"
+                className="flex items-center justify-between rounded-xl bg-white p-4 border border-gray-100 shadow-sm hover:border-gray-200 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <div className={`relative h-10 w-10 rounded-full ${asset.color} flex items-center justify-center text-white font-bold text-lg`}>
@@ -315,21 +348,21 @@ export default function WalletsPage() {
                       asset.symbol[0]
                     )}
                     {index === 0 && (
-                      <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-white border-2 border-[#193322]"></div>
+                      <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-white border-2 border-white"></div>
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <p className="text-base font-semibold text-white">{asset.name}</p>
-                    <p className="text-xs text-[#92c9a4]">{asset.symbol}</p>
+                    <p className="text-base font-semibold text-text-dark">{asset.name}</p>
+                    <p className="text-xs text-gray-500">{asset.symbol}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <p className="text-base font-bold text-white">
+                  <p className="text-base font-bold text-text-dark">
                     {balanceVisible 
                       ? formatUSDT(asset.balance)
                       : '••••'}
                   </p>
-                  <p className="text-xs text-[#92c9a4]">
+                  <p className="text-xs text-gray-500">
                     {balanceVisible ? `≈ $${formatUSDT(asset.usdValue)}` : '••••'}
                   </p>
                 </div>
@@ -341,40 +374,40 @@ export default function WalletsPage() {
         {/* Recent Transactions */}
         <div className="flex flex-col gap-4 pb-20">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Activity</h3>
-            <button className="text-sm font-medium text-[#13ec5b] hover:text-[#0ea641]">
+            <h3 className="text-lg font-bold text-text-dark">Recent Activity</h3>
+            <button className="text-sm font-medium text-primary-dark hover:text-primary">
               See All
             </button>
           </div>
-          <div className="flex flex-col divide-y divide-[#23482f] rounded-xl bg-[#193322]">
+          <div className="flex flex-col divide-y divide-gray-200 rounded-xl bg-white border border-gray-100 shadow-sm">
             {transactions.length > 0 ? (
               transactions.map((tx, index) => (
                 <div
                   key={tx.id}
-                  className={`flex items-center justify-between p-4 hover:bg-[#23482f]/50 transition-colors cursor-pointer ${
+                  className={`flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
                     index === 0 ? 'rounded-t-xl' : index === transactions.length - 1 ? 'rounded-b-xl' : ''
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-[#23482f] ${tx.iconColor}`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 ${tx.iconColor}`}>
                       <span className="material-symbols-outlined">{tx.icon}</span>
                     </div>
                     <div className="flex flex-col">
-                      <p className="text-sm font-semibold text-white">{tx.title}</p>
-                      <p className="text-xs text-[#92c9a4]">{tx.date}</p>
+                      <p className="text-sm font-semibold text-text-dark">{tx.title}</p>
+                      <p className="text-xs text-gray-500">{tx.date}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-[#13ec5b]' : 'text-white'}`}>
+                    <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-primary-dark' : 'text-text-dark'}`}>
                       {tx.type === 'commission' || tx.type === 'deposit' ? '+' : '-'} ${formatUSDT(Math.abs(tx.amount))}
                     </p>
-                    <p className="text-xs text-[#92c9a4]">{tx.status}</p>
+                    <p className="text-xs text-gray-500">{tx.status}</p>
                   </div>
                 </div>
               ))
             ) : (
               <div className="flex items-center justify-center p-6">
-                <p className="text-sm text-[#92c9a4]">No recent transactions</p>
+                <p className="text-sm text-gray-500">No recent transactions</p>
               </div>
             )}
           </div>

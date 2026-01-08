@@ -2,76 +2,104 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import LanguageSelect from "@/app/components/LanguageSelect";
-import HeaderActions from "@/app/components/HeaderActions";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 
-export default function AppHeader({
-  titleKey = "homeTitle",
-  right,
-  theme = "light",
-  showActions = true,
-  showMenu = false,
-  showQRScanner = false,
-  centerTitle = false,
-}: {
+interface AppHeaderProps {
   titleKey?: "homeTitle" | "appName" | "productsTitle" | "ordersTitle" | "profileTitle" | "navAffiliate" | "navShopping" | "navWallets" | "navAccount";
+  title?: string;
   right?: React.ReactNode;
-  theme?: "light" | "dark";
+  showBack?: boolean;
   showActions?: boolean;
   showMenu?: boolean;
   showQRScanner?: boolean;
   centerTitle?: boolean;
-}) {
+  onBack?: () => void;
+}
+
+export default function AppHeader({
+  titleKey,
+  title,
+  right,
+  showBack = false,
+  showActions = true,
+  showMenu = false,
+  showQRScanner = false,
+  centerTitle = false,
+  onBack,
+}: AppHeaderProps) {
   const { t } = useI18n();
   const router = useRouter();
   const { totalItems } = useShoppingCart();
 
-  const isDark = theme === "dark";
+  const displayTitle = title || (titleKey ? t(titleKey) : "");
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      router.back();
+    }
+  };
 
   return (
-    <header className={`sticky top-0 z-50 ${isDark ? "bg-[#102216]/95 dark:bg-[#102216]/95 backdrop-blur-md border-b border-gray-200 dark:border-[#23482f]" : "bg-[#f6f8f6]/95 backdrop-blur-md border-b border-gray-200"}`}>
-      <div className="flex items-center p-4 justify-between">
-        <div className="flex items-center gap-3 flex-1">
-          {showMenu && (
-            <button className="flex size-10 items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-[#193322] transition-colors">
-              <span className="material-symbols-outlined text-gray-700 dark:text-white">menu</span>
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 max-w-md mx-auto">
+        {/* Left Section */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {showBack && (
+            <button 
+              onClick={handleBack}
+              className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700 shrink-0"
+            >
+              <span className="material-symbols-outlined text-xl">arrow_back_ios_new</span>
             </button>
           )}
-          {!centerTitle && (
-            <h1 className={`text-lg font-bold leading-tight tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}>
-              {t(titleKey)}
+          {showMenu && (
+            <button className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700 shrink-0">
+              <span className="material-symbols-outlined text-xl">menu</span>
+            </button>
+          )}
+          {!centerTitle && displayTitle && (
+            <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate">
+              {displayTitle}
             </h1>
           )}
         </div>
-        {centerTitle && (
-          <h1 className={`text-lg font-bold leading-tight tracking-tight flex-1 text-center ${isDark ? "text-white" : "text-gray-900"}`}>
-            {t(titleKey)}
+
+        {/* Center Title */}
+        {centerTitle && displayTitle && (
+          <h1 className="text-lg font-bold tracking-tight text-slate-900 flex-1 text-center px-4">
+            {displayTitle}
           </h1>
         )}
-        <div className="flex items-center gap-2 flex-1 justify-end">
+
+        {/* Right Section */}
+        <div className="flex items-center gap-2 shrink-0">
           {showQRScanner && (
-            <button className="flex size-10 items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-[#193322] transition-colors">
-              <span className="material-symbols-outlined text-gray-700 dark:text-white">qr_code_scanner</span>
+            <button 
+              onClick={() => router.push("/home/qr-scanner")}
+              className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700"
+            >
+              <span className="material-symbols-outlined text-xl">qr_code_scanner</span>
             </button>
           )}
           {showActions && (
             <div className="relative">
               <button
                 onClick={() => router.push("/home/cart")}
-                className="flex items-center justify-center p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors bg-white border border-gray-200 shadow-sm"
               >
-                <span className="material-symbols-outlined text-gray-800 dark:text-white">shopping_cart</span>
+                <span className="material-symbols-outlined text-slate-700 text-xl">shopping_cart</span>
               </button>
               {totalItems > 0 && (
-                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#13ec5b] text-[10px] font-bold text-[#102216]">
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white ring-2 ring-white">
                   {totalItems}
                 </span>
               )}
             </div>
           )}
-          {right || <LanguageSelect />}
+          {right}
         </div>
       </div>
     </header>

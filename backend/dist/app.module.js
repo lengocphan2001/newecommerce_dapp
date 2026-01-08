@@ -23,6 +23,7 @@ const admin_module_1 = require("./admin/admin.module");
 const audit_log_module_1 = require("./audit-log/audit-log.module");
 const common_module_1 = require("./common/common.module");
 const user_entity_1 = require("./user/entities/user.entity");
+const address_entity_1 = require("./user/entities/address.entity");
 const product_entity_1 = require("./product/entities/product.entity");
 const order_entity_1 = require("./order/entities/order.entity");
 const commission_entity_1 = require("./affiliate/entities/commission.entity");
@@ -49,7 +50,7 @@ exports.AppModule = AppModule = __decorate([
                     password: configService.get('DB_PASSWORD') ||
                         ((configService.get('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
                     database: configService.get('DB_NAME') || 'ecommerce_dapp',
-                    entities: [user_entity_1.User, product_entity_1.Product, order_entity_1.Order, commission_entity_1.Commission],
+                    entities: [user_entity_1.User, address_entity_1.Address, product_entity_1.Product, order_entity_1.Order, commission_entity_1.Commission],
                     synchronize: configService.get('NODE_ENV') !== 'production',
                     logging: configService.get('NODE_ENV') === 'development',
                 }),

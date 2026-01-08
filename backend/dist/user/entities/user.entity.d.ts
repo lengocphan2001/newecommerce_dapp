@@ -1,5 +1,8 @@
+import { Address } from './address.entity';
 export declare class User {
     id: string;
+    avatar: string;
+    addresses: Address[];
     email: string;
     password: string;
     fullName: string;

@@ -10,7 +10,7 @@ export default function AccountPage() {
   return (
     <div className="flex flex-col bg-zinc-50">
       <AppHeader titleKey="navAccount" />
-      <main className="flex-1 pb-28">
+      <main className="flex-1 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="mx-auto max-w-2xl px-4 py-8">
           <button
             onClick={() => router.push("/home/profile")}

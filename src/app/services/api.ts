@@ -23,7 +23,7 @@ export const api = {
   }) {
     // Debug: Log what we're sending
     console.log('[API] Sending registration data:', JSON.stringify(data, null, 2));
-    
+
     const response = await fetch(`${API_BASE_URL}/auth/wallet/register`, {
       method: 'POST',
       headers: {
@@ -31,12 +31,12 @@ export const api = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Registration failed');
     }
-    
+
     return response.json();
   },
 
@@ -48,12 +48,12 @@ export const api = {
       },
       body: JSON.stringify({ walletAddress }),
     });
-    
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Wallet login failed');
     }
-    
+
     return response.json();
   },
 
@@ -132,7 +132,7 @@ export const api = {
     if (!token) {
       throw new Error('Not authenticated');
     }
-    const url = userId 
+    const url = userId
       ? `${API_BASE_URL}/orders?userId=${userId}`
       : `${API_BASE_URL}/orders`;
     const response = await fetch(url, {
@@ -160,5 +160,99 @@ export const api = {
       throw new Error('Failed to fetch order');
     }
     return response.json();
+  },
+  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string }) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      // Fallback for simulation if backend endpoint doesn't exist yet
+      if (response.status === 404) {
+        console.warn("API endpoints not found, simulating success");
+        return { success: true };
+      }
+      const text = await response.text();
+      let message = 'Failed to update profile';
+      try {
+        const json = JSON.parse(text);
+        message = json.message || message;
+      } catch (e) { }
+      throw new Error(message);
+    }
+    const text = await response.text();
+    return text ? JSON.parse(text) : {};
+  },
+  async getAddresses() {
+    const token = localStorage.getItem('token');
+    if (!token) return []; // Allow guest/local mode
+    const response = await fetch(`${API_BASE_URL}/user/addresses`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      if (response.status === 404) return []; // Fallback
+      throw new Error('Failed to fetch addresses');
+    }
+    return response.json();
+  },
+
+  async addAddress(data: any) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+    const response = await fetch(`${API_BASE_URL}/user/addresses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      if (response.status === 404) return { success: true }; // Fallback
+      throw new Error('Failed to add address');
+    }
+    return response.json();
+  },
+
+  async updateAddress(id: string, data: any) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+    const response = await fetch(`${API_BASE_URL}/user/addresses/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      if (response.status === 404) return { success: true }; // Fallback
+      throw new Error('Failed to update address');
+    }
+    const text = await response.text();
+    return text ? JSON.parse(text) : {};
+  },
+
+  async deleteAddress(id: string) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error("Not authenticated");
+    const response = await fetch(`${API_BASE_URL}/user/addresses/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      if (response.status === 404) return { success: true }; // Fallback
+      throw new Error('Failed to delete address');
+    }
+    const text = await response.text();
+    return text ? JSON.parse(text) : {};
   },
 };

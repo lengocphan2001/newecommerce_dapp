@@ -41,18 +41,25 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const user_service_1 = require("../user/user.service");
+const commission_service_1 = require("../affiliate/commission.service");
+const commission_entity_1 = require("../affiliate/entities/commission.entity");
 const bcrypt = __importStar(require("bcryptjs"));
 let AuthService = class AuthService {
     userService;
     jwtService;
-    constructor(userService, jwtService) {
+    commissionService;
+    constructor(userService, jwtService, commissionService) {
         this.userService = userService;
         this.jwtService = jwtService;
+        this.commissionService = commissionService;
     }
     async login(loginDto) {
         const user = await this.userService.findByEmail(loginDto.email);
@@ -194,6 +201,16 @@ let AuthService = class AuthService {
             const [intPart, decPart] = numStr.split('.');
             return `${intPart}.${decPart}`;
         };
+        const pendingCommissions = await this.commissionService.getCommissions(userId, { status: commission_entity_1.CommissionStatus.PENDING });
+        const recentCommissions = await this.commissionService.getCommissions(userId, {});
+        const recentActivity = recentCommissions.slice(0, 5).map((c) => ({
+            id: c.id,
+            type: c.type,
+            amount: formatDecimal(c.amount),
+            status: c.status,
+            createdAt: c.createdAt,
+            fromUserId: c.fromUserId,
+        }));
         return {
             referralCode,
             referralLink,
@@ -201,12 +218,32 @@ let AuthService = class AuthService {
             rightLink,
             username: user.username,
             fullName: user.fullName,
+            walletAddress: user.walletAddress,
+            phone: user.phone,
+            address: user.address,
             treeStats,
             accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
             bonusCommission: formatDecimal(user.totalCommissionReceived),
             packageType: user.packageType,
             totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
+            pendingRewards: formatDecimal(pendingCommissions.reduce((sum, c) => {
+                const amount = typeof c.amount === 'string' ? parseFloat(c.amount) : c.amount;
+                return sum + amount;
+            }, 0)),
+            recentActivity,
+            avatar: user.avatar,
         };
+    }
+    async updateProfile(userId, data) {
+        const allowed = ['fullName', 'email', 'phone', 'avatar'];
+        const updateData = {};
+        for (const key of allowed) {
+            if (data[key] !== undefined)
+                updateData[key] = data[key];
+        }
+        if (data.phoneNumber)
+            updateData.phone = data.phoneNumber;
+        return this.userService.update(userId, updateData);
     }
     async walletRegister(walletRegisterDto) {
         const existingWalletUser = await this.userService.findByWalletAddress(walletRegisterDto.walletAddress);
@@ -277,7 +314,9 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
+    __param(2, (0, common_1.Inject)((0, common_1.forwardRef)(() => commission_service_1.CommissionService))),
     __metadata("design:paramtypes", [user_service_1.UserService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        commission_service_1.CommissionService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

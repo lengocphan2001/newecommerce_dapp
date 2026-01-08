@@ -4,12 +4,22 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { Address } from './address.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+
+
+  @Column({ type: 'text', nullable: true })
+  avatar: string;
+
+  @OneToMany(() => Address, (address) => address.user)
+  addresses: Address[];
 
   @Column({ unique: true })
   email: string;

@@ -9,92 +9,88 @@ export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
+  const { totalItems } = useShoppingCart();
 
   const menuItems = [
     {
       href: "/home",
       label: t("navHome"),
-      icon: "storefront",
+      icon: "home",
+      activePaths: ["/home"],
+    },
+    {
+      href: "/home/cart",
+      label: t("navShopping"),
+      icon: "shopping_bag",
+      activePaths: ["/home/cart", "/home/checkout", "/home/shopping"],
+      badge: totalItems > 0 ? totalItems : undefined,
     },
     {
       href: "/home/wallets",
       label: t("navWallets"),
       icon: "account_balance_wallet",
+      activePaths: ["/home/wallets"],
     },
     {
       href: "/home/affiliate",
       label: "Team",
-      icon: "group",
+      icon: "group_work",
+      activePaths: ["/home/affiliate"],
     },
     {
-      href: "/home/account",
+      href: "/home/profile",
       label: t("navAccount"),
       icon: "person",
+      activePaths: ["/home/profile", "/home/account"],
     },
   ];
 
   const handleNavigate = (href: string) => {
-    // Prevent navigation if already on that page
     if (pathname === href) return;
-    
-    // Use Next.js router to preserve state and avoid full page reload
     router.push(href);
   };
 
-  const { totalItems } = useShoppingCart();
+  const isActive = (item: typeof menuItems[0]) => {
+    return item.activePaths.some((path) => {
+      if (pathname === path) return true;
+      // Special case: /home should not match sub-paths like /home/cart
+      if (path === "/home" && pathname !== "/home") return false;
+      return pathname.startsWith(path + "/");
+    });
+  };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 dark:border-[#23482f] bg-[#f6f8f6]/95 dark:bg-[#102216]/95 backdrop-blur-md pb-safe">
-      <div className="flex justify-around items-center h-16 px-2 max-w-md mx-auto">
-        {menuItems.map((item, index) => {
-          // Shopping should be active for /home/shopping, /home/cart, and /home/checkout
-          let isActive = pathname === item.href || (item.href === "/home" && pathname === "/home");
-          if (item.href === "/home/shopping") {
-            isActive = pathname === "/home/shopping" || pathname === "/home/cart" || pathname === "/home/checkout";
-          }
-          
-          // QR Scanner button ở giữa (index 1 - wallet)
-          if (index === 1) {
-            return (
-              <div key={item.href} className="relative -top-6">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleNavigate(item.href);
-                  }}
-                  className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg shadow-[#13ec5b]/30 transform transition-transform hover:scale-105 active:scale-95 ${
-                    isActive
-                      ? "bg-[#13ec5b] text-[#102216]"
-                      : "bg-[#193322] text-white border border-[#23482f]"
-                  }`}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[28px]">qr_code_scanner</span>
-                </button>
-              </div>
-            );
-          }
+    <nav className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-lg border-t border-gray-200 z-[70] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+      <div className="flex justify-between items-center max-w-md mx-auto px-4 pt-3 pb-5 safe-area-inset-bottom">
+        {menuItems.map((item) => {
+          const active = isActive(item);
           
           return (
             <button
               key={item.href}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleNavigate(item.href);
-              }}
-              className={`flex flex-col items-center gap-1 p-2 transition-colors ${
-                isActive
-                  ? "text-[#13ec5b] dark:text-[#13ec5b]"
-                  : "text-gray-400 dark:text-gray-500 hover:text-[#13ec5b] dark:hover:text-[#13ec5b]"
+              onClick={() => handleNavigate(item.href)}
+              className={`flex flex-col items-center gap-1 transition-colors group relative min-w-[60px] ${
+                active
+                  ? "text-primary-dark"
+                  : "text-gray-400 hover:text-gray-600"
               }`}
               type="button"
             >
-              <span className={`material-symbols-outlined ${isActive ? "fill-1" : ""}`}>
+              <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${
+                active ? "font-bold" : ""
+              }`}>
                 {item.icon}
               </span>
-              <span className="text-[10px] font-medium">{item.label}</span>
+              {item.badge && (
+                <span className="absolute top-0 right-1/2 translate-x-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white">
+                  {item.badge > 9 ? "9+" : item.badge}
+                </span>
+              )}
+              <span className={`text-[10px] transition-all ${
+                active ? "font-bold text-primary-dark" : "font-medium"
+              }`}>
+                {item.label}
+              </span>
             </button>
           );
         })}

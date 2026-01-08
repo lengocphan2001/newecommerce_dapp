@@ -16,14 +16,10 @@ export default function WalletStatusChip({
     : "Not Connected";
 
   return (
-    <div className="px-4 py-2">
-      <div className="inline-flex items-center gap-x-2 rounded-full bg-[#23482f]/50 border border-[#13ec5b]/20 pl-2 pr-4 py-1">
-        <span className="material-symbols-outlined text-[#13ec5b] text-sm">
-          account_balance_wallet
-        </span>
-        <p className="text-[#13ec5b] text-xs font-medium">
-          {walletName}: {shortAddress} {walletAddress ? "Connected" : ""}
-        </p>
+    <div className="bg-white px-4 py-3 border-b border-gray-100">
+      <div className="inline-flex items-center gap-x-2 rounded-full bg-green-50 border border-green-200 pl-2 pr-4 py-1.5 shadow-sm">
+        <span className="material-symbols-outlined text-primary-dark text-sm">account_balance_wallet</span>
+        <p className="text-primary-dark text-xs font-semibold">{walletName}: {shortAddress} {walletAddress ? "Connected" : ""}</p>
       </div>
     </div>
   );

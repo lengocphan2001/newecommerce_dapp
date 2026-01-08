@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
+import { Address } from './entities/address.entity';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -9,7 +10,9 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+    @InjectRepository(Address)
+    private addressRepository: Repository<Address>,
+  ) { }
 
   async findAll() {
     return this.userRepository.find({
@@ -46,7 +49,7 @@ export class UserService {
   async getWeakLeg(parentId: string): Promise<'left' | 'right'> {
     const leftCount = await this.countChildren(parentId, 'left');
     const rightCount = await this.countChildren(parentId, 'right');
-    
+
     // Return the leg with fewer children (weak leg)
     // If equal, default to left
     return leftCount <= rightCount ? 'left' : 'right';
@@ -66,7 +69,7 @@ export class UserService {
   ): Promise<{ parentId: string; position: 'left' | 'right' }> {
     // Kiểm tra node bắt đầu có slot trống ở nhánh chỉ định không
     const directChildCount = await this.countChildren(startUserId, targetPosition);
-    
+
     if (directChildCount === 0) {
       // Node này chưa có con ở nhánh chỉ định, có thể đặt trực tiếp
       return { parentId: startUserId, position: targetPosition };
@@ -86,27 +89,27 @@ export class UserService {
     // Tìm node đầu tiên trong nhánh có slot trống
     // Duyệt theo thứ tự từ trên xuống (BFS - Breadth First Search)
     const queue: string[] = directChildren.map(child => child.id);
-    
+
     while (queue.length > 0) {
       const currentNodeId = queue.shift()!;
-      
+
       // Kiểm tra node này có đủ 2 con chưa
       const leftCount = await this.countChildren(currentNodeId, 'left');
       const rightCount = await this.countChildren(currentNodeId, 'right');
-      
+
       // Nếu chưa đủ 2 con, tìm nhánh yếu để đặt
       if (leftCount === 0 || rightCount === 0) {
         // Có ít nhất 1 slot trống, đặt vào nhánh yếu
         const weakLeg = leftCount <= rightCount ? 'left' : 'right';
         return { parentId: currentNodeId, position: weakLeg };
       }
-      
+
       // Node này đã đủ 2 con, thêm các con của nó vào queue để tiếp tục tìm
       const children = await this.userRepository.find({
         where: { parentId: currentNodeId },
         order: { createdAt: 'ASC' },
       });
-      
+
       // Thêm các con vào queue theo thứ tự (left trước, right sau)
       for (const child of children) {
         queue.push(child.id);
@@ -137,10 +140,10 @@ export class UserService {
     if (!user) {
       throw new Error('User not found');
     }
-    
+
     const leftChildren = await this.getDownline(userId, 'left');
     const rightChildren = await this.getDownline(userId, 'right');
-    
+
     return {
       left: {
         count: leftChildren.length,
@@ -165,7 +168,7 @@ export class UserService {
       // Generate a random password for wallet users (they won't use it)
       userData.password = await bcrypt.hash(Math.random().toString(36), 10);
     }
-    
+
     const user = this.userRepository.create(userData);
     const savedUser = await this.userRepository.save(user);
     // Remove password from response
@@ -183,5 +186,34 @@ export class UserService {
 
   async remove(id: string) {
     return this.userRepository.delete(id);
+  }
+
+  // Address Methods
+  async getAddresses(userId: string) {
+    return this.addressRepository.find({ where: { userId } });
+  }
+
+  async addAddress(userId: string, data: any) {
+    const address = this.addressRepository.create({ ...data, userId });
+    // If default, unset others first? Or handle in frontend? Ideally backend constraint.
+    if (data.isDefault) {
+      await this.addressRepository.update({ userId }, { isDefault: false });
+    }
+    return this.addressRepository.save(address);
+  }
+
+  async updateAddress(userId: string, addressId: string, data: any) {
+    if (data.isDefault) {
+      await this.addressRepository.update({ userId }, { isDefault: false });
+    }
+    const updateResult = await this.addressRepository.update({ id: addressId, userId }, data);
+    if (updateResult.affected === 0) {
+      throw new NotFoundException(`Address with ID ${addressId} not found`);
+    }
+    return this.addressRepository.findOne({ where: { id: addressId } });
+  }
+
+  async deleteAddress(userId: string, addressId: string) {
+    return this.addressRepository.delete({ id: addressId, userId });
   }
 }
