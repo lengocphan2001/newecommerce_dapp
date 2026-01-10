@@ -44,7 +44,9 @@ export class UploadController {
   )
   uploadImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     if (!file) throw new BadRequestException('File is required');
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Check for HTTPS via X-Forwarded-Proto header (set by reverse proxy) or req.secure
+    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const baseUrl = `${protocol}://${req.get('host')}`;
     return { url: `${baseUrl}/files/${file.filename}` };
   }
 
@@ -68,7 +70,9 @@ export class UploadController {
   )
   uploadImages(@UploadedFiles() files: Express.Multer.File[], @Req() req: any) {
     if (!files?.length) throw new BadRequestException('Files are required');
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Check for HTTPS via X-Forwarded-Proto header (set by reverse proxy) or req.secure
+    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const baseUrl = `${protocol}://${req.get('host')}`;
     return { urls: files.map((f) => `${baseUrl}/files/${f.filename}`) };
   }
 
@@ -93,7 +97,9 @@ export class UploadController {
   )
   uploadAvatar(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     if (!file) throw new BadRequestException('File is required');
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Check for HTTPS via X-Forwarded-Proto header (set by reverse proxy) or req.secure
+    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const baseUrl = `${protocol}://${req.get('host')}`;
     return { url: `${baseUrl}/files/${file.filename}` };
   }
 }

@@ -15,6 +15,7 @@ import {
   commissionConfigService,
   CommissionConfig,
   UpdateCommissionConfigDto,
+  CreateCommissionConfigDto,
 } from '../services/commissionConfigService';
 
 const { Title, Text } = Typography;
@@ -46,6 +47,9 @@ const CommissionConfigPage: React.FC = () => {
           reconsumptionThreshold: ctv.reconsumptionThreshold,
           reconsumptionRequired: ctv.reconsumptionRequired,
         });
+      } else {
+        // Config doesn't exist, set to null so form shows default values
+        setCtvConfig(null);
       }
 
       if (npp) {
@@ -60,6 +64,9 @@ const CommissionConfigPage: React.FC = () => {
           reconsumptionThreshold: npp.reconsumptionThreshold,
           reconsumptionRequired: npp.reconsumptionRequired,
         });
+      } else {
+        // Config doesn't exist, set to null so form shows default values
+        setNppConfig(null);
       }
     } catch (error: any) {
       message.error('Failed to load configs: ' + (error.message || 'Unknown error'));
@@ -73,11 +80,6 @@ const CommissionConfigPage: React.FC = () => {
   }, [loadConfigs]);
 
   const handleCtvSubmit = async (values: any) => {
-    if (!ctvConfig) {
-      message.error('CTV config not found');
-      return;
-    }
-
     try {
       setLoading(true);
       const updateData: UpdateCommissionConfigDto = {
@@ -91,22 +93,28 @@ const CommissionConfigPage: React.FC = () => {
         reconsumptionRequired: values.reconsumptionRequired,
       };
 
-      await commissionConfigService.update(ctvConfig.id, updateData);
-      message.success('CTV config updated successfully');
+      if (ctvConfig) {
+        // Update existing config
+        await commissionConfigService.update(ctvConfig.id, updateData);
+        message.success('CTV config updated successfully');
+      } else {
+        // Create new config if it doesn't exist
+        const createData: CreateCommissionConfigDto = {
+          packageType: 'CTV',
+          ...updateData,
+        };
+        await commissionConfigService.create(createData);
+        message.success('CTV config created successfully');
+      }
       await loadConfigs();
     } catch (error: any) {
-      message.error('Failed to update CTV config: ' + (error.message || 'Unknown error'));
+      message.error('Failed to save CTV config: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleNppSubmit = async (values: any) => {
-    if (!nppConfig) {
-      message.error('NPP config not found');
-      return;
-    }
-
     try {
       setLoading(true);
       const updateData: UpdateCommissionConfigDto = {
@@ -120,11 +128,22 @@ const CommissionConfigPage: React.FC = () => {
         reconsumptionRequired: values.reconsumptionRequired,
       };
 
-      await commissionConfigService.update(nppConfig.id, updateData);
-      message.success('NPP config updated successfully');
+      if (nppConfig) {
+        // Update existing config
+        await commissionConfigService.update(nppConfig.id, updateData);
+        message.success('NPP config updated successfully');
+      } else {
+        // Create new config if it doesn't exist
+        const createData: CreateCommissionConfigDto = {
+          packageType: 'NPP',
+          ...updateData,
+        };
+        await commissionConfigService.create(createData);
+        message.success('NPP config created successfully');
+      }
       await loadConfigs();
     } catch (error: any) {
-      message.error('Failed to update NPP config: ' + (error.message || 'Unknown error'));
+      message.error('Failed to save NPP config: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }

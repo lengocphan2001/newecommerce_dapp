@@ -45,7 +45,10 @@ export class CommissionConfigController {
 
   @Post()
   async create(@Body() createDto: CreateCommissionConfigDto) {
-    return this.configService.create(createDto);
+    const result = await this.configService.create(createDto);
+    // Clear cache in CommissionService when config is created
+    this.commissionService.clearConfigCache();
+    return result;
   }
 
   @Put(':id')

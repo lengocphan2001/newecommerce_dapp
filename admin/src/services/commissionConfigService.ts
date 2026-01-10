@@ -15,6 +15,18 @@ export interface CommissionConfig {
   updatedAt: string;
 }
 
+export interface CreateCommissionConfigDto {
+  packageType: 'CTV' | 'NPP';
+  directRate?: number;
+  groupRate?: number;
+  managementRateF1?: number;
+  managementRateF2?: number | null;
+  managementRateF3?: number | null;
+  packageValue?: number;
+  reconsumptionThreshold?: number;
+  reconsumptionRequired?: number;
+}
+
 export interface UpdateCommissionConfigDto {
   directRate?: number;
   groupRate?: number;
@@ -52,6 +64,11 @@ export const commissionConfigService = {
     data: UpdateCommissionConfigDto,
   ): Promise<CommissionConfig> {
     const response = await api.put(`/admin/commission-config/package/${packageType}`, data);
+    return response.data;
+  },
+
+  async create(data: CreateCommissionConfigDto): Promise<CommissionConfig> {
+    const response = await api.post('/admin/commission-config', data);
     return response.data;
   },
 };

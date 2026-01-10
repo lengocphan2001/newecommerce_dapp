@@ -11,6 +11,9 @@ import * as express from 'express';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Trust proxy headers (for HTTPS detection behind reverse proxy)
+  app.set('trust proxy', true);
+
   // Increase body size limit for JSON (to handle base64 avatar uploads)
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));

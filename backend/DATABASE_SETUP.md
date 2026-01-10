@@ -112,6 +112,7 @@ Bạn sẽ thấy thông báo như:
 4. `orders` - Đơn hàng
 5. `commissions` - Hoa hồng
 6. `audit_logs` - Nhật ký audit
+7. `commission_config` - Cấu hình hoa hồng (CTV/NPP)
 
 ## Lưu ý quan trọng
 
