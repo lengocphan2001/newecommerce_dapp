@@ -45,7 +45,9 @@ import { UploadModule } from './upload/upload.module';
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
         entities: [User, Address, Product, Order, Commission, AuditLog],
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
+        synchronize: 
+          configService.get<string>('FORCE_SYNC') === 'true' || 
+          configService.get<string>('NODE_ENV') !== 'production',
         logging: configService.get<string>('NODE_ENV') === 'development',
       }),
       inject: [ConfigService],
