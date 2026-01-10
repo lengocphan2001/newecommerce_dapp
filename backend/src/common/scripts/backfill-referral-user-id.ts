@@ -35,7 +35,6 @@ async function backfillReferralUserId() {
 
   try {
     await dataSource.initialize();
-    console.log('✅ Database connected');
 
     const userRepository = dataSource.getRepository(User);
 
@@ -46,7 +45,6 @@ async function backfillReferralUserId() {
       .andWhere('(user.referralUserId IS NULL OR user.referralUserId = "")')
       .getMany();
 
-    console.log(`📊 Found ${usersToUpdate.length} users to update`);
 
     let updatedCount = 0;
     let skippedCount = 0;
@@ -70,27 +68,16 @@ async function backfillReferralUserId() {
             referralUserId: referralUser.id,
           });
           updatedCount++;
-          console.log(
-            `✅ Updated user ${user.username}: referralUserId = ${referralUser.id} (from referralUser: ${user.referralUser})`,
-          );
         } else {
-          console.warn(
-            `⚠️  Referral user not found for ${user.username}: referralUser = ${user.referralUser}`,
-          );
+          // Skipped user - referral user not found
           skippedCount++;
         }
       }
     }
 
-    console.log('\n📈 Summary:');
-    console.log(`   ✅ Updated: ${updatedCount} users`);
-    console.log(`   ⏭️  Skipped: ${skippedCount} users`);
-    console.log(`   📊 Total processed: ${usersToUpdate.length} users`);
 
     await dataSource.destroy();
-    console.log('\n✅ Script completed successfully');
   } catch (error) {
-    console.error('❌ Error:', error);
     await dataSource.destroy();
     process.exit(1);
   }

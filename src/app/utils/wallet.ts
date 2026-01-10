@@ -39,7 +39,6 @@ export async function getUSDTBalance(
     // Get USDT contract address for the current chain
     const usdtAddress = USDT_CONTRACTS[chainId.toLowerCase()];
     if (!usdtAddress) {
-      console.warn(`USDT not supported on chain ${chainId}`);
       return null;
     }
 
@@ -81,7 +80,6 @@ export async function getUSDTBalance(
     const balance = BigInt(balanceHex);
     return { balance: balance.toString(), decimals };
   } catch (error) {
-    console.error("Error fetching USDT balance:", error);
     return null;
   }
 }

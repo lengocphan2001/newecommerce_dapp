@@ -33,13 +33,22 @@ api.interceptors.response.use(
     // Normalize response shape:
     // - If backend returns { data: ... } (e.g. via a transform interceptor), unwrap it
     // - Else keep original payload
-    response.data = response.data?.data ?? response.data;
+    // - Handle null/empty responses
+    if (response.data === null || response.data === undefined) {
+      response.data = {};
+    } else {
+      response.data = response.data?.data ?? response.data;
+    }
     return response;
   },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
+    }
+    // Handle JSON parse errors
+    if (error.message?.includes('JSON') || error.message?.includes('null')) {
+      return Promise.reject(new Error('Invalid response from server'));
     }
     return Promise.reject(error);
   }

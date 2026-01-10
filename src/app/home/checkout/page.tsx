@@ -7,6 +7,7 @@ import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import TransactionProcessingModal, { ProcessingStep } from "@/app/components/TransactionProcessingModal";
 import { api } from "@/app/services/api";
 import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, parseUnits, getAddress } from "ethers";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955"; // USDT BEP20 on BSC
 const BSC_RPC = "https://bsc-dataseed.binance.org/";
@@ -25,9 +26,50 @@ const ERC20_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
 ] as const;
 
+// Helper function to poll transaction receipt
+async function pollTransactionReceipt(txHash: string, timeout: number = 120000): Promise<any> {
+  const provider = new JsonRpcProvider(BSC_RPC);
+  const startTime = Date.now();
+  let lastError: any = null;
+  
+  while (Date.now() - startTime < timeout) {
+    try {
+      const receipt = await provider.getTransactionReceipt(txHash);
+      if (receipt) {
+        // Transaction found
+        if (receipt.status === 1) {
+          return receipt;
+        }
+        if (receipt.status === 0) {
+          throw new Error("Transaction failed on blockchain");
+        }
+      }
+      // Receipt is null - transaction not yet mined, continue polling
+      lastError = null;
+    } catch (error: any) {
+      // If it's a transaction failure, throw immediately
+      if (error.message && error.message.includes("failed")) {
+        throw error;
+      }
+      // Store error but continue polling (might be network issue)
+      lastError = error;
+    }
+    
+    // Wait 3 seconds before next poll (slightly longer to avoid rate limiting)
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+  
+  // If we have a last error, throw it, otherwise timeout
+  if (lastError) {
+    throw new Error(`Transaction polling failed: ${lastError.message}`);
+  }
+  throw new Error("Transaction confirmation timeout - transaction may still be pending");
+}
+
 export default function CheckoutPage() {
   const { items, totalAmount, clearCart } = useShoppingCart();
   const router = useRouter();
+  const { t } = useI18n();
   const [processingStep, setProcessingStep] = useState<ProcessingStep>("idle");
   const [error, setError] = useState("");
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -60,7 +102,6 @@ export default function CheckoutPage() {
                     phone: info.phone || info.phoneNumber || "+84 912 345 678"
                 };
             } catch(e) {
-                console.warn("API load failed", e);
                 // Basic fallback
                 userBase = { fullName: "Nguyễn Văn A", phone: "+84 912 345 678" };
             }
@@ -88,7 +129,7 @@ export default function CheckoutPage() {
              setShippingAddress(localAddr || "");
         }
     } catch (err) {
-      console.error(err);
+      // Error handled in UI
     }
   };
 
@@ -113,7 +154,6 @@ export default function CheckoutPage() {
         // ignore
       }
     } catch (error) {
-      console.error("Error loading USDT balance:", error);
       setUsdtBalance("0");
     }
   };
@@ -168,7 +208,6 @@ export default function CheckoutPage() {
         }
       }
     } catch (err: any) {
-      console.error("Error loading wallet info:", err);
       // Try localStorage as fallback
       try {
         const storedAddr = localStorage.getItem("walletAddress");
@@ -310,11 +349,9 @@ export default function CheckoutPage() {
             decimals = Number(await readContract.decimals());
             localStorage.setItem("usdtBep20Decimals", String(decimals));
           } catch (e) {
-            console.warn("Could not get decimals from contract, using default 18");
           }
         }
       } catch (e) {
-        console.warn("Error getting decimals, using default 18", e);
       }
 
       const usdtContract = new Contract(USDT_BSC, ERC20_ABI, signer);
@@ -323,14 +360,49 @@ export default function CheckoutPage() {
 
       // 1. Send Transaction
       const transferTx = await usdtContract.transfer(recipientAddress, amount);
+      const transactionHash = transferTx.hash;
+      const txStartTime = Date.now();
       
-      // 2. Wait for confirmation
+      // 2. Wait for confirmation - try wait() first with only 1 confirmation for speed
       setProcessingStep("processing");
-      const receipt = await transferTx.wait();
-      const transactionHash = receipt.hash;
+      
+      let receipt;
+      try {
+        // Try wait() with only 1 confirmation (faster) and reasonable timeout
+        const waitStartTime = Date.now();
+        // Wait for only 1 confirmation to speed up (BSC is fast, 1 confirmation is usually enough)
+        const waitPromise = transferTx.wait(1); // Only wait for 1 confirmation
+        const waitTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Wait timeout")), 30000) // 30 seconds should be enough for BSC
+        );
+        
+        receipt = await Promise.race([waitPromise, waitTimeout]) as any;
+        const waitDuration = Date.now() - waitStartTime;
+      } catch (waitError: any) {
+        // Wait() timed out or failed, use polling as fallback
+        const pollStartTime = Date.now();
+        receipt = await pollTransactionReceipt(transactionHash, 60000); // Reduced to 60s
+        const pollDuration = Date.now() - pollStartTime;
+      }
+      
+      const totalTxTime = Date.now() - txStartTime;
+      
+      if (!receipt || !receipt.hash) {
+        throw new Error("Không thể xác nhận giao dịch");
+      }
+      
+      // Verify transaction status
+      const status = receipt.status;
+      const isSuccess = status === 1 || status === "0x1" || status === true;
+      if (!isSuccess) {
+        throw new Error("Giao dịch thất bại trên blockchain");
+      }
+      
 
       // 3. Create Order
+      const orderStartTime = Date.now();
       setProcessingStep("creating_order");
+      
       const token = localStorage.getItem("token");
       if (!token) {
         throw new Error("Vui lòng đăng nhập");
@@ -345,6 +417,8 @@ export default function CheckoutPage() {
         shippingAddress
       );
 
+      const orderDuration = Date.now() - orderStartTime;
+
       // 4. Success
       setProcessingStep("success");
       clearCart();
@@ -352,10 +426,9 @@ export default function CheckoutPage() {
       // Wait a bit before redirecting so user sees the success message
       setTimeout(() => {
          router.push(`/home/orders?success=true&orderId=${orderData.id}`);
-      }, 2000);
+      }, 1500); // Reduced from 2000ms to 1500ms
 
     } catch (err: any) {
-      console.error(err);
       
       // Check for user rejection
       if (err.code === "ACTION_REJECTED" || err.code === 4001 || err?.info?.error?.code === 4001 || (err.message && err.message.includes("rejected"))) {
@@ -370,8 +443,8 @@ export default function CheckoutPage() {
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 5,
+      maximumFractionDigits: 18,
     }).format(price);
   };
 
@@ -403,7 +476,7 @@ export default function CheckoutPage() {
         >
           <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
         </button>
-        <h1 className="text-lg font-bold text-text-main tracking-tight">Thanh toán</h1>
+        <h1 className="text-lg font-bold text-text-main tracking-tight">{t("checkout")}</h1>
         <div className="size-10"></div>
       </div>
 
@@ -413,7 +486,7 @@ export default function CheckoutPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <span className="flex items-center justify-center size-6 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm ring-2 ring-blue-100">1</span>
-            <h2 className="text-base font-bold text-slate-700">Thông tin giao hàng</h2>
+            <h2 className="text-base font-bold text-slate-700">{t("shippingInfo")}</h2>
           </div>
           <div className="bg-white p-4 rounded-2xl shadow-card border border-blue-100 group transition-all hover:border-blue-600/30">
             <div className="flex gap-4">
@@ -429,7 +502,7 @@ export default function CheckoutPage() {
                     onClick={() => router.push("/home/profile/address")}
                     className="text-xs font-semibold text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition"
                   >
-                    Thay đổi
+                    {t("change")}
                   </button>
                 </div>
                 <p className="text-sm text-text-sub font-medium flex items-center gap-1">
@@ -448,7 +521,7 @@ export default function CheckoutPage() {
         <section className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <span className="flex items-center justify-center size-6 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm ring-2 ring-blue-100">2</span>
-            <h2 className="text-base font-bold text-slate-700">Phương thức thanh toán</h2>
+            <h2 className="text-base font-bold text-slate-700">{t("paymentMethod")}</h2>
           </div>
           <div className="bg-white p-4 rounded-2xl shadow-card border border-blue-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -461,7 +534,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-800">Ví SafePal</p>
+                <p className="text-sm font-bold text-slate-800">{t("paymentMethodSafePal")}</p>
                 <p className="text-xs text-text-sub font-medium font-mono bg-slate-100 px-1 rounded inline-block mt-0.5">
                   {shortAddress(walletAddress)}
                 </p>
@@ -470,19 +543,19 @@ export default function CheckoutPage() {
             {walletAddress ? (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100">
                 <div className="size-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                Đã kết nối
+                {t("connected")}
               </div>
             ) : (
               <button
                 onClick={connectWallet}
                 className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition"
               >
-                Kết nối
+                {t("connect")}
               </button>
             )}
           </div>
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-text-sub px-1 uppercase tracking-wider">Tài sản thanh toán</p>
+            <p className="text-xs font-semibold text-text-sub px-1 uppercase tracking-wider">{t("paymentAsset")}</p>
             <div className="flex items-center p-3.5 rounded-xl border-2 border-blue-600 bg-blue-50">
               <div className="size-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100">
                 <span className="material-symbols-outlined text-[22px]">attach_money</span>
@@ -505,11 +578,11 @@ export default function CheckoutPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <span className="flex items-center justify-center size-6 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm ring-2 ring-blue-100">3</span>
-            <h2 className="text-base font-bold text-slate-700">Chi tiết thanh toán</h2>
+            <h2 className="text-base font-bold text-slate-700">{t("paymentDetails")}</h2>
           </div>
           <div className="bg-white p-5 rounded-2xl shadow-card border border-blue-100 space-y-3.5">
             <div className="flex justify-between text-sm items-center">
-              <span className="text-text-sub font-medium">Tiền hàng</span>
+              <span className="text-text-sub font-medium">{t("productPrice")}</span>
               <span className="font-bold text-slate-900">{formatPrice(totalAmount)} USDT</span>
             </div>
             {/* Shipping fee removed as requested */}
@@ -523,23 +596,23 @@ export default function CheckoutPage() {
 
       {/* Footer */}
       <div className="bg-white border-t border-blue-100 shadow-[0_-8px_30px_rgba(37,99,235,0.06)] p-4 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
-        <div className="max-w-lg mx-auto flex gap-4 items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-xs text-text-sub font-medium mb-0.5">Tổng thanh toán</span>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
-              <span className="text-sm font-bold text-slate-500">USDT</span>
+          <div className="max-w-lg mx-auto flex gap-4 items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-xs text-text-sub font-medium mb-0.5">{t("totalPayment")}</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
+                <span className="text-sm font-bold text-slate-500">USDT</span>
+              </div>
             </div>
+            <button 
+              onClick={handlePayment}
+              disabled={processingStep !== "idle" || !walletAddress || parseFloat(usdtBalance || "0") < finalTotal}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>{processingStep !== "idle" ? t("processingPayment") : t("confirmPurchase")}</span>
+              {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
+            </button>
           </div>
-          <button 
-            onClick={handlePayment}
-            disabled={processingStep !== "idle" || !walletAddress || parseFloat(usdtBalance || "0") < finalTotal}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span>{processingStep !== "idle" ? "Đang xử lý..." : "Xác nhận mua hàng"}</span>
-            {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
-          </button>
-        </div>
       </div>
 
       {/* Error Message */}

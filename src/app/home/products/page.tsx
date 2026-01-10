@@ -41,9 +41,16 @@ export default function ProductsPage() {
     }
   };
 
-  const handleAddToCart = (product: Product) => {
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(price);
+  };
+
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+    e.stopPropagation();
     if (product.stock <= 0) {
-      alert(t("productOutOfStock"));
       return;
     }
     addItem({
@@ -54,102 +61,124 @@ export default function ProductsPage() {
     });
   };
 
+  const handleProductClick = (productId: string) => {
+    router.push(`/home/products/${productId}`);
+  };
+
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="flex flex-col bg-zinc-50">
+    <div className="flex flex-col bg-background-gray">
       <AppHeader titleKey="productsTitle" />
-      <div className="mx-auto max-w-2xl px-4 pb-3">
-        <div className="relative">
+      
+      {/* Search Bar */}
+      <div className="px-4 py-4 bg-white shadow-sm mb-2">
+        <div className="relative flex w-full items-center">
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <span className="material-symbols-outlined text-gray-400">search</span>
+          </div>
           <input
-            type="text"
+            className="block w-full p-3.5 pl-10 text-sm text-gray-900 border border-gray-200 rounded-xl bg-gray-50 focus:ring-primary focus:border-primary placeholder:text-gray-400 shadow-inner"
             placeholder={t("searchProductsPlaceholder")}
+            type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 pl-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
-          <svg
-            className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
         </div>
       </div>
 
-      <main className="flex-1 pb-28">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-zinc-500">{t("loading")}</div>
+          <div className="px-4 pt-4 pb-8 bg-white">
+            <div className="grid grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 animate-pulse"
+                >
+                  <div className="relative aspect-square w-full bg-gray-50"></div>
+                  <div className="p-3 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : error ? (
-          <div className="px-4 py-8 text-center text-red-500">{error}</div>
+          <div className="px-4 py-8 text-center text-red-500 bg-white">{error}</div>
         ) : filteredProducts.length === 0 ? (
-          <div className="px-4 py-8 text-center text-zinc-500">
+          <div className="px-4 py-12 text-center text-gray-500 bg-white">
             {t("noProducts")}
           </div>
         ) : (
-          <div className="mx-auto max-w-2xl px-4 py-4">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="px-4 pt-4 pb-8 bg-white">
+            <div className="grid grid-cols-2 gap-4">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="group cursor-pointer overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md"
-                  onClick={() => router.push(`/home/products/${product.id}`)}
+                  onClick={() => handleProductClick(product.id)}
+                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 hover:border-primary/30 transition-all hover:shadow-lg"
                 >
-                  <div className="relative aspect-square bg-zinc-100">
+                  <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
                     {product.thumbnailUrl ? (
                       <img
+                        className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                         src={product.thumbnailUrl}
                         alt={product.name}
-                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-4xl">
+                      <div className="flex h-full w-full items-center justify-center text-4xl">
                         📦
                       </div>
                     )}
+                    <button className="absolute top-2 right-2 bg-white/80 hover:bg-white backdrop-blur-md p-1.5 rounded-full text-gray-400 hover:text-red-500 transition-colors shadow-sm">
+                      <span className="material-symbols-outlined text-[18px]">favorite</span>
+                    </button>
                     {product.stock <= 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <span className="rounded bg-red-500 px-3 py-1 text-sm font-semibold text-white">
-                          {t("outOfStock")}
-                        </span>
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-sm">
+                        {t("sale")}
                       </div>
                     )}
                   </div>
                   <div className="p-3">
-                    <h4 className="line-clamp-2 text-sm font-medium text-zinc-900">
-                      {product.name}
-                    </h4>
-                    <div className="mt-2 flex items-center justify-between">
-                      <p className="text-base font-bold text-blue-600">
-                        ${product.price.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 6,
-                        })}
-                      </p>
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="text-sm font-bold text-gray-900 line-clamp-2 min-h-[2.5em]">
+                        {product.name}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-1 mb-3">
+                      {product.stock > 0 ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">
+                          {t("binaryXP")}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] py-0.5 opacity-0">Spacer</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-lg font-bold text-primary-dark">
+                          {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">USDT</span>
+                        </p>
+                      </div>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToCart(product);
-                        }}
+                        onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:bg-zinc-300 disabled:cursor-not-allowed"
+                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${
+                          product.stock > 0
+                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30"
+                            : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
+                        }`}
                       >
-                        {t("add")}
+                        <span className="material-symbols-outlined text-[20px]">add</span>
                       </button>
                     </div>
                     {product.stock > 0 && (
-                      <p className="mt-1 text-xs text-zinc-500">
+                      <p className="mt-1 text-xs text-gray-500">
                         {t("stockAvailable").replace("{count}", product.stock.toString())}
                       </p>
                     )}
@@ -159,7 +188,7 @@ export default function ProductsPage() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

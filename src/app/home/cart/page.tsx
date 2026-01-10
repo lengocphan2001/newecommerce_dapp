@@ -33,9 +33,9 @@ export default function CartPage() {
   };
 
   const getRankName = (packageType?: string) => {
-    if (packageType === 'NPP') return 'Vàng';
-    if (packageType === 'CTV') return 'Bạc';
-    return 'Đồng';
+    if (packageType === 'NPP') return 'NPP';
+    if (packageType === 'CTV') return 'CTV';
+    return 'NONE';
   };
 
   // Final total
@@ -90,15 +90,15 @@ export default function CartPage() {
           >
             <span className="material-symbols-outlined text-2xl">arrow_back</span>
           </button>
-          <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-2 text-slate-900">
-            Giỏ hàng ({totalItems})
-          </h2>
-          <div className="flex items-center justify-end">
+            <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-2 text-slate-900">
+              {t("cartTitle")} ({totalItems})
+            </h2>
+            <div className="flex items-center justify-end">
             <button 
               onClick={clearCart}
               className="text-red-500 text-sm font-bold leading-normal tracking-[0.015em] shrink-0 hover:bg-red-50 px-2 py-1 rounded transition-colors"
             >
-              Xóa hết
+              {t("clearAll")}
             </button>
           </div>
         </div>
@@ -115,17 +115,17 @@ export default function CartPage() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">🎉</span>
-                    <p className="text-slate-800 font-bold text-base leading-tight">Hoàn tiền 2% + 0.5 Token</p>
+                    <p className="text-slate-800 font-bold text-base leading-tight">{t("cashback2Percent")}</p>
                   </div>
                   <p className="text-slate-500 text-xs font-medium leading-normal">
-                    Cấp độ liên kết: <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType)}</span>
+                    {t("affiliateLevel")} <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType)}</span>
                   </p>
                 </div>
                 <a 
                   onClick={() => router.push("/home/affiliate")}
                   className="inline-flex items-center gap-1 text-sm font-bold text-primary-content hover:text-primary transition-colors cursor-pointer"
                 >
-                  Chi tiết
+                  {t("details")}
                   <span className="material-symbols-outlined text-lg">chevron_right</span>
                 </a>
               </div>
@@ -157,7 +157,7 @@ export default function CartPage() {
                   <div className="flex justify-between items-start gap-2">
                     <div>
                       <h3 className="text-base font-bold text-slate-900 leading-tight line-clamp-2">{item.productName}</h3>
-                      <p className="text-slate-500 text-xs mt-1 font-medium">Đơn vị: 1kg</p>
+                      <p className="text-slate-500 text-xs mt-1 font-medium">{t("unit")}</p>
                     </div>
                     <button 
                       onClick={() => removeItem(item.productId)}
@@ -198,27 +198,11 @@ export default function CartPage() {
           ))}
         </div>
 
-        {/* Promo Code Input */}
-        <div className="px-4 mb-4">
-          <div className="flex gap-2 items-center bg-white p-2 rounded-lg border border-gray-200 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-shadow">
-            <span className="material-symbols-outlined text-slate-400 pl-2">confirmation_number</span>
-            <input 
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm placeholder-slate-400 text-slate-900" 
-              placeholder="Nhập mã giảm giá" 
-              type="text"
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-            />
-            <button className="text-primary-content font-bold text-sm px-4 py-1.5 bg-green-50 hover:bg-green-100 transition-colors rounded">
-              Áp dụng
-            </button>
-          </div>
-        </div>
 
         {/* Price Summary */}
         <div className="px-4 py-4 bg-white border-t border-gray-100">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-slate-500">Tạm tính</span>
+            <span className="text-slate-500">{t("subtotal")}</span>
             <span className="font-semibold text-slate-900">{formatPrice(totalAmount)} USDT</span>
           </div>
         </div>
@@ -226,26 +210,26 @@ export default function CartPage() {
 
       {/* Footer - Checkout Button */}
       <footer className="fixed bottom-0 w-full max-w-md bg-white backdrop-blur-xl border-t border-gray-100 pt-4 px-4 z-[60] shadow-float" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px) + 80px)' }}>
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-end">
-            <div className="flex flex-col">
-              <span className="text-xs text-slate-500 font-medium mb-1">Tổng thanh toán</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
-                <span className="text-base font-bold text-emerald-600">USDT</span>
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-end">
+              <div className="flex flex-col">
+                <span className="text-xs text-slate-500 font-medium mb-1">{t("totalPayment")}</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
+                  <span className="text-base font-bold text-emerald-600">USDT</span>
+                </div>
               </div>
             </div>
-          </div>
           <button 
             onClick={() => router.push("/home/checkout")}
             className="group w-full bg-primary hover:bg-[#0fd650] active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(19,236,91,0.25)] hover:shadow-[0_12px_24px_rgba(19,236,91,0.35)]"
           >
-            Tiến hành thanh toán
+            {t("proceedToPayment")}
             <span className="material-symbols-outlined text-black font-bold group-hover:translate-x-1 transition-transform">arrow_forward</span>
           </button>
           <p className="text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
             <span className="material-symbols-outlined text-[14px] filled text-emerald-500">verified_user</span>
-            Thanh toán an toàn qua ví SafePal
+            {t("securePayment")}
           </p>
         </div>
       </footer>

@@ -3,9 +3,11 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../services/api";
+import { useI18n } from "../i18n/I18nProvider";
 
 function RegisterForm() {
   const router = useRouter();
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,7 +47,6 @@ function RegisterForm() {
         // Store leg in localStorage to send with registration
         if (leg === "left" || leg === "right") {
           localStorage.setItem("referralLeg", leg);
-          console.log(`[Referral] Stored leg: ${leg} for referral code: ${refCode}`);
         } else {
           // Clear any existing leg if not specified
           localStorage.removeItem("referralLeg");
@@ -105,7 +106,6 @@ function RegisterForm() {
     try {
       // Get leg from localStorage if exists
       const leg = localStorage.getItem("referralLeg") as 'left' | 'right' | null;
-      console.log(`[Referral] Registering with leg: ${leg}, referralUser: ${formData.referralUser.trim() || 'none'}`);
       
       const result = await api.walletRegister({
         walletAddress,
@@ -145,39 +145,39 @@ function RegisterForm() {
     <div className="min-h-screen bg-zinc-50 py-8 px-4">
       <div className="mx-auto max-w-md">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-zinc-900">Đăng ký tài khoản</h1>
+          <h1 className="text-2xl font-bold text-zinc-900">{t("registerAccount")}</h1>
           <p className="mt-2 text-sm text-zinc-600">
-            Hoàn tất thông tin để tạo tài khoản
+            {t("completeInfoToCreateAccount")}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Wallet Info (Read-only) */}
           <div className="rounded-xl bg-blue-50 p-4">
-            <div className="mb-2 text-xs font-medium text-blue-900">Thông tin ví (tự động điền)</div>
+            <div className="mb-2 text-xs font-medium text-blue-900">{t("walletInfoAutoFill")}</div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-600">Địa chỉ ví:</span>
+                <span className="text-zinc-600">{t("walletAddressLabel")}</span>
                 <span className="font-mono text-xs text-zinc-900">
                   {walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : "-"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-600">Chain ID:</span>
+                <span className="text-zinc-600">{t("chainIdLabel")}</span>
                 <span className="font-mono text-xs text-zinc-900">
                   {chainIdDec || chainId || "-"}
                 </span>
               </div>
             </div>
             <p className="mt-2 text-xs text-blue-700">
-              Thông tin này được lấy từ ví của bạn và không thể thay đổi
+              {t("walletInfoCannotChange")}
             </p>
           </div>
 
           {/* Username */}
           <div>
             <label htmlFor="username" className="mb-1 block text-sm font-medium text-zinc-700">
-              Tên người dùng <span className="text-red-500">*</span>
+              {t("username")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -185,7 +185,7 @@ function RegisterForm() {
               value={formData.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Nhập tên người dùng"
+              placeholder={t("enterUsername")}
               required
             />
           </div>
@@ -193,7 +193,7 @@ function RegisterForm() {
           {/* Full Name */}
           <div>
             <label htmlFor="fullName" className="mb-1 block text-sm font-medium text-zinc-700">
-              Họ tên <span className="text-red-500">*</span>
+              {t("fullName")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -201,7 +201,7 @@ function RegisterForm() {
               value={formData.fullName}
               onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Nhập họ tên đầy đủ"
+              placeholder={t("enterFullName")}
               required
             />
           </div>
@@ -209,7 +209,7 @@ function RegisterForm() {
           {/* Country */}
           <div>
             <label htmlFor="country" className="mb-1 block text-sm font-medium text-zinc-700">
-              Quốc gia <span className="text-red-500">*</span>
+              {t("country")} <span className="text-red-500">*</span>
             </label>
             <select
               id="country"
@@ -218,7 +218,7 @@ function RegisterForm() {
               className="w-full appearance-none rounded-lg border border-zinc-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%209L1%204h10z%22/%3E%3C/svg%3E')] bg-[length:12px_12px] bg-[right_12px_center] bg-no-repeat px-4 py-2.5 pr-10 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               required
             >
-              <option value="" className="text-zinc-400">Chọn quốc gia</option>
+              <option value="" className="text-zinc-400">{t("selectCountry")}</option>
               {countries.map((country) => (
                 <option key={country.code} value={country.code} className="text-zinc-900">
                   {country.name} ({country.dialCode})
@@ -230,7 +230,7 @@ function RegisterForm() {
           {/* Address */}
           <div>
             <label htmlFor="address" className="mb-1 block text-sm font-medium text-zinc-700">
-              Địa chỉ
+              {t("address")}
             </label>
             <input
               type="text"
@@ -238,14 +238,14 @@ function RegisterForm() {
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Nhập địa chỉ"
+              placeholder={t("enterAddress")}
             />
           </div>
 
           {/* Phone Number */}
           <div>
             <label htmlFor="phoneNumber" className="mb-1 block text-sm font-medium text-zinc-700">
-              Số điện thoại <span className="text-red-500">*</span>
+              {t("phoneNumber")} <span className="text-red-500">*</span>
             </label>
             <input
               type="tel"
@@ -253,7 +253,7 @@ function RegisterForm() {
               value={formData.phoneNumber}
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Nhập số điện thoại"
+              placeholder={t("enterPhoneNumber")}
               required
             />
           </div>
@@ -261,7 +261,7 @@ function RegisterForm() {
           {/* Email */}
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700">
-              Email <span className="text-red-500">*</span>
+              {t("email")} <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
@@ -269,7 +269,7 @@ function RegisterForm() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Nhập email"
+              placeholder={t("email")}
               required
             />
           </div>
@@ -277,7 +277,7 @@ function RegisterForm() {
           {/* Referral User */}
           <div>
             <label htmlFor="referralUser" className="mb-1 block text-sm font-medium text-zinc-700">
-              Mã giới thiệu (tùy chọn)
+              {t("referralCodeOptional")}
             </label>
             <input
               type="text"
@@ -285,7 +285,7 @@ function RegisterForm() {
               value={formData.referralUser}
               onChange={(e) => setFormData({ ...formData, referralUser: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Nhập mã giới thiệu"
+              placeholder={t("enterReferralCode")}
             />
           </div>
 
@@ -324,10 +324,10 @@ function RegisterForm() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                Đang đăng ký...
+                {t("registering")}
               </span>
             ) : (
-              "Đăng ký"
+              t("register")
             )}
           </button>
         </form>

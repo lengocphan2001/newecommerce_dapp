@@ -44,7 +44,6 @@ export default function OrdersPage() {
     const orderId = searchParams.get("orderId");
     if (success === "true" && orderId) {
       // Show success message (you can add a toast notification here)
-      console.log(`Order ${orderId} created successfully`);
     }
   }, [searchParams]);
 
@@ -128,11 +127,11 @@ export default function OrdersPage() {
       case "confirmed":
       case "processing":
       case "shipped":
-        return "Đang xử lý";
+        return t("orderStatusProcessing");
       case "delivered":
-        return "Đã giao";
+        return t("orderStatusDelivered");
       case "cancelled":
-        return "Đã hủy";
+        return t("orderStatusCancelled");
       default:
         return status;
     }
@@ -216,7 +215,7 @@ export default function OrdersPage() {
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">Lịch sử Đơn hàng</h1>
+        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("orderHistory")}</h1>
         <div className="flex items-center gap-2">
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
             <span className="relative flex h-2 w-2">
@@ -237,7 +236,7 @@ export default function OrdersPage() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-600"></span>
         </span>
-        <span className="text-[11px] text-blue-800 font-semibold">Đã kết nối ví SafePal</span>
+        <span className="text-[11px] text-blue-800 font-semibold">{t("connectedToSafePal")}</span>
       </div>
 
       {/* Tabs */}
@@ -251,7 +250,7 @@ export default function OrdersPage() {
           >
             <p className={`text-sm font-bold leading-normal tracking-[0.015em] ${
               activeTab === "all" ? "text-blue-800" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>Tất cả</p>
+            }`}>{t("allOrders")}</p>
             {activeTab === "all" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -267,7 +266,7 @@ export default function OrdersPage() {
           >
             <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${
               activeTab === "processing" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>Đang xử lý</p>
+            }`}>{t("processingOrders")}</p>
             {activeTab === "processing" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -283,7 +282,7 @@ export default function OrdersPage() {
           >
             <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${
               activeTab === "delivered" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>Đã giao</p>
+            }`}>{t("deliveredOrders")}</p>
             {activeTab === "delivered" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -299,7 +298,7 @@ export default function OrdersPage() {
           >
             <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${
               activeTab === "cancelled" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>Đã hủy</p>
+            }`}>{t("cancelledOrders")}</p>
             {activeTab === "cancelled" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -380,22 +379,7 @@ export default function OrdersPage() {
                         }`}>
                           {formatDateTime(order.createdAt)}
                         </p>
-                        <div className={`mt-0.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md self-start border ${
-                          isCancelled
-                            ? "bg-slate-200/50 border-slate-200"
-                            : "bg-blue-50 border-blue-100"
-                        }`}>
-                          <span className={`material-symbols-outlined text-[14px] filled ${
-                            isCancelled ? "text-slate-500" : "text-blue-600"
-                          }`} style={{ fontSize: "14px" }}>
-                            monetization_on
-                          </span>
-                          <span className={`text-[11px] font-bold ${
-                            isCancelled ? "text-slate-500" : "text-blue-700"
-                          }`}>
-                            {pvEarned} PV Earned
-                          </span>
-                        </div>
+                        
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -408,13 +392,6 @@ export default function OrdersPage() {
                         }`}>
                           {formatPrice(order.totalAmount)} USDT
                         </p>
-                        {isCancelled ? (
-                          <p className="text-[11px] font-medium text-slate-400">Hoàn tiền vào ví</p>
-                        ) : (
-                          <p className="text-[11px] font-medium text-slate-400">
-                            ≈ {formatPriceVND(order.totalAmount)}₫
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -443,7 +420,7 @@ export default function OrdersPage() {
                         <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
                           autorenew
                         </span>
-                        Mua lại
+                        {t("rebuyOrder")}
                       </button>
                     </div>
                   )}

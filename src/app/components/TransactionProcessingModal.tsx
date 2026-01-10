@@ -1,4 +1,5 @@
 import React from "react";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export type ProcessingStep = "idle" | "confirming" | "processing" | "creating_order" | "success" | "error";
 
@@ -15,6 +16,7 @@ export default function TransactionProcessingModal({
   error,
   onClose,
 }: TransactionProcessingModalProps) {
+  const { t } = useI18n();
   if (!isOpen) return null;
 
   return (
@@ -53,33 +55,33 @@ export default function TransactionProcessingModal({
         <div className="space-y-2">
             {step === "confirming" && (
                 <>
-                    <h3 className="text-xl font-bold text-slate-800">Xác nhận thanh toán</h3>
-                    <p className="text-slate-500 text-sm">Vui lòng xác nhận giao dịch trên ví của bạn</p>
+                    <h3 className="text-xl font-bold text-slate-800">{t("confirmingTitle")}</h3>
+                    <p className="text-slate-500 text-sm">{t("confirmingMessage")}</p>
                 </>
             )}
             {step === "processing" && (
                 <>
-                    <h3 className="text-xl font-bold text-slate-800">Đang xử lý</h3>
-                    <p className="text-slate-500 text-sm">Giao dịch đang được ghi nhận trên Blockchain...</p>
-                    <p className="text-xs text-blue-600 font-medium bg-blue-50 py-1 px-2 rounded-lg inline-block mt-2">Vui lòng không tắt trình duyệt</p>
+                    <h3 className="text-xl font-bold text-slate-800">{t("processingTitle")}</h3>
+                    <p className="text-slate-500 text-sm">{t("processingMessage")}</p>
+                    <p className="text-xs text-blue-600 font-medium bg-blue-50 py-1 px-2 rounded-lg inline-block mt-2">{t("pleaseDoNotCloseBrowser")}</p>
                 </>
             )}
             {step === "creating_order" && (
                 <>
-                    <h3 className="text-xl font-bold text-slate-800">Đang tạo đơn hàng</h3>
-                    <p className="text-slate-500 text-sm">Hệ thống đang hoàn tất đơn hàng của bạn...</p>
+                    <h3 className="text-xl font-bold text-slate-800">{t("creatingOrderTitle")}</h3>
+                    <p className="text-slate-500 text-sm">{t("creatingOrderMessage")}</p>
                 </>
             )}
             {step === "success" && (
                 <>
-                    <h3 className="text-xl font-bold text-slate-800">Thanh toán thành công!</h3>
-                    <p className="text-slate-500 text-sm">Đang chuyển hướng đến đơn hàng của bạn...</p>
+                    <h3 className="text-xl font-bold text-slate-800">{t("paymentSuccessTitle")}</h3>
+                    <p className="text-slate-500 text-sm">{t("paymentSuccessMessage")}</p>
                 </>
             )}
             {step === "error" && (
                 <>
-                    <h3 className="text-xl font-bold text-slate-800">Thanh toán thất bại</h3>
-                    <p className="text-red-500 text-sm font-medium">{error || "Có lỗi xảy ra, vui lòng thử lại"}</p>
+                    <h3 className="text-xl font-bold text-slate-800">{t("paymentFailedTitle")}</h3>
+                    <p className="text-red-500 text-sm font-medium">{error || t("errorOccurred")}</p>
                 </>
             )}
         </div>
@@ -90,7 +92,7 @@ export default function TransactionProcessingModal({
                 onClick={onClose}
                 className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
             >
-                Đóng
+                {t("close")}
             </button>
         )}
       </div>

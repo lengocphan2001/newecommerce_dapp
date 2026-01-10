@@ -47,7 +47,6 @@ export default function AddAddressPage() {
             await api.addAddress(newAddress);
             success = true;
         } catch(e) {
-            console.warn("API add failed", e);
         }
 
         // 2. Fallback to LocalStorage

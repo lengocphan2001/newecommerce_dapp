@@ -200,8 +200,10 @@ export class AuthService {
       rightLink,
       username: user.username,
       fullName: user.fullName,
+      email: user.email,
       walletAddress: user.walletAddress,
       phone: user.phone,
+      phoneNumber: user.phone, // Alias for compatibility
       address: user.address,
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
@@ -268,7 +270,6 @@ export class AuthService {
 
       // Debug: Log received leg value (already transformed by DTO)
       // eslint-disable-next-line no-console
-      console.log(`[Referral Debug] Received leg value:`, walletRegisterDto.leg, `Type:`, typeof walletRegisterDto.leg);
 
       // Check if leg is specified in DTO (from URL parameter ?leg=left or ?leg=right)
       // Value is already normalized by @Transform decorator in DTO
@@ -281,7 +282,6 @@ export class AuthService {
         parentId = slot.parentId; // Parent trực tiếp trong tree (có thể khác referralUser nếu đã đầy)
         position = slot.position;
         // eslint-disable-next-line no-console
-        console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg of parent ${slot.parentId} (requested ${walletRegisterDto.leg} branch of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId})`);
       } else {
         // Automatically place in weak leg (leg with fewer children) của referral user
         const weakLeg = await this.userService.getWeakLeg(referralUserId);
@@ -289,7 +289,6 @@ export class AuthService {
         parentId = slot.parentId; // Parent trực tiếp trong tree
         position = slot.position;
         // eslint-disable-next-line no-console
-        console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg of parent ${slot.parentId} (weak leg of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId}). Received leg: ${walletRegisterDto.leg || 'undefined'}`);
       }
     }
 

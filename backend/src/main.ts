@@ -39,7 +39,6 @@ async function bootstrap() {
     await adminSeedService.seed();
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Error seeding admin user:', error.message);
   }
 
   // Default to 3002 to avoid clashing with:
@@ -47,6 +46,5 @@ async function bootstrap() {
   // - Admin React app (usually 3001)
   const port = process.env.PORT || 3002;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();

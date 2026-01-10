@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
@@ -10,6 +10,12 @@ export default function BottomNav() {
   const router = useRouter();
   const { t } = useI18n();
   const { totalItems } = useShoppingCart();
+  const [mounted, setMounted] = useState(false);
+
+  // Fix hydration mismatch by only showing badge after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const menuItems = [
     {
@@ -85,7 +91,7 @@ export default function BottomNav() {
                 }`}>
                 {item.icon}
               </span>
-              {item.badge && (
+              {mounted && item.badge && (
                 <span className="absolute top-0 right-1/2 translate-x-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white">
                   {item.badge > 9 ? "9+" : item.badge}
                 </span>

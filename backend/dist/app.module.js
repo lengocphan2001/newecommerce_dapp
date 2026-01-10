@@ -10,6 +10,7 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const typeorm_1 = require("@nestjs/typeorm");
+const schedule_1 = require("@nestjs/schedule");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const auth_module_1 = require("./auth/auth.module");
@@ -27,6 +28,7 @@ const address_entity_1 = require("./user/entities/address.entity");
 const product_entity_1 = require("./product/entities/product.entity");
 const order_entity_1 = require("./order/entities/order.entity");
 const commission_entity_1 = require("./affiliate/entities/commission.entity");
+const audit_log_entity_1 = require("./audit-log/entities/audit-log.entity");
 const upload_module_1 = require("./upload/upload.module");
 let AppModule = class AppModule {
 };
@@ -34,6 +36,7 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            schedule_1.ScheduleModule.forRoot(),
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 envFilePath: '.env',
@@ -50,7 +53,7 @@ exports.AppModule = AppModule = __decorate([
                     password: configService.get('DB_PASSWORD') ||
                         ((configService.get('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
                     database: configService.get('DB_NAME') || 'ecommerce_dapp',
-                    entities: [user_entity_1.User, address_entity_1.Address, product_entity_1.Product, order_entity_1.Order, commission_entity_1.Commission],
+                    entities: [user_entity_1.User, address_entity_1.Address, product_entity_1.Product, order_entity_1.Order, commission_entity_1.Commission, audit_log_entity_1.AuditLog],
                     synchronize: configService.get('NODE_ENV') !== 'production',
                     logging: configService.get('NODE_ENV') === 'development',
                 }),

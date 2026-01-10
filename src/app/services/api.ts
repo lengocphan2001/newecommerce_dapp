@@ -22,7 +22,6 @@ export const api = {
     leg?: 'left' | 'right';
   }) {
     // Debug: Log what we're sending
-    console.log('[API] Sending registration data:', JSON.stringify(data, null, 2));
 
     const response = await fetch(`${API_BASE_URL}/auth/wallet/register`, {
       method: 'POST',
@@ -177,7 +176,6 @@ export const api = {
     if (!response.ok) {
       // Fallback for simulation if backend endpoint doesn't exist yet
       if (response.status === 404) {
-        console.warn("API endpoints not found, simulating success");
         return { success: true };
       }
       const text = await response.text();

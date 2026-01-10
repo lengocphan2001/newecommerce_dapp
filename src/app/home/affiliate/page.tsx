@@ -71,14 +71,20 @@ export default function AffiliatePage() {
   };
 
   const shortAddress = (address?: string) => {
-    if (!address) return "Not Connected";
+    if (!address) return t("notConnected");
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const getRank = (packageType?: string) => {
-    if (packageType === 'NPP') return 'Gold';
-    if (packageType === 'CTV') return 'Silver';
-    return 'Bronze';
+    if (packageType === 'NPP') return 'NPP';
+    if (packageType === 'CTV') return 'CTV';
+    return 'NONE';
+  };
+
+  const getNextRank = (packageType?: string) => {
+    if (packageType === 'CTV') return 'NPP';
+    if (packageType === 'NONE') return 'CTV';
+    return 'NPP'; // NPP is highest, so no next rank
   };
 
   const getRankProgress = (packageType?: string, purchases?: string) => {
@@ -166,11 +172,11 @@ export default function AffiliatePage() {
                 <div className="flex items-center justify-between">
                   <p className="text-lg font-bold leading-tight text-text-dark">{shortAddress(referralInfo.walletAddress)}</p>
                   <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                    {getRank(referralInfo.packageType)} Rank
+                    {getRank(referralInfo.packageType)} {t("rank")}
                   </span>
                 </div>
                 <p className="text-primary-dark text-sm font-medium">
-                  Balance: {formatPrice(referralInfo.bonusCommission || '0')} USDT
+                  {t("balance")}: {formatPrice(referralInfo.bonusCommission || '0')} USDT
                 </p>
               </div>
             </div>
@@ -179,24 +185,24 @@ export default function AffiliatePage() {
             <div className="relative overflow-hidden rounded-xl shadow-md border border-gray-100 group bg-white">
               <div className="relative z-10 p-6 flex flex-col items-center text-center gap-4">
                 <div className="flex flex-col gap-1">
-                  <p className="text-gray-600 text-sm font-medium uppercase tracking-wider">Total Earnings</p>
+                  <p className="text-gray-600 text-sm font-medium uppercase tracking-wider">{t("totalEarnings")}</p>
                   <p className="text-text-dark tracking-tight text-4xl font-extrabold">
                     ${formatPrice(referralInfo.bonusCommission || '0')}
                   </p>
                   <p className="text-primary-dark text-sm font-semibold flex items-center justify-center gap-1">
                     <span className="material-symbols-outlined text-sm">trending_up</span>
-                    +${formatPrice(pendingRewards)} this week
+                    +${formatPrice(pendingRewards)} {t("thisWeek")}
                   </p>
                 </div>
                 <div className="w-full h-px bg-gray-200"></div>
                 <div className="flex justify-between items-center w-full gap-4">
                   <div className="flex flex-col items-start">
-                    <span className="text-xs text-gray-500">Pending Rewards</span>
+                    <span className="text-xs text-gray-500">{t("pendingRewards")}</span>
                     <span className="text-lg font-bold text-text-dark">${formatPrice(pendingRewards)}</span>
                   </div>
                   <button className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-lg transition-colors shadow-md shadow-primary/30">
                     <span className="material-symbols-outlined text-[20px]">savings</span>
-                    Claim
+                    {t("claim")}
                   </button>
                 </div>
               </div>
@@ -206,8 +212,8 @@ export default function AffiliatePage() {
           {/* Binary Network Visualization */}
           <div className="px-4 py-2">
             <h3 className="text-lg font-bold mb-3 px-1 flex items-center justify-between text-text-dark">
-              Network Structure
-              <button className="text-xs font-normal text-primary-dark hover:underline">View Full Tree</button>
+              {t("networkStructure")}
+              <button className="text-xs font-normal text-primary-dark hover:underline">{t("viewFullTree")}</button>
             </h3>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm flex flex-col items-center relative overflow-hidden">
               {/* Connecting Lines (SVG) */}
@@ -223,7 +229,7 @@ export default function AffiliatePage() {
                     <span className="material-symbols-outlined text-white text-2xl">person</span>
                   </div>
                 </div>
-                <span className="mt-1 text-xs font-bold text-text-dark">You</span>
+                <span className="mt-1 text-xs font-bold text-text-dark">{t("you")}</span>
               </div>
               
               {/* Bottom Nodes */}
@@ -237,8 +243,8 @@ export default function AffiliatePage() {
                     <div className="absolute -bottom-1 -right-1 bg-primary text-white text-[10px] font-bold px-1.5 rounded-full">L</div>
                   </div>
                   <div className="mt-2 text-center">
-                    <p className="text-xs font-bold text-text-dark">{referralInfo.treeStats.left.count} Partners</p>
-                    <p className="text-[10px] text-gray-500">${formatPrice(leftVolume)} Vol</p>
+                    <p className="text-xs font-bold text-text-dark">{referralInfo.treeStats.left.count} {t("partners")}</p>
+                    <p className="text-[10px] text-gray-500">${formatPrice(leftVolume)} {t("vol")}</p>
                   </div>
                 </div>
                 
@@ -251,8 +257,8 @@ export default function AffiliatePage() {
                     <div className="absolute -bottom-1 -right-1 bg-gray-200 text-gray-600 text-[10px] font-bold px-1.5 rounded-full">R</div>
                   </div>
                   <div className="mt-2 text-center">
-                    <p className="text-xs font-bold text-text-dark">{referralInfo.treeStats.right.count} Partners</p>
-                    <p className="text-[10px] text-gray-500">${formatPrice(rightVolume)} Vol</p>
+                    <p className="text-xs font-bold text-text-dark">{referralInfo.treeStats.right.count} {t("partners")}</p>
+                    <p className="text-[10px] text-gray-500">${formatPrice(rightVolume)} {t("vol")}</p>
                   </div>
                 </div>
               </div>
@@ -265,10 +271,10 @@ export default function AffiliatePage() {
               <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="material-symbols-outlined text-primary-dark text-xl">military_tech</span>
-                  <span className="text-xs font-medium text-gray-600">Next Rank</span>
+                  <span className="text-xs font-medium text-gray-600">{t("nextRank")}</span>
                 </div>
                 <p className="text-text-dark text-lg font-bold">
-                  {referralInfo.packageType === 'CTV' ? 'Gold' : referralInfo.packageType === 'NPP' ? 'Platinum' : 'Silver'}
+                  {getNextRank(referralInfo.packageType)}
                 </p>
                 <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2">
                   <div 
@@ -277,18 +283,18 @@ export default function AffiliatePage() {
                   ></div>
                 </div>
                 <p className="text-[10px] text-right text-gray-500 mt-1">
-                  {Math.round(getRankProgress(referralInfo.packageType, referralInfo.accumulatedPurchases))}% Complete
+                  {Math.round(getRankProgress(referralInfo.packageType, referralInfo.accumulatedPurchases))}% {t("complete")}
                 </p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="material-symbols-outlined text-primary-dark text-xl">group</span>
-                  <span className="text-xs font-medium text-gray-600">Active Users</span>
+                  <span className="text-xs font-medium text-gray-600">{t("activeUsers")}</span>
                 </div>
-                <p className="text-text-dark text-lg font-bold">{referralInfo.treeStats.total} Total</p>
+                <p className="text-text-dark text-lg font-bold">{referralInfo.treeStats.total} {t("affiliateTotal")}</p>
                 <p className="text-[10px] text-primary-dark mt-1 flex items-center gap-1">
                   <span className="material-symbols-outlined text-[10px]">arrow_upward</span>
-                  {referralInfo.treeStats.left.count + referralInfo.treeStats.right.count} New today
+                  {referralInfo.treeStats.left.count + referralInfo.treeStats.right.count} {t("newToday")}
                 </p>
               </div>
             </div>
@@ -296,7 +302,7 @@ export default function AffiliatePage() {
 
           {/* Referral Tools */}
           <div className="px-4 py-4 mb-2">
-            <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">Referral Tools</h3>
+            <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">{t("referralTools")}</h3>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <div className="flex flex-col gap-4">
                 {/* Left Branch Link */}
@@ -307,7 +313,7 @@ export default function AffiliatePage() {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <label className="text-xs text-gray-600 mb-1 block">Left Branch Link</label>
+                    <label className="text-xs text-gray-600 mb-1 block">{t("leftBranchLink")}</label>
                     <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
                       <input
                         className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
@@ -333,7 +339,7 @@ export default function AffiliatePage() {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <label className="text-xs text-gray-600 mb-1 block">Right Branch Link</label>
+                    <label className="text-xs text-gray-600 mb-1 block">{t("rightBranchLink")}</label>
                     <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
                       <input
                         className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
@@ -353,7 +359,7 @@ export default function AffiliatePage() {
 
                 <button className="w-full py-3 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200 text-text-dark font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
                   <span className="material-symbols-outlined text-primary-dark">share</span>
-                  Share on Social Media
+                  {t("shareOnSocial")}
                 </button>
               </div>
             </div>
@@ -361,7 +367,7 @@ export default function AffiliatePage() {
 
           {/* Recent Activity List */}
           <div className="px-4 pb-8 flex-1">
-            <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">Recent Activity</h3>
+            <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">{t("recentActivity")}</h3>
             <div className="space-y-3">
               {referralInfo.recentActivity && referralInfo.recentActivity.length > 0 ? (
                 referralInfo.recentActivity.map((activity) => {
@@ -381,26 +387,26 @@ export default function AffiliatePage() {
                   const getActivityTitle = (type: string) => {
                     switch (type) {
                       case 'DIRECT':
-                        return 'Direct Commission';
+                        return t("directCommission");
                       case 'GROUP':
-                        return 'Group Commission';
+                        return t("groupCommission");
                       case 'MANAGEMENT':
-                        return 'Management Commission';
+                        return t("managementCommission");
                       default:
-                        return 'Commission Received';
+                        return t("commissionReceived");
                     }
                   };
 
                   const getActivitySubtitle = (type: string) => {
                     switch (type) {
                       case 'DIRECT':
-                        return 'From Direct Referral';
+                        return t("fromDirectReferral");
                       case 'GROUP':
-                        return 'From Binary Network';
+                        return t("fromBinaryNetwork");
                       case 'MANAGEMENT':
-                        return 'From Team Performance';
+                        return t("fromTeamPerformance");
                       default:
-                        return 'Commission';
+                        return t("commissionReceived");
                     }
                   };
 
@@ -412,10 +418,10 @@ export default function AffiliatePage() {
                     const diffHours = Math.floor(diffMs / 3600000);
                     const diffDays = Math.floor(diffMs / 86400000);
 
-                    if (diffMins < 1) return 'Just now';
-                    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-                    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-                    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                    if (diffMins < 1) return t("justNow");
+                    if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
+                    if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
+                    if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
                     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                   };
 
@@ -435,7 +441,7 @@ export default function AffiliatePage() {
                       </div>
                       <div className="text-right">
                         <p className={`text-sm font-bold ${isPending ? 'text-yellow-600' : 'text-primary-dark'}`}>
-                          {isPending ? 'Pending' : '+'} ${formatPrice(activity.amount)}
+                          {isPending ? t("pending") : '+'} ${formatPrice(activity.amount)}
                         </p>
                         <p className="text-[10px] text-gray-400">{formatTimeAgo(activity.createdAt)}</p>
                       </div>
@@ -444,7 +450,7 @@ export default function AffiliatePage() {
                 })
               ) : (
                 <div className="flex items-center justify-center p-6 rounded-lg bg-white border border-gray-100 shadow-sm">
-                  <p className="text-sm text-gray-500">No recent activity</p>
+                  <p className="text-sm text-gray-500">{t("noRecentActivity")}</p>
                 </div>
               )}
             </div>

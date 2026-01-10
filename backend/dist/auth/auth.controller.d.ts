@@ -100,8 +100,10 @@ export declare class AuthController {
         rightLink: string;
         username: string;
         fullName: string;
+        email: string;
         walletAddress: string;
         phone: string;
+        phoneNumber: string;
         address: string;
         treeStats: {
             left: {

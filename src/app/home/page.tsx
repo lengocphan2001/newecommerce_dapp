@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
 import WalletStatusChip from "@/app/components/WalletStatusChip";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
@@ -95,7 +96,12 @@ export default function HomePage() {
   return (
     <div className="flex flex-col bg-background-gray">
       {/* Header */}
-      <AppHeader titleKey="homeTitle" showMenu={true} showActions={true} />
+      <AppHeader 
+        titleKey="homeTitle" 
+        showMenu={true} 
+        showActions={true}
+        right={<LanguageSelect variant="light" />}
+      />
 
       {/* Wallet Status Chip */}
       <WalletStatusChip walletAddress={walletAddress || undefined} walletName="SafePal" />
@@ -126,15 +132,15 @@ export default function HomePage() {
             }}>
               <div className="w-full h-full bg-gradient-to-r from-gray-900/90 to-gray-900/10 p-5 flex flex-col justify-center">
                 <div className="inline-flex items-center gap-1 mb-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm uppercase tracking-wider">Binary System</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm uppercase tracking-wider">{t("binarySystem")}</span>
                 </div>
-                <h2 className="text-white text-2xl font-bold leading-tight mb-1">Earn 5% Back</h2>
+                <h2 className="text-white text-2xl font-bold leading-tight mb-1">{t("earn5Back")}</h2>
                 <p className="text-gray-100 text-sm mb-4 max-w-[80%] font-medium drop-shadow-sm">Get crypto rewards on every referral purchase in your network.</p>
                 <button
                   onClick={() => router.push("/home/affiliate")}
                   className="w-fit px-5 py-2.5 bg-white text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
                 >
-                  My Network
+                  {t("myNetwork")}
                 </button>
               </div>
             </div>
@@ -143,7 +149,7 @@ export default function HomePage() {
 
         {/* Featured Products Grid */}
         <div className="px-4 pt-4 pb-8 bg-white">
-          <h3 className="text-lg font-bold text-text-dark mb-5">Popular Goods</h3>
+          <h3 className="text-lg font-bold text-text-dark mb-5">{t("popularGoods")}</h3>
           {loading ? (
             <div className="grid grid-cols-2 gap-4">
               {[...Array(4)].map((_, i) => (
@@ -187,7 +193,7 @@ export default function HomePage() {
                       <span className="material-symbols-outlined text-[18px]">favorite</span>
                     </button>
                     {product.stock <= 0 && (
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-sm">SALE</div>
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-sm">{t("sale")}</div>
                     )}
                   </div>
                   <div className="p-3">
@@ -198,7 +204,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center gap-1 mb-3">
                       {product.stock > 0 ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">Binary XP</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">{t("binaryXP")}</span>
                       ) : (
                         <span className="text-[10px] py-0.5 opacity-0">Spacer</span>
                       )}

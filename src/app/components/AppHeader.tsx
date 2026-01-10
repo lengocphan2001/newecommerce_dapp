@@ -6,7 +6,7 @@ import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 
 interface AppHeaderProps {
-  titleKey?: "homeTitle" | "appName" | "productsTitle" | "ordersTitle" | "profileTitle" | "navAffiliate" | "navShopping" | "navWallets" | "navAccount";
+  titleKey?: "homeTitle" | "appName" | "productsTitle" | "ordersTitle" | "profileTitle" | "navAffiliate" | "navShopping" | "navWallets" | "navAccount" | "activityHistory";
   title?: string;
   right?: React.ReactNode;
   showBack?: boolean;
@@ -55,11 +55,6 @@ export default function AppHeader({
               <span className="material-symbols-outlined text-xl">arrow_back_ios_new</span>
             </button>
           )}
-          {showMenu && (
-            <button className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700 shrink-0">
-              <span className="material-symbols-outlined text-xl">menu</span>
-            </button>
-          )}
           {!centerTitle && displayTitle && (
             <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate">
               {displayTitle}
@@ -76,14 +71,6 @@ export default function AppHeader({
 
         {/* Right Section */}
         <div className="flex items-center gap-2 shrink-0">
-          {showQRScanner && (
-            <button 
-              onClick={() => router.push("/home/qr-scanner")}
-              className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700"
-            >
-              <span className="material-symbols-outlined text-xl">qr_code_scanner</span>
-            </button>
-          )}
           {showActions && (
             <div className="relative">
               <button

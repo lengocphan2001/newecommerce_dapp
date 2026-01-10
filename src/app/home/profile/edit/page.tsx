@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -49,7 +51,6 @@ export default function EditProfilePage() {
              }));
              return;
           } catch(e) {
-             console.warn("API load error", e);
           }
       }
 
@@ -63,12 +64,11 @@ export default function EditProfilePage() {
       }));
 
     } catch (error) {
-      console.error(error);
     }
   };
 
   const shortAddress = (addr: string) => {
-      if (!addr) return "Not connected";
+      if (!addr) return t("notConnected");
       return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
@@ -85,7 +85,7 @@ export default function EditProfilePage() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-          setMessage({ type: 'error', text: 'Ảnh quá lớn (Max 5MB)' });
+          setMessage({ type: 'error', text: t("imageTooLarge") });
           return;
       }
       
@@ -116,11 +116,10 @@ export default function EditProfilePage() {
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userAvatar", formData.avatar);
       
-      setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' });
+      setMessage({ type: 'success', text: t("profileUpdated") });
       
     } catch (err: any) {
-      console.error(err);
-      setMessage({ type: 'error', text: err.message || 'Cập nhật thất bại. Vui lòng thử lại.' });
+      setMessage({ type: 'error', text: err.message || t("updateFailed") });
     } finally {
       setLoading(false);
     }
@@ -138,7 +137,7 @@ export default function EditProfilePage() {
         >
           <span className="material-symbols-outlined">arrow_back_ios_new</span>
         </button>
-        <h2 className="text-[#0d121b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Chỉnh sửa hồ sơ</h2>
+        <h2 className="text-[#0d121b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">{t("editProfileTitle")}</h2>
         <div className="size-12"></div>
       </header>
 
@@ -166,7 +165,7 @@ export default function EditProfilePage() {
                 />
               </div>
               <button className="text-[#135bec] text-sm font-medium leading-normal text-center hover:opacity-80 transition-opacity">
-                Thay đổi ảnh đại diện
+                {t("changeAvatar")}
               </button>
             </div>
           </div>
@@ -178,13 +177,13 @@ export default function EditProfilePage() {
           {/* Display Name Field */}
           <div className="flex flex-col w-full py-3">
             <label className="flex flex-col w-full">
-              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">Tên hiển thị</p>
+              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">{t("displayName")}</p>
               <input 
                 name="displayName"
                 value={formData.displayName}
                 onChange={handleInputChange}
                 className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all" 
-                placeholder="Nhập tên của bạn" 
+                placeholder={t("enterYourName")} 
                 type="text" 
               />
             </label>
@@ -193,7 +192,7 @@ export default function EditProfilePage() {
           {/* Email Field */}
           <div className="flex flex-col w-full py-3">
             <label className="flex flex-col w-full">
-              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">Email</p>
+              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">{t("email")}</p>
               <input 
                 name="email"
                 value={formData.email}
@@ -208,13 +207,13 @@ export default function EditProfilePage() {
           {/* Phone Field */}
           <div className="flex flex-col w-full py-3">
             <label className="flex flex-col w-full">
-              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">Số điện thoại</p>
+              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">{t("phoneNumber")}</p>
               <input 
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
                 className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all" 
-                placeholder="09xx xxx xxx" 
+                placeholder={t("enterPhone")} 
                 type="tel" 
               />
             </label>
@@ -228,7 +227,7 @@ export default function EditProfilePage() {
                   <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#135bec] opacity-70">Ví SafePal đã liên kết</p>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#135bec] opacity-70">{t("safePalWalletLinked")}</p>
                   <p className="text-xs font-mono text-[#4c669a] truncate">{walletAddress}</p>
                 </div>
                 <span className="material-symbols-outlined text-green-500 text-xl filled" style={{fontVariationSettings: "'FILL' 1"}}>verified</span>
@@ -251,7 +250,7 @@ export default function EditProfilePage() {
                 className="w-full bg-[#135bec] hover:bg-[#135bec]/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
                 {loading && <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>}
-                {loading ? "Đang lưu..." : "Lưu thay đổi"}
+                {loading ? t("saving") : t("saveChanges")}
             </button>
           </div>
         </div>

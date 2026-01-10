@@ -161,11 +161,9 @@ export default function HomePage() {
           }
         } catch (loginError: any) {
           // If login fails, log but continue (user might still have a valid token)
-          console.warn("Failed to authenticate wallet:", loginError);
         }
       } catch (e: any) {
         // If check fails, assume user exists and continue (fallback behavior)
-        console.warn("Failed to check wallet:", e);
       }
 
       // User exists, continue to home

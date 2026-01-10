@@ -75,7 +75,6 @@ export default function WalletsPage() {
         // ignore
       }
     } catch (error) {
-      console.error("Error loading USDT balance:", error);
       // Try to use cached balance
       try {
         const cached = localStorage.getItem("usdtBep20Balance");
@@ -119,7 +118,6 @@ export default function WalletsPage() {
         // User might not be logged in or no referral info
       }
     } catch (error) {
-      console.error("Failed to fetch wallet data:", error);
     } finally {
       setLoading(false);
     }
@@ -143,7 +141,7 @@ export default function WalletsPage() {
   };
 
   const shortAddress = (address?: string) => {
-    if (!address) return "Not Connected";
+    if (!address) return t("notConnected");
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
@@ -164,14 +162,14 @@ export default function WalletsPage() {
   const assets: Asset[] = [
     {
       symbol: "GRC",
-      name: "Grocery Coin",
+      name: "USDT",
       balance: affiliateBalance,
       usdValue: affiliateBalance,
       color: "bg-[#13ec5b]",
     },
     {
       symbol: "USDT",
-      name: "Tether",
+      name: t("tether"),
       balance: usdtBalanceNum,
       usdValue: usdtBalanceNum,
       color: "bg-[#26A17B]",
@@ -181,24 +179,36 @@ export default function WalletsPage() {
   // Recent transactions - combine commissions and orders
   const allTransactions: Transaction[] = [
     // Commissions
-    ...(referralInfo?.recentActivity?.map((activity: any) => ({
-      id: activity.id,
-      type: 'commission' as const,
-      title: activity.type === 'DIRECT' ? 'Direct Commission' : activity.type === 'GROUP' ? 'Group Commission' : 'Management Commission',
-      amount: parseFloat(activity.amount),
-      status: activity.status === 'PENDING' ? 'Pending' : 'Completed',
-      date: new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      createdAt: activity.createdAt, // Keep original for sorting
-      icon: 'call_received',
-      iconColor: 'text-[#13ec5b]',
-    })) || []),
+    ...(referralInfo?.recentActivity?.map((activity: any) => {
+      // Normalize activity type to handle both uppercase and lowercase
+      const activityType = String(activity.type || '').toUpperCase();
+      
+      // Determine commission type label
+      const commissionTitle = activityType === 'DIRECT' 
+        ? t("directCommission")
+        : activityType === 'GROUP' 
+        ? t("groupCommission")
+        : t("managementCommission");
+      
+      return {
+        id: activity.id,
+        type: 'commission' as const,
+        title: commissionTitle,
+        amount: parseFloat(activity.amount),
+        status: activity.status === 'PENDING' ? t("pending") : t("completed"),
+        date: new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        createdAt: activity.createdAt, // Keep original for sorting
+        icon: 'call_received',
+        iconColor: 'text-[#13ec5b]',
+      };
+    }) || []),
     // Orders
     ...(orders.map((order: any) => ({
       id: order.id,
       type: 'order' as const,
-      title: 'Order Purchase',
+      title: t("orderPurchase"),
       amount: -order.totalAmount, // Negative for purchases
-      status: order.status === 'delivered' ? 'Completed' : 'Pending',
+      status: order.status === 'delivered' ? t("completed") : t("pending"),
       date: new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       createdAt: order.createdAt, // Keep original for sorting
       icon: 'shopping_cart',
@@ -222,7 +232,7 @@ export default function WalletsPage() {
         <AppHeader titleKey="navWallets" />
         <main className="flex-1 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="px-4 py-8 text-center">
-            <p className="text-gray-500">Loading...</p>
+            <p className="text-gray-500">{t("loading")}</p>
           </div>
         </main>
       </div>
@@ -231,14 +241,28 @@ export default function WalletsPage() {
 
   return (
     <div className="flex flex-col bg-background-gray min-h-screen overflow-x-hidden">
-      {/* Top App Bar */}
-      <AppHeader 
-        titleKey="navWallets" 
-        showMenu={true} 
-        showQRScanner={true}
-        centerTitle={true}
-        showActions={false}
-      />
+      {/* Header */}
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+        >
+          <span className="material-symbols-outlined text-slate-800">arrow_back</span>
+        </button>
+        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("navWallets")}</h1>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+            </span>
+            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePal</span>
+          </div>
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+            <span className="material-symbols-outlined text-slate-800">filter_list</span>
+          </button>
+        </div>
+      </header>
 
       <main className="flex-1 flex flex-col gap-6 p-4 bg-white">
         {/* Main Balance Card */}
@@ -247,7 +271,7 @@ export default function WalletsPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1">
                 <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
-                <span className="text-xs font-medium text-primary-dark">Connected to SafePal</span>
+                <span className="text-xs font-medium text-primary-dark">{t("connectedToSafePal")}</span>
               </div>
               <button
                 onClick={() => setBalanceVisible(!balanceVisible)}
@@ -259,7 +283,7 @@ export default function WalletsPage() {
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-gray-600">Total Net Worth</p>
+              <p className="text-sm font-medium text-gray-600">{t("totalNetWorth")}</p>
               <h2 className="text-4xl font-bold tracking-tight text-text-dark">
                 {balanceVisible ? `$${formatUSDT(totalNetWorth)}` : '••••••'}
               </h2>
@@ -283,7 +307,7 @@ export default function WalletsPage() {
           <div className="flex flex-col gap-2 rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary-dark text-[20px]">shopping_cart</span>
-              <p className="text-xs font-medium text-gray-600">Shopping</p>
+              <p className="text-xs font-medium text-gray-600">{t("shopping")}</p>
             </div>
             <p className="text-xl font-bold text-text-dark">
               ${formatUSDT(shoppingBalance)}
@@ -292,7 +316,7 @@ export default function WalletsPage() {
           <div className="flex flex-col gap-2 rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-yellow-500 text-[20px]">group_work</span>
-              <p className="text-xs font-medium text-gray-600">Affiliate</p>
+              <p className="text-xs font-medium text-gray-600">{t("affiliate")}</p>
             </div>
             <p className="text-xl font-bold text-text-dark">
               ${formatUSDT(affiliateBalance)}
@@ -302,7 +326,7 @@ export default function WalletsPage() {
 
         {/* Assets List */}
         <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-bold px-1 text-text-dark">Assets</h3>
+          <h3 className="text-lg font-bold px-1 text-text-dark">{t("assets")}</h3>
           <div className="flex flex-col gap-3">
             {assets.map((asset, index) => (
               <div
@@ -343,9 +367,12 @@ export default function WalletsPage() {
         {/* Recent Transactions */}
         <div className="flex flex-col gap-4 pb-20">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-lg font-bold text-text-dark">Recent Activity</h3>
-            <button className="text-sm font-medium text-primary-dark hover:text-primary">
-              See All
+            <h3 className="text-lg font-bold text-text-dark">{t("recentActivityTitle")}</h3>
+            <button 
+              onClick={() => router.push('/home/wallets/activity')}
+              className="text-sm font-medium text-primary-dark hover:text-primary"
+            >
+              {t("seeAll")}
             </button>
           </div>
           <div className="flex flex-col divide-y divide-gray-200 rounded-xl bg-white border border-gray-100 shadow-sm">
@@ -376,7 +403,7 @@ export default function WalletsPage() {
               ))
             ) : (
               <div className="flex items-center justify-center p-6">
-                <p className="text-sm text-gray-500">No recent transactions</p>
+                <p className="text-sm text-gray-500">{t("noRecentTransactions")}</p>
               </div>
             )}
           </div>

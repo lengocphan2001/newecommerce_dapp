@@ -84,6 +84,18 @@ export class Commission {
   @Column({ type: 'text', nullable: true })
   notes: string; // Ghi chú
 
+  @Column({ nullable: true })
+  payoutBatchId: string; // Batch ID from smart contract
+
+  @Column({ nullable: true })
+  payoutTxHash: string; // Transaction hash from blockchain
+
+  @Column({ nullable: true })
+  payoutBlockNumber: number; // Block number when payout was executed
+
+  @Column({ type: 'timestamp', nullable: true })
+  payoutDate: Date; // Date when payout was executed
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -3,9 +3,11 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function AccountPage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   return (
     <div className="flex flex-col bg-zinc-50">
@@ -34,10 +36,10 @@ export default function AccountPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-zinc-900">
-                  Thông tin cá nhân
+                  {t("accountInfo")}
                 </p>
                 <p className="mt-0.5 text-xs text-zinc-500">
-                  Xem và chỉnh sửa thông tin tài khoản
+                  {t("viewEditAccountInfo")}
                 </p>
               </div>
               <div className="text-zinc-400">&gt;</div>

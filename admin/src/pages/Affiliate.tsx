@@ -37,7 +37,6 @@ const AffiliatePage: React.FC = () => {
       setFilteredAffiliates(data);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch affiliate data');
-      console.error('Failed to fetch affiliate data:', error);
     } finally {
       setLoading(false);
     }

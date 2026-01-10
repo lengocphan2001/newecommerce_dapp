@@ -9,6 +9,7 @@ import KYC from './pages/KYC';
 import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
+import CommissionPayout from './pages/CommissionPayout';
 import AuditLog from './pages/AuditLog';
 import Login from './pages/Login';
 import './App.css';
@@ -109,6 +110,16 @@ function App() {
             <PrivateRoute>
               <AdminLayout>
                 <Commissions />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/commission-payout"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <CommissionPayout />
               </AdminLayout>
             </PrivateRoute>
           }

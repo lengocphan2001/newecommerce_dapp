@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { api } from "@/app/services/api"; // Adjust import path if needed
+import { api } from "@/app/services/api";
+import { useI18n } from "@/app/i18n/I18nProvider";
 
 interface OrderItem {
   productId: string;
@@ -27,6 +28,7 @@ interface Order {
 export default function OrderDetailsPage() {
   const router = useRouter();
   const params = useParams();
+  const { t } = useI18n();
   const orderId = params.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,6 @@ export default function OrderDetailsPage() {
       setItemsWithImages(updatedItems);
 
     } catch (error) {
-      console.error("Failed to fetch order:", error);
     } finally {
       setLoading(false);
     }
@@ -83,13 +84,13 @@ export default function OrderDetailsPage() {
 
   const getStatusText = (status: string) => {
      switch(status) {
-         case 'pending': return 'Đang xử lý';
-         case 'confirmed': return 'Đã xác nhận';
-         case 'processing': return 'Đang đóng gói';
-         case 'shipped': return 'Đang giao hàng';
-         case 'delivered': return 'Đã giao hàng';
-         case 'cancelled': return 'Đã hủy';
-         return status;
+         case 'pending': return t("orderStatusProcessing");
+         case 'confirmed': return t("orderStatusConfirmed");
+         case 'processing': return t("orderStatusProcessing");
+         case 'shipped': return t("orderStatusShipped");
+         case 'delivered': return t("orderStatusDelivered");
+         case 'cancelled': return t("orderStatusCancelled");
+         default: return status;
      }
   };
 
@@ -117,8 +118,8 @@ export default function OrderDetailsPage() {
   if (!order) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50 p-4">
-             <p className="text-slate-600 font-medium mb-4">Không tìm thấy đơn hàng</p>
-             <button onClick={() => router.back()} className="text-blue-600 font-bold">Quay lại</button>
+             <p className="text-slate-600 font-medium mb-4">{t("noOrders")}</p>
+             <button onClick={() => router.back()} className="text-blue-600 font-bold">{t("back")}</button>
         </div>
       );
   }
@@ -138,7 +139,7 @@ export default function OrderDetailsPage() {
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h2 className="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">
-            Chi tiết đơn hàng
+            {t("orderDetails")}
         </h2>
       </div>
 
@@ -153,14 +154,14 @@ export default function OrderDetailsPage() {
            <div className="relative p-5 z-10">
               <div className="flex justify-between items-start mb-8">
                 <div>
-                   <p className="text-[#2563eb] font-bold text-xs uppercase tracking-wider mb-1">Trạng thái</p>
+                   <p className="text-[#2563eb] font-bold text-xs uppercase tracking-wider mb-1">{t("orderStatus")}</p>
                    <h3 className={`text-slate-900 text-2xl font-bold ${isCancelled ? "text-red-500" : ""}`}>
                        {getStatusText(order.status)}
                    </h3>
                    {!isCancelled && (
                        <p className="text-slate-500 text-sm mt-1 flex items-center gap-1 font-medium">
                            <span className="material-symbols-outlined text-[16px]">schedule</span>
-                           Cập nhật: {formatDate(order.updatedAt)}
+                           {t("lastUpdated")} {formatDate(order.updatedAt)}
                        </p>
                    )}
                 </div>
@@ -183,10 +184,10 @@ export default function OrderDetailsPage() {
 
                     {/* Steps */}
                     {[
-                        { label: "Đã đặt", step: 0 },
-                        { label: "Đã xác nhận", step: 1 },
-                        { label: "Đang giao", step: 2 },
-                        { label: "Đã giao", step: 3 }
+                        { label: t("orderPlaced"), step: 0 },
+                        { label: t("orderConfirmed"), step: 1 },
+                        { label: t("orderShipping"), step: 2 },
+                        { label: t("orderStatusDelivered"), step: 3 }
                     ].map((s, idx) => {
                         const isActive = currentStep >= s.step;
                         const isCurrent = currentStep === s.step;
@@ -226,7 +227,7 @@ export default function OrderDetailsPage() {
                    <span className="material-symbols-outlined block">hub</span>
                 </div>
                 <div className="flex-1">
-                   <p className="text-white text-sm font-bold">Hoa hồng nhị phân</p>
+                   <p className="text-white text-sm font-bold">{t("binaryCommission")}</p>
                    <p className="text-blue-50 text-xs mt-0.5">Bạn nhận được <span className="text-white font-bold">+{pvEarned} PV</span> vào nhánh phải.</p>
                 </div>
             </div>
@@ -234,7 +235,7 @@ export default function OrderDetailsPage() {
 
         {/* Product List */}
         <div>
-           <h3 className="text-slate-800 text-lg font-bold mb-3 px-1">Danh sách sản phẩm</h3>
+           <h3 className="text-slate-800 text-lg font-bold mb-3 px-1">{t("productList")}</h3>
            <div className="flex flex-col gap-3">
               {itemsWithImages.map((item, idx) => (
                   <div key={idx} className="flex gap-4 bg-white p-3 rounded-2xl items-center shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 hover:border-[#2563eb] transition-colors hover:shadow-md hover:shadow-blue-50">
@@ -258,14 +259,14 @@ export default function OrderDetailsPage() {
 
         {/* Shipping & Payment Info */}
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 space-y-5">
-            <h3 className="text-slate-900 font-bold text-base border-b border-slate-100 pb-2">Thông tin vận chuyển</h3>
+            <h3 className="text-slate-900 font-bold text-base border-b border-slate-100 pb-2">{t("shippingPaymentInfo")}</h3>
             
             <div className="flex items-start gap-4">
                 <div className="mt-0.5 size-10 rounded-full bg-blue-50 text-[#2563eb] flex items-center justify-center shrink-0 border border-blue-100">
                     <span className="material-symbols-outlined text-xl">location_on</span>
                 </div>
                 <div className="flex-1">
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">Địa chỉ nhận hàng</p>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("deliveryAddress")}</p>
                     <p className="text-slate-900 text-sm font-medium leading-relaxed">{order.shippingAddress || "N/A"}</p>
                 </div>
             </div>
@@ -277,7 +278,7 @@ export default function OrderDetailsPage() {
                     <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
                 </div>
                 <div className="flex-1">
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">Phương thức thanh toán</p>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("paymentMethodSafePal")}</p>
                     <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-slate-900 text-sm font-bold">SafePal Wallet (USDT)</span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-bold">BEP20</span>
@@ -300,7 +301,7 @@ export default function OrderDetailsPage() {
                     <span className="material-symbols-outlined text-xl">receipt_long</span>
                 </div>
                 <div className="flex-1">
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">Mã đơn hàng</p>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("orderCode")}</p>
                     <div className="flex flex-col gap-0.5">
                         <p className="text-slate-900 text-sm font-bold font-mono">#{order.id.slice(0, 8).toUpperCase()}</p>
                         <p className="text-slate-400 text-[11px] font-medium">{formatDate(order.createdAt)}</p>
@@ -312,18 +313,18 @@ export default function OrderDetailsPage() {
         {/* Summary */}
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 space-y-3 mb-4">
             <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Tạm tính</span>
+                <span className="text-slate-500">{t("subtotal")}</span>
                 <span className="text-slate-900 font-medium">{formatPrice(order.totalAmount)} USDT</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Phí vận chuyển</span>
+                <span className="text-slate-500">{t("shippingFee")}</span>
                 <span className="text-slate-900 font-medium">0.00 USDT</span>
             </div>
             
             <div className="h-px bg-slate-100 w-full my-2 border-dashed border-b border-slate-200"></div>
             
             <div className="flex justify-between items-center">
-                <span className="text-slate-900 font-bold text-base">Tổng cộng</span>
+                <span className="text-slate-900 font-bold text-base">{t("total")}</span>
                 <div className="text-right">
                     <span className="text-[#1d4ed8] font-bold text-xl block">{formatPrice(order.totalAmount)} USDT</span>
                 </div>
@@ -336,14 +337,14 @@ export default function OrderDetailsPage() {
       <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-blue-100 p-4 pb-8 flex gap-3 z-40 shadow-[0_-5px_20px_-5px_rgba(37,99,235,0.1)]">
         <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3.5 px-4 text-slate-900 hover:bg-slate-100 transition-colors font-semibold border border-slate-200">
             <span className="material-symbols-outlined text-[20px]">support_agent</span>
-            Hỗ trợ
+            {t("support")}
         </button>
         <button 
             onClick={() => router.push('/home/products')}
             className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#2563eb] py-3.5 px-4 text-white hover:bg-[#1d4ed8] transition-colors font-bold shadow-lg shadow-blue-200"
         >
             <span className="material-symbols-outlined text-[20px]">refresh</span>
-            Mua lại đơn này
+            {t("rebuyOrder")}
         </button>
       </div>
     </div>

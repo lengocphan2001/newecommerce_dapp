@@ -56,7 +56,6 @@ const CommissionsPage: React.FC = () => {
       setFilteredCommissions(data);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch commissions');
-      console.error('Failed to fetch commissions:', error);
     } finally {
       setLoading(false);
     }

@@ -15,7 +15,6 @@ const Wallet: React.FC = () => {
       const response = await walletService.getTransactions(userId);
       setTransactions(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error('Failed to fetch transactions');
     } finally {
       setLoading(false);
     }

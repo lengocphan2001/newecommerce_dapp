@@ -1,17 +1,22 @@
 import { IsString, IsNotEmpty, IsOptional, IsObject } from 'class-validator';
+import { AuditLogAction, AuditLogEntityType } from '../entities/audit-log.entity';
 
 export class CreateAuditLogDto {
   @IsString()
   @IsNotEmpty()
-  action: string;
+  action: AuditLogAction;
 
   @IsString()
   @IsNotEmpty()
-  entityType: string;
+  entityType: AuditLogEntityType;
 
   @IsString()
   @IsOptional()
   entityId?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 
   @IsObject()
   @IsOptional()

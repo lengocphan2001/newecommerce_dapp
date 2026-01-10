@@ -16,7 +16,6 @@ const AuditLogPage: React.FC = () => {
       const response = await auditLogService.getAll();
       setLogs(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error('Failed to fetch audit logs');
     } finally {
       setLoading(false);
     }

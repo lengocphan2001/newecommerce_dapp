@@ -5,7 +5,7 @@
   --foreground: #1f2937;
   --primary: #13ec5b;
   --primary-dark: #0ea841;
-  --background-light: #ffffff;
+  --background-light: #f6f6f8;
   --background-gray: #f3f4f6;
   --text-dark: #1f2937;
   --text-muted: #6b7280;
@@ -92,4 +92,10 @@ button {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
+}
+
+/* iOS blur effect */
+.ios-blur {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }

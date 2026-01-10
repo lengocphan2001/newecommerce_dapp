@@ -93,8 +93,10 @@ export declare class AuthService {
         rightLink: string;
         username: string;
         fullName: string;
+        email: string;
         walletAddress: string;
         phone: string;
+        phoneNumber: string;
         address: string;
         treeStats: {
             left: {

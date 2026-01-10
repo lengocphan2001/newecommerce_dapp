@@ -32,7 +32,6 @@ const Dashboard: React.FC = () => {
         totalRevenue: response.data?.totalRevenue || 0,
       });
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }

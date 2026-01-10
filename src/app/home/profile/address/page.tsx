@@ -13,21 +13,13 @@ interface Address {
   isDefault: boolean;
 }
 
-const MOCK_ADDRESSES: Address[] = [
-  {
-    id: "1",
-    name: "Nguyễn Văn A",
-    phone: "0901234567",
-    address: "123 Đường Lê Lợi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh",
-    isDefault: true
-  }
-];
-
 export default function ShippingAddressPage() {
   const router = useRouter();
-  const t = useI18n();
+  const { t } = useI18n();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -45,32 +37,30 @@ export default function ShippingAddressPage() {
   }, []);
 
   const loadAddresses = async () => {
-    // 1. Try API
-    if (typeof api !== 'undefined') {
-      try {
-        const data = await api.getAddresses();
-        if (data && data.length > 0) {
-          setAddresses(data);
-          initializeSelection(data);
-          return;
-        }
-      } catch (e) {
-        console.warn("API getAddresses failed", e);
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError(t("pleaseLogin") || "Please login to view addresses");
+        setLoading(false);
+        return;
       }
-    }
 
-    // 2. Try LocalStorage
-    const stored = localStorage.getItem("savedAddresses");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      setAddresses(parsed);
-      initializeSelection(parsed);
-      return;
+      const data = await api.getAddresses();
+      if (data && Array.isArray(data)) {
+        setAddresses(data);
+        initializeSelection(data);
+      } else {
+        setAddresses([]);
+      }
+    } catch (e: any) {
+      setError(e.message || t("failedToLoadAddresses") || "Failed to load addresses");
+      setAddresses([]);
+    } finally {
+      setLoading(false);
     }
-
-    // 3. Mock
-    setAddresses(MOCK_ADDRESSES);
-    initializeSelection(MOCK_ADDRESSES);
   };
 
   const initializeSelection = (list: Address[]) => {
@@ -98,18 +88,21 @@ export default function ShippingAddressPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm(t("confirmDeleteAddress"))) {
-      // Try API delete
       try {
         await api.deleteAddress(id);
-      } catch (e) {
-        console.warn("API delete failed", e);
-      }
-
-      const newAddresses = addresses.filter(a => a.id !== id);
-      setAddresses(newAddresses);
-      localStorage.setItem("savedAddresses", JSON.stringify(newAddresses));
-      if (selectedId === id && newAddresses.length > 0) {
-        setSelectedId(newAddresses[0].id);
+        // Reload addresses from backend
+        await loadAddresses();
+        // Update selected if needed
+        if (selectedId === id) {
+          const remaining = addresses.filter(a => a.id !== id);
+          if (remaining.length > 0) {
+            setSelectedId(remaining[0].id);
+          } else {
+            setSelectedId("");
+          }
+        }
+      } catch (e: any) {
+        alert(e.message || t("failedToDeleteAddress") || "Failed to delete address");
       }
     }
   };
@@ -127,51 +120,20 @@ export default function ShippingAddressPage() {
     try {
       if (editingId) {
         // UPDATE
-        const updateResult = await api.updateAddress(editingId, newAddressData);
-
-        const updatedList = addresses.map(addr => {
-          if (addr.id === editingId) {
-            return (updateResult && updateResult.id) ? updateResult : { ...addr, ...newAddressData };
-          }
-          return addr;
-        });
-
-        if (newAddressData.isDefault) {
-          updatedList.forEach(a => {
-            if (a.id !== editingId) a.isDefault = false;
-          });
-        }
-
-        setAddresses(updatedList);
-        localStorage.setItem("savedAddresses", JSON.stringify(updatedList));
-
+        await api.updateAddress(editingId, newAddressData);
       } else {
         // CREATE
-        const addResult = await api.addAddress(newAddressData);
-
-        const newAddr = (addResult && addResult.id) ? addResult : {
-          id: Date.now().toString(),
-          ...newAddressData
-        };
-
-        const updatedList = [...addresses];
-        if (newAddr.isDefault) {
-          updatedList.forEach(a => a.isDefault = false);
-        }
-        updatedList.push(newAddr);
-
-        setAddresses(updatedList);
-        localStorage.setItem("savedAddresses", JSON.stringify(updatedList));
-
-        if (updatedList.length === 1 || newAddr.isDefault) {
-          setSelectedId(newAddr.id);
-        }
+        await api.addAddress(newAddressData);
       }
-    } catch (e) {
-      console.warn(e);
+      
+      // Reload addresses from backend after add/update
+      await loadAddresses();
+      resetForm();
+    } catch (e: any) {
+      alert(e.message || t("failedToSaveAddress") || "Failed to save address");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    resetForm();
   };
 
   const resetForm = () => {
@@ -229,12 +191,39 @@ export default function ShippingAddressPage() {
 
         {/* Address Items */}
         <div className="space-y-4 px-4">
-          {addresses.length === 0 && (
+          {loading && (
             <div className="text-center py-10 text-gray-400">
-              {t("noAddresses")}
+              <span className="material-symbols-outlined animate-spin text-2xl">progress_activity</span>
+              <p className="mt-2">{t("loading") || "Loading..."}</p>
             </div>
           )}
-          {addresses.map((addr) => {
+          
+          {!loading && error && (
+            <div className="text-center py-10">
+              <p className="text-red-500 mb-4">{error}</p>
+              <button
+                onClick={() => router.push('/home/profile')}
+                className="text-[#135bec] font-medium"
+              >
+                {t("goToProfile") || "Go to Profile"}
+              </button>
+            </div>
+          )}
+          
+          {!loading && !error && addresses.length === 0 && (
+            <div className="text-center py-10">
+              <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">location_off</span>
+              <p className="text-gray-400 mb-4">{t("noAddresses") || "No addresses found"}</p>
+              <button
+                onClick={() => { resetForm(); setShowAddModal(true); }}
+                className="text-[#135bec] font-medium underline"
+              >
+                {t("addNewAddress") || "Add your first address"}
+              </button>
+            </div>
+          )}
+          
+          {!loading && !error && addresses.map((addr) => {
             const isSelected = selectedId === addr.id;
             return (
               <div
