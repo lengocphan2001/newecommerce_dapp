@@ -160,6 +160,39 @@ export const api = {
     }
     return response.json();
   },
+  async uploadAvatar(file: File): Promise<string> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/uploads/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const text = await response.text();
+      let message = 'Failed to upload avatar';
+      try {
+        const json = JSON.parse(text);
+        message = json.message || message;
+      } catch {
+        message = text || message;
+      }
+      throw new Error(message);
+    }
+    
+    const result = await response.json();
+    return result.url;
+  },
+
   async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string }) {
     const token = localStorage.getItem('token');
     if (!token) {

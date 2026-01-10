@@ -71,6 +71,31 @@ export class UploadController {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     return { urls: files.map((f) => `${baseUrl}/files/${f.filename}`) };
   }
+
+  /**
+   * Upload user avatar. Returns { url }.
+   * Available for authenticated users (no AdminGuard required)
+   */
+  @Post('avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: UPLOAD_DIR,
+        filename: (_req, file, cb) => {
+          const safeExt = extname(file.originalname || '').toLowerCase() || '.png';
+          cb(null, `${randomUUID()}${safeExt}`);
+        },
+      }),
+      fileFilter,
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }),
+  )
+  uploadAvatar(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+    if (!file) throw new BadRequestException('File is required');
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    return { url: `${baseUrl}/files/${file.filename}` };
+  }
 }
 
 

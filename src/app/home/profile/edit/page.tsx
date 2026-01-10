@@ -20,6 +20,8 @@ export default function EditProfilePage() {
   const [walletAddress, setWalletAddress] = useState("0x71C...8e92");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -81,19 +83,95 @@ export default function EditProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.8): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height * maxWidth) / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width * maxHeight) / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image'));
+                return;
+              }
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-          setMessage({ type: 'error', text: t("imageTooLarge") });
-          return;
+      if (file.size > 10 * 1024 * 1024) {
+        setMessage({ type: 'error', text: t("imageTooLarge") || "Image size must be less than 10MB" });
+        return;
       }
       
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, avatar: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        setUploadingAvatar(true);
+        
+        // Compress image before upload
+        const compressedFile = await compressImage(file, 800, 800, 0.8);
+        
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData(prev => ({ ...prev, avatar: reader.result as string }));
+        };
+        reader.readAsDataURL(compressedFile);
+        
+        // Upload compressed file
+        const avatarUrl = await api.uploadAvatar(compressedFile);
+        setFormData(prev => ({ ...prev, avatar: avatarUrl }));
+        setSelectedFile(null); // Clear after successful upload
+        setMessage({ type: 'success', text: t("avatarUploaded") || "Avatar uploaded successfully" });
+        setTimeout(() => setMessage(null), 2000);
+      } catch (err: any) {
+        setMessage({ type: 'error', text: err.message || t("avatarUploadFailed") || "Failed to upload avatar" });
+        // Keep preview but mark that upload failed
+      } finally {
+        setUploadingAvatar(false);
+      }
     }
   };
 
@@ -102,19 +180,34 @@ export default function EditProfilePage() {
     setMessage(null);
 
     try {
-      // Call API
+      let avatarUrl = formData.avatar;
+      
+      // If there's a selected file that hasn't been uploaded yet, upload it first
+      if (selectedFile) {
+        try {
+          avatarUrl = await api.uploadAvatar(selectedFile);
+          setFormData(prev => ({ ...prev, avatar: avatarUrl }));
+          setSelectedFile(null);
+        } catch (err: any) {
+          setMessage({ type: 'error', text: err.message || t("avatarUploadFailed") || "Failed to upload avatar" });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Call API to update profile
       await api.updateProfile({
           fullName: formData.displayName,
           email: formData.email,
           phoneNumber: formData.phone,
-          avatar: formData.avatar
+          avatar: avatarUrl // Use URL instead of base64
       });
 
       // Update localStorage for consistency
       localStorage.setItem("userPhone", formData.phone);
       localStorage.setItem("userName", formData.displayName);
       localStorage.setItem("userEmail", formData.email);
-      localStorage.setItem("userAvatar", formData.avatar);
+      localStorage.setItem("userAvatar", avatarUrl);
       
       setMessage({ type: 'success', text: t("profileUpdated") });
       
@@ -151,21 +244,33 @@ export default function EditProfilePage() {
                 <div 
                     className="bg-center bg-no-repeat aspect-square bg-cover rounded-full min-h-32 w-32 border-4 border-white shadow-sm transition-transform group-active:scale-95 duration-200" 
                     style={{backgroundImage: `url("${formData.avatar}")`}}
-                ></div>
+                >
+                  {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <div className="h-8 w-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
                 {/* Edit Badge */}
-                <div className="absolute bottom-1 right-1 bg-[#135bec] text-white p-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center">
-                  <span className="material-symbols-outlined text-sm">photo_camera</span>
+                <div className={`absolute bottom-1 right-1 bg-[#135bec] text-white p-2 rounded-full shadow-lg border-2 border-white flex items-center justify-center ${uploadingAvatar ? 'opacity-50' : ''}`}>
+                  <span className="material-symbols-outlined text-sm">
+                    {uploadingAvatar ? 'hourglass_empty' : 'photo_camera'}
+                  </span>
                 </div>
                 <input 
                     type="file" 
                     ref={fileInputRef}
                     className="hidden" 
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
                     onChange={handleFileChange}
+                    disabled={uploadingAvatar}
                 />
               </div>
-              <button className="text-[#135bec] text-sm font-medium leading-normal text-center hover:opacity-80 transition-opacity">
-                {t("changeAvatar")}
+              <button 
+                className={`text-[#135bec] text-sm font-medium leading-normal text-center hover:opacity-80 transition-opacity ${uploadingAvatar ? 'opacity-50 cursor-wait' : ''}`}
+                disabled={uploadingAvatar}
+              >
+                {uploadingAvatar ? (t("uploading") || "Uploading...") : t("changeAvatar")}
               </button>
             </div>
           </div>
