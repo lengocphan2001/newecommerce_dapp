@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:static": "cross-env NODE_ENV=production NEXT_PUBLIC_STATIC_EXPORT=true next build",
-    "build:all": "npm run build:static && cd admin && npm run build",
+    "build:all": "npm run build:static && cd admin && npm run build:prod",
     "start": "next start",
     "lint": "eslint"
   },

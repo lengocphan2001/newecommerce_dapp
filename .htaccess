@@ -2,7 +2,12 @@
   RewriteEngine On
   RewriteBase /
   
-  # Handle Next.js routes
+  # Exclude admin directory from Next.js routing
+  RewriteCond %{REQUEST_URI} ^/admin
+  RewriteRule ^admin/(.*)$ /admin/$1 [L]
+  
+  # Handle Next.js routes (only if not admin)
+  RewriteCond %{REQUEST_URI} !^/admin
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule ^(.*)$ /index.html [L]

@@ -21,7 +21,7 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/admin">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
