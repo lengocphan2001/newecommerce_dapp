@@ -113,7 +113,7 @@ export default function HomePage() {
             <span className="material-symbols-outlined text-gray-400">search</span>
           </div>
           <input
-            className="block w-full p-3.5 pl-10 text-sm text-gray-900 border border-gray-200 rounded-xl bg-gray-50 focus:ring-primary focus:border-primary placeholder:text-gray-400 shadow-inner"
+            className="block w-full p-3.5 pl-10 text-base text-gray-900 border border-gray-200 rounded-xl bg-gray-50 focus:ring-primary focus:border-primary placeholder:text-gray-400 shadow-inner"
             placeholder={t("searchProductsPlaceholder")}
             type="text"
             value={searchQuery}

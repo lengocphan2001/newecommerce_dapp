@@ -5,9 +5,14 @@ import { AdminSeedService } from './common/seed/admin-seed.service';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Increase body size limit for JSON (to handle base64 avatar uploads)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Serve uploaded files
   const uploadDir = join(process.cwd(), 'uploads');

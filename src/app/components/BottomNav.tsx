@@ -17,6 +17,13 @@ export default function BottomNav() {
     setMounted(true);
   }, []);
 
+  // Debug: Log pathname changes
+  useEffect(() => {
+    if (mounted) {
+      console.log('BottomNav - Current pathname:', pathname);
+    }
+  }, [pathname, mounted]);
+
   const menuItems = [
     {
       href: "/home",
@@ -63,11 +70,23 @@ export default function BottomNav() {
   };
 
   const isActive = (item: typeof menuItems[0]) => {
+    // Normalize pathname (remove trailing slash)
+    const normalizedPathname = pathname.replace(/\/$/, '') || '/';
+    
     return item.activePaths.some((path) => {
-      if (pathname === path) return true;
-      // Special case: /home should not match sub-paths like /home/cart
-      if (path === "/home" && pathname !== "/home") return false;
-      return pathname.startsWith(path + "/");
+      // Normalize path (remove trailing slash)
+      const normalizedPath = path.replace(/\/$/, '') || '/';
+      
+      // Exact match
+      if (normalizedPathname === normalizedPath) return true;
+      
+      // Special case: /home should only match exactly /home, not sub-paths
+      if (normalizedPath === "/home") {
+        return normalizedPathname === "/home";
+      }
+      
+      // For other paths, check if pathname starts with path + "/"
+      return normalizedPathname.startsWith(normalizedPath + "/");
     });
   };
 
@@ -81,14 +100,16 @@ export default function BottomNav() {
             <button
               key={item.href}
               onClick={() => handleNavigate(item.href)}
-              className={`flex flex-col items-center gap-1 transition-colors group relative min-w-[60px] ${active
-                  ? "text-primary-dark"
-                  : "text-gray-400 hover:text-gray-600"
-                }`}
+              className={`flex flex-col items-center gap-1 transition-all group relative min-w-[60px] px-2 py-1 rounded-lg ${
+                active
+                  ? "text-primary-dark bg-primary/10"
+                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+              }`}
               type="button"
             >
-              <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${active ? "font-bold" : ""
-                }`}>
+              <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${
+                active ? "font-bold" : ""
+              }`}>
                 {item.icon}
               </span>
               {mounted && item.badge && (
@@ -96,8 +117,9 @@ export default function BottomNav() {
                   {item.badge > 9 ? "9+" : item.badge}
                 </span>
               )}
-              <span className={`text-[10px] transition-all ${active ? "font-bold text-primary-dark" : "font-medium"
-                }`}>
+              <span className={`text-[10px] transition-all ${
+                active ? "font-bold text-primary-dark" : "font-medium"
+              }`}>
                 {item.label}
               </span>
             </button>
