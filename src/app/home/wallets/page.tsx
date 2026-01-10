@@ -6,6 +6,7 @@ import { Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
 import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { handleAuthError } from "@/app/utils/auth";
 
 const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
 const BSC_RPC = "https://bsc-dataseed.binance.org/";
@@ -53,8 +54,12 @@ export default function WalletsPage() {
       const data = await api.getOrders();
       const ordersList = Array.isArray(data) ? data : (data?.data || []);
       setOrders(ordersList);
-    } catch (err) {
-      // User might not be logged in
+    } catch (err: any) {
+      // Check if it's an authentication error and redirect
+      if (handleAuthError(err, router)) {
+        return; // Redirect is happening
+      }
+      // User might not be logged in, ignore other errors
     }
   };
 
@@ -115,8 +120,12 @@ export default function WalletsPage() {
       try {
         const info = await api.getReferralInfo();
         setReferralInfo(info);
-      } catch (err) {
-        // User might not be logged in or no referral info
+      } catch (err: any) {
+        // Check if it's an authentication error and redirect
+        if (handleAuthError(err, router)) {
+          return; // Redirect is happening
+        }
+        // User might not be logged in or no referral info, ignore other errors
       }
     } catch (error) {
     } finally {

@@ -306,7 +306,10 @@ export type I18nKey =
   | "failedToLoadAddresses"
   | "failedToDeleteAddress"
   | "failedToSaveAddress"
-  | "goToProfile";
+  | "goToProfile"
+  | "avatarUploaded"
+  | "avatarUploadFailed"
+  | "uploading";
 
 export const DEFAULT_LANG: Lang = "vi";
 
@@ -613,7 +616,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     failedToLoadAddresses: "Không thể tải địa chỉ",
     failedToDeleteAddress: "Không thể xóa địa chỉ",
     failedToSaveAddress: "Không thể lưu địa chỉ",
-    goToProfile: "Đi tới trang cá nhân"
+    goToProfile: "Đi tới trang cá nhân",
+    avatarUploaded: "Tải ảnh đại diện thành công",
+    avatarUploadFailed: "Tải ảnh đại diện thất bại",
+    uploading: "Đang tải lên..."
   },
   en: {
     appName: "VinMall",
@@ -917,7 +923,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     failedToLoadAddresses: "Failed to load addresses",
     failedToDeleteAddress: "Failed to delete address",
     failedToSaveAddress: "Failed to save address",
-    goToProfile: "Go to Profile"
+    goToProfile: "Go to Profile",
+    avatarUploaded: "Avatar uploaded successfully",
+    avatarUploadFailed: "Failed to upload avatar",
+    uploading: "Uploading..."
   },
   ko: {
     appName: "VinMall",
@@ -1221,6 +1230,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     failedToLoadAddresses: "주소를 불러올 수 없습니다",
     failedToDeleteAddress: "주소를 삭제할 수 없습니다",
     failedToSaveAddress: "주소를 저장할 수 없습니다",
-    goToProfile: "프로필로 이동"
+    goToProfile: "프로필로 이동",
+    avatarUploaded: "아바타 업로드 성공",
+    avatarUploadFailed: "아바타 업로드 실패",
+    uploading: "업로드 중..."
   },
 };

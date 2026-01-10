@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { handleAuthError } from "@/app/utils/auth";
 
 export default function AffiliatePage() {
   const { t } = useI18n();
@@ -50,6 +51,10 @@ export default function AffiliatePage() {
       const info = await api.getReferralInfo();
       setReferralInfo(info);
     } catch (err: any) {
+      // Check if it's an authentication error and redirect
+      if (handleAuthError(err, router)) {
+        return; // Redirect is happening, don't set error state
+      }
       setError(err.message || t("affiliateError"));
     } finally {
       setLoading(false);

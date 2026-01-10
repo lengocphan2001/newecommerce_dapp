@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { handleAuthError } from "@/app/utils/auth";
 
 interface OrderItem {
   productId: string;
@@ -61,7 +62,11 @@ export default function OrderDetailsPage() {
       );
       setItemsWithImages(updatedItems);
 
-    } catch (error) {
+    } catch (error: any) {
+      // Check if it's an authentication error and redirect
+      if (handleAuthError(error, router)) {
+        return; // Redirect is happening
+      }
     } finally {
       setLoading(false);
     }

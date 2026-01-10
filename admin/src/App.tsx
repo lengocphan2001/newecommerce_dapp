@@ -10,6 +10,7 @@ import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
 import CommissionPayout from './pages/CommissionPayout';
+import CommissionConfig from './pages/CommissionConfig';
 import AuditLog from './pages/AuditLog';
 import Login from './pages/Login';
 import './App.css';
@@ -120,6 +121,16 @@ function App() {
             <PrivateRoute>
               <AdminLayout>
                 <CommissionPayout />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/commission-config"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <CommissionConfig />
               </AdminLayout>
             </PrivateRoute>
           }

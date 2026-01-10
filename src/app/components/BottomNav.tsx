@@ -20,7 +20,7 @@ export default function BottomNav() {
   // Debug: Log pathname changes
   useEffect(() => {
     if (mounted) {
-      console.log('BottomNav - Current pathname:', pathname);
+      
     }
   }, [pathname, mounted]);
 

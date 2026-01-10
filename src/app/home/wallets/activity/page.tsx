@@ -6,6 +6,7 @@ import AppHeader from "@/app/components/AppHeader";
 import BottomNav from "@/app/components/BottomNav";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { handleAuthError } from "@/app/utils/auth";
 
 interface ActivityItem {
   id: string;
@@ -48,14 +49,22 @@ export default function ActivityPage() {
         const ordersData = await api.getOrders();
         const ordersList = Array.isArray(ordersData) ? ordersData : (ordersData?.data || []);
         setOrders(ordersList);
-      } catch (err) {
+      } catch (err: any) {
+        // Check if it's an authentication error and redirect
+        if (handleAuthError(err, router)) {
+          return; // Redirect is happening
+        }
       }
 
       // Fetch referral info (commissions)
       try {
         const info = await api.getReferralInfo();
         setReferralInfo(info);
-      } catch (err) {
+      } catch (err: any) {
+        // Check if it's an authentication error and redirect
+        if (handleAuthError(err, router)) {
+          return; // Redirect is happening
+        }
       }
     } catch (error) {
     } finally {

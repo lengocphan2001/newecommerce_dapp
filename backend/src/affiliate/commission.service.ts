@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from '../user/entities/user.entity';
@@ -8,33 +8,15 @@ import {
   CommissionType,
   CommissionStatus,
 } from './entities/commission.entity';
-
-// Cấu hình hoa hồng
-const COMMISSION_CONFIG = {
-  CTV: {
-    DIRECT_RATE: 0.2, // 20%
-    GROUP_RATE: 0.1, // 10%
-    MANAGEMENT_RATE: 0.15, // 15% trên hoa hồng nhóm của F1
-    PACKAGE_VALUE: 0.0001, // Giá trị gói CTV - điều kiện để trở thành CTV (TEST: giảm từ 40)
-    RECONSUMPTION_THRESHOLD: 0.001, // Ngưỡng hoa hồng để yêu cầu tái tiêu dùng: khi nhận được $0.001 hoa hồng (TEST: giảm từ 160)
-    RECONSUMPTION_REQUIRED: 0.0001, // Số tiền tái tiêu dùng cần thiết: $0.0001 mỗi chu kỳ (TEST: giảm từ 40)
-  },
-  NPP: {
-    DIRECT_RATE: 0.25, // 25%
-    GROUP_RATE: 0.15, // 15%
-    MANAGEMENT_RATES: {
-      F1: 0.15, // 15% trên hoa hồng nhóm F1
-      F2: 0.1, // 10% trên hoa hồng nhóm F2
-      F3: 0.1, // 10% trên hoa hồng nhóm F3
-    },
-    PACKAGE_VALUE: 0.001, // Giá trị gói NPP - điều kiện để trở thành NPP (TEST: giảm từ 400)
-    RECONSUMPTION_THRESHOLD: 0.01, // Ngưỡng hoa hồng để yêu cầu tái tiêu dùng: khi nhận được $0.01 hoa hồng (TEST: giảm từ 1600)
-    RECONSUMPTION_REQUIRED: 0.001, // Số tiền tái tiêu dùng cần thiết: $0.001 mỗi chu kỳ (TEST: giảm từ 400)
-  },
-};
+import { CommissionConfigService } from '../admin/commission-config.service';
+import { PackageType } from '../admin/entities/commission-config.entity';
 
 @Injectable()
 export class CommissionService {
+  private configCache: Map<string, any> = new Map(); // Changed to string key
+  private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
+  private lastCacheUpdate: number = 0;
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -43,7 +25,79 @@ export class CommissionService {
     @InjectRepository(Commission)
     private commissionRepository: Repository<Commission>,
     private dataSource: DataSource,
+    @Inject(forwardRef(() => CommissionConfigService))
+    private configService: CommissionConfigService,
   ) {}
+
+  /**
+   * Get commission config for a package type (with caching)
+   */
+  private async getConfig(packageType: 'CTV' | 'NPP'): Promise<any> {
+    const now = Date.now();
+    
+    // Check cache
+    if (this.configCache.has(packageType) && (now - this.lastCacheUpdate) < this.cacheExpiry) {
+      return this.configCache.get(packageType);
+    }
+
+    // Load from database
+    const config = await this.configService.findByPackageType(
+      packageType === 'CTV' ? PackageType.CTV : PackageType.NPP,
+    );
+
+    if (!config) {
+      // Fallback to defaults if config not found
+      const defaults = packageType === 'CTV' 
+        ? {
+            DIRECT_RATE: 0.2,
+            GROUP_RATE: 0.1,
+            MANAGEMENT_RATE: 0.15,
+            MANAGEMENT_RATES: { F1: 0.15, F2: null, F3: null },
+            PACKAGE_VALUE: 0.0001,
+            RECONSUMPTION_THRESHOLD: 0.001,
+            RECONSUMPTION_REQUIRED: 0.0001,
+          }
+        : {
+            DIRECT_RATE: 0.25,
+            GROUP_RATE: 0.15,
+            MANAGEMENT_RATE: 0.15,
+            MANAGEMENT_RATES: { F1: 0.15, F2: 0.1, F3: 0.1 },
+            PACKAGE_VALUE: 0.001,
+            RECONSUMPTION_THRESHOLD: 0.01,
+            RECONSUMPTION_REQUIRED: 0.001,
+          };
+      this.configCache.set(packageType, defaults);
+      this.lastCacheUpdate = now;
+      return defaults;
+    }
+
+    // Convert database config to format expected by code
+    const formattedConfig = {
+      DIRECT_RATE: parseFloat(config.directRate.toString()),
+      GROUP_RATE: parseFloat(config.groupRate.toString()),
+      MANAGEMENT_RATE: parseFloat(config.managementRateF1.toString()),
+      MANAGEMENT_RATES: {
+        F1: parseFloat(config.managementRateF1.toString()),
+        F2: config.managementRateF2 ? parseFloat(config.managementRateF2.toString()) : null,
+        F3: config.managementRateF3 ? parseFloat(config.managementRateF3.toString()) : null,
+      },
+      PACKAGE_VALUE: parseFloat(config.packageValue.toString()),
+      RECONSUMPTION_THRESHOLD: parseFloat(config.reconsumptionThreshold.toString()),
+      RECONSUMPTION_REQUIRED: parseFloat(config.reconsumptionRequired.toString()),
+    };
+
+    this.configCache.set(packageType, formattedConfig);
+    this.lastCacheUpdate = now;
+    return formattedConfig;
+  }
+
+  /**
+   * Clear config cache (call when config is updated)
+   */
+  clearConfigCache(): void {
+    this.configCache.clear();
+    this.lastCacheUpdate = 0;
+  }
 
   /**
    * Tính toán và phân phối hoa hồng khi có đơn hàng mới
@@ -111,10 +165,14 @@ export class CommissionService {
 
     let newPackageType: 'NONE' | 'CTV' | 'NPP' = user.packageType;
 
-    if (newTotalPurchase >= COMMISSION_CONFIG.NPP.PACKAGE_VALUE) {
+    const nppConfig = await this.getConfig('NPP');
+    if (newTotalPurchase >= nppConfig.PACKAGE_VALUE) {
       newPackageType = 'NPP';
-    } else if (newTotalPurchase >= COMMISSION_CONFIG.CTV.PACKAGE_VALUE) {
-      newPackageType = 'CTV';
+    } else {
+      const ctvConfig = await this.getConfig('CTV');
+      if (newTotalPurchase >= ctvConfig.PACKAGE_VALUE) {
+        newPackageType = 'CTV';
+      }
     }
 
     if (newPackageType !== user.packageType) {
@@ -165,10 +223,9 @@ export class CommissionService {
       return;
     }
 
-    const config =
-      referrer.packageType === 'NPP'
-        ? COMMISSION_CONFIG.NPP
-        : COMMISSION_CONFIG.CTV;
+    const config = await this.getConfig(
+      referrer.packageType === 'NPP' ? 'NPP' : 'CTV'
+    );
 
     const commissionAmount = order.totalAmount * config.DIRECT_RATE;
 
@@ -226,10 +283,9 @@ export class CommissionService {
 
       // Chỉ tính hoa hồng nếu giao dịch ở nhánh yếu
       if (buyerSide === weakSide) {
-        const config =
-          ancestor.packageType === 'NPP'
-            ? COMMISSION_CONFIG.NPP
-            : COMMISSION_CONFIG.CTV;
+        const config = await this.getConfig(
+          ancestor.packageType === 'NPP' ? 'NPP' : 'CTV'
+        );
 
         const commissionAmount = order.totalAmount * config.GROUP_RATE;
 
@@ -384,9 +440,12 @@ export class CommissionService {
   ): Promise<void> {
     let rate: number;
     if (manager.packageType === 'CTV') {
-      rate = COMMISSION_CONFIG.CTV.MANAGEMENT_RATE; // 15%
+      const ctvConfig = await this.getConfig('CTV');
+      rate = ctvConfig.MANAGEMENT_RATE; // 15%
     } else if (manager.packageType === 'NPP') {
-      rate = COMMISSION_CONFIG.NPP.MANAGEMENT_RATES[`F${level}` as 'F1' | 'F2' | 'F3'];
+      const nppConfig = await this.getConfig('NPP');
+      const fKey = `F${level}` as 'F1' | 'F2' | 'F3';
+      rate = nppConfig.MANAGEMENT_RATES[fKey] || 0;
     } else {
       return;
     }
@@ -429,13 +488,11 @@ export class CommissionService {
       return false;
     }
 
-    const config =
-      user.packageType === 'NPP'
-        ? COMMISSION_CONFIG.NPP
-        : COMMISSION_CONFIG.CTV;
+    const config = await this.getConfig(
+      user.packageType === 'NPP' ? 'NPP' : 'CTV'
+    );
 
     // Kiểm tra xem đã đạt ngưỡng hoa hồng chưa
-    // Ngưỡng: CTV = $0.0001, NPP = $0.001
     if (user.totalCommissionReceived < config.RECONSUMPTION_THRESHOLD) {
       // Chưa đạt ngưỡng → có thể nhận hoa hồng bình thường (không cần tái tiêu dùng)
       return true;
@@ -447,7 +504,6 @@ export class CommissionService {
       user.totalCommissionReceived / config.RECONSUMPTION_THRESHOLD,
     );
     // Số tiền tái tiêu dùng cần thiết cho số chu kỳ này
-    // CTV: $0.001 mỗi chu kỳ, NPP: $0.01 mỗi chu kỳ
     const requiredReconsumption = cycles * config.RECONSUMPTION_REQUIRED;
 
     // Kiểm tra xem đã tái tiêu dùng đủ chưa

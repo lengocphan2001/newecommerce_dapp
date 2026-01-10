@@ -44,7 +44,7 @@ COMMISSION_PAYOUT_CONTRACT_ADDRESS=0xCC5457C8717cd7fc722A012694F7aE388357811f
 BSC_NETWORK=mainnet
 BSC_MAINNET_RPC=https://bsc-dataseed.binance.org/
 BLOCKCHAIN_PRIVATE_KEY=your_private_key
-AUTO_PAYOUT_ENABLED=true
+# AUTO_PAYOUT_ENABLED is no longer needed - payout happens immediately on order approval
 ```
 
 ## Bước 4: Deploy

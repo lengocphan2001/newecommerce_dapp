@@ -17,18 +17,20 @@ export class CommissionPayoutScheduler {
   ) {}
 
   /**
-   * Run auto payout every hour
+   * DISABLED: Auto payout every hour
+   * Commission payout now happens immediately when admin approves an order
+   * This scheduler is kept for potential future use but is currently disabled
    */
-  @Cron(CronExpression.EVERY_HOUR)
+  // @Cron(CronExpression.EVERY_HOUR)
   async handleHourlyPayout() {
+    // DISABLED: Payout now happens immediately when order is approved
+    this.logger.debug('Scheduled auto payout is disabled. Payout happens immediately on order approval.');
+    return;
+    
+    // Legacy code below (disabled)
+    /*
     if (this.isRunning) {
       this.logger.warn('Previous payout job still running, skipping...');
-      return;
-    }
-
-    const enabled = this.configService.get<string>('AUTO_PAYOUT_ENABLED') === 'true';
-    if (!enabled) {
-      this.logger.debug('Auto payout is disabled');
       return;
     }
 
@@ -61,6 +63,7 @@ export class CommissionPayoutScheduler {
     } finally {
       this.isRunning = false;
     }
+    */
   }
 
 }

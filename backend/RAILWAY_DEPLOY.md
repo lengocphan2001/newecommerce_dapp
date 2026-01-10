@@ -109,19 +109,12 @@ BLOCKCHAIN_PRIVATE_KEY=your_private_key_without_0x_prefix
 # BLOCKCHAIN_PRIVATE_KEY=0xyour_private_key
 ```
 
-### 4.5. Auto Payout Configuration
+### 4.5. Commission Payout
 
-```env
-AUTO_PAYOUT_ENABLED=true
-AUTO_PAYOUT_BATCH_SIZE=50
-AUTO_PAYOUT_MIN_AMOUNT=0
-```
-
-**📌 Lưu ý về Scheduler:**
-- Scheduler **tự động chạy** khi app start, không cần setup thêm
-- Hourly payout: Chạy mỗi giờ
-- Daily payout: Chạy lúc 2:00 AM UTC
-- Xem chi tiết: `SCHEDULER_INFO.md`
+**📌 Lưu ý về Payout:**
+- **Immediate Payout**: Commission được trả ngay lập tức khi admin duyệt order (PENDING → CONFIRMED)
+- **Scheduled Payout**: Đã được disable vì không cần thiết nữa
+- Admin có thể trigger manual payout từ admin panel nếu cần
 
 ### 4.6. Server Configuration
 

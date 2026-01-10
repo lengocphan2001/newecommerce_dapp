@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
+import { handleAuthError } from "@/app/utils/auth";
 
 interface OrderItem {
   productId: string;
@@ -87,6 +88,10 @@ function OrdersPageContent() {
       const ordersList = Array.isArray(data) ? data : (data?.data || []);
       setOrders(ordersList);
     } catch (err: any) {
+      // Check if it's an authentication error and redirect
+      if (handleAuthError(err, router)) {
+        return; // Redirect is happening, don't set error state
+      }
       setError(err.message || t("failedToLoadOrders"));
     } finally {
       setLoading(false);

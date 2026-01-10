@@ -333,6 +333,112 @@ export class CommissionPayoutService {
   }
 
   /**
+   * Payout commissions for a specific order immediately
+   * Called when admin approves an order
+   */
+  async payoutOrderCommissions(orderId: string): Promise<{ batchId: string; txHash: string; count: number } | null> {
+    this.logger.log(`Payout commissions for order: ${orderId}`);
+
+    // Get pending commissions for this order
+    const orderCommissions = await this.commissionRepository.find({
+      where: {
+        orderId,
+        status: CommissionStatus.PENDING,
+      },
+      relations: ['user'],
+    });
+
+    if (orderCommissions.length === 0) {
+      this.logger.log(`No pending commissions found for order ${orderId}`);
+      return null;
+    }
+
+    // Filter commissions with valid wallet addresses
+    const validCommissions = orderCommissions.filter(
+      (c) => c.user?.walletAddress,
+    );
+
+    if (validCommissions.length === 0) {
+      this.logger.warn(`No commissions with wallet addresses for order ${orderId}`);
+      return null;
+    }
+
+    // Log immediate payout start
+    await this.auditLogService.create(
+      {
+        action: AuditLogAction.PAYOUT_CREATED,
+        entityType: AuditLogEntityType.COMMISSION_PAYOUT,
+        description: `Immediate payout for order ${orderId}. Count: ${validCommissions.length}`,
+        metadata: {
+          orderId,
+          commissionCount: validCommissions.length,
+          trigger: 'order_approved',
+        },
+      },
+      'system',
+      'system',
+      undefined,
+      undefined,
+    );
+
+    try {
+      // Prepare batch
+      const { recipients, commissionIds } = await this.preparePayoutBatch(
+        validCommissions,
+      );
+
+      if (recipients.length === 0) {
+        this.logger.warn(`No valid recipients found for order ${orderId}`);
+        return null;
+      }
+
+      // Execute payout
+      const dto: BatchPayoutDto = {
+        recipients,
+      };
+
+      const result = await this.executeBatchPayout(
+        dto,
+        'system',
+        'system',
+        undefined,
+        undefined,
+      );
+
+      this.logger.log(
+        `Immediate payout completed for order ${orderId}. BatchId: ${result.batchId}, TxHash: ${result.txHash}, Count: ${commissionIds.length}`,
+      );
+
+      return {
+        batchId: result.batchId,
+        txHash: result.txHash,
+        count: commissionIds.length,
+      };
+    } catch (error: any) {
+      // Log immediate payout failure
+      await this.auditLogService.create(
+        {
+          action: AuditLogAction.PAYOUT_FAILED,
+          entityType: AuditLogEntityType.COMMISSION_PAYOUT,
+          description: `Immediate payout failed for order ${orderId}: ${error.message}`,
+          metadata: {
+            orderId,
+            error: error.message,
+            trigger: 'order_approved',
+          },
+        },
+        'system',
+        'system',
+        undefined,
+        undefined,
+      );
+      this.logger.error(`Immediate payout failed for order ${orderId}`, error);
+      // Don't throw - let order approval succeed even if payout fails
+      return null;
+    }
+  }
+
+  /**
    * Get payout statistics
    */
   async getPayoutStats() {

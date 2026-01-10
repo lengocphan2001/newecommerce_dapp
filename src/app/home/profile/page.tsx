@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { handleAuthError } from "@/app/utils/auth";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -28,7 +29,11 @@ export default function ProfilePage() {
                 ...info,
                 avatar: info.avatar || localAvatar
             });
-          } catch(e) {
+          } catch(e: any) {
+             // Check if it's an authentication error and redirect
+             if (handleAuthError(e, router)) {
+               return; // Redirect is happening
+             }
              // Fallback to local storage or defaults
              const savedPhone = localStorage.getItem("userPhone");
              const savedName = localStorage.getItem("userName");

@@ -14,6 +14,7 @@ import {
   MenuUnfoldOutlined,
   DollarOutlined,
   ThunderboltOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -73,6 +74,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       key: '/commission-payout',
       icon: <ThunderboltOutlined />,
       label: 'Commission Payout',
+    },
+    {
+      key: '/commission-config',
+      icon: <SettingOutlined />,
+      label: 'Commission Config',
     },
     {
       key: '/audit-log',

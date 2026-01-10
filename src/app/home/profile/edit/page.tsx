@@ -164,10 +164,10 @@ export default function EditProfilePage() {
         const avatarUrl = await api.uploadAvatar(compressedFile);
         setFormData(prev => ({ ...prev, avatar: avatarUrl }));
         setSelectedFile(null); // Clear after successful upload
-        setMessage({ type: 'success', text: t("avatarUploaded") || "Avatar uploaded successfully" });
+        setMessage({ type: 'success', text: t("avatarUploaded") });
         setTimeout(() => setMessage(null), 2000);
       } catch (err: any) {
-        setMessage({ type: 'error', text: err.message || t("avatarUploadFailed") || "Failed to upload avatar" });
+        setMessage({ type: 'error', text: err.message || t("avatarUploadFailed") });
         // Keep preview but mark that upload failed
       } finally {
         setUploadingAvatar(false);
@@ -189,7 +189,7 @@ export default function EditProfilePage() {
           setFormData(prev => ({ ...prev, avatar: avatarUrl }));
           setSelectedFile(null);
         } catch (err: any) {
-          setMessage({ type: 'error', text: err.message || t("avatarUploadFailed") || "Failed to upload avatar" });
+          setMessage({ type: 'error', text: err.message || t("avatarUploadFailed") });
           setLoading(false);
           return;
         }
@@ -270,7 +270,7 @@ export default function EditProfilePage() {
                 className={`text-[#135bec] text-sm font-medium leading-normal text-center hover:opacity-80 transition-opacity ${uploadingAvatar ? 'opacity-50 cursor-wait' : ''}`}
                 disabled={uploadingAvatar}
               >
-                {uploadingAvatar ? (t("uploading") || "Uploading...") : t("changeAvatar")}
+                {uploadingAvatar ? t("uploading") : t("changeAvatar")}
               </button>
             </div>
           </div>

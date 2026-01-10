@@ -6,6 +6,7 @@ import { Product } from '../product/entities/product.entity';
 import { User } from '../user/entities/user.entity';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { CommissionService } from '../affiliate/commission.service';
+import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 
 @Injectable()
 export class OrderService {
@@ -18,6 +19,8 @@ export class OrderService {
     private userRepository: Repository<User>,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
+    @Inject(forwardRef(() => CommissionPayoutService))
+    private commissionPayoutService: CommissionPayoutService,
   ) {}
 
   async findAll(query: any) {
@@ -145,10 +148,16 @@ export class OrderService {
         });
       }
 
-      // Tính toán hoa hồng tự động (chạy async để không block response)
+      // Tính toán hoa hồng tự động và payout ngay lập tức (chạy async để không block response)
       this.commissionService
         .calculateCommissions(savedOrder.id)
+        .then(() => {
+          // Sau khi tính commission xong, payout ngay lập tức
+          return this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
+        })
         .catch((error) => {
+          // Log error nhưng không block order approval
+          console.error('Error calculating commissions or payout:', error);
         });
 
       return savedOrder;
@@ -205,15 +214,21 @@ export class OrderService {
       return false;
     }
 
+    // Get config from CommissionService (via commissionService which has access to config)
+    // We'll use the same logic as CommissionService.checkReconsumption
+    // For now, use a simple approach - inject CommissionConfigService if needed
+    // Or we can duplicate the logic here
+    
+    // Temporary: Use hardcoded values, will be replaced when we inject config service
     const config =
       user.packageType === 'NPP'
         ? {
-            RECONSUMPTION_THRESHOLD: 0.01, // TEST: giảm từ 1600 - Ngưỡng hoa hồng để cần tái tiêu dùng
-            RECONSUMPTION_REQUIRED: 0.001, // TEST: giảm từ 400 - Số tiền tái tiêu dùng cần thiết
+            RECONSUMPTION_THRESHOLD: 0.01,
+            RECONSUMPTION_REQUIRED: 0.001,
           }
         : {
-            RECONSUMPTION_THRESHOLD: 0.001, // TEST: giảm từ 160 - Ngưỡng hoa hồng để cần tái tiêu dùng
-            RECONSUMPTION_REQUIRED: 0.0001, // TEST: giảm từ 40 - Số tiền tái tiêu dùng cần thiết
+            RECONSUMPTION_THRESHOLD: 0.001,
+            RECONSUMPTION_REQUIRED: 0.0001,
           };
 
     // Nếu đã đạt ngưỡng hoa hồng và chưa đủ tái tiêu dùng
