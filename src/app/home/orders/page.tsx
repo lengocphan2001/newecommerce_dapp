@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
@@ -26,7 +26,7 @@ interface Order {
   updatedAt: string;
 }
 
-export default function OrdersPage() {
+function OrdersPageContent() {
   const [activeTab, setActiveTab] = useState<"all" | "processing" | "delivered" | "cancelled">("all");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -432,5 +432,19 @@ export default function OrdersPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col bg-background-light min-h-screen">
+        <div className="flex justify-center items-center py-12">
+          <span className="material-symbols-outlined animate-spin text-blue-600">refresh</span>
+        </div>
+      </div>
+    }>
+      <OrdersPageContent />
+    </Suspense>
   );
 }

@@ -27,11 +27,9 @@ async function bootstrap() {
         await adminSeedService.seed();
     }
     catch (error) {
-        console.error('Error seeding admin user:', error.message);
     }
     const port = process.env.PORT || 3002;
     await app.listen(port);
-    console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

@@ -269,19 +269,16 @@ let AuthService = class AuthService {
                 throw new common_1.ConflictException('Referral code (username) does not exist');
             }
             referralUserId = referralUser.id;
-            console.log(`[Referral Debug] Received leg value:`, walletRegisterDto.leg, `Type:`, typeof walletRegisterDto.leg);
             if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {
                 const slot = await this.userService.findAvailableSlotInBranch(referralUserId, walletRegisterDto.leg);
                 parentId = slot.parentId;
                 position = slot.position;
-                console.log(`[Referral] User ${walletRegisterDto.username} placed in ${position} leg of parent ${slot.parentId} (requested ${walletRegisterDto.leg} branch of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId})`);
             }
             else {
                 const weakLeg = await this.userService.getWeakLeg(referralUserId);
                 const slot = await this.userService.findAvailableSlotInBranch(referralUserId, weakLeg);
                 parentId = slot.parentId;
                 position = slot.position;
-                console.log(`[Referral] User ${walletRegisterDto.username} auto-placed in ${position} leg of parent ${slot.parentId} (weak leg of referral ${walletRegisterDto.referralUser}, referralUserId: ${referralUserId}). Received leg: ${walletRegisterDto.leg || 'undefined'}`);
             }
         }
         const user = await this.userService.create({

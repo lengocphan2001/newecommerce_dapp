@@ -63,41 +63,4 @@ export class CommissionPayoutScheduler {
     }
   }
 
-  /**
-   * Run auto payout daily at 2 AM
-   */
-  @Cron('0 2 * * *')
-  async handleDailyPayout() {
-    if (this.isRunning) {
-      this.logger.warn('Previous payout job still running, skipping...');
-      return;
-    }
-
-    const enabled = this.configService.get<string>('AUTO_PAYOUT_ENABLED') === 'true';
-    if (!enabled) {
-      return;
-    }
-
-    this.isRunning = true;
-    this.logger.log('Starting daily auto payout...');
-
-    try {
-      const batchSize = parseInt(
-        this.configService.get<string>('AUTO_PAYOUT_BATCH_SIZE') || '100',
-        10,
-      );
-
-      const result = await this.commissionPayoutService.autoPayout(batchSize);
-
-      if (result.count > 0) {
-        this.logger.log(
-          `Daily auto payout completed. BatchId: ${result.batchId}, TxHash: ${result.txHash}, Count: ${result.count}`,
-        );
-      }
-    } catch (error: any) {
-      this.logger.error('Daily auto payout failed', error);
-    } finally {
-      this.isRunning = false;
-    }
-  }
 }

@@ -126,7 +126,6 @@ let OrderService = class OrderService {
             this.commissionService
                 .calculateCommissions(savedOrder.id)
                 .catch((error) => {
-                console.error('Error calculating commissions:', error);
             });
             return savedOrder;
         }
