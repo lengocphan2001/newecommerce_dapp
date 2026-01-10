@@ -6,7 +6,22 @@
   RewriteCond %{REQUEST_URI} ^/admin
   RewriteRule ^admin/(.*)$ /admin/$1 [L]
   
-  # Handle Next.js routes (only if not admin)
+  # Exclude static assets and API routes
+  RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ [OR]
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteRule ^ - [L]
+  
+  # Handle Next.js routes (only if not admin and not static assets)
+  RewriteCond %{REQUEST_URI} !^/admin
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  # For dynamic routes like /home/products/[id], check if the directory structure exists
+  # If it's a product or order detail page, serve index.html for client-side routing
+  RewriteCond %{REQUEST_URI} ^/home/products/ [OR]
+  RewriteCond %{REQUEST_URI} ^/home/orders/
+  RewriteRule ^(.*)$ /index.html [L]
+  
+  # For all other routes, serve index.html
   RewriteCond %{REQUEST_URI} !^/admin
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
