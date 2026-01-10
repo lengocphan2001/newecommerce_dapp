@@ -41,6 +41,7 @@ export default function WalletsPage() {
   const [usdtBalance, setUsdtBalance] = useState<string>("0");
   const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
   const [orders, setOrders] = useState<any[]>([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchWalletData();
@@ -145,10 +146,32 @@ export default function WalletsPage() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const copyAddress = () => {
+  const copyAddress = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     if (walletAddress) {
-      navigator.clipboard.writeText(walletAddress);
-      // You can add a toast notification here
+      try {
+        await navigator.clipboard.writeText(walletAddress);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = walletAddress;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (fallbackErr) {
+          console.error('Failed to copy:', fallbackErr);
+        }
+        document.body.removeChild(textArea);
+      }
     }
   };
 
@@ -287,17 +310,22 @@ export default function WalletsPage() {
               <h2 className="text-4xl font-bold tracking-tight text-text-dark">
                 {balanceVisible ? `$${formatUSDT(totalNetWorth)}` : '••••••'}
               </h2>
-              <div
+              <button
                 onClick={copyAddress}
-                className="flex items-center gap-2 mt-1 cursor-pointer group"
+                type="button"
+                className="flex items-center gap-2 mt-1 cursor-pointer group hover:opacity-80 transition-opacity"
               >
                 <p className="text-sm font-mono text-gray-500 group-hover:text-primary-dark transition-colors">
                   {shortAddress(walletAddress)}
                 </p>
-                <span className="material-symbols-outlined text-[16px] text-gray-400 group-hover:text-primary-dark transition-colors">
-                  content_copy
+                <span className={`material-symbols-outlined text-[16px] transition-colors ${
+                  copied 
+                    ? "text-primary-dark" 
+                    : "text-gray-400 group-hover:text-primary-dark"
+                }`}>
+                  {copied ? "check" : "content_copy"}
                 </span>
-              </div>
+              </button>
             </div>
           </div>
         </div>

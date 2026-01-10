@@ -56,10 +56,31 @@ export default function AffiliatePage() {
     }
   };
 
-  const copyToClipboard = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 2000);
+  const copyToClipboard = async (text: string, key: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setCopied(key);
+        setTimeout(() => setCopied(null), 2000);
+      } catch (fallbackErr) {
+        console.error('Failed to copy:', fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   const formatPrice = (price: string | number) => {
@@ -322,10 +343,13 @@ export default function AffiliatePage() {
                         value={referralInfo.leftLink}
                       />
                       <button
-                        onClick={() => copyToClipboard(referralInfo.leftLink, "left")}
-                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0"
+                        type="button"
+                        onClick={(e) => copyToClipboard(referralInfo.leftLink, "left", e)}
+                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
                       >
-                        <span className="material-symbols-outlined text-lg">content_copy</span>
+                        <span className="material-symbols-outlined text-lg">
+                          {copied === "left" ? "check" : "content_copy"}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -348,10 +372,13 @@ export default function AffiliatePage() {
                         value={referralInfo.rightLink}
                       />
                       <button
-                        onClick={() => copyToClipboard(referralInfo.rightLink, "right")}
-                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0"
+                        type="button"
+                        onClick={(e) => copyToClipboard(referralInfo.rightLink, "right", e)}
+                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
                       >
-                        <span className="material-symbols-outlined text-lg">content_copy</span>
+                        <span className="material-symbols-outlined text-lg">
+                          {copied === "right" ? "check" : "content_copy"}
+                        </span>
                       </button>
                     </div>
                   </div>
