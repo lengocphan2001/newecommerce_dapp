@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
@@ -30,17 +30,18 @@ export default function OrderDetailClient() {
   const router = useRouter();
   const params = useParams();
   const { t } = useI18n();
-  const orderId = params.id as string;
+  const orderId = params?.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [itemsWithImages, setItemsWithImages] = useState<OrderItem[]>([]);
 
-  const fetchOrderDetails = useCallback(async () => {
-    if (!orderId || orderId === 'placeholder') {
-      setLoading(false);
-      return;
+  useEffect(() => {
+    if (orderId) {
+      fetchOrderDetails();
     }
+  }, [orderId]);
 
+  const fetchOrderDetails = async () => {
     try {
       setLoading(true);
       const data = await api.getOrder(orderId);
@@ -67,16 +68,10 @@ export default function OrderDetailClient() {
       if (handleAuthError(error, router)) {
         return; // Redirect is happening
       }
-      // If error occurs, set order to null to show error state
-      setOrder(null);
     } finally {
       setLoading(false);
     }
-  }, [orderId, router]);
-
-  useEffect(() => {
-    fetchOrderDetails();
-  }, [fetchOrderDetails]);
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
