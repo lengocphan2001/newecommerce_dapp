@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
@@ -28,9 +28,9 @@ interface Order {
 
 export default function OrderDetailClient() {
   const router = useRouter();
-  const params = useParams();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
-  const orderId = params?.id as string;
+  const orderId = searchParams.get('id') as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [itemsWithImages, setItemsWithImages] = useState<OrderItem[]>([]);

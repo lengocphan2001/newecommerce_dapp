@@ -349,7 +349,7 @@ function OrdersPageContent() {
               return (
                 <div
                   key={order.id}
-                  onClick={() => router.push(`/home/orders/${order.id}`)}
+                  onClick={() => router.push(`/home/orders/detail?id=${order.id}`)}
                   className={`flex flex-col gap-3 rounded-2xl p-4 shadow-[0_2px_12px_rgba(37,99,235,0.06)] border ${
                     isCancelled 
                       ? "bg-slate-50 border-slate-200 opacity-75" 

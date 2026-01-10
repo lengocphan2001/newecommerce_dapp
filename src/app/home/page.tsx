@@ -75,7 +75,7 @@ export default function HomePage() {
   };
 
   const handleProductClick = (productId: string) => {
-    router.push(`/home/products/${productId}`);
+    router.push(`/home/products/detail?id=${productId}`);
   };
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {

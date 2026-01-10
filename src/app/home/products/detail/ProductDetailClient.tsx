@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
@@ -19,9 +19,9 @@ interface Product {
 
 export default function ProductDetailClient() {
   const router = useRouter();
-  const params = useParams();
+  const searchParams = useSearchParams();
   const { t } = useI18n();
-  const productId = params?.id as string;
+  const productId = searchParams.get('id') as string;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -374,7 +374,7 @@ export default function ProductDetailClient() {
               {relatedProducts.map((relatedProduct) => (
                 <button
                   key={relatedProduct.id}
-                  onClick={() => router.push(`/home/products/${relatedProduct.id}`)}
+                  onClick={() => router.push(`/home/products/detail?id=${relatedProduct.id}`)}
                   className="flex flex-col gap-2 bg-white rounded-xl shadow-soft p-3 border border-gray-100 active:scale-[0.98] transition-transform text-left"
                 >
                   <div className="aspect-square w-full rounded-lg bg-gray-100 overflow-hidden">

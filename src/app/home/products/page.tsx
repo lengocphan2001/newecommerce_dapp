@@ -62,7 +62,7 @@ export default function ProductsPage() {
   };
 
   const handleProductClick = (productId: string) => {
-    router.push(`/home/products/${productId}`);
+    router.push(`/home/products/detail?id=${productId}`);
   };
 
   const filteredProducts = products.filter((product) =>
