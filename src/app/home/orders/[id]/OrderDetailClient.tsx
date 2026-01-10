@@ -48,8 +48,6 @@ export default function OrderDetailClient() {
       setOrder(data);
       
       // Fetch product images if needed or if missing
-      // Assuming api.getProduct is available to get standard images if thumbnail missing
-      // For now, we use what's in order items or placeholders
       const updatedItems = await Promise.all(
          (data.items || []).map(async (item: OrderItem) => {
              if (item.thumbnailUrl) return item;
