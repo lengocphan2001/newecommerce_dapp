@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from '../user/entities/user.entity';
@@ -13,6 +13,7 @@ import { PackageType } from '../admin/entities/commission-config.entity';
 
 @Injectable()
 export class CommissionService {
+  private readonly logger = new Logger(CommissionService.name);
   private configCache: Map<string, any> = new Map(); // Changed to string key
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastCacheUpdate: number = 0;
@@ -103,36 +104,44 @@ export class CommissionService {
    * Tính toán và phân phối hoa hồng khi có đơn hàng mới
    */
   async calculateCommissions(orderId: string): Promise<void> {
-    // Kiểm tra xem đã tính commission cho order này chưa (tránh duplicate)
-    const existingCommissions = await this.commissionRepository.find({
-      where: { orderId },
-    });
+    this.logger.log(`Starting commission calculation for order: ${orderId}`);
     
-    if (existingCommissions.length > 0) {
-      return;
-    }
-    
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-    });
-
-    if (!order) {
-      return;
-    }
-
-    if (order.status !== OrderStatus.CONFIRMED) {
-      return;
-    }
-
-    const buyer = await this.userRepository.findOne({
-      where: { id: order.userId },
-    });
-
-    if (!buyer) {
-      return;
-    }
-
     try {
+      // Kiểm tra xem đã tính commission cho order này chưa (tránh duplicate)
+      const existingCommissions = await this.commissionRepository.find({
+        where: { orderId },
+      });
+      
+      if (existingCommissions.length > 0) {
+        this.logger.warn(`Commissions already exist for order ${orderId}, skipping calculation`);
+        return;
+      }
+      
+      const order = await this.orderRepository.findOne({
+        where: { id: orderId },
+      });
+
+      if (!order) {
+        this.logger.warn(`Order ${orderId} not found`);
+        return;
+      }
+
+      if (order.status !== OrderStatus.CONFIRMED) {
+        this.logger.warn(`Order ${orderId} status is ${order.status}, not CONFIRMED. Skipping commission calculation.`);
+        return;
+      }
+
+      const buyer = await this.userRepository.findOne({
+        where: { id: order.userId },
+      });
+
+      if (!buyer) {
+        this.logger.warn(`Buyer with userId ${order.userId} not found for order ${orderId}`);
+        return;
+      }
+
+      this.logger.log(`Calculating commissions for order ${orderId}, buyer: ${buyer.id} (referralUserId: ${buyer.referralUserId}, parentId: ${buyer.parentId}), amount: ${order.totalAmount}`);
+
       // Cập nhật package type nếu cần
       await this.updateUserPackage(buyer, order.totalAmount);
       
@@ -141,19 +150,34 @@ export class CommissionService {
         where: { id: buyer.id },
       });
       if (updatedBuyer && updatedBuyer.packageType !== buyer.packageType) {
+        this.logger.log(`Buyer ${buyer.id} package type updated from ${buyer.packageType} to ${updatedBuyer.packageType}`);
         Object.assign(buyer, updatedBuyer);
       }
 
-      // Tính hoa hồng trực tiếp cho người giới thiệu (TẤT CẢ giao dịch, không phụ thuộc nhánh yếu)
+      // BƯỚC 1: Tính hoa hồng trực tiếp cho người giới thiệu (TẤT CẢ giao dịch, không phụ thuộc nhánh yếu)
+      this.logger.log(`Step 1: Calculating direct commission for order ${orderId}`);
       await this.calculateDirectCommission(order, buyer);
 
-      // Tính hoa hồng nhóm (binary tree) - chỉ tính khi ở nhánh yếu
+      // BƯỚC 2: Tính hoa hồng nhóm (binary tree) - chỉ tính khi ở nhánh yếu
+      // QUAN TRỌNG: Tính weakSide TRƯỚC KHI update volume (dựa trên volume cũ)
+      // Sau đó mới update volume
+      this.logger.log(`Step 2: Calculating group commission for order ${orderId}`);
       await this.calculateGroupCommission(order, buyer);
 
-      // Tính hoa hồng quản lý nhóm
+      // BƯỚC 3: Update volume cho TẤT CẢ ancestors SAU KHI tính commission
+      // Volume được update sau để không ảnh hưởng đến việc xác định weakSide
+      this.logger.log(`Step 3: Updating branch volumes for order ${orderId}`);
+      await this.updateBranchVolumes(order, buyer);
+
+      // BƯỚC 4: Tính hoa hồng quản lý nhóm
+      this.logger.log(`Step 4: Calculating management commission for order ${orderId}`);
       await this.calculateManagementCommission(order, buyer);
+
+      this.logger.log(`Commission calculation completed for order ${orderId}`);
     } catch (error: any) {
-      // Không throw để không block order update
+      // Log error để debug
+      this.logger.error(`Error calculating commissions for order ${orderId}:`, error.stack || error.message);
+      // Không throw để không block order update, nhưng log để debug
     }
   }
 
@@ -196,14 +220,22 @@ export class CommissionService {
     order: Order,
     buyer: User,
   ): Promise<void> {
-    // Kiểm tra có người giới thiệu ban đầu không
-    // Sử dụng referralUserId thay vì parentId để tính hoa hồng trực tiếp
-    if (!buyer.referralUserId) {
+    // Reload buyer từ DB để đảm bảo có referralUserId mới nhất
+    const freshBuyer = await this.userRepository.findOne({
+      where: { id: buyer.id },
+      select: ['id', 'referralUserId'],
+    });
+
+    if (!freshBuyer || !freshBuyer.referralUserId) {
+      this.logger.debug(`Buyer ${buyer.id} has no referralUserId, skipping direct commission`);
       return; // Không có người giới thiệu ban đầu
     }
 
+    this.logger.log(`Calculating direct commission for buyer ${buyer.id}, referrer: ${freshBuyer.referralUserId}`);
+
+    // Reload referrer từ DB để có data mới nhất
     const referrer = await this.userRepository.findOne({
-      where: { id: buyer.referralUserId },
+      where: { id: freshBuyer.referralUserId },
     });
 
     if (!referrer) {
@@ -229,6 +261,8 @@ export class CommissionService {
 
     const commissionAmount = order.totalAmount * config.DIRECT_RATE;
 
+    this.logger.log(`Creating direct commission: referrer ${referrer.id}, buyer ${buyer.id}, amount: ${commissionAmount}, orderAmount: ${order.totalAmount}`);
+
     try {
       const commission = this.commissionRepository.create({
         userId: referrer.id,
@@ -241,86 +275,206 @@ export class CommissionService {
       });
 
       await this.commissionRepository.save(commission);
+      this.logger.log(`Direct commission created successfully: ${commission.id}`);
 
-      // Cập nhật tổng hoa hồng đã nhận
-      await this.userRepository.update(referrer.id, {
-        totalCommissionReceived: referrer.totalCommissionReceived + commissionAmount,
+      // Reload referrer từ DB để có totalCommissionReceived mới nhất trước khi update
+      const freshReferrer = await this.userRepository.findOne({
+        where: { id: referrer.id },
+        select: ['id', 'totalCommissionReceived'],
       });
+
+      if (freshReferrer) {
+        // Cập nhật tổng hoa hồng đã nhận (sử dụng fresh data)
+        await this.userRepository.update(freshReferrer.id, {
+          totalCommissionReceived: freshReferrer.totalCommissionReceived + commissionAmount,
+        });
+      }
     } catch (error: any) {
+      this.logger.error(`Error creating direct commission for referrer ${referrer.id}, buyer ${buyer.id}:`, error.stack || error.message);
       throw error; // Re-throw để có thể xử lý ở trên
     }
   }
 
   /**
+   * Update volume cho TẤT CẢ ancestors trong binary tree
+   * Volume phải được update TRƯỚC KHI tính commission để đảm bảo weakSide được tính đúng
+   */
+  private async updateBranchVolumes(
+    order: Order,
+    buyer: User,
+  ): Promise<void> {
+    if (!buyer.parentId) {
+      this.logger.debug(`Buyer ${buyer.id} has no parentId, skipping volume update`);
+      return;
+    }
+
+    // Tìm tất cả ancestors trong cây nhị phân
+    const ancestors = await this.getAncestors(buyer);
+    this.logger.log(`Found ${ancestors.length} ancestors for buyer ${buyer.id}`);
+
+    for (const ancestor of ancestors) {
+      // Reload ancestor từ DB để có volume mới nhất (tránh race condition)
+      const freshAncestor = await this.userRepository.findOne({
+        where: { id: ancestor.id },
+      });
+      if (!freshAncestor) {
+        this.logger.warn(`Ancestor ${ancestor.id} not found in DB`);
+        continue;
+      }
+
+      // Xác định buyer thuộc nhánh nào của ancestor
+      const buyerSide = await this.getBuyerSide(buyer, freshAncestor);
+      const oldVolume = buyerSide === 'left' ? freshAncestor.leftBranchTotal : freshAncestor.rightBranchTotal;
+      const newVolume = oldVolume + order.totalAmount;
+
+      this.logger.log(`Updating volume for ancestor ${freshAncestor.id}: ${buyerSide} branch from ${oldVolume} to ${newVolume} (order amount: ${order.totalAmount})`);
+
+      // Update volume cho nhánh tương ứng (TRƯỚC KHI tính commission)
+      await this.userRepository.update(freshAncestor.id, {
+        [buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: newVolume,
+      });
+    }
+  }
+
+  /**
    * Tính hoa hồng nhóm (binary tree)
-   * Nhận hoa hồng khi phát sinh giao dịch tại nhánh yếu
+   * Logic:
+   * 1. Kiểm tra buyer có ở nhánh yếu của parent trực tiếp không
+   * 2. Nếu có → parent trực tiếp nhận team commission
+   * 3. Tất cả ancestors nhận team commission (hoa hồng cân cặp) - KHÔNG cần kiểm tra nhánh yếu
+   * QUAN TRỌNG: Dựa vào parentId trong binary tree, KHÔNG phải referralUserId
    */
   private async calculateGroupCommission(
     order: Order,
     buyer: User,
   ): Promise<void> {
     if (!buyer.parentId) {
+      this.logger.debug(`Buyer ${buyer.id} has no parentId, skipping group commission`);
       return;
     }
 
-    // Tìm tất cả ancestors trong cây nhị phân
+    // Lấy parent trực tiếp
+    const directParent = await this.userRepository.findOne({
+      where: { id: buyer.parentId },
+    });
+
+    if (!directParent) {
+      this.logger.warn(`Direct parent ${buyer.parentId} not found for buyer ${buyer.id}`);
+      return;
+    }
+
+    // Kiểm tra buyer có ở nhánh yếu của parent trực tiếp không
+    const freshParent = await this.userRepository.findOne({
+      where: { id: directParent.id },
+    });
+    if (!freshParent) return;
+
+    const weakSide = await this.getWeakSide(freshParent.id);
+    const buyerSide = await this.getBuyerSide(buyer, freshParent);
+
+    this.logger.log(`[GROUP COMMISSION] Direct parent ${freshParent.id}: weakSide=${weakSide}, buyerSide=${buyerSide}, leftVolume=${freshParent.leftBranchTotal}, rightVolume=${freshParent.rightBranchTotal}`);
+
+    // Chỉ tính hoa hồng nếu buyer ở nhánh yếu của parent trực tiếp
+    if (buyerSide !== weakSide) {
+      this.logger.debug(`Buyer ${buyer.id} is NOT on weak side of direct parent ${freshParent.id}, skipping group commission`);
+      return;
+    }
+
+    // Buyer ở nhánh yếu của parent trực tiếp → tính team commission cho tất cả ancestors
+    this.logger.log(`[GROUP COMMISSION] Buyer ${buyer.id} is on weak side of direct parent ${freshParent.id}, calculating team commission for all ancestors (hoa hồng cân cặp)`);
+
+    // 1. Parent trực tiếp nhận team commission
+    if (freshParent.packageType !== 'NONE') {
+      const canReceiveCommission = await this.checkReconsumption(freshParent);
+      if (canReceiveCommission) {
+        await this.createGroupCommission(order, buyer, freshParent, weakSide);
+      }
+    }
+
+    // 2. Tất cả ancestors nhận team commission (hoa hồng cân cặp) - KHÔNG cần kiểm tra nhánh yếu
     const ancestors = await this.getAncestors(buyer);
+    this.logger.log(`[GROUP COMMISSION] Found ${ancestors.length} ancestors for buyer ${buyer.id}, all will receive team commission (hoa hồng cân cặp)`);
+    
+    if (ancestors.length === 0) {
+      this.logger.warn(`[GROUP COMMISSION] No ancestors found for buyer ${buyer.id}, cannot create hoa hồng cân cặp`);
+    }
 
     for (const ancestor of ancestors) {
+      this.logger.log(`[GROUP COMMISSION] Processing ancestor ${ancestor.id} (packageType: ${ancestor.packageType}) for hoa hồng cân cặp`);
+      
       if (ancestor.packageType === 'NONE') {
+        this.logger.debug(`[GROUP COMMISSION] Skipping ancestor ${ancestor.id} - packageType is NONE`);
         continue;
       }
 
       // Kiểm tra tái tiêu dùng
       const canReceiveCommission = await this.checkReconsumption(ancestor);
       if (!canReceiveCommission) {
+        this.logger.warn(`[GROUP COMMISSION] Skipping ancestor ${ancestor.id} - cannot receive commission (reconsumption check failed)`);
         continue;
       }
 
-      // Xác định nhánh yếu
-      const weakSide = this.getWeakSide(ancestor);
-      const buyerSide = await this.getBuyerSide(buyer, ancestor);
-
-      // Chỉ tính hoa hồng nếu giao dịch ở nhánh yếu
-      if (buyerSide === weakSide) {
-        const config = await this.getConfig(
-          ancestor.packageType === 'NPP' ? 'NPP' : 'CTV'
-        );
-
-        const commissionAmount = order.totalAmount * config.GROUP_RATE;
-
-        const commission = this.commissionRepository.create({
-          userId: ancestor.id,
-          orderId: order.id,
-          fromUserId: buyer.id,
-          type: CommissionType.GROUP,
-          status: CommissionStatus.PENDING,
-          amount: commissionAmount,
-          orderAmount: order.totalAmount,
-          side: weakSide,
-        });
-
-        await this.commissionRepository.save(commission);
-
-        // Cập nhật tổng hoa hồng và tổng doanh số nhánh
-        await this.userRepository.update(ancestor.id, {
-          totalCommissionReceived:
-            ancestor.totalCommissionReceived + commissionAmount,
-          [weakSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']:
-            (weakSide === 'left'
-              ? ancestor.leftBranchTotal
-              : ancestor.rightBranchTotal) + order.totalAmount,
-        });
-      } else {
-        // Cập nhật tổng doanh số nhánh mạnh (không tính hoa hồng)
-        const strongSide = weakSide === 'left' ? 'right' : 'left';
-        await this.userRepository.update(ancestor.id, {
-          [strongSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']:
-            (strongSide === 'left'
-              ? ancestor.leftBranchTotal
-              : ancestor.rightBranchTotal) + order.totalAmount,
-        });
+      // Reload ancestor từ DB
+      const freshAncestor = await this.userRepository.findOne({
+        where: { id: ancestor.id },
+      });
+      if (!freshAncestor) {
+        this.logger.warn(`[GROUP COMMISSION] Ancestor ${ancestor.id} not found in DB`);
+        continue;
       }
+
+      // Xác định buyer thuộc nhánh nào của ancestor (để lưu vào side field)
+      const buyerSideForAncestor = await this.getBuyerSide(buyer, freshAncestor);
+
+      // Tất cả ancestors nhận team commission (hoa hồng cân cặp) - KHÔNG cần kiểm tra nhánh yếu
+      this.logger.log(`[GROUP COMMISSION] Creating team commission for ancestor ${freshAncestor.id} (hoa hồng cân cặp), buyerSide: ${buyerSideForAncestor}`);
+      await this.createGroupCommission(order, buyer, freshAncestor, buyerSideForAncestor);
+    }
+  }
+
+  /**
+   * Helper function để tạo group commission
+   */
+  private async createGroupCommission(
+    order: Order,
+    buyer: User,
+    ancestor: User,
+    side: 'left' | 'right',
+  ): Promise<void> {
+    const config = await this.getConfig(
+      ancestor.packageType === 'NPP' ? 'NPP' : 'CTV'
+    );
+
+    const commissionAmount = order.totalAmount * config.GROUP_RATE;
+
+    this.logger.log(`Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, amount: ${commissionAmount}`);
+
+    const commission = this.commissionRepository.create({
+      userId: ancestor.id,
+      orderId: order.id,
+      fromUserId: buyer.id,
+      type: CommissionType.GROUP,
+      status: CommissionStatus.PENDING,
+      amount: commissionAmount,
+      orderAmount: order.totalAmount,
+      side: side,
+    });
+
+    await this.commissionRepository.save(commission);
+    this.logger.log(`Group commission created successfully: ${commission.id}`);
+
+    // Reload ancestor từ DB để có totalCommissionReceived mới nhất trước khi update
+    const freshAncestorForUpdate = await this.userRepository.findOne({
+      where: { id: ancestor.id },
+      select: ['id', 'totalCommissionReceived'],
+    });
+
+    if (freshAncestorForUpdate) {
+      // Cập nhật tổng hoa hồng đã nhận
+      await this.userRepository.update(freshAncestorForUpdate.id, {
+        totalCommissionReceived:
+          freshAncestorForUpdate.totalCommissionReceived + commissionAmount,
+      });
     }
   }
 
@@ -334,10 +488,9 @@ export class CommissionService {
    * - F2 của User A = các user ở cấp thứ 2 dưới A (con của F1)
    * - F3 của User A = các user ở cấp thứ 3 dưới A (con của F2)
    * 
-   * Khi buyer nhận hoa hồng nhóm:
-   * - Tìm tất cả ancestors của buyer trong binary tree
-   * - Với mỗi ancestor, xác định buyer là F1/F2/F3 của ancestor
-   * - Nếu buyer là F1/F2/F3 của ancestor và buyer nhận hoa hồng nhóm → ancestor nhận hoa hồng quản lý
+   * QUAN TRỌNG: Tính dựa trên team commission mà F1 nhận được, không phải buyer
+   * - Tìm parent trực tiếp của buyer (F1)
+   * - Nếu F1 nhận team commission → ancestors nhận management commission
    */
   private async calculateManagementCommission(
     order: Order,
@@ -347,57 +500,94 @@ export class CommissionService {
       return; // Buyer không có parent trong binary tree
     }
 
-    // Tìm hoa hồng nhóm mà buyer nhận được từ đơn hàng này
-    const buyerGroupCommission = await this.commissionRepository.findOne({
+    // Tìm hoa hồng nhóm mà parent trực tiếp (F1) nhận được từ đơn hàng này
+    // QUAN TRỌNG: Hoa hồng quản lý được tính dựa trên hoa hồng nhóm mà F1 nhận được
+    const f1GroupCommission = await this.commissionRepository.findOne({
       where: {
-        userId: buyer.id,
+        userId: buyer.parentId, // F1 (parent trực tiếp)
         orderId: order.id,
         type: CommissionType.GROUP,
       },
     });
 
-    if (!buyerGroupCommission) {
-      return; // Buyer không nhận hoa hồng nhóm từ đơn hàng này
+    if (!f1GroupCommission) {
+      this.logger.debug(`F1 (parent ${buyer.parentId}) did not receive group commission, skipping management commission`);
+      return; // F1 không nhận hoa hồng nhóm từ đơn hàng này
+    }
+
+    this.logger.log(`[MANAGEMENT COMMISSION] F1 (${buyer.parentId}) received group commission: ${f1GroupCommission.amount}, calculating management commission for ancestors`);
+
+    // Lấy F1 (parent trực tiếp của buyer)
+    const f1 = await this.userRepository.findOne({
+      where: { id: buyer.parentId },
+    });
+    if (!f1) {
+      this.logger.warn(`F1 (parent ${buyer.parentId}) not found`);
+      return;
     }
 
     // Tìm tất cả ancestors của buyer trong binary tree
     const ancestors = await this.getAncestors(buyer);
+    this.logger.log(`[MANAGEMENT COMMISSION] Found ${ancestors.length} ancestors for buyer ${buyer.id}, will check management commission for each`);
+
+    if (ancestors.length === 0) {
+      this.logger.warn(`[MANAGEMENT COMMISSION] No ancestors found for buyer ${buyer.id}, cannot calculate management commission`);
+    }
 
     for (const ancestor of ancestors) {
+      this.logger.log(`[MANAGEMENT COMMISSION] Processing ancestor ${ancestor.id} (packageType: ${ancestor.packageType})`);
+      
       if (ancestor.packageType === 'NONE') {
+        this.logger.debug(`[MANAGEMENT COMMISSION] Skipping ancestor ${ancestor.id} - packageType is NONE`);
         continue; // Ancestor chưa có gói, không tính hoa hồng quản lý
       }
 
       // Kiểm tra tái tiêu dùng
       const canReceiveCommission = await this.checkReconsumption(ancestor);
       if (!canReceiveCommission) {
+        this.logger.warn(`[MANAGEMENT COMMISSION] Skipping ancestor ${ancestor.id} - cannot receive commission (reconsumption check failed)`);
         continue; // Ancestor chưa đủ điều kiện tái tiêu dùng
       }
 
-      // Xác định buyer là F1/F2/F3 của ancestor như thế nào
-      const level = await this.getGenerationLevel(buyer, ancestor);
+      // Xác định F1 là F1/F2/F3 của ancestor như thế nào
+      // QUAN TRỌNG: Tính dựa trên F1, không phải buyer
+      const level = await this.getGenerationLevel(f1, ancestor);
+      this.logger.log(`[MANAGEMENT COMMISSION] F1 (${f1.id}) is F${level} of ancestor ${ancestor.id}`);
 
       if (level === null || level > 3) {
-        continue; // Buyer không phải F1/F2/F3 của ancestor, hoặc vượt quá F3
+        this.logger.debug(`[MANAGEMENT COMMISSION] Skipping ancestor ${ancestor.id} - F1 is not F1/F2/F3 (level: ${level})`);
+        continue; // F1 không phải F1/F2/F3 của ancestor, hoặc vượt quá F3
       }
 
       // CTV chỉ nhận hoa hồng quản lý từ F1
       if (ancestor.packageType === 'CTV' && level !== 1) {
+        this.logger.debug(`[MANAGEMENT COMMISSION] Skipping ancestor ${ancestor.id} - CTV only receives from F1, but F1 is F${level}`);
         continue;
       }
 
       // NPP nhận hoa hồng quản lý từ F1, F2, F3
       if (ancestor.packageType === 'NPP' && level > 3) {
+        this.logger.debug(`[MANAGEMENT COMMISSION] Skipping ancestor ${ancestor.id} - NPP only receives from F1/F2/F3, but F1 is F${level}`);
         continue;
       }
 
-      // Tính hoa hồng quản lý
+      // Reload ancestor từ DB để có data mới nhất
+      const freshAncestor = await this.userRepository.findOne({
+        where: { id: ancestor.id },
+      });
+      if (!freshAncestor) {
+        this.logger.warn(`[MANAGEMENT COMMISSION] Ancestor ${ancestor.id} not found in DB`);
+        continue;
+      }
+
+      // Tính hoa hồng quản lý dựa trên team commission mà F1 nhận được
+      this.logger.log(`[MANAGEMENT COMMISSION] F1 (${f1.id}) is F${level} of ancestor ${freshAncestor.id}, calculating management commission based on F1's group commission: ${f1GroupCommission.amount}`);
       await this.calculateManagementForLevel(
         order,
-        buyer,
-        ancestor,
+        f1, // Sử dụng F1 thay vì buyer
+        freshAncestor,
         level,
-        buyerGroupCommission.amount,
+        f1GroupCommission.amount, // Sử dụng F1's group commission amount
       );
     }
   }
@@ -482,6 +672,8 @@ export class CommissionService {
    * - Nếu đã đạt ngưỡng → phải kiểm tra tái tiêu dùng
    *   - Đã đủ tái tiêu dùng → có thể nhận hoa hồng
    *   - Chưa đủ tái tiêu dùng → không thể nhận hoa hồng
+   * 
+   * QUAN TRỌNG: Chỉ tính các commission (direct, group, management), KHÔNG tính milestone
    */
   private async checkReconsumption(user: User): Promise<boolean> {
     if (user.packageType === 'NONE') {
@@ -492,22 +684,39 @@ export class CommissionService {
       user.packageType === 'NPP' ? 'NPP' : 'CTV'
     );
 
-    // Kiểm tra xem đã đạt ngưỡng hoa hồng chưa
-    if (user.totalCommissionReceived < config.RECONSUMPTION_THRESHOLD) {
+    // Tính tổng commission KHÔNG bao gồm milestone
+    // Query từ database để lấy tổng commission (direct + group + management)
+    // Chỉ tính PENDING và PAID (không tính BLOCKED vì chưa được nhận)
+    const totalCommissionWithoutMilestone = await this.commissionRepository
+      .createQueryBuilder('commission')
+      .select('COALESCE(SUM(commission.amount), 0)', 'total')
+      .where('commission.userId = :userId', { userId: user.id })
+      .andWhere('commission.type != :milestoneType', { milestoneType: CommissionType.MILESTONE })
+      .andWhere('commission.status IN (:...statuses)', { statuses: [CommissionStatus.PENDING, CommissionStatus.PAID] })
+      .getRawOne();
+
+    const commissionTotal = parseFloat(totalCommissionWithoutMilestone?.total || '0') || 0;
+
+    this.logger.debug(`[RECONSUMPTION CHECK] User ${user.id}: totalCommissionReceived=${user.totalCommissionReceived}, commissionWithoutMilestone=${commissionTotal}, threshold=${config.RECONSUMPTION_THRESHOLD}`);
+
+    // Kiểm tra xem đã đạt ngưỡng hoa hồng chưa (chỉ tính commission, không tính milestone)
+    if (commissionTotal < config.RECONSUMPTION_THRESHOLD) {
       // Chưa đạt ngưỡng → có thể nhận hoa hồng bình thường (không cần tái tiêu dùng)
       return true;
     }
 
     // Đã đạt ngưỡng → phải kiểm tra tái tiêu dùng
-    // Tính số chu kỳ đã đạt ngưỡng
+    // Tính số chu kỳ đã đạt ngưỡng (dựa trên commission không bao gồm milestone)
     const cycles = Math.floor(
-      user.totalCommissionReceived / config.RECONSUMPTION_THRESHOLD,
+      commissionTotal / config.RECONSUMPTION_THRESHOLD,
     );
     // Số tiền tái tiêu dùng cần thiết cho số chu kỳ này
     const requiredReconsumption = cycles * config.RECONSUMPTION_REQUIRED;
 
     // Kiểm tra xem đã tái tiêu dùng đủ chưa
     const hasEnoughReconsumption = user.totalReconsumptionAmount >= requiredReconsumption;
+
+    this.logger.debug(`[RECONSUMPTION CHECK] User ${user.id}: cycles=${cycles}, requiredReconsumption=${requiredReconsumption}, actualReconsumption=${user.totalReconsumptionAmount}, hasEnough=${hasEnoughReconsumption}`);
 
     return hasEnoughReconsumption;
   }
@@ -534,8 +743,19 @@ export class CommissionService {
   /**
    * Xác định nhánh yếu (nhánh có tổng doanh số thấp hơn)
    * Nếu cả hai nhánh đều = 0, trả về 'left' làm mặc định
+   * Reload user từ DB để có volume mới nhất
    */
-  private getWeakSide(user: User): 'left' | 'right' {
+  private async getWeakSide(userId: string): Promise<'left' | 'right'> {
+    // Reload user từ DB để có volume mới nhất (tránh race condition)
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
+    });
+
+    if (!user) {
+      return 'left'; // Fallback
+    }
+
     // Nếu cả hai nhánh đều = 0, chọn left làm mặc định
     if (user.leftBranchTotal === 0 && user.rightBranchTotal === 0) {
       return 'left';
@@ -554,9 +774,16 @@ export class CommissionService {
     buyer: User,
     ancestor: User,
   ): Promise<'left' | 'right'> {
-    let current = buyer;
+    let current: User | null = buyer;
 
-    while (current.parentId && current.parentId !== ancestor.id) {
+    // Tìm direct child của ancestor mà buyer thuộc về
+    while (current && current.parentId) {
+      if (current.parentId === ancestor.id) {
+        // Tìm thấy direct child của ancestor
+        const side = current.position || 'left';
+        this.logger.debug(`Buyer ${buyer.id} is on ${side} side of ancestor ${ancestor.id} (direct child: ${current.id})`);
+        return side;
+      }
       const parent = await this.userRepository.findOne({
         where: { id: current.parentId },
       });
@@ -564,7 +791,9 @@ export class CommissionService {
       current = parent;
     }
 
-    return current.position || 'left';
+    // Fallback: nếu không tìm thấy, trả về left
+    this.logger.warn(`Could not determine buyer ${buyer.id} side for ancestor ${ancestor.id}, defaulting to left`);
+    return 'left';
   }
 
   /**

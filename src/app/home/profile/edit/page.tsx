@@ -222,16 +222,19 @@ export default function EditProfilePage() {
     <div className="bg-[#f6f6f8] text-[#0d121b] min-h-screen flex flex-col font-display selection:bg-blue-100 selection:text-blue-900">
       
       {/* TopAppBar */}
-      <header className="sticky top-0 z-10 flex items-center bg-white/90 backdrop-blur-md p-4 pb-2 justify-between border-b border-gray-100">
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
         <button 
-            onClick={() => router.back()}
-            aria-label="Back" 
-            className="text-[#0d121b] flex size-12 shrink-0 items-center justify-start rounded-full active:bg-gray-100 transition-colors"
+          onClick={() => router.back()}
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
         >
-          <span className="material-symbols-outlined">arrow_back_ios_new</span>
+          <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
-        <h2 className="text-[#0d121b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">{t("editProfileTitle")}</h2>
-        <div className="size-12"></div>
+        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("editProfileTitle")}</h1>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+            <span className="material-symbols-outlined text-slate-800">filter_list</span>
+          </button>
+        </div>
       </header>
 
       {/* Content Area */}

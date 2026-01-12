@@ -40,24 +40,37 @@ export class UserService {
     return this.userRepository.findOne({ where: { id } });
   }
 
+  /**
+   * Đếm số direct children (chỉ con trực tiếp, không phải toàn bộ downline)
+   * Mỗi node chỉ có tối đa 1 left direct child và 1 right direct child
+   */
   async countChildren(parentId: string, position: 'left' | 'right'): Promise<number> {
     return this.userRepository.count({
       where: { parentId, position },
     });
   }
 
+  /**
+   * Xác định nhánh yếu (nhánh có ít direct children hơn)
+   * Mỗi node chỉ có tối đa 1 left và 1 right direct child
+   */
   async getWeakLeg(parentId: string): Promise<'left' | 'right'> {
     const leftCount = await this.countChildren(parentId, 'left');
     const rightCount = await this.countChildren(parentId, 'right');
 
     // Return the leg with fewer children (weak leg)
     // If equal, default to left
+    // Note: leftCount và rightCount chỉ có thể là 0 hoặc 1 (vì mỗi node chỉ có tối đa 1 left và 1 right)
     return leftCount <= rightCount ? 'left' : 'right';
   }
 
   /**
-   * Tìm node đầu tiên trong nhánh chỉ định còn slot trống (chưa đủ 2 con)
+   * Tìm node đầu tiên trong nhánh chỉ định còn slot trống (chưa đủ 2 direct children)
    * Sử dụng BFS (Breadth First Search) để tìm slot trống từ trên xuống
+   * 
+   * Logic:
+   * - Mỗi node chỉ có tối đa 1 left direct child và 1 right direct child
+   * - Nếu node đã đủ 2 direct children, tìm trong downline (con của các direct children)
    * 
    * @param startUserId - User ID bắt đầu tìm kiếm (referral user)
    * @param targetPosition - Nhánh cần tìm ('left' hoặc 'right')
@@ -68,59 +81,65 @@ export class UserService {
     targetPosition: 'left' | 'right',
   ): Promise<{ parentId: string; position: 'left' | 'right' }> {
     // Kiểm tra node bắt đầu có slot trống ở nhánh chỉ định không
+    // Mỗi node chỉ có tối đa 1 left và 1 right direct child
     const directChildCount = await this.countChildren(startUserId, targetPosition);
 
     if (directChildCount === 0) {
-      // Node này chưa có con ở nhánh chỉ định, có thể đặt trực tiếp
+      // Node này chưa có direct child ở nhánh chỉ định, có thể đặt trực tiếp
       return { parentId: startUserId, position: targetPosition };
     }
 
-    // Node này đã có con ở nhánh chỉ định, tìm con đầu tiên trong nhánh đó
-    const directChildren = await this.userRepository.find({
+    // Node này đã có direct child ở nhánh chỉ định (chỉ có thể là 1)
+    // Tìm direct child đó
+    const directChild = await this.userRepository.findOne({
       where: { parentId: startUserId, position: targetPosition },
       order: { createdAt: 'ASC' }, // Lấy con đầu tiên (theo thời gian đăng ký)
     });
 
-    if (directChildren.length === 0) {
+    if (!directChild) {
       // Không tìm thấy con (không nên xảy ra nhưng để an toàn)
       return { parentId: startUserId, position: targetPosition };
     }
 
-    // Tìm node đầu tiên trong nhánh có slot trống
+    // Tìm node đầu tiên trong downline có slot trống
     // Duyệt theo thứ tự từ trên xuống (BFS - Breadth First Search)
-    const queue: string[] = directChildren.map(child => child.id);
+    const queue: string[] = [directChild.id];
 
     while (queue.length > 0) {
       const currentNodeId = queue.shift()!;
 
-      // Kiểm tra node này có đủ 2 con chưa
+      // Kiểm tra node này có đủ 2 direct children chưa
       const leftCount = await this.countChildren(currentNodeId, 'left');
       const rightCount = await this.countChildren(currentNodeId, 'right');
 
-      // Nếu chưa đủ 2 con, tìm nhánh yếu để đặt
+      // Nếu chưa đủ 2 direct children, tìm nhánh yếu để đặt
       if (leftCount === 0 || rightCount === 0) {
         // Có ít nhất 1 slot trống, đặt vào nhánh yếu
         const weakLeg = leftCount <= rightCount ? 'left' : 'right';
         return { parentId: currentNodeId, position: weakLeg };
       }
 
-      // Node này đã đủ 2 con, thêm các con của nó vào queue để tiếp tục tìm
-      const children = await this.userRepository.find({
-        where: { parentId: currentNodeId },
-        order: { createdAt: 'ASC' },
+      // Node này đã đủ 2 direct children, thêm các direct children của nó vào queue để tiếp tục tìm
+      const leftChild = await this.userRepository.findOne({
+        where: { parentId: currentNodeId, position: 'left' },
+      });
+      const rightChild = await this.userRepository.findOne({
+        where: { parentId: currentNodeId, position: 'right' },
       });
 
-      // Thêm các con vào queue theo thứ tự (left trước, right sau)
-      for (const child of children) {
-        queue.push(child.id);
+      // Thêm các direct children vào queue theo thứ tự (left trước, right sau)
+      if (leftChild) {
+        queue.push(leftChild.id);
+      }
+      if (rightChild) {
+        queue.push(rightChild.id);
       }
     }
 
     // Nếu không tìm thấy slot (không nên xảy ra trong thực tế), 
-    // trả về node đầu tiên trong nhánh với nhánh yếu của nó
-    const firstChild = directChildren[0];
-    const weakLeg = await this.getWeakLeg(firstChild.id);
-    return { parentId: firstChild.id, position: weakLeg };
+    // trả về direct child với nhánh yếu của nó
+    const weakLeg = await this.getWeakLeg(directChild.id);
+    return { parentId: directChild.id, position: weakLeg };
   }
 
   async getDownline(userId: string, position?: 'left' | 'right') {

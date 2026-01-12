@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { MilestoneRewardConfig } from './entities/milestone-reward-config.entity';
 import { UserMilestone } from './entities/user-milestone.entity';
 import { User } from '../user/entities/user.entity';
@@ -54,10 +54,14 @@ export class MilestoneRewardService {
 
   /**
    * Count direct referrals via left/right links for a user
+   * Only counts users who have purchased a package (packageType != 'NONE')
    */
   async countDirectReferrals(userId: string): Promise<number> {
     return this.userRepository.count({
-      where: { referralUserId: userId },
+      where: { 
+        referralUserId: userId,
+        packageType: Not('NONE' as any), // Only count users who have purchased a package
+      },
     });
   }
 

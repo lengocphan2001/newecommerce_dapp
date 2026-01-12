@@ -346,6 +346,30 @@ export class AuthService {
       status: 'ACTIVE',
     });
 
+    // Tự động tạo address mặc định từ thông tin đăng ký
+    // Luôn tạo address mặc định với thông tin có sẵn
+    try {
+      // Kết hợp address với country nếu có
+      const addressParts: string[] = [];
+      if (walletRegisterDto.address) {
+        addressParts.push(walletRegisterDto.address);
+      }
+      if (walletRegisterDto.country) {
+        addressParts.push(walletRegisterDto.country);
+      }
+      const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : '';
+
+      await this.userService.addAddress(user.id, {
+        name: walletRegisterDto.fullName || 'Default Address',
+        phone: walletRegisterDto.phoneNumber || '',
+        address: fullAddress || walletRegisterDto.country || '',
+        isDefault: true, // Set làm mặc định
+      });
+    } catch (error) {
+      // Log error but don't fail registration
+      console.error('Error creating default address:', error);
+    }
+
     // Check and process milestone rewards for referrer (if exists)
     if (referralUserId) {
       try {

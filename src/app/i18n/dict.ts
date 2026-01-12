@@ -85,6 +85,10 @@ export type I18nKey =
   | "defaultAddress"
   | "setAsDefault"
   | "confirmDeleteAddress"
+  | "confirmDeleteAddressMessage"
+  | "delete"
+  | "deleting"
+  | "cancel"
   | "placeholderName"
   | "placeholderPhone"
   | "placeholderAddress"
@@ -416,6 +420,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     defaultAddress: "Mặc định",
     setAsDefault: "Đặt làm mặc định",
     confirmDeleteAddress: "Bạn có chắc chắn muốn xóa địa chỉ này?",
+    confirmDeleteAddressMessage: "Bạn có chắc chắn muốn xóa địa chỉ này? Hành động này không thể hoàn tác.",
+    delete: "Xóa",
+    deleting: "Đang xóa...",
+    cancel: "Hủy",
     placeholderName: "Họ và tên",
     placeholderPhone: "Số điện thoại",
     placeholderAddress: "Địa chỉ chi tiết (Số nhà, đường, phường/xã...)",
@@ -740,6 +748,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     defaultAddress: "Default",
     setAsDefault: "Set as Default",
     confirmDeleteAddress: "Are you sure you want to delete this address?",
+    confirmDeleteAddressMessage: "Are you sure you want to delete this address? This action cannot be undone.",
+    delete: "Delete",
+    deleting: "Deleting...",
+    cancel: "Cancel",
     placeholderName: "Full Name",
     placeholderPhone: "Phone Number",
     placeholderAddress: "Detail Address",
@@ -1063,6 +1075,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     defaultAddress: "기본",
     setAsDefault: "기본으로 설정",
     confirmDeleteAddress: "이 주소를 삭제하시겠습니까?",
+    confirmDeleteAddressMessage: "이 주소를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+    delete: "삭제",
+    deleting: "삭제 중...",
+    cancel: "취소",
     placeholderName: "이름",
     placeholderPhone: "전화번호",
     placeholderAddress: "상세 주소",

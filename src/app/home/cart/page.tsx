@@ -44,19 +44,15 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
-        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
-          <div className="flex items-center p-4 pb-3 justify-between">
-            <button 
-              onClick={() => router.back()}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-slate-800"
-            >
-              <span className="material-symbols-outlined text-2xl">arrow_back</span>
-            </button>
-            <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-2 text-slate-900">
-              {t("navShopping")}
-            </h2>
-            <div className="w-10"></div>
-          </div>
+        <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+          <button 
+            onClick={() => router.back()}
+            className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          >
+            <span className="material-symbols-outlined text-slate-800">arrow_back</span>
+          </button>
+          <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("navShopping")}</h1>
+          <div className="w-10"></div>
         </header>
         <main className="flex-1 overflow-y-auto pb-44 bg-gray-50/50">
           <div className="mx-auto max-w-2xl px-4 py-12 text-center">
@@ -82,26 +78,20 @@ export default function CartPage() {
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
-        <div className="flex items-center p-4 pb-3 justify-between">
-          <button 
-            onClick={() => router.back()}
-            className="flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-slate-800"
-          >
-            <span className="material-symbols-outlined text-2xl">arrow_back</span>
-          </button>
-            <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-2 text-slate-900">
-              {t("cartTitle")} ({totalItems})
-            </h2>
-            <div className="flex items-center justify-end">
-            <button 
-              onClick={clearCart}
-              className="text-red-500 text-sm font-bold leading-normal tracking-[0.015em] shrink-0 hover:bg-red-50 px-2 py-1 rounded transition-colors"
-            >
-              {t("clearAll")}
-            </button>
-          </div>
-        </div>
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+        >
+          <span className="material-symbols-outlined text-slate-800">arrow_back</span>
+        </button>
+        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("cartTitle")} ({totalItems})</h1>
+        <button 
+          onClick={clearCart}
+          className="text-red-500 text-sm font-medium hover:text-red-700 transition-colors"
+        >
+          {t("clearAll")}
+        </button>
       </header>
 
       {/* Main Content */}

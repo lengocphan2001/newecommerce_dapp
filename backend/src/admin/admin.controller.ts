@@ -16,6 +16,11 @@ export class AdminController {
     return this.adminService.getUsers(query);
   }
 
+  @Get('users/:id/detail')
+  async getUserDetail(@Param('id') id: string) {
+    return this.adminService.getUserDetail(id);
+  }
+
   @Get('orders')
   async getOrders(@Query() query: any) {
     return this.adminService.getOrders(query);

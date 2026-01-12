@@ -151,13 +151,22 @@ export class OrderService {
       // Tính toán hoa hồng tự động và payout ngay lập tức (chạy async để không block response)
       this.commissionService
         .calculateCommissions(savedOrder.id)
-        .then(() => {
+        .then(async () => {
+          // Đợi một chút để đảm bảo tất cả commissions đã được commit vào DB
+          await new Promise(resolve => setTimeout(resolve, 1000));
           // Sau khi tính commission xong, payout ngay lập tức
-          return this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
+          const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
+          if (payoutResult) {
+            console.log(`[ORDER APPROVAL] Payout successful for order ${savedOrder.id}: ${payoutResult.count} commissions paid`);
+          } else {
+            console.warn(`[ORDER APPROVAL] Payout returned null for order ${savedOrder.id} - check logs for details`);
+          }
+          return payoutResult;
         })
         .catch((error) => {
           // Log error nhưng không block order approval
-          console.error('Error calculating commissions or payout:', error);
+          console.error(`[ORDER APPROVAL] Error calculating commissions or payout for order ${savedOrder.id}:`, error);
+          console.error('Error stack:', error.stack);
         });
 
       return savedOrder;

@@ -34,6 +34,7 @@ export default function OrderDetailClient() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [itemsWithImages, setItemsWithImages] = useState<OrderItem[]>([]);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (orderId) {
@@ -73,9 +74,36 @@ export default function OrderDetailClient() {
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
     }).format(price);
+  };
+
+  const copyToClipboard = async (text: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (fallbackErr) {
+        console.error("Failed to copy:", fallbackErr);
+      }
+      document.body.removeChild(textArea);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -288,11 +316,16 @@ export default function OrderDetailClient() {
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-bold">BEP20</span>
                     </div>
                     {order.transactionHash && (
-                        <div className="flex items-center gap-2 cursor-pointer group/hash w-fit bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 hover:border-blue-300 transition-colors">
+                        <div 
+                            onClick={(e) => copyToClipboard(order.transactionHash!, e)}
+                            className="flex items-center gap-2 cursor-pointer group/hash w-fit bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 hover:border-blue-300 transition-colors"
+                        >
                             <p className="text-slate-500 text-[11px] font-mono group-hover/hash:text-[#2563eb] transition-colors truncate max-w-[200px] font-medium">
                                 {order.transactionHash.slice(0, 6) + "..." + order.transactionHash.slice(-4)}
                             </p>
-                            <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover/hash:text-[#2563eb]">content_copy</span>
+                            <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover/hash:text-[#2563eb]">
+                                {copied ? "check" : "content_copy"}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -335,21 +368,21 @@ export default function OrderDetailClient() {
             </div>
         </div>
 
-      </div>
+        {/* Footer Actions */}
+        <div className="pb-8 flex gap-3" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+          <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3.5 px-4 text-slate-900 hover:bg-slate-100 transition-colors font-semibold border border-slate-200">
+              <span className="material-symbols-outlined text-[20px]">support_agent</span>
+              {t("support")}
+          </button>
+          <button 
+              onClick={() => router.push('/home/products')}
+              className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#2563eb] py-3.5 px-4 text-white hover:bg-[#1d4ed8] transition-colors font-bold shadow-lg shadow-blue-200"
+          >
+              <span className="material-symbols-outlined text-[20px]">refresh</span>
+              {t("rebuyOrder")}
+          </button>
+        </div>
 
-      {/* Footer Actions */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-xl border-t border-blue-100 p-4 pb-8 flex gap-3 z-40 shadow-[0_-5px_20px_-5px_rgba(37,99,235,0.1)]">
-        <button className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-3.5 px-4 text-slate-900 hover:bg-slate-100 transition-colors font-semibold border border-slate-200">
-            <span className="material-symbols-outlined text-[20px]">support_agent</span>
-            {t("support")}
-        </button>
-        <button 
-            onClick={() => router.push('/home/products')}
-            className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#2563eb] py-3.5 px-4 text-white hover:bg-[#1d4ed8] transition-colors font-bold shadow-lg shadow-blue-200"
-        >
-            <span className="material-symbols-outlined text-[20px]">refresh</span>
-            {t("rebuyOrder")}
-        </button>
       </div>
     </div>
   );

@@ -31,6 +31,11 @@ export default function ShippingAddressPage() {
     isDefault: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Delete Confirmation Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadAddresses();
@@ -38,7 +43,7 @@ export default function ShippingAddressPage() {
 
   // Prevent body scroll when modal is open (mobile optimization)
   useEffect(() => {
-    if (showAddModal) {
+    if (showAddModal || showDeleteModal) {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
@@ -52,7 +57,7 @@ export default function ShippingAddressPage() {
       document.body.style.position = '';
       document.body.style.width = '';
     };
-  }, [showAddModal]);
+  }, [showAddModal, showDeleteModal]);
 
   const loadAddresses = async () => {
     setLoading(true);
@@ -104,25 +109,40 @@ export default function ShippingAddressPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm(t("confirmDeleteAddress"))) {
-      try {
-        await api.deleteAddress(id);
-        // Reload addresses from backend
-        await loadAddresses();
-        // Update selected if needed
-        if (selectedId === id) {
-          const remaining = addresses.filter(a => a.id !== id);
-          if (remaining.length > 0) {
-            setSelectedId(remaining[0].id);
-          } else {
-            setSelectedId("");
-          }
+  const handleDeleteClick = (id: string) => {
+    setAddressToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!addressToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await api.deleteAddress(addressToDelete);
+      // Reload addresses from backend
+      await loadAddresses();
+      // Update selected if needed
+      if (selectedId === addressToDelete) {
+        const remaining = addresses.filter(a => a.id !== addressToDelete);
+        if (remaining.length > 0) {
+          setSelectedId(remaining[0].id);
+        } else {
+          setSelectedId("");
         }
-      } catch (e: any) {
-        alert(e.message || t("failedToDeleteAddress") || "Failed to delete address");
       }
+      setShowDeleteModal(false);
+      setAddressToDelete(null);
+    } catch (e: any) {
+      alert(e.message || t("failedToDeleteAddress") || "Failed to delete address");
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setAddressToDelete(null);
   };
 
   // Add/Edit Address Handlers
@@ -175,17 +195,20 @@ export default function ShippingAddressPage() {
   return (
     <div className="bg-[#f6f6f8] text-[#0d121b] min-h-screen flex flex-col font-display selection:bg-blue-100 selection:text-blue-900">
       {/* Header Section */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center justify-center p-1 text-[#135bec]"
-          >
-            <span className="material-symbols-outlined text-[28px]">arrow_back_ios_new</span>
-          </button>
-          <h1 className="text-lg font-bold tracking-tight">{t("addressTitle")}</h1>
-        </div>
-        <button onClick={handleConfirm} className="text-[#135bec] font-medium text-sm">{t("confirm")}</button>
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+        >
+          <span className="material-symbols-outlined text-slate-800">arrow_back</span>
+        </button>
+        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("addressTitle")}</h1>
+        <button 
+          onClick={handleConfirm}
+          className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors"
+        >
+          {t("confirm")}
+        </button>
       </header>
 
       {/* ... Content ... */}
@@ -286,7 +309,7 @@ export default function ShippingAddressPage() {
                     {t("editAddress")}
                   </button>
                   <button
-                    onClick={() => handleDelete(addr.id)}
+                    onClick={() => handleDeleteClick(addr.id)}
                     className="flex items-center gap-1 text-sm text-red-500 hover:text-red-700 transition-colors"
                   >
                     <span className="material-symbols-outlined text-lg">delete</span>
@@ -310,6 +333,67 @@ export default function ShippingAddressPage() {
 
       {/* Floating Selection Confirm */}
 
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            willChange: 'opacity',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeleting) {
+              handleDeleteCancel();
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm shadow-2xl"
+            style={{
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              WebkitOverflowScrolling: 'touch',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              {/* Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="size-16 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-4xl text-red-600">warning</span>
+                </div>
+              </div>
+              
+              {/* Title & Message */}
+              <div className="text-center mb-6">
+                <h3 className="font-bold text-lg text-slate-900 mb-2">{t("confirmDeleteAddress")}</h3>
+                <p className="text-slate-600 text-sm">
+                  {t("confirmDeleteAddressMessage")}
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                  className="flex-1 h-12 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {t("cancel")}
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 h-12 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isDeleting && <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>}
+                  {isDeleting ? t("deleting") : t("delete")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Address Modal */}
       {showAddModal && (

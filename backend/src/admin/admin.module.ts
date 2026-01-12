@@ -13,11 +13,17 @@ import { MilestoneRewardConfig } from './entities/milestone-reward-config.entity
 import { UserMilestone } from './entities/user-milestone.entity';
 import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
+import { UserModule } from '../user/user.module';
+import { OrderModule } from '../order/order.module';
+import { Address } from '../user/entities/address.entity';
+import { Order } from '../order/entities/order.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, CommissionConfig, MilestoneRewardConfig, UserMilestone]),
+    TypeOrmModule.forFeature([User, CommissionConfig, MilestoneRewardConfig, UserMilestone, Address, Order]),
     forwardRef(() => AffiliateModule),
+    forwardRef(() => UserModule),
+    forwardRef(() => OrderModule),
     AuditLogModule,
   ],
   controllers: [

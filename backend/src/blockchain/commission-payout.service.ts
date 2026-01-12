@@ -32,6 +32,30 @@ interface BatchPayoutResult {
   blockNumber?: number;
 }
 
+/**
+ * Format amount to string with exactly 18 decimal places
+ * Fixes floating point precision issues when converting to BigNumber
+ */
+function formatAmountForParseUnits(amount: string | number): string {
+  let amountNum: number;
+  if (typeof amount === 'string') {
+    amountNum = parseFloat(amount);
+  } else {
+    amountNum = amount;
+  }
+  
+  // Format to string with exactly 18 decimal places
+  const amountStr = amountNum.toFixed(18);
+  
+  // Validate and truncate if needed (shouldn't happen with toFixed, but just in case)
+  const parts = amountStr.split('.');
+  if (parts.length === 2 && parts[1].length > 18) {
+    return parts[0] + '.' + parts[1].substring(0, 18);
+  }
+  
+  return amountStr;
+}
+
 @Injectable()
 export class CommissionPayoutService {
   private readonly logger = new Logger(CommissionPayoutService.name);
@@ -99,7 +123,9 @@ export class CommissionPayoutService {
     const amounts = recipients.map((r) => {
       // Convert amount to BigNumber
       // USDT BEP20 uses 18 decimals
-      return ethers.parseUnits(r.amount, 18);
+      // Fix floating point precision issues by formatting to string with exactly 18 decimals
+      const formattedAmount = formatAmountForParseUnits(r.amount);
+      return ethers.parseUnits(formattedAmount, 18);
     });
 
     // Generate batch ID if not provided

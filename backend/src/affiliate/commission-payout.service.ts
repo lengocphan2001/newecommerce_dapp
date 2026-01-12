@@ -383,9 +383,9 @@ export class CommissionPayoutService {
    * Called when admin approves an order
    */
   async payoutOrderCommissions(orderId: string): Promise<{ batchId: string; txHash: string; count: number } | null> {
-    this.logger.log(`Payout commissions for order: ${orderId}`);
+    this.logger.log(`[PAYOUT] Starting payout for order: ${orderId}`);
 
-    // Get pending commissions for this order
+    // Get pending commissions for this order (chỉ payout PENDING, không payout BLOCKED)
     const orderCommissions = await this.commissionRepository.find({
       where: {
         orderId,
@@ -394,8 +394,19 @@ export class CommissionPayoutService {
       relations: ['user'],
     });
 
+    this.logger.log(`[PAYOUT] Found ${orderCommissions.length} PENDING commissions for order ${orderId}`);
+
     if (orderCommissions.length === 0) {
-      this.logger.log(`No pending commissions found for order ${orderId}`);
+      this.logger.warn(`[PAYOUT] No pending commissions found for order ${orderId}. Checking all commissions...`);
+      // Debug: Check all commissions for this order
+      const allCommissions = await this.commissionRepository.find({
+        where: { orderId },
+        relations: ['user'],
+      });
+      this.logger.warn(`[PAYOUT] Total commissions for order ${orderId}: ${allCommissions.length}`);
+      allCommissions.forEach((c) => {
+        this.logger.warn(`[PAYOUT] Commission ${c.id}: type=${c.type}, status=${c.status}, amount=${c.amount}, userId=${c.userId}, walletAddress=${c.user?.walletAddress || 'N/A'}`);
+      });
       return null;
     }
 
@@ -404,8 +415,15 @@ export class CommissionPayoutService {
       (c) => c.user?.walletAddress,
     );
 
+    this.logger.log(`[PAYOUT] Found ${validCommissions.length} commissions with wallet addresses out of ${orderCommissions.length} total`);
+
     if (validCommissions.length === 0) {
-      this.logger.warn(`No commissions with wallet addresses for order ${orderId}`);
+      this.logger.warn(`[PAYOUT] No commissions with wallet addresses for order ${orderId}. Commissions without wallet:`);
+      orderCommissions.forEach((c) => {
+        if (!c.user?.walletAddress) {
+          this.logger.warn(`[PAYOUT] Commission ${c.id}: userId=${c.userId}, user=${c.user?.email || 'N/A'}, wallet=${c.user?.walletAddress || 'NONE'}`);
+        }
+      });
       return null;
     }
 

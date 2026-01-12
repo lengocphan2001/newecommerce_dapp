@@ -83,14 +83,14 @@ const CommissionConfigPage: React.FC = () => {
     try {
       setLoading(true);
       const updateData: UpdateCommissionConfigDto = {
-        directRate: values.directRate / 100, // Convert from percentage
-        groupRate: values.groupRate / 100,
-        managementRateF1: values.managementRateF1 / 100,
-        managementRateF2: values.managementRateF2 ? values.managementRateF2 / 100 : null,
-        managementRateF3: values.managementRateF3 ? values.managementRateF3 / 100 : null,
-        packageValue: values.packageValue,
-        reconsumptionThreshold: values.reconsumptionThreshold,
-        reconsumptionRequired: values.reconsumptionRequired,
+        directRate: typeof values.directRate === 'number' ? values.directRate / 100 : parseFloat(values.directRate) / 100, // Convert from percentage
+        groupRate: typeof values.groupRate === 'number' ? values.groupRate / 100 : parseFloat(values.groupRate) / 100,
+        managementRateF1: typeof values.managementRateF1 === 'number' ? values.managementRateF1 / 100 : parseFloat(values.managementRateF1) / 100,
+        managementRateF2: values.managementRateF2 ? (typeof values.managementRateF2 === 'number' ? values.managementRateF2 / 100 : parseFloat(values.managementRateF2) / 100) : null,
+        managementRateF3: values.managementRateF3 ? (typeof values.managementRateF3 === 'number' ? values.managementRateF3 / 100 : parseFloat(values.managementRateF3) / 100) : null,
+        packageValue: typeof values.packageValue === 'number' ? values.packageValue : parseFloat(values.packageValue),
+        reconsumptionThreshold: typeof values.reconsumptionThreshold === 'number' ? values.reconsumptionThreshold : parseFloat(values.reconsumptionThreshold),
+        reconsumptionRequired: typeof values.reconsumptionRequired === 'number' ? values.reconsumptionRequired : parseFloat(values.reconsumptionRequired),
       };
 
       if (ctvConfig) {
@@ -118,14 +118,14 @@ const CommissionConfigPage: React.FC = () => {
     try {
       setLoading(true);
       const updateData: UpdateCommissionConfigDto = {
-        directRate: values.directRate / 100,
-        groupRate: values.groupRate / 100,
-        managementRateF1: values.managementRateF1 / 100,
-        managementRateF2: values.managementRateF2 ? values.managementRateF2 / 100 : null,
-        managementRateF3: values.managementRateF3 ? values.managementRateF3 / 100 : null,
-        packageValue: values.packageValue,
-        reconsumptionThreshold: values.reconsumptionThreshold,
-        reconsumptionRequired: values.reconsumptionRequired,
+        directRate: typeof values.directRate === 'number' ? values.directRate / 100 : parseFloat(values.directRate) / 100,
+        groupRate: typeof values.groupRate === 'number' ? values.groupRate / 100 : parseFloat(values.groupRate) / 100,
+        managementRateF1: typeof values.managementRateF1 === 'number' ? values.managementRateF1 / 100 : parseFloat(values.managementRateF1) / 100,
+        managementRateF2: values.managementRateF2 ? (typeof values.managementRateF2 === 'number' ? values.managementRateF2 / 100 : parseFloat(values.managementRateF2) / 100) : null,
+        managementRateF3: values.managementRateF3 ? (typeof values.managementRateF3 === 'number' ? values.managementRateF3 / 100 : parseFloat(values.managementRateF3) / 100) : null,
+        packageValue: typeof values.packageValue === 'number' ? values.packageValue : parseFloat(values.packageValue),
+        reconsumptionThreshold: typeof values.reconsumptionThreshold === 'number' ? values.reconsumptionThreshold : parseFloat(values.reconsumptionThreshold),
+        reconsumptionRequired: typeof values.reconsumptionRequired === 'number' ? values.reconsumptionRequired : parseFloat(values.reconsumptionRequired),
       };
 
       if (nppConfig) {
@@ -184,7 +184,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -200,7 +201,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -216,7 +218,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -316,7 +319,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -332,7 +336,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -348,7 +353,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -363,7 +369,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
@@ -378,7 +385,8 @@ const CommissionConfigPage: React.FC = () => {
                     <InputNumber
                       min={0}
                       max={100}
-                      step={0.1}
+                      step={0.0001}
+                      precision={4}
                       formatter={(value) => `${value}%`}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
