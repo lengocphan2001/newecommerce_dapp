@@ -782,6 +782,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     saveAddress: "Save Address",
     update: "Update",
     popularGoods: "Popular Goods",
+    countries: "Countries",
     myNetwork: "My Network",
     earn5Back: "Earn 5% Back",
     binarySystem: "Binary System",
