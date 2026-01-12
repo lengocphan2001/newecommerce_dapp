@@ -8,6 +8,7 @@ export interface Product {
   stock?: number;
   thumbnailUrl?: string;
   detailImageUrls?: string[];
+  countries?: ('VIETNAM' | 'USA')[];
   createdAt?: string;
 }
 

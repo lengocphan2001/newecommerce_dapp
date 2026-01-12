@@ -757,4 +757,38 @@ export class CommissionService {
 
     return commission;
   }
+
+  /**
+   * Award milestone reward to a user
+   * Creates commission with PENDING status (will be updated to PAID after USDT transfer)
+   */
+  async awardMilestoneReward(
+    userId: string,
+    amount: number,
+    milestoneId: string,
+  ): Promise<Commission> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Create commission record with PENDING status (will be updated to PAID after USDT transfer)
+    const commission = this.commissionRepository.create({
+      userId,
+      orderId: `milestone-${milestoneId}`, // Use milestone ID as order ID
+      type: CommissionType.MILESTONE,
+      status: CommissionStatus.PENDING, // Will be updated to PAID after successful USDT transfer
+      amount,
+      orderAmount: 0, // No order for milestone rewards
+      notes: `Milestone reward - ID: ${milestoneId}`,
+    });
+
+    await this.commissionRepository.save(commission);
+
+    // Update user's total commission
+    user.totalCommissionReceived = (user.totalCommissionReceived || 0) + amount;
+    await this.userRepository.save(user);
+
+    return commission;
+  }
 }

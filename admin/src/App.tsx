@@ -11,6 +11,7 @@ import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
 import CommissionPayout from './pages/CommissionPayout';
 import CommissionConfig from './pages/CommissionConfig';
+import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
 import Login from './pages/Login';
 import './App.css';
@@ -131,6 +132,16 @@ function App() {
             <PrivateRoute>
               <AdminLayout>
                 <CommissionConfig />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/milestone-reward"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <MilestoneReward />
               </AdminLayout>
             </PrivateRoute>
           }

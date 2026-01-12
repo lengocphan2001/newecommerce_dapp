@@ -6,6 +6,7 @@ import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function AffiliatePage() {
   const { t } = useI18n();
@@ -40,6 +41,11 @@ export default function AffiliatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [showQR, setShowQR] = useState<'left' | 'right' | null>(null);
+  const [commissionConfigs, setCommissionConfigs] = useState<{
+    CTV?: { packageValue: number };
+    NPP?: { packageValue: number };
+  }>({});
 
   useEffect(() => {
     fetchReferralInfo();
@@ -96,6 +102,21 @@ export default function AffiliatePage() {
     }).format(num);
   };
 
+  const formatVolume = (volume: string | number) => {
+    const num = typeof volume === 'string' ? parseFloat(volume) : volume;
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
+    }).format(num);
+  };
+
+  const getMaxCommission = (packageType?: string) => {
+    // Based on reconsumption threshold
+    if (packageType === 'NPP') return 0.01; // $1600 in production
+    if (packageType === 'CTV') return 0.001; // $160 in production
+    return 0; // NONE package cannot receive commission
+  };
+
   const shortAddress = (address?: string) => {
     if (!address) return t("notConnected");
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -115,18 +136,20 @@ export default function AffiliatePage() {
 
   const getRankProgress = (packageType?: string, purchases?: string) => {
     if (packageType === 'NPP') return 100;
-    if (packageType === 'CTV') {
-      const amount = parseFloat(purchases || '0');
-      return Math.min(100, (amount / 0.001) * 100); // Assuming 0.001 is threshold for NPP
-    }
     const amount = parseFloat(purchases || '0');
-    return Math.min(100, (amount / 0.0001) * 100); // Assuming 0.0001 is threshold for CTV
+    if (packageType === 'CTV') {
+      const nppPackageValue = commissionConfigs.NPP?.packageValue || 0.001;
+      return Math.min(100, (amount / nppPackageValue) * 100);
+    }
+    // NONE -> CTV
+    const ctvPackageValue = commissionConfigs.CTV?.packageValue || 0.0001;
+    return Math.min(100, (amount / ctvPackageValue) * 100);
   };
 
   if (loading) {
     return (
       <div className="flex flex-col bg-background-gray">
-        <AppHeader titleKey="navAffiliate" />
+        <AppHeader titleKey="navAffiliate" showBack={true} />
         <main className="flex-1">
           <div className="px-4 py-8 text-center">
             <p className="text-gray-500">{t("affiliateLoading")}</p>
@@ -139,7 +162,7 @@ export default function AffiliatePage() {
   if (error || !referralInfo) {
     return (
       <div className="flex flex-col bg-background-gray">
-        <AppHeader titleKey="navAffiliate" />
+        <AppHeader titleKey="navAffiliate" showBack={true} />
         <main className="flex-1">
           <div className="px-4 py-8 text-center">
             <p className="text-red-500">{error || t("affiliateNotFound")}</p>
@@ -149,17 +172,25 @@ export default function AffiliatePage() {
     );
   }
 
-  const leftVolume = referralInfo.treeStats.left.volume || 0;
-  const rightVolume = referralInfo.treeStats.right.volume || 0;
-  const pendingRewards = parseFloat(referralInfo.pendingRewards || '0');
+  const leftVolume = typeof referralInfo.treeStats.left.volume === 'number' 
+    ? referralInfo.treeStats.left.volume 
+    : parseFloat(referralInfo.treeStats.left.volume || '0') || 0;
+  const rightVolume = typeof referralInfo.treeStats.right.volume === 'number'
+    ? referralInfo.treeStats.right.volume
+    : parseFloat(referralInfo.treeStats.right.volume || '0') || 0;
+  const maxCommission = getMaxCommission(referralInfo.packageType);
+  const receivedCommission = typeof referralInfo.bonusCommission === 'string' 
+    ? parseFloat(referralInfo.bonusCommission || '0') 
+    : (referralInfo.bonusCommission || 0);
 
   return (
     <div className="flex flex-col bg-background-gray antialiased">
       {/* Content Wrapper */}
       <div className="relative z-10 flex flex-col w-full max-w-md mx-auto bg-transparent overflow-hidden">
         {/* Top App Bar */}
-        <AppHeader 
-          titleKey="navAffiliate" 
+        <AppHeader
+          titleKey="navAffiliate"
+          showBack={true}
           showMenu={false}
           showActions={false}
           right={
@@ -206,30 +237,50 @@ export default function AffiliatePage() {
                 </p>
               </div>
             </div>
+          </div>
 
-            {/* Main Earnings Card */}
-            <div className="relative overflow-hidden rounded-xl shadow-md border border-gray-100 group bg-white">
-              <div className="relative z-10 p-6 flex flex-col items-center text-center gap-4">
-                <div className="flex flex-col gap-1">
-                  <p className="text-gray-600 text-sm font-medium uppercase tracking-wider">{t("totalEarnings")}</p>
-                  <p className="text-text-dark tracking-tight text-4xl font-extrabold">
-                    ${formatPrice(referralInfo.bonusCommission || '0')}
-                  </p>
-                  <p className="text-primary-dark text-sm font-semibold flex items-center justify-center gap-1">
-                    <span className="material-symbols-outlined text-sm">trending_up</span>
-                    +${formatPrice(pendingRewards)} {t("thisWeek")}
-                  </p>
-                </div>
-                <div className="w-full h-px bg-gray-200"></div>
-                <div className="flex justify-between items-center w-full gap-4">
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs text-gray-500">{t("pendingRewards")}</span>
-                    <span className="text-lg font-bold text-text-dark">${formatPrice(pendingRewards)}</span>
+          {/* Maximum Commission & Branch Totals */}
+          <div className="px-4 py-2">
+            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-3">
+              <h4 className="text-sm font-bold text-text-dark mb-3">{t("commission")} & {t("networkStructure")}</h4>
+              <div className="space-y-3">
+                {/* Total Commission Can Receive */}
+                {referralInfo.packageType !== 'NONE' && (
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="material-symbols-outlined text-primary text-xl">account_balance_wallet</span>
+                      <span className="text-sm font-medium text-gray-700">{t("totalCommissionCanReceive")}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">{t("received")}</span>
+                        <span className="text-lg font-bold text-primary-dark">
+                          ${formatVolume(receivedCommission)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">{t("maximum")}</span>
+                        <span className="text-lg font-bold text-primary-dark">
+                          ${formatVolume(maxCommission)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <button className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-lg transition-colors shadow-md shadow-primary/30">
-                    <span className="material-symbols-outlined text-[20px]">savings</span>
-                    {t("claim")}
-                  </button>
+                )}
+                {/* Branch Totals */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-blue-800">{t("affiliateLeftBranchLabel")}</span>
+                    </div>
+                    <p className="text-base font-bold text-text-dark">${formatVolume(leftVolume)}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-green-800">{t("affiliateRightBranchLabel")}</span>
+                    </div>
+                    <p className="text-base font-bold text-text-dark">${formatVolume(rightVolume)}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -239,7 +290,12 @@ export default function AffiliatePage() {
           <div className="px-4 py-2">
             <h3 className="text-lg font-bold mb-3 px-1 flex items-center justify-between text-text-dark">
               {t("networkStructure")}
-              <button className="text-xs font-normal text-primary-dark hover:underline">{t("viewFullTree")}</button>
+              <button
+                onClick={() => router.push("/home/affiliate/tree")}
+                className="text-xs font-normal text-primary-dark hover:underline"
+              >
+                {t("viewFullTree")}
+              </button>
             </h3>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm flex flex-col items-center relative overflow-hidden">
               {/* Connecting Lines (SVG) */}
@@ -270,7 +326,7 @@ export default function AffiliatePage() {
                   </div>
                   <div className="mt-2 text-center">
                     <p className="text-xs font-bold text-text-dark">{referralInfo.treeStats.left.count} {t("partners")}</p>
-                    <p className="text-[10px] text-gray-500">${formatPrice(leftVolume)} {t("vol")}</p>
+                    <p className="text-[10px] text-gray-500">${formatVolume(leftVolume)} {t("vol")}</p>
                   </div>
                 </div>
                 
@@ -284,12 +340,14 @@ export default function AffiliatePage() {
                   </div>
                   <div className="mt-2 text-center">
                     <p className="text-xs font-bold text-text-dark">{referralInfo.treeStats.right.count} {t("partners")}</p>
-                    <p className="text-[10px] text-gray-500">${formatPrice(rightVolume)} {t("vol")}</p>
+                    <p className="text-[10px] text-gray-500">${formatVolume(rightVolume)} {t("vol")}</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          
 
           {/* Quick Stats Grid */}
           <div className="px-4 py-2">
@@ -332,67 +390,82 @@ export default function AffiliatePage() {
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <div className="flex flex-col gap-4">
                 {/* Left Branch Link */}
-                <div className="flex gap-4 items-center">
-                  <div className="bg-gray-50 p-2 rounded-lg shrink-0 border border-gray-200">
-                    <div className="w-16 h-16 bg-gray-200 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-gray-600">L</span>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-4 items-center">
+                    <div className="flex-1 min-w-0">
+                      <label className="text-xs text-gray-600 mb-1 block">{t("leftBranchLink")}</label>
+                      <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
+                        <input
+                          className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
+                          readOnly
+                          type="text"
+                          value={referralInfo.leftLink}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => copyToClipboard(referralInfo.leftLink, "left", e)}
+                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
+                        >
+                          <span className="material-symbols-outlined text-lg">
+                            {copied === "left" ? "check" : "content_copy"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowQR(showQR === 'left' ? null : 'left')}
+                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
+                        >
+                          <span className="material-symbols-outlined text-lg">qr_code</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="text-xs text-gray-600 mb-1 block">{t("leftBranchLink")}</label>
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
-                      <input
-                        className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
-                        readOnly
-                        type="text"
-                        value={referralInfo.leftLink}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => copyToClipboard(referralInfo.leftLink, "left", e)}
-                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
-                      >
-                        <span className="material-symbols-outlined text-lg">
-                          {copied === "left" ? "check" : "content_copy"}
-                        </span>
-                      </button>
+                  {showQR === 'left' && (
+                    <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <QRCodeSVG value={referralInfo.leftLink} size={200} />
+                      <p className="text-xs text-gray-500 text-center">{t("scanToRegister") || "Quét để đăng ký"}</p>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Right Branch Link */}
-                <div className="flex gap-4 items-center">
-                  <div className="bg-gray-50 p-2 rounded-lg shrink-0 border border-gray-200">
-                    <div className="w-16 h-16 bg-gray-200 flex items-center justify-center">
-                      <span className="text-2xl font-bold text-gray-600">R</span>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-4 items-center">
+                    <div className="flex-1 min-w-0">
+                      <label className="text-xs text-gray-600 mb-1 block">{t("rightBranchLink")}</label>
+                      <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
+                        <input
+                          className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
+                          readOnly
+                          type="text"
+                          value={referralInfo.rightLink}
+                        />
+                        <button
+                          type="button"
+                          onClick={(e) => copyToClipboard(referralInfo.rightLink, "right", e)}
+                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
+                        >
+                          <span className="material-symbols-outlined text-lg">
+                            {copied === "right" ? "check" : "content_copy"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowQR(showQR === 'right' ? null : 'right')}
+                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
+                        >
+                          <span className="material-symbols-outlined text-lg">qr_code</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="text-xs text-gray-600 mb-1 block">{t("rightBranchLink")}</label>
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
-                      <input
-                        className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
-                        readOnly
-                        type="text"
-                        value={referralInfo.rightLink}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => copyToClipboard(referralInfo.rightLink, "right", e)}
-                        className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
-                      >
-                        <span className="material-symbols-outlined text-lg">
-                          {copied === "right" ? "check" : "content_copy"}
-                        </span>
-                      </button>
+                  {showQR === 'right' && (
+                    <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <QRCodeSVG value={referralInfo.rightLink} size={200} />
+                      <p className="text-xs text-gray-500 text-center">{t("scanToRegister") || "Quét để đăng ký"}</p>
                     </div>
-                  </div>
+                  )}
                 </div>
-
-                <button className="w-full py-3 rounded-lg bg-gray-100 hover:bg-gray-200 border border-gray-200 text-text-dark font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
-                  <span className="material-symbols-outlined text-primary-dark">share</span>
-                  {t("shareOnSocial")}
-                </button>
               </div>
             </div>
           </div>

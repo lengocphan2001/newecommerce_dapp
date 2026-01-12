@@ -74,16 +74,25 @@ export default function ProfilePage() {
 
   return (
     <div className="bg-white text-slate-900 min-h-screen flex flex-col font-display">
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
-        <div className="flex items-center justify-between p-4 h-16 max-w-md mx-auto w-full">
-          <button 
-            onClick={() => router.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-full active:bg-slate-100 transition-colors"
-          >
-            <span className="material-symbols-outlined text-slate-900">arrow_back_ios_new</span>
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+        <button 
+          onClick={() => router.back()}
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+        >
+          <span className="material-symbols-outlined text-slate-800">arrow_back</span>
+        </button>
+        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("profileTitle")}</h1>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+            </span>
+            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePal</span>
+          </div>
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+            <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">{t("profileTitle")}</h1>
-          <div className="w-10"></div>
         </div>
       </header>
       

@@ -36,6 +36,24 @@ export default function ShippingAddressPage() {
     loadAddresses();
   }, []);
 
+  // Prevent body scroll when modal is open (mobile optimization)
+  useEffect(() => {
+    if (showAddModal) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [showAddModal]);
+
   const loadAddresses = async () => {
     setLoading(true);
     setError(null);
@@ -295,8 +313,27 @@ export default function ShippingAddressPage() {
 
       {/* Add/Edit Address Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        <div 
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
+          style={{ 
+            WebkitOverflowScrolling: 'touch',
+            willChange: 'opacity',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              resetForm();
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl"
+            style={{
+              transform: 'translateZ(0)',
+              willChange: 'transform',
+              WebkitOverflowScrolling: 'touch',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-gray-100 flex justify-between items-center">
               <h3 className="font-bold text-lg">{editingId ? t("editAddress") : t("addNewAddress")}</h3>
               <button onClick={resetForm} className="p-1 rounded-full hover:bg-gray-100">
@@ -312,7 +349,12 @@ export default function ShippingAddressPage() {
                   value={newAddressData.name}
                   onChange={handleInputChange}
                   required
-                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-slate-50 focus:bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 transition-all outline-none"
+                  autoComplete="name"
+                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none text-base"
+                  style={{ 
+                    WebkitAppearance: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
                   placeholder={t("placeholderName")}
                 />
               </div>
@@ -324,7 +366,13 @@ export default function ShippingAddressPage() {
                   value={newAddressData.phone}
                   onChange={handleInputChange}
                   required
-                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-slate-50 focus:bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 transition-all outline-none"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none text-base"
+                  style={{ 
+                    WebkitAppearance: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
                   placeholder={t("placeholderPhone")}
                 />
               </div>
@@ -336,7 +384,12 @@ export default function ShippingAddressPage() {
                   value={newAddressData.address}
                   onChange={handleInputChange}
                   required
-                  className="w-full p-4 rounded-xl border border-gray-200 bg-slate-50 focus:bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 transition-all outline-none resize-none"
+                  autoComplete="street-address"
+                  className="w-full p-4 rounded-xl border border-gray-200 bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none resize-none text-base"
+                  style={{ 
+                    WebkitAppearance: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
                   placeholder={t("placeholderAddress")}
                 />
               </div>
@@ -354,7 +407,11 @@ export default function ShippingAddressPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-12 bg-[#135bec] text-white rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2"
+                className="w-full h-12 bg-[#135bec] text-white rounded-xl font-bold active:opacity-90 disabled:opacity-70 flex items-center justify-center gap-2 touch-manipulation"
+                style={{
+                  WebkitTapHighlightColor: 'transparent',
+                  willChange: 'opacity',
+                }}
               >
                 {isSubmitting && <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>}
                 {editingId ? t("update") : t("saveAddress")}

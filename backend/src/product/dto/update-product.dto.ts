@@ -41,5 +41,9 @@ export class UpdateProductDto {
   })
   @IsOptional()
   detailImageUrls?: string[];
+
+  @IsArray()
+  @IsOptional()
+  countries?: ('VIETNAM' | 'USA')[];
 }
 

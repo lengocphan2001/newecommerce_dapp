@@ -221,20 +221,20 @@ export default function ActivityPage() {
   return (
     <div className="flex flex-col bg-background-light min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-[#cfd7e7]">
-        <div className="flex items-center p-4 pb-2 justify-between">
-          <button
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button 
             onClick={() => router.back()}
-            className="flex size-12 items-center cursor-pointer"
+            className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
           >
-            <span className="material-symbols-outlined text-primary text-[28px]">arrow_back_ios</span>
+            <span className="material-symbols-outlined text-slate-800">arrow_back</span>
           </button>
-          <h2 className="text-[#0d121b] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">
-            {t("activityHistory")}
-          </h2>
-          <button className="flex size-12 cursor-pointer items-center justify-center rounded-lg bg-transparent text-[#0d121b]">
-            <span className="material-symbols-outlined text-[24px]">filter_list</span>
-          </button>
+          <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("activityHistory")}</h1>
+          <div className="flex items-center gap-2">
+            <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+              <span className="material-symbols-outlined text-slate-800">filter_list</span>
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}

@@ -56,8 +56,11 @@ export const api = {
     return response.json();
   },
 
-  async getProducts() {
-    const response = await fetch(`${API_BASE_URL}/products`);
+  async getProducts(country?: 'VIETNAM' | 'USA') {
+    const url = country 
+      ? `${API_BASE_URL}/products?country=${country}`
+      : `${API_BASE_URL}/products`;
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
@@ -98,6 +101,30 @@ export const api = {
       }
       const error = await response.json().catch(() => ({ message: 'Failed to get referral info' }));
       throw new Error(error.message || 'Failed to get referral info');
+    }
+    return response.json();
+  },
+
+  async getChildren(userId: string, position?: 'left' | 'right') {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (position) params.append('position', position);
+    const response = await fetch(`${API_BASE_URL}/auth/referral/children?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to get children' }));
+      throw new Error(error.message || 'Failed to get children');
     }
     return response.json();
   },
@@ -285,5 +312,14 @@ export const api = {
     }
     const text = await response.text();
     return text ? JSON.parse(text) : {};
+  },
+
+  async getCommissionConfig(packageType: 'CTV' | 'NPP') {
+    const response = await fetch(`${API_BASE_URL}/auth/commission-config/${packageType}`);
+    if (!response.ok) {
+      // Fallback to defaults
+      return packageType === 'NPP' ? { packageValue: 0.001 } : { packageValue: 0.0001 };
+    }
+    return response.json();
   },
 };

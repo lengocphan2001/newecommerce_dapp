@@ -248,6 +248,52 @@ export class CommissionPayoutService {
   }
 
   /**
+   * Single payout for one user (used for milestone rewards)
+   * Finds the specific commission by orderId (milestone-{milestoneId}) and pays it
+   */
+  async singlePayout(
+    userId: string,
+    walletAddress: string,
+    amount: number,
+    orderId?: string, // Optional: specific orderId to find commission (e.g., milestone-{id})
+  ): Promise<{ batchId: string; txHash: string; success: boolean }> {
+    // If orderId is provided, find the specific commission
+    if (orderId) {
+      const commission = await this.commissionRepository.findOne({
+        where: {
+          userId,
+          orderId,
+          status: CommissionStatus.PENDING,
+        },
+        relations: ['user'],
+      });
+
+      if (!commission) {
+        throw new Error(`No pending commission found for orderId: ${orderId}`);
+      }
+
+      // Verify amount matches
+      if (Math.abs(commission.amount - amount) > 0.01) {
+        throw new Error(
+          `Amount mismatch. Commission amount: ${commission.amount}, Provided: ${amount}`,
+        );
+      }
+    }
+
+    const dto: BatchPayoutDto = {
+      recipients: [
+        {
+          userId,
+          walletAddress,
+          amount: amount.toString(),
+        },
+      ],
+    };
+
+    return this.executeBatchPayout(dto);
+  }
+
+  /**
    * Auto payout pending commissions
    */
   async autoPayout(

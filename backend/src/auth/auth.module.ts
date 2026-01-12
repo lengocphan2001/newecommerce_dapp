@@ -7,11 +7,13 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
 import { AffiliateModule } from '../affiliate/affiliate.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
     UserModule,
     forwardRef(() => AffiliateModule),
+    forwardRef(() => AdminModule),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

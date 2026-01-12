@@ -10,6 +10,9 @@ function RegisterForm() {
   const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isChecking, setIsChecking] = useState(true);
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
+  const [countdown, setCountdown] = useState(5);
 
   const [formData, setFormData] = useState({
     username: "",
@@ -53,6 +56,54 @@ function RegisterForm() {
         }
       }
     }
+
+    // Check if user is already registered
+    let countdownTimer: NodeJS.Timeout | null = null;
+    
+    const checkUserRegistration = async () => {
+      try {
+        setIsChecking(true);
+        const checkResult = await api.checkWallet(address);
+        if (checkResult.exists) {
+          setIsAlreadyRegistered(true);
+          // Start countdown
+          let remaining = 5;
+          countdownTimer = setInterval(() => {
+            remaining--;
+            setCountdown(remaining);
+            if (remaining <= 0) {
+              if (countdownTimer) clearInterval(countdownTimer);
+              // Auto login and redirect
+              api.walletLogin(address).then((result) => {
+                if (result.token) {
+                  localStorage.setItem("token", result.token);
+                }
+                router.push("/home");
+              }).catch(() => {
+                router.push("/");
+              });
+            }
+          }, 1000);
+        } else {
+          setIsAlreadyRegistered(false);
+        }
+      } catch (err: any) {
+        console.error("Error checking wallet:", err);
+        // If check fails, allow registration to proceed
+        setIsAlreadyRegistered(false);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    checkUserRegistration();
+    
+    // Cleanup timer on unmount
+    return () => {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+      }
+    };
   }, [router]);
 
   const countries = [
@@ -140,6 +191,59 @@ function RegisterForm() {
   };
 
   const chainIdDec = chainId ? String(Number(BigInt(chainId))) : "";
+
+  // Show loading while checking
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 mx-auto mb-4"></div>
+          <p className="text-sm text-zinc-600">{t("checkingRegistration")}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show already registered message with countdown
+  if (isAlreadyRegistered) {
+    return (
+      <div className="min-h-screen bg-zinc-50 py-8 px-4">
+        <div className="mx-auto max-w-md">
+          <div className="rounded-xl bg-blue-50 border border-blue-200 p-6 text-center">
+            <div className="mb-4">
+              <div className="mx-auto h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+                <span className="material-symbols-outlined text-blue-600 text-3xl">check_circle</span>
+              </div>
+              <h2 className="text-xl font-bold text-zinc-900 mb-2">{t("alreadyRegistered")}</h2>
+              <p className="text-sm text-zinc-600 mb-4">
+                {t("alreadyRegisteredMessage")}
+              </p>
+            </div>
+            <div className="bg-white rounded-lg p-4 mb-4">
+              <p className="text-sm text-zinc-600 mb-2">{t("redirectingToLogin")}</p>
+              <p className="text-2xl font-bold text-blue-600">{countdown}</p>
+              <p className="text-xs text-zinc-500 mt-1">{t("seconds")}</p>
+            </div>
+            <button
+              onClick={() => {
+                api.walletLogin(walletAddress).then((result) => {
+                  if (result.token) {
+                    localStorage.setItem("token", result.token);
+                  }
+                  router.push("/home");
+                }).catch(() => {
+                  router.push("/");
+                });
+              }}
+              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+            >
+              {t("goToLoginNow")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 py-8 px-4">

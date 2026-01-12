@@ -12,6 +12,7 @@ import {
   Typography,
   message,
   Popconfirm,
+  Select,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { productService, Product } from '../services/productService';
@@ -324,6 +325,17 @@ const Products: React.FC = () => {
             rules={[{ type: 'number', min: 0 }]}
           >
             <InputNumber style={{ width: '100%' }} min={0} />
+          </Form.Item>
+          <Form.Item
+            name="countries"
+            label="Countries"
+            rules={[{ required: true, message: 'Please select at least one country' }]}
+            initialValue={['VIETNAM']}
+          >
+            <Select mode="multiple" style={{ width: '100%' }} placeholder="Select countries">
+              <Select.Option value="VIETNAM">Vietnam</Select.Option>
+              <Select.Option value="USA">USA</Select.Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

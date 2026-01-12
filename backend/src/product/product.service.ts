@@ -11,10 +11,21 @@ export class ProductService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
-  async findAll(_query: any) {
-    return this.productRepository.find({
+  async findAll(query: any) {
+    // Load all products first (since filtering JSON arrays in SQL is complex)
+    const allProducts = await this.productRepository.find({
       order: { createdAt: 'DESC' },
     });
+
+    // Filter by country if provided (check if countries array contains the country)
+    if (query.country && (query.country === 'VIETNAM' || query.country === 'USA')) {
+      return allProducts.filter((product) => {
+        const countries = product.countries || [];
+        return Array.isArray(countries) && countries.includes(query.country);
+      });
+    }
+
+    return allProducts;
   }
 
   async findOne(id: string) {
@@ -30,6 +41,9 @@ export class ProductService {
       ...createProductDto,
       stock: createProductDto.stock ?? 0,
       detailImageUrls: createProductDto.detailImageUrls ?? [],
+      countries: createProductDto.countries && createProductDto.countries.length > 0 
+        ? createProductDto.countries 
+        : ['VIETNAM'], // Default to Vietnam if not provided
     });
     return this.productRepository.save(product);
   }

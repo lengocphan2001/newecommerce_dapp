@@ -5,14 +5,18 @@ import { AdminService } from './admin.service';
 import { CommissionPayoutController } from './commission-payout.controller';
 import { CommissionConfigController } from './commission-config.controller';
 import { CommissionConfigService } from './commission-config.service';
+import { MilestoneRewardService } from './milestone-reward.service';
+import { MilestoneRewardController } from './milestone-reward.controller';
 import { User } from '../user/entities/user.entity';
 import { CommissionConfig } from './entities/commission-config.entity';
+import { MilestoneRewardConfig } from './entities/milestone-reward-config.entity';
+import { UserMilestone } from './entities/user-milestone.entity';
 import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, CommissionConfig]),
+    TypeOrmModule.forFeature([User, CommissionConfig, MilestoneRewardConfig, UserMilestone]),
     forwardRef(() => AffiliateModule),
     AuditLogModule,
   ],
@@ -20,9 +24,10 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
     AdminController,
     CommissionPayoutController,
     CommissionConfigController,
+    MilestoneRewardController,
   ],
-  providers: [AdminService, CommissionConfigService],
-  exports: [AdminService, CommissionConfigService],
+  providers: [AdminService, CommissionConfigService, MilestoneRewardService],
+  exports: [AdminService, CommissionConfigService, MilestoneRewardService],
 })
 export class AdminModule {}
 

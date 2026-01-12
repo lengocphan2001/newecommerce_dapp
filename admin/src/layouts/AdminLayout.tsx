@@ -81,6 +81,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       label: 'Commission Config',
     },
     {
+      key: '/milestone-reward',
+      icon: <ThunderboltOutlined />,
+      label: 'Milestone Reward',
+    },
+    {
       key: '/audit-log',
       icon: <AuditOutlined />,
       label: 'Audit Log',

@@ -40,6 +40,10 @@ export class Product {
   @Column({ type: 'simple-json', nullable: true })
   detailImageUrls?: string[];
 
+  // Store array of countries as JSON (product can be available in multiple countries)
+  @Column({ type: 'simple-json', nullable: true })
+  countries?: string[]; // Array of 'VIETNAM' | 'USA'
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -12,6 +12,7 @@ export enum CommissionType {
   DIRECT = 'direct', // Hoa hồng trực tiếp
   GROUP = 'group', // Hoa hồng nhóm
   MANAGEMENT = 'management', // Hoa hồng quản lý
+  MILESTONE = 'milestone', // Thưởng milestone (2, 4, 6 người...)
 }
 
 export enum CommissionStatus {

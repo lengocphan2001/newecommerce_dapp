@@ -2,11 +2,16 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
+import { Contract, JsonRpcProvider, formatUnits, getAddress, BrowserProvider } from "ethers";
 import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+
+function getEthereum() {
+  if (typeof window === "undefined") return undefined;
+  return (window as any).ethereum;
+}
 
 const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
 const BSC_RPC = "https://bsc-dataseed.binance.org/";
@@ -66,27 +71,77 @@ export default function WalletsPage() {
   const loadUsdtBep20Balance = async (address: string) => {
     setIsLoadingUSDT(true);
     try {
-      const provider = new JsonRpcProvider(BSC_RPC);
-      const contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
+      // Validate address
+      if (!address || !getAddress(address)) {
+        throw new Error("Invalid wallet address");
+      }
+
+      let provider: JsonRpcProvider | BrowserProvider;
+      let contract: Contract;
+
+      // Try to use SafePal provider first (if available)
+      const ethereum = getEthereum();
+      if (ethereum) {
+        try {
+          // Use SafePal provider
+          const browserProvider = new BrowserProvider(ethereum);
+          const network = await browserProvider.getNetwork();
+          
+          // Ensure we're on BSC (chainId: 56 = 0x38)
+          if (Number(network.chainId) !== 56) {
+            // If not on BSC, fallback to RPC
+            provider = new JsonRpcProvider(BSC_RPC);
+          } else {
+            provider = browserProvider;
+          }
+          
+          contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
+        } catch (providerError) {
+          // Fallback to RPC if SafePal provider fails
+          provider = new JsonRpcProvider(BSC_RPC);
+          contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
+        }
+      } else {
+        // Use public RPC as fallback
+        provider = new JsonRpcProvider(BSC_RPC);
+        contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
+      }
+
+      // Get balance and decimals
       const [decimals, balance] = await Promise.all([
         contract.decimals(),
         contract.balanceOf(getAddress(address)),
       ]);
+      
       const formatted = formatUnits(balance as bigint, Number(decimals));
       setUsdtBalance(formatted);
+      
+      // Cache the balance
       try {
         localStorage.setItem("usdtBep20Balance", formatted);
         localStorage.setItem("usdtBep20UpdatedAt", String(Date.now()));
       } catch {
-        // ignore
+        // ignore localStorage errors
       }
     } catch (error) {
-      // Try to use cached balance
+      console.error("Error loading USDT balance:", error);
+      // Try to use cached balance as fallback
       try {
         const cached = localStorage.getItem("usdtBep20Balance");
-        if (cached) setUsdtBalance(cached);
+        const cachedTime = localStorage.getItem("usdtBep20UpdatedAt");
+        // Only use cache if it's less than 5 minutes old
+        if (cached && cachedTime) {
+          const age = Date.now() - parseInt(cachedTime, 10);
+          if (age < 5 * 60 * 1000) { // 5 minutes
+            setUsdtBalance(cached);
+          } else {
+            setUsdtBalance("0");
+          }
+        } else {
+          setUsdtBalance("0");
+        }
       } catch {
-        // ignore
+        setUsdtBalance("0");
       }
     } finally {
       setIsLoadingUSDT(false);
@@ -296,7 +351,7 @@ export default function WalletsPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col gap-6 p-4 bg-white">
+      <main className="flex-1 flex flex-col gap-6 px-4 bg-white">
         {/* Main Balance Card */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-gray-100">
           <div className="relative z-10 flex flex-col gap-4">

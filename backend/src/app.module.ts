@@ -21,6 +21,8 @@ import { Order } from './order/entities/order.entity';
 import { Commission } from './affiliate/entities/commission.entity';
 import { AuditLog } from './audit-log/entities/audit-log.entity';
 import { CommissionConfig } from './admin/entities/commission-config.entity';
+import { MilestoneRewardConfig } from './admin/entities/milestone-reward-config.entity';
+import { UserMilestone } from './admin/entities/user-milestone.entity';
 import { UploadModule } from './upload/upload.module';
 
 @Module({
@@ -45,7 +47,7 @@ import { UploadModule } from './upload/upload.module';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig],
+        entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone],
         synchronize: 
           configService.get<string>('FORCE_SYNC') === 'true' || 
           configService.get<string>('NODE_ENV') !== 'production',

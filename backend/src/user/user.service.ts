@@ -130,7 +130,7 @@ export class UserService {
     }
     return this.userRepository.find({
       where,
-      select: ['id', 'username', 'fullName', 'position', 'createdAt'],
+      select: ['id', 'username', 'fullName', 'position', 'createdAt', 'totalPurchaseAmount', 'packageType', 'avatar', 'leftBranchTotal', 'rightBranchTotal'],
       order: { createdAt: 'ASC' },
     });
   }

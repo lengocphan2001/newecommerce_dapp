@@ -17,6 +17,7 @@ interface Product {
   stock: number;
   thumbnailUrl?: string;
   detailImageUrls?: string[];
+  countries?: ('VIETNAM' | 'USA')[];
   createdAt: string;
 }
 
@@ -29,12 +30,21 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
+  const [selectedCountries, setSelectedCountries] = useState<('VIETNAM' | 'USA')[]>([]);
+  const [flagImageError, setFlagImageError] = useState<{ vietnam: boolean; usa: boolean }>({
+    vietnam: false,
+    usa: false,
+  });
 
   useEffect(() => {
     fetchProducts();
     loadWalletInfo();
     loadReferralInfo();
   }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [selectedCountries]);
 
   const loadWalletInfo = () => {
     if (typeof window !== "undefined") {
@@ -58,8 +68,21 @@ export default function HomePage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      // Fetch all products, then filter by selected countries on frontend
       const data = await api.getProducts();
-      setProducts(Array.isArray(data) ? data : []);
+      let filtered = Array.isArray(data) ? data : [];
+      
+      // Filter by selected countries if any
+      if (selectedCountries.length > 0) {
+        filtered = filtered.filter((product) => {
+          const productCountries = product.countries || [];
+          return selectedCountries.some(country => 
+            Array.isArray(productCountries) && productCountries.includes(country)
+          );
+        });
+      }
+      
+      setProducts(filtered);
     } catch (error) {
       setProducts([]);
     } finally {
@@ -93,6 +116,24 @@ export default function HomePage() {
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getCountryLabel = (countries: ('VIETNAM' | 'USA')[]) => {
+    if (countries.length === 0) return t("popularGoods");
+    if (countries.length === 1) {
+      return countries[0] === 'VIETNAM' ? 'Vietnam Local Products' : 'USA Local Products';
+    }
+    return 'All Selected Products';
+  };
+
+  const toggleCountry = (country: 'VIETNAM' | 'USA') => {
+    setSelectedCountries(prev => {
+      if (prev.includes(country)) {
+        return prev.filter(c => c !== country);
+      } else {
+        return [...prev, country];
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col bg-background-gray">
       {/* Header */}
@@ -124,6 +165,8 @@ export default function HomePage() {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+        {/* Countries Filter */}
+
         {/* Affiliate Promo Banner */}
         <div className="p-4 bg-white mb-2">
           <div className="flex flex-col @container rounded-2xl overflow-hidden shadow-md bg-white relative group border border-gray-100">
@@ -146,10 +189,86 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+        <div className="bg-white mb-2 pt-4">
+          <div className="flex justify-between items-center px-4 mb-4">
+            <h3 className="text-lg font-bold text-text-dark leading-none">{t("countries")}</h3>
+          </div>
+          <div className="flex gap-6 px-4 overflow-x-auto hide-scrollbar pb-2">
+            <button
+              onClick={() => toggleCountry('VIETNAM')}
+              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
+                selectedCountries.includes('VIETNAM') ? '' : 'group'
+              }`}
+            >
+              <div className={`w-16 h-16 rounded-full bg-white ${
+                selectedCountries.includes('VIETNAM')
+                  ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
+                  : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
+              }`}>
+                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
+                  {flagImageError.vietnam ? (
+                    <span className="text-3xl">🇻🇳</span>
+                  ) : (
+                    <img 
+                      src="https://flagcdn.com/w40/vn.png" 
+                      alt="Vietnam" 
+                      className="w-10 h-10 object-contain"
+                      onError={() => setFlagImageError(prev => ({ ...prev, vietnam: true }))}
+                    />
+                  )}
+                </div>
+              </div>
+              <span className={`text-xs ${
+                selectedCountries.includes('VIETNAM') 
+                  ? 'text-primary font-bold' 
+                  : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
+              }`}>
+                Vietnam
+              </span>
+            </button>
+            <button
+              onClick={() => toggleCountry('USA')}
+              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
+                selectedCountries.includes('USA') ? '' : 'group'
+              }`}
+            >
+              <div className={`w-16 h-16 rounded-full bg-white ${
+                selectedCountries.includes('USA')
+                  ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
+                  : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
+              }`}>
+                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
+                  {flagImageError.usa ? (
+                    <span className="text-3xl">🇺🇸</span>
+                  ) : (
+                    <img 
+                      src="https://flagcdn.com/w40/us.png" 
+                      alt="USA" 
+                      className="w-10 h-10 object-contain"
+                      onError={() => setFlagImageError(prev => ({ ...prev, usa: true }))}
+                    />
+                  )}
+                </div>
+              </div>
+              <span className={`text-xs ${
+                selectedCountries.includes('USA')
+                  ? 'text-primary font-bold'
+                  : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
+              }`}>
+                USA
+              </span>
+            </button>
+          </div>
+        </div>
+
+        
 
         {/* Featured Products Grid */}
         <div className="px-4 pt-4 pb-8 bg-white">
-          <h3 className="text-lg font-bold text-text-dark mb-5">{t("popularGoods")}</h3>
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-lg font-bold text-text-dark">{getCountryLabel(selectedCountries)}</h3>
+            <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>
+          </div>
           {loading ? (
             <div className="grid grid-cols-2 gap-4">
               {[...Array(4)].map((_, i) => (

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionStatus } from '../affiliate/entities/commission.entity';
+import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import * as bcrypt from 'bcryptjs';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 
@@ -13,6 +14,8 @@ export class AuthService {
     private jwtService: JwtService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
+    @Inject(forwardRef(() => MilestoneRewardService))
+    private milestoneRewardService: MilestoneRewardService,
   ) { }
 
   async login(loginDto: LoginDto) {
@@ -216,7 +219,37 @@ export class AuthService {
       }, 0)),
       recentActivity,
       avatar: user.avatar,
+      createdAt: user.createdAt,
+      id: user.id,
     };
+  }
+
+  async getChildren(userId: string, position?: 'left' | 'right') {
+    const children = await this.userService.getDownline(userId, position);
+    return children.map((child: any) => {
+      // Parse decimal values properly
+      const parseDecimal = (value: any): number => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+          const parsed = parseFloat(value);
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+      };
+
+      return {
+        id: child.id,
+        username: child.username,
+        fullName: child.fullName,
+        avatar: child.avatar,
+        packageType: child.packageType,
+        position: child.position,
+        leftBranchTotal: parseDecimal(child.leftBranchTotal),
+        rightBranchTotal: parseDecimal(child.rightBranchTotal),
+        totalPurchaseAmount: parseDecimal(child.totalPurchaseAmount),
+        createdAt: child.createdAt,
+      };
+    });
   }
 
   async updateProfile(userId: string, data: any) {
@@ -312,6 +345,16 @@ export class AuthService {
       position, // Store position (left/right) in binary tree
       status: 'ACTIVE',
     });
+
+    // Check and process milestone rewards for referrer (if exists)
+    if (referralUserId) {
+      try {
+        await this.milestoneRewardService.checkAndProcessMilestones(referralUserId);
+      } catch (error) {
+        // Log error but don't fail registration
+        console.error('Error processing milestone rewards:', error);
+      }
+    }
 
     // Generate JWT token
     const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };

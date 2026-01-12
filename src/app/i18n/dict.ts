@@ -115,6 +115,7 @@ export type I18nKey =
   | "saveAddress"
   | "update"
   | "popularGoods"
+  | "countries"
   | "myNetwork"
   | "earn5Back"
   | "binarySystem"
@@ -234,6 +235,12 @@ export type I18nKey =
   | "redirecting"
   | "registerAccount"
   | "completeInfoToCreateAccount"
+  | "checkingRegistration"
+  | "alreadyRegistered"
+  | "alreadyRegisteredMessage"
+  | "redirectingToLogin"
+  | "seconds"
+  | "goToLoginNow"
   | "walletInfoAutoFill"
   | "walletAddressLabel"
   | "chainIdLabel"
@@ -309,7 +316,17 @@ export type I18nKey =
   | "goToProfile"
   | "avatarUploaded"
   | "avatarUploadFailed"
-  | "uploading";
+  | "uploading"
+  | "searchMemberId"
+  | "search"
+  | "members"
+  | "memberId"
+  | "addMember"
+  | "maxCommission"
+  | "totalCommissionCanReceive"
+  | "received"
+  | "maximum"
+  | "scanToRegister";
 
 export const DEFAULT_LANG: Lang = "vi";
 
@@ -429,6 +446,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     saveAddress: "Lưu địa chỉ",
     update: "Cập nhật",
     popularGoods: "Sản phẩm phổ biến",
+    countries: "Quốc gia",
     myNetwork: "Mạng lưới của tôi",
     earn5Back: "Nhận lại 5%",
     binarySystem: "Hệ thống nhị phân",
@@ -544,6 +562,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     redirecting: "Đang chuyển hướng...",
     registerAccount: "Đăng ký tài khoản",
     completeInfoToCreateAccount: "Hoàn tất thông tin để tạo tài khoản",
+    checkingRegistration: "Đang kiểm tra đăng ký...",
+    alreadyRegistered: "Tài khoản đã được đăng ký",
+    alreadyRegisteredMessage: "Ví của bạn đã được đăng ký trong hệ thống. Bạn sẽ được chuyển đến trang đăng nhập.",
+    redirectingToLogin: "Đang chuyển đến trang đăng nhập sau",
+    seconds: "giây",
+    goToLoginNow: "Đăng nhập ngay",
     walletInfoAutoFill: "Thông tin ví (tự động điền)",
     walletAddressLabel: "Địa chỉ ví:",
     chainIdLabel: "Chain ID:",
@@ -619,7 +643,17 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     goToProfile: "Đi tới trang cá nhân",
     avatarUploaded: "Tải ảnh đại diện thành công",
     avatarUploadFailed: "Tải ảnh đại diện thất bại",
-    uploading: "Đang tải lên..."
+    uploading: "Đang tải lên...",
+    searchMemberId: "Tìm kiếm ID thành viên...",
+    search: "Tìm",
+    members: "Thành viên",
+    memberId: "ID:",
+    addMember: "Thêm",
+    maxCommission: "Hoa hồng tối đa",
+    totalCommissionCanReceive: "Tổng hoa hồng có thể nhận",
+    received: "Đã nhận",
+    maximum: "Tối đa",
+    scanToRegister: "Quét để đăng ký"
   },
   en: {
     appName: "VinMall",
@@ -851,6 +885,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     redirecting: "Redirecting...",
     registerAccount: "Register Account",
     completeInfoToCreateAccount: "Complete information to create account",
+    checkingRegistration: "Checking registration...",
+    alreadyRegistered: "Account Already Registered",
+    alreadyRegisteredMessage: "Your wallet has already been registered in the system. You will be redirected to the login page.",
+    redirectingToLogin: "Redirecting to login page in",
+    seconds: "seconds",
+    goToLoginNow: "Go to Login Now",
     walletInfoAutoFill: "Wallet Info (Auto-filled)",
     walletAddressLabel: "Wallet Address:",
     chainIdLabel: "Chain ID:",
@@ -926,7 +966,17 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     goToProfile: "Go to Profile",
     avatarUploaded: "Avatar uploaded successfully",
     avatarUploadFailed: "Failed to upload avatar",
-    uploading: "Uploading..."
+    uploading: "Uploading...",
+    searchMemberId: "Search member ID...",
+    search: "Search",
+    members: "Members",
+    memberId: "ID:",
+    addMember: "Add",
+    maxCommission: "Maximum Commission",
+    totalCommissionCanReceive: "Total Commission Can Receive",
+    received: "Received",
+    maximum: "Maximum",
+    scanToRegister: "Scan to register"
   },
   ko: {
     appName: "VinMall",
@@ -1043,6 +1093,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     saveAddress: "주소 저장",
     update: "업데이트",
     popularGoods: "인기 상품",
+    countries: "국가",
     myNetwork: "내 네트워크",
     earn5Back: "5% 환급",
     binarySystem: "바이너리 시스템",
@@ -1158,6 +1209,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     redirecting: "리디렉션 중...",
     registerAccount: "계정 등록",
     completeInfoToCreateAccount: "계정 생성을 위해 정보 완성",
+    checkingRegistration: "등록 확인 중...",
+    alreadyRegistered: "이미 등록된 계정",
+    alreadyRegisteredMessage: "귀하의 지갑이 이미 시스템에 등록되어 있습니다. 로그인 페이지로 리디렉션됩니다.",
+    redirectingToLogin: "로그인 페이지로 리디렉션 중",
+    seconds: "초",
+    goToLoginNow: "지금 로그인하기",
     walletInfoAutoFill: "지갑 정보 (자동 입력)",
     walletAddressLabel: "지갑 주소:",
     chainIdLabel: "체인 ID:",
@@ -1233,6 +1290,16 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     goToProfile: "프로필로 이동",
     avatarUploaded: "아바타 업로드 성공",
     avatarUploadFailed: "아바타 업로드 실패",
-    uploading: "업로드 중..."
+    uploading: "업로드 중...",
+    searchMemberId: "회원 ID 검색...",
+    search: "검색",
+    members: "회원",
+    memberId: "ID:",
+    addMember: "추가",
+    maxCommission: "최대 커미션",
+    totalCommissionCanReceive: "받을 수 있는 총 커미션",
+    received: "받음",
+    maximum: "최대",
+    scanToRegister: "스캔하여 등록"
   },
 };
