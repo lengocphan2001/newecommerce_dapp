@@ -33,6 +33,20 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  // Shipping fee for USA market (in USDT)
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => value ? parseFloat(value) : 0,
+    },
+  })
+  shippingFee?: number;
+
   @Column({ nullable: true })
   thumbnailUrl?: string;
 

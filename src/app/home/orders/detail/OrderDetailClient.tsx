@@ -19,6 +19,7 @@ interface Order {
   userId: string;
   items: OrderItem[];
   totalAmount: number;
+  shippingFee?: number;
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   shippingAddress?: string;
   transactionHash?: string;
@@ -252,19 +253,6 @@ export default function OrderDetailClient() {
            </div>
         </div>
 
-        {/* PV Bonus Card */}
-        {!isCancelled && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md shadow-blue-200 text-white border border-blue-500">
-                <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm text-white border border-white/20 shadow-sm">
-                   <span className="material-symbols-outlined block">hub</span>
-                </div>
-                <div className="flex-1">
-                   <p className="text-white text-sm font-bold">{t("binaryCommission")}</p>
-                   <p className="text-blue-50 text-xs mt-0.5">Bạn nhận được <span className="text-white font-bold">+{pvEarned} PV</span> vào nhánh phải.</p>
-                </div>
-            </div>
-        )}
-
         {/* Product List */}
         <div>
            <h3 className="text-slate-800 text-lg font-bold mb-3 px-1">{t("productList")}</h3>
@@ -351,12 +339,14 @@ export default function OrderDetailClient() {
         <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 space-y-3 mb-4">
             <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-500">{t("subtotal")}</span>
-                <span className="text-slate-900 font-medium">{formatPrice(order.totalAmount)} USDT</span>
+                <span className="text-slate-900 font-medium">{formatPrice(order.totalAmount - (order.shippingFee || 0))} USDT</span>
             </div>
-            <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">{t("shippingFee")}</span>
-                <span className="text-slate-900 font-medium">0.00 USDT</span>
-            </div>
+            {(order.shippingFee || 0) > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-500">{t("shippingFee")}</span>
+                  <span className="text-slate-900 font-medium">{formatPrice(order.shippingFee || 0)} USDT</span>
+              </div>
+            )}
             
             <div className="h-px bg-slate-100 w-full my-2 border-dashed border-b border-slate-200"></div>
             

@@ -28,12 +28,6 @@ function getEthereum(): Eip1193Provider | undefined {
   return (window as any).ethereum as Eip1193Provider | undefined;
 }
 
-function shortAddress(addr?: string) {
-  if (!addr) return "-";
-  if (addr.length < 10) return addr;
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-}
-
 export default function HomePage() {
   const router = useRouter();
   const { t } = useI18n();
@@ -42,9 +36,7 @@ export default function HomePage() {
   const bscProvider = useMemo(() => new JsonRpcProvider(BSC_RPC), []);
 
   const [address, setAddress] = useState<string>("");
-  const [isBusy, setIsBusy] = useState<boolean>(false);
-  const [isReloading, setIsReloading] = useState<boolean>(false);
-  const [isNextLoading, setIsNextLoading] = useState<boolean>(false);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
   const isSafePal =
@@ -68,22 +60,31 @@ export default function HomePage() {
 
   const connectWallet = useCallback(async () => {
     setError("");
+    setIsConnecting(true);
     const eth = getEthereum();
     if (!eth) {
-      setError("No injected provider (window.ethereum)");
+      setError(t("walletNotFound"));
+      setIsConnecting(false);
       return "";
     }
-    const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
-    const addr = accounts?.[0] ?? "";
-    setAddress(addr);
-    if (addr) {
-      try {
-        localStorage.setItem("walletAddress", addr);
-      } catch {
-        // ignore
+    try {
+      const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+      const addr = accounts?.[0] ?? "";
+      setAddress(addr);
+      if (addr) {
+        try {
+          localStorage.setItem("walletAddress", addr);
+        } catch {
+          // ignore
+        }
       }
+      return addr;
+    } catch (e: any) {
+      setError((e?.message ?? String(e)) || t("cannotConnectWallet"));
+      return "";
+    } finally {
+      setIsConnecting(false);
     }
-    return addr;
   }, []);
 
   const fetchUsdtBep20AndStore = useCallback(
@@ -109,15 +110,18 @@ export default function HomePage() {
     [bscProvider]
   );
 
-  const nextToHome = useCallback(async () => {
+  const handleConnectAndLogin = useCallback(async () => {
     setError("");
-    setIsNextLoading(true);
+    setIsConnecting(true);
     try {
       const eth = getEthereum();
       const injectedProvider = eth ? new BrowserProvider(eth as any) : null;
 
       const addr = address || (await connectWallet());
-      if (!addr) return;
+      if (!addr) {
+        setIsConnecting(false);
+        return;
+      }
 
       // Store wallet address in localStorage (for register flow if needed)
       try {
@@ -172,7 +176,7 @@ export default function HomePage() {
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
-      setIsNextLoading(false);
+      setIsConnecting(false);
     }
   }, [address, connectWallet, fetchUsdtBep20AndStore, router]);
 
@@ -190,88 +194,89 @@ export default function HomePage() {
   }, [refreshAddress]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0f7c66] text-white">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -right-24 top-24 h-72 w-72 rounded-full bg-black/10 blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-white/10 blur-3xl" />
-      </div>
+    <div className="bg-background text-text-main font-display antialiased h-screen w-full overflow-hidden relative selection:bg-primary/30">
+      {/* Background gradients */}
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white pointer-events-none"></div>
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[40%] bg-primary/10 rounded-full blur-[80px] pointer-events-none mix-blend-multiply"></div>
+      <div className="absolute bottom-[-5%] right-[-5%] w-[60%] h-[40%] bg-blue-100/40 rounded-full blur-[80px] pointer-events-none mix-blend-multiply"></div>
 
-      <div className="relative mx-auto max-w-md px-6 py-8">
-        <div className="flex items-center justify-between">
-          <div className="text-xs opacity-80"></div>
-          <LanguageSelect variant="dark" />
+      <div className="relative flex flex-col h-full w-full max-w-md mx-auto px-6 py-8 safe-area-inset-bottom">
+        {/* Language selector */}
+        <div className="flex justify-end pt-4">
+          <LanguageSelect variant="light" />
         </div>
 
-        <div className="mt-10 flex flex-col items-center">
-          <div className="flex h-44 w-80 items-center justify-center">
-            <img
-              src="/images/logo1.png"
-              alt="VinMall Logo"
-              className="h-full w-full object-contain"
-            />
+        {/* Main content */}
+        <div className="flex-1 flex flex-col justify-center pb-10">
+          {/* Logo section */}
+          <div className="flex flex-col items-center justify-center mb-12">
+            <div className="relative group">
+              <div className="relative w-36 h-36 bg-white rounded-[2.5rem] flex items-center justify-center shadow-soft border border-slate-100 z-10 transition-transform duration-500 hover:scale-105">
+                <span className="material-symbols-outlined text-primary !text-[72px] drop-shadow-sm">
+                  shopping_cart
+                </span>
+              </div>
+              <div className="absolute -top-4 -right-4 w-12 h-12 bg-green-100 rounded-full blur-xl opacity-60"></div>
+              <div className="absolute -bottom-4 -left-4 w-14 h-14 bg-primary/20 rounded-full blur-xl opacity-60"></div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-primary/5 rounded-full blur-2xl -z-10"></div>
+            </div>
           </div>
 
-          <div className="mt-10 text-3xl font-semibold">{t("login")}</div>
-
-          <div className="mt-6 w-full rounded-2xl bg-white/10 px-6 py-4 text-center text-xl font-semibold ring-1 ring-white/20 backdrop-blur-sm">
-            {address ? shortAddress(address) : "0x----‑----‑----"}
-          </div>
-
-          <div className="mt-5 w-full space-y-4">
-            <button
-              onClick={async () => {
-                setIsReloading(true);
-                try {
-                  // If chưa connect thì eth_accounts sẽ rỗng -> gọi connect để user approve
-                  if (!address) {
-                    await connectWallet();
-                  } else {
-                    await refreshAddress();
-                  }
-                } finally {
-                  setIsReloading(false);
-                }
-              }}
-              disabled={isReloading || isNextLoading}
-              className="group w-full rounded-2xl bg-white/10 py-4 text-lg font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm transition-colors hover:bg-white/15 disabled:opacity-60"
-            >
-              <span className="inline-flex items-center justify-center gap-2">
-                {isReloading ? (
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
-                ) : (
-                  <svg className="h-5 w-5 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                )}
-                {t("reload")}
+          {/* Title and description */}
+          <div className="flex flex-col items-center text-center space-y-6">
+            <h1 className="text-text-main tracking-tight text-3xl md:text-4xl font-bold leading-[1.15]">
+              {t("loginTitle")} <br/>
+              <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-600">
+                {t("loginSubtitle")}
               </span>
-            </button>
+            </h1>
+            <p className="text-text-muted text-base md:text-lg font-medium leading-relaxed max-w-[300px] mx-auto">
+              {t("loginDescription")}
+            </p>
+          </div>
+        </div>
 
-            <button
-              onClick={nextToHome}
-              disabled={isReloading || isNextLoading}
-              className="w-full rounded-2xl bg-gradient-to-r from-[#ffb11a] to-[#f6a500] py-4 text-lg font-bold text-white shadow-lg shadow-black/10 transition-all hover:brightness-105 active:brightness-95 disabled:opacity-60"
-            >
-              <span className="inline-flex items-center justify-center gap-2">
-                {isNextLoading ? (
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
-                ) : null}
-                {t("nextToLogin")}
-              </span>
+        {/* Action buttons */}
+        <div className="w-full space-y-6 pb-6">
+          <button
+            onClick={handleConnectAndLogin}
+            disabled={isConnecting}
+            className="w-full group relative flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-emerald-500 hover:from-primary-dark hover:to-emerald-600 active:scale-[0.98] text-emerald-950 h-16 rounded-2xl font-bold text-lg transition-all duration-300 shadow-glow hover:shadow-[0_0_30px_rgba(19,236,91,0.5)] border border-emerald-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isConnecting ? (
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-950/60 border-t-emerald-950"></span>
+            ) : (
+              <>
+                <div className="bg-white/20 p-2 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <span className="material-symbols-outlined !text-[22px] text-emerald-950">
+                    account_balance_wallet
+                  </span>
+                </div>
+                <span>{t("connectSafePalWallet")}</span>
+                <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                  <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+                </div>
+              </>
+            )}
+          </button>
+
+          <div className="flex flex-col items-center gap-5">
+            <button className="group flex items-center gap-2 text-text-muted text-sm font-semibold hover:text-primary transition-colors py-2 px-4 rounded-full hover:bg-slate-50">
+              <span>{t("whatIsSafePal")}</span>
+              <span className="material-symbols-outlined !text-[18px] group-hover:rotate-12 transition-transform">help</span>
             </button>
+            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium tracking-wide uppercase">
+              <span className="material-symbols-outlined !text-[14px]">verified_user</span>
+              <span>{t("securedByWeb3")}</span>
+            </div>
           </div>
 
-          {error ? (
-            <div className="mt-6 w-full rounded-2xl bg-black/10 p-3 text-sm text-white/90 ring-1 ring-white/15">
+          {/* Error message */}
+          {error && (
+            <div className="mt-4 w-full rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-700">
               {error}
             </div>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

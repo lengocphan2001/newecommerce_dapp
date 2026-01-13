@@ -56,6 +56,8 @@ export class OrderService {
     }> = [];
     let totalAmount = 0;
 
+    let shippingFee = 0;
+
     for (const item of createOrderDto.items) {
       const product = await this.productRepository.findOne({
         where: { id: item.productId },
@@ -72,6 +74,12 @@ export class OrderService {
       const itemTotal = product.price * item.quantity;
       totalAmount += itemTotal;
 
+      // Calculate shipping fee for USA products
+      const productCountries = product.countries || [];
+      if (Array.isArray(productCountries) && productCountries.includes('USA') && product.shippingFee) {
+        shippingFee += (product.shippingFee || 0) * item.quantity;
+      }
+
       items.push({
         productId: product.id,
         productName: product.name,
@@ -85,11 +93,15 @@ export class OrderService {
       }
     }
 
+    // Add shipping fee to total amount
+    const finalTotal = totalAmount + shippingFee;
+
     // Tạo đơn hàng với status PENDING (chờ admin duyệt)
     const order = this.orderRepository.create({
       userId,
       items,
-      totalAmount,
+      totalAmount: finalTotal,
+      shippingFee: shippingFee > 0 ? shippingFee : undefined,
       status: OrderStatus.PENDING, // Chờ admin duyệt
       transactionHash: createOrderDto.transactionHash,
       shippingAddress: createOrderDto.shippingAddress,

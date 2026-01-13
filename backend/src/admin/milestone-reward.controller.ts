@@ -5,6 +5,8 @@ import {
   Body,
   UseGuards,
   Request,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { MilestoneRewardService } from './milestone-reward.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -37,6 +39,13 @@ export class MilestoneRewardController {
 
   @Get('milestones')
   async getAllMilestones() {
-    return this.milestoneRewardService.getAllMilestones();
+    try {
+      return await this.milestoneRewardService.getAllMilestones();
+    } catch (error) {
+      throw new HttpException(
+        `Failed to fetch milestones: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }

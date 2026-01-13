@@ -58,6 +58,14 @@ body {
   box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.25);
 }
 
+.shadow-soft {
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(19, 236, 91, 0.4);
+}
+
 .bg-pattern {
   background-color: #102216;
   background-image: radial-gradient(#13ec5b 0.5px, transparent 0.5px), radial-gradient(#13ec5b 0.5px, #102216 0.5px);

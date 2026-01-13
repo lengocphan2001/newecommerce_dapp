@@ -28,10 +28,20 @@ export class MilestoneRewardService {
    * Get active milestone config
    */
   async getConfig(): Promise<MilestoneRewardConfig | null> {
-    return this.configRepository.findOne({
-      where: { isActive: true },
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      return await this.configRepository.findOne({
+        where: { isActive: true },
+        order: { createdAt: 'DESC' },
+      });
+    } catch (error: any) {
+      // Handle case where table doesn't exist yet
+      if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42P01') {
+        this.logger.warn('milestone_reward_config table does not exist yet. Please run database migration.');
+        return null;
+      }
+      this.logger.error('Error fetching milestone config:', error);
+      throw error;
+    }
   }
 
   /**
@@ -246,9 +256,30 @@ export class MilestoneRewardService {
    * Get all milestones (admin)
    */
   async getAllMilestones(): Promise<UserMilestone[]> {
-    return this.userMilestoneRepository.find({
-      relations: ['user'],
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      return await this.userMilestoneRepository
+        .createQueryBuilder('milestone')
+        .leftJoinAndSelect('milestone.user', 'user')
+        .orderBy('milestone.createdAt', 'DESC')
+        .getMany();
+    } catch (error: any) {
+      // Handle case where table doesn't exist yet
+      if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42P01') {
+        this.logger.warn('user_milestones table does not exist yet. Please run database migration.');
+        return [];
+      }
+      this.logger.error('Error fetching all milestones:', error);
+      // Fallback: return milestones without user relation if relation fails
+      try {
+        return await this.userMilestoneRepository.find({
+          order: { createdAt: 'DESC' },
+        });
+      } catch (fallbackError: any) {
+        if (fallbackError.code === 'ER_NO_SUCH_TABLE' || fallbackError.code === '42P01') {
+          return [];
+        }
+        throw fallbackError;
+      }
+    }
   }
 }

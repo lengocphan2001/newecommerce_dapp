@@ -330,7 +330,15 @@ export type I18nKey =
   | "totalCommissionCanReceive"
   | "received"
   | "maximum"
-  | "scanToRegister";
+  | "scanToRegister"
+  | "loginTitle"
+  | "loginSubtitle"
+  | "loginDescription"
+  | "connectSafePalWallet"
+  | "whatIsSafePal"
+  | "securedByWeb3"
+  | "walletNotFound"
+  | "cannotConnectWallet";
 
 export const DEFAULT_LANG: Lang = "vi";
 
@@ -661,7 +669,15 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     totalCommissionCanReceive: "Tổng hoa hồng có thể nhận",
     received: "Đã nhận",
     maximum: "Tối đa",
-    scanToRegister: "Quét để đăng ký"
+    scanToRegister: "Quét để đăng ký",
+    loginTitle: "Tương lai của",
+    loginSubtitle: "Mua sắm Tạp hóa",
+    loginDescription: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung.",
+    connectSafePalWallet: "Kết nối Ví SafePal",
+    whatIsSafePal: "SafePal là gì?",
+    securedByWeb3: "Bảo mật bởi Công nghệ Web3",
+    walletNotFound: "Không tìm thấy ví. Vui lòng cài đặt SafePal Wallet.",
+    cannotConnectWallet: "Không thể kết nối ví"
   },
   en: {
     appName: "VinMall",
@@ -989,7 +1005,15 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     totalCommissionCanReceive: "Total Commission Can Receive",
     received: "Received",
     maximum: "Maximum",
-    scanToRegister: "Scan to register"
+    scanToRegister: "Scan to register",
+    loginTitle: "The Future of",
+    loginSubtitle: "Grocery Shopping",
+    loginDescription: "Shop for groceries and increase your income through a decentralized network.",
+    connectSafePalWallet: "Connect SafePal Wallet",
+    whatIsSafePal: "What is SafePal?",
+    securedByWeb3: "Secured by Web3 Technology",
+    walletNotFound: "Wallet not found. Please install SafePal Wallet.",
+    cannotConnectWallet: "Cannot connect wallet"
   },
   ko: {
     appName: "VinMall",
@@ -1317,6 +1341,14 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     totalCommissionCanReceive: "받을 수 있는 총 커미션",
     received: "받음",
     maximum: "최대",
-    scanToRegister: "스캔하여 등록"
+    scanToRegister: "스캔하여 등록",
+    loginTitle: "의 미래",
+    loginSubtitle: "식료품 쇼핑",
+    loginDescription: "식료품을 쇼핑하고 분산 네트워크를 통해 수입을 늘리세요.",
+    connectSafePalWallet: "SafePal 지갑 연결",
+    whatIsSafePal: "SafePal이란?",
+    securedByWeb3: "Web3 기술로 보호됨",
+    walletNotFound: "지갑을 찾을 수 없습니다. SafePal 지갑을 설치해주세요.",
+    cannotConnectWallet: "지갑을 연결할 수 없습니다"
   },
 };

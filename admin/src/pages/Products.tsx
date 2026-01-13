@@ -196,6 +196,14 @@ const Products: React.FC = () => {
       responsive: ['md'] as any, // Hide on mobile
     },
     {
+      title: 'Shipping Fee (USA)',
+      dataIndex: 'shippingFee',
+      key: 'shippingFee',
+      width: 120,
+      render: (fee: number) => fee ? `$${fee?.toFixed(2)}` : '-',
+      responsive: ['lg'] as any, // Hide on mobile/tablet
+    },
+    {
       title: 'Detail Images',
       dataIndex: 'detailImageUrls',
       key: 'detailImageUrls',
@@ -325,6 +333,14 @@ const Products: React.FC = () => {
             rules={[{ type: 'number', min: 0 }]}
           >
             <InputNumber style={{ width: '100%' }} min={0} />
+          </Form.Item>
+          <Form.Item
+            name="shippingFee"
+            label="Shipping Fee (USA) - USDT"
+            rules={[{ type: 'number', min: 0 }]}
+            tooltip="Shipping fee for USA market in USDT"
+          >
+            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} />
           </Form.Item>
           <Form.Item
             name="countries"

@@ -14,6 +14,7 @@ interface Product {
   description?: string;
   thumbnailUrl?: string;
   stock: number;
+  shippingFee?: number;
   countries?: ('VIETNAM' | 'USA')[];
 }
 

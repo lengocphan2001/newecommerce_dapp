@@ -12,6 +12,7 @@ interface Product {
   description?: string;
   price: number;
   stock: number;
+  shippingFee?: number;
   thumbnailUrl?: string;
   detailImageUrls?: string[];
   createdAt: string;

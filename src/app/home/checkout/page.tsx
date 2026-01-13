@@ -77,10 +77,12 @@ export default function CheckoutPage() {
   const [bnbBalance, setBnbBalance] = useState<string>("0");
   const [shippingAddress, setShippingAddress] = useState("");
   const [checkoutUser, setCheckoutUser] = useState<{ fullName?: string; phone?: string; address?: string } | null>(null);
+  const [shippingFee, setShippingFee] = useState<number>(0);
 
   useEffect(() => {
     loadWalletInfo();
     loadCheckoutUser();
+    calculateShippingFee();
     
     // Listen for address changes when returning from address page
     const handleStorageChange = () => {
@@ -88,7 +90,34 @@ export default function CheckoutPage() {
     };
     window.addEventListener('focus', handleStorageChange);
     return () => window.removeEventListener('focus', handleStorageChange);
-  }, []);
+  }, [items]);
+
+  const calculateShippingFee = async () => {
+    try {
+      let totalShippingFee = 0;
+      
+      // Fetch product details to get shippingFee and countries
+      for (const item of items) {
+        try {
+          const product = await api.getProduct(item.productId);
+          const productCountries = product.countries || [];
+          
+          // If product is available in USA and has shipping fee
+          if (Array.isArray(productCountries) && productCountries.includes('USA') && product.shippingFee) {
+            totalShippingFee += (product.shippingFee || 0) * item.quantity;
+          }
+        } catch (error) {
+          // Skip if product fetch fails
+          console.error(`Failed to fetch product ${item.productId}:`, error);
+        }
+      }
+      
+      setShippingFee(totalShippingFee);
+    } catch (error) {
+      console.error('Failed to calculate shipping fee:', error);
+      setShippingFee(0);
+    }
+  };
 
   const loadCheckoutUser = async () => {
     try {
@@ -284,7 +313,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (parseFloat(usdtBalance || "0") < totalAmount) {
+    const finalTotal = totalAmount + shippingFee;
+    if (parseFloat(usdtBalance || "0") < finalTotal) {
       setError("Số dư USDT không đủ");
       return;
     }
@@ -355,7 +385,8 @@ export default function CheckoutPage() {
       }
 
       const usdtContract = new Contract(USDT_BSC, ERC20_ABI, signer);
-      const amount = parseUnits(totalAmount.toFixed(decimals), decimals);
+      const finalTotal = totalAmount + shippingFee;
+      const amount = parseUnits(finalTotal.toFixed(decimals), decimals);
       const recipientAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET || "0x0000000000000000000000000000000000000000";
 
       // 1. Send Transaction
@@ -461,9 +492,7 @@ export default function CheckoutPage() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Calculate shipping fee (0 USDT)
-  const shippingFee = 0;
-  // Final total
+  // Final total (shippingFee is already calculated in state)
   const finalTotal = totalAmount + shippingFee;
 
   return (
@@ -585,11 +614,12 @@ export default function CheckoutPage() {
               <span className="text-text-sub font-medium">{t("productPrice")}</span>
               <span className="font-bold text-slate-900">{formatPrice(totalAmount)} USDT</span>
             </div>
-            {/* Shipping fee removed as requested */}
-            {/* <div className="flex justify-between text-sm items-center">
-              <span className="text-text-sub font-medium">Phí vận chuyển</span>
-              <span className="font-bold text-slate-900">{formatPrice(shippingFee)} USDT</span>
-            </div> */}
+            {shippingFee > 0 && (
+              <div className="flex justify-between text-sm items-center">
+                <span className="text-text-sub font-medium">{t("shippingFee")}</span>
+                <span className="font-bold text-slate-900">{formatPrice(shippingFee)} USDT</span>
+              </div>
+            )}
           </div>
         </section>
       </div>

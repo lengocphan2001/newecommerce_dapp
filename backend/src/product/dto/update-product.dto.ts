@@ -27,6 +27,11 @@ export class UpdateProductDto {
   @Min(0)
   stock?: number;
 
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  shippingFee?: number;
+
   @Matches(/^https?:\/\/.+/, {
     message: 'thumbnailUrl must be a valid URL (http:// or https://)',
   })
