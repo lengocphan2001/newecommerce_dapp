@@ -187,5 +187,76 @@ export class AdminService {
       referrerInfo,
     };
   }
+
+  /**
+   * Get full binary tree structure recursively
+   */
+  async getFullTree(userId: string, maxDepth: number = 5): Promise<any> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'username', 'fullName', 'email', 'packageType', 'avatar', 'leftBranchTotal', 'rightBranchTotal', 'totalPurchaseAmount', 'createdAt'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const buildTree = async (currentUserId: string, depth: number): Promise<any> => {
+      if (depth >= maxDepth) {
+        return null;
+      }
+
+      const currentUser = await this.userRepository.findOne({
+        where: { id: currentUserId },
+        select: ['id', 'username', 'fullName', 'email', 'packageType', 'avatar', 'leftBranchTotal', 'rightBranchTotal', 'totalPurchaseAmount', 'createdAt'],
+      });
+
+      if (!currentUser) {
+        return null;
+      }
+
+      const leftChild = await this.userRepository.findOne({
+        where: { parentId: currentUserId, position: 'left' },
+        order: { createdAt: 'ASC' },
+      });
+
+      const rightChild = await this.userRepository.findOne({
+        where: { parentId: currentUserId, position: 'right' },
+        order: { createdAt: 'ASC' },
+      });
+
+      const node: any = {
+        id: currentUser.id,
+        username: currentUser.username,
+        fullName: currentUser.fullName,
+        email: currentUser.email,
+        packageType: currentUser.packageType,
+        avatar: currentUser.avatar,
+        leftBranchTotal: parseFloat(String(currentUser.leftBranchTotal || 0)),
+        rightBranchTotal: parseFloat(String(currentUser.rightBranchTotal || 0)),
+        totalPurchaseAmount: parseFloat(String(currentUser.totalPurchaseAmount || 0)),
+        createdAt: currentUser.createdAt,
+        children: [],
+      };
+
+      if (leftChild) {
+        const leftTree = await buildTree(leftChild.id, depth + 1);
+        if (leftTree) {
+          node.children.push({ ...leftTree, position: 'left' });
+        }
+      }
+
+      if (rightChild) {
+        const rightTree = await buildTree(rightChild.id, depth + 1);
+        if (rightTree) {
+          node.children.push({ ...rightTree, position: 'right' });
+        }
+      }
+
+      return node;
+    };
+
+    return buildTree(userId, 0);
+  }
 }
 

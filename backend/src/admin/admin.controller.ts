@@ -30,5 +30,10 @@ export class AdminController {
   async updateUserStatus(@Param('id') id: string, @Body() statusDto: UpdateUserStatusDto) {
     return this.adminService.updateUserStatus(id, statusDto);
   }
+
+  @Get('tree/:userId')
+  async getFullTree(@Param('userId') userId: string, @Query('maxDepth') maxDepth?: number) {
+    return this.adminService.getFullTree(userId, maxDepth ? parseInt(maxDepth.toString(), 10) : 5);
+  }
 }
 

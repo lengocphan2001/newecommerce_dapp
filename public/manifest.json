@@ -1,0 +1,24 @@
+{
+  "name": "VinMall - Grocery DApp",
+  "short_name": "VinMall",
+  "description": "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#13ec5b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/images/shopping-trolley.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/shopping-trolley.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

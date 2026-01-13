@@ -13,6 +13,7 @@ import CommissionPayout from './pages/CommissionPayout';
 import CommissionConfig from './pages/CommissionConfig';
 import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
+import TreeView from './pages/TreeView';
 import Login from './pages/Login';
 import './App.css';
 
@@ -152,6 +153,16 @@ function App() {
             <PrivateRoute>
               <AdminLayout>
                 <AuditLog />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/tree-view"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <TreeView />
               </AdminLayout>
             </PrivateRoute>
           }

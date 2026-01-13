@@ -197,7 +197,7 @@ export default function ProfilePage() {
         </section>
 
         <div className="mt-8 text-center px-4">
-          <p className="text-[11px] text-slate-400 font-medium tracking-wide">GROCERY DAPP v2.1.0 • BINARY ECOSYSTEM</p>
+          <p className="text-[11px] text-slate-400 font-medium tracking-wide">VINMALL DAPP v2.1.0 • BINARY ECOSYSTEM</p>
         </div>
       </main>
     </div>

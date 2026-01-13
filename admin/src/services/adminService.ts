@@ -6,5 +6,6 @@ export const adminService = {
   getUserDetail: (id: string) => api.get(`/admin/users/${id}/detail`),
   getOrders: (params?: any) => api.get('/admin/orders', { params }),
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
+  getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
 };
 

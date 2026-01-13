@@ -204,6 +204,16 @@ export class UserService {
   }
 
   async remove(id: string) {
+    // Check if user exists
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    // Delete all addresses associated with this user first
+    await this.addressRepository.delete({ userId: id });
+
+    // Now delete the user
     return this.userRepository.delete(id);
   }
 

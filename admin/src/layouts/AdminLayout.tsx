@@ -90,6 +90,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <AuditOutlined />,
       label: 'Audit Log',
     },
+    {
+      key: '/tree-view',
+      icon: <TeamOutlined />,
+      label: 'Tree View',
+    },
   ];
 
   const userMenuItems = [
