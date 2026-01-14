@@ -31,6 +31,14 @@ export class UserMilestone {
   @Column({ type: 'enum', enum: ['X', 'Y', 'Z'] })
   rewardType: 'X' | 'Y' | 'Z';
 
+  // Store the referrer's totalPurchaseAmount at the time of milestone award
+  @Column({ type: 'decimal', precision: 36, scale: 18, nullable: true })
+  referrerPurchaseAmount: number;
+
+  // Store the percentage used for this milestone
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  percentUsed: number;
+
   @Column({ default: 'PENDING' })
   status: 'PENDING' | 'PAID';
 

@@ -43,6 +43,11 @@ export class AuthController {
     return this.authService.checkWallet(address);
   }
 
+  @Get('registration/is-first-user')
+  async isFirstUser() {
+    return this.authService.isFirstUser();
+  }
+
   @Post('wallet/login')
   async walletLogin(@Body() walletLoginDto: WalletLoginDto) {
     return this.authService.walletLogin(walletLoginDto.walletAddress);

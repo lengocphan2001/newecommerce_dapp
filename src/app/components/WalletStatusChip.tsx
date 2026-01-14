@@ -9,7 +9,7 @@ interface WalletStatusChipProps {
 
 export default function WalletStatusChip({
   walletAddress,
-  walletName = "SafePal",
+  walletName = "SafePalMall",
 }: WalletStatusChipProps) {
   const shortAddress = walletAddress
     ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-2)}`

@@ -13,6 +13,7 @@ function RegisterForm() {
   const [isChecking, setIsChecking] = useState(true);
   const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
   const [countdown, setCountdown] = useState(5);
+  const [isFirstUser, setIsFirstUser] = useState(false);
 
   const [formData, setFormData] = useState({
     username: "",
@@ -57,13 +58,17 @@ function RegisterForm() {
       }
     }
 
-    // Check if user is already registered
+    // Check if user is already registered and if this is first user
     let countdownTimer: NodeJS.Timeout | null = null;
     
     const checkUserRegistration = async () => {
       try {
         setIsChecking(true);
-        const checkResult = await api.checkWallet(address);
+        const [checkResult, firstUserResult] = await Promise.all([
+          api.checkWallet(address),
+          api.isFirstUser().catch(() => ({ isFirstUser: false, count: 0 })), // Fallback if API fails
+        ]);
+        
         if (checkResult.exists) {
           setIsAlreadyRegistered(true);
           // Start countdown
@@ -86,11 +91,13 @@ function RegisterForm() {
           }, 1000);
         } else {
           setIsAlreadyRegistered(false);
+          setIsFirstUser(firstUserResult.isFirstUser || false);
         }
       } catch (err: any) {
         console.error("Error checking wallet:", err);
         // If check fails, allow registration to proceed
         setIsAlreadyRegistered(false);
+        setIsFirstUser(false);
       } finally {
         setIsChecking(false);
       }
@@ -144,6 +151,11 @@ function RegisterForm() {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       setError("Email không hợp lệ");
+      return;
+    }
+    // Referral code is required unless this is the first user
+    if (!isFirstUser && (!formData.referralUser || !formData.referralUser.trim())) {
+      setError("Vui lòng nhập mã giới thiệu");
       return;
     }
 
@@ -381,7 +393,8 @@ function RegisterForm() {
           {/* Referral User */}
           <div>
             <label htmlFor="referralUser" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("referralCodeOptional")}
+              {t("referralCode")} {!isFirstUser && <span className="text-red-500">*</span>}
+              {isFirstUser && <span className="text-xs text-zinc-500 ml-2">(Tùy chọn - Bạn sẽ là root user)</span>}
             </label>
             <input
               type="text"
@@ -389,7 +402,7 @@ function RegisterForm() {
               value={formData.referralUser}
               onChange={(e) => setFormData({ ...formData, referralUser: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder={t("enterReferralCode")}
+              placeholder={isFirstUser ? t("enterReferralCode") + " (Tùy chọn)" : t("enterReferralCode")}
             />
           </div>
 

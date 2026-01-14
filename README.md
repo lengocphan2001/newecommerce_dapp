@@ -20,10 +20,10 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## SafePal dApp
+## SafePalMall dApp
 
 - DApp page: `/safepal`
-- After deploy (HTTPS), open inside SafePal DApp Browser:
+- After deploy (HTTPS), open inside SafePalMall DApp Browser:
   - `https://<your-vercel-domain>/safepal`
 
 ## Learn More
@@ -46,7 +46,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 - Build Command: `npm run build`
 - Deploy
 
-Sau khi deploy, link mở trong SafePal:
+Sau khi deploy, link mở trong SafePalMall:
 
 - `https://<your-vercel-domain>/safepal`
 

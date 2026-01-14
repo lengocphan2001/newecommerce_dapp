@@ -79,11 +79,11 @@ export default function WalletsPage() {
       let provider: JsonRpcProvider | BrowserProvider;
       let contract: Contract;
 
-      // Try to use SafePal provider first (if available)
+      // Try to use SafePalMall provider first (if available)
       const ethereum = getEthereum();
       if (ethereum) {
         try {
-          // Use SafePal provider
+          // Use SafePalMall provider
           const browserProvider = new BrowserProvider(ethereum);
           const network = await browserProvider.getNetwork();
           
@@ -97,7 +97,7 @@ export default function WalletsPage() {
           
           contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
         } catch (providerError) {
-          // Fallback to RPC if SafePal provider fails
+          // Fallback to RPC if SafePalMall provider fails
           provider = new JsonRpcProvider(BSC_RPC);
           contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
         }
@@ -343,7 +343,7 @@ export default function WalletsPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
             </span>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePal</span>
+            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePalMall</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>

@@ -245,4 +245,14 @@ export class UserService {
   async deleteAddress(userId: string, addressId: string) {
     return this.addressRepository.delete({ id: addressId, userId });
   }
+
+  /**
+   * Count total users excluding admin users
+   * Used to determine if this is the first user registration
+   */
+  async countNonAdminUsers(): Promise<number> {
+    return this.userRepository.count({
+      where: { isAdmin: false },
+    });
+  }
 }

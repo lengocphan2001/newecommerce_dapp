@@ -61,8 +61,8 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4,
     }).format(amount);
   };
 
@@ -98,14 +98,14 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
             {node.packageType}
           </Tag>
         </div>
-        <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: '13px', color: '#262626' }}>
-          {node.fullName || node.username || 'N/A'}
-        </div>
         {node.username && (
-          <div style={{ fontSize: '11px', color: '#595959', marginBottom: 4 }}>
+          <div style={{ fontSize: '10px', color: '#595959', marginBottom: 2, fontWeight: 'bold' }}>
             @{node.username}
           </div>
         )}
+        <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: '13px', color: '#262626' }}>
+          {node.fullName || node.username || 'N/A'}
+        </div>
         <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: 8, wordBreak: 'break-all' }}>
           {node.email}
         </div>
@@ -179,14 +179,48 @@ const TreeView: React.FC = () => {
     }
   };
 
-  // Convert tree data to React Flow nodes and edges
-  const convertTreeToFlow = useCallback((tree: TreeNode, x: number = 0, y: number = 0, level: number = 0): { nodes: Node[], edges: Edge[] } => {
+  // Convert tree data to React Flow nodes and edges with proper layout
+  const convertTreeToFlow = useCallback((tree: TreeNode): { nodes: Node[], edges: Edge[] } => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const nodeSpacing = { x: 300, y: 150 };
-    const levelHeight = 200;
+    const nodeWidth = 220;
+    const nodeHeight = 180;
+    const horizontalSpacing = 350; // Space between siblings
+    const verticalSpacing = 250; // Space between levels
 
-    const processNode = (node: TreeNode, posX: number, posY: number, parentId?: string): void => {
+    // First pass: calculate subtree widths
+    const getSubtreeWidth = (node: TreeNode): number => {
+      if (!node.children || node.children.length === 0) {
+        return nodeWidth;
+      }
+
+      const leftChild = node.children.find((c) => c.position === 'left');
+      const rightChild = node.children.find((c) => c.position === 'right');
+
+      let leftWidth = 0;
+      let rightWidth = 0;
+
+      if (leftChild) {
+        leftWidth = getSubtreeWidth(leftChild);
+      }
+      if (rightChild) {
+        rightWidth = getSubtreeWidth(rightChild);
+      }
+
+      // Return max width needed for this subtree
+      return Math.max(
+        nodeWidth,
+        leftWidth + rightWidth + (leftChild && rightChild ? horizontalSpacing : 0)
+      );
+    };
+
+    // Second pass: position nodes
+    const processNode = (
+      node: TreeNode,
+      posX: number,
+      posY: number,
+      parentId?: string
+    ): void => {
       const nodeId = node.id;
       
       // Create node
@@ -216,21 +250,29 @@ const TreeView: React.FC = () => {
         const leftChild = node.children.find((c) => c.position === 'left');
         const rightChild = node.children.find((c) => c.position === 'right');
 
-        // Calculate positions for children
-        const childY = posY + levelHeight;
+        const childY = posY + verticalSpacing;
         let leftX = posX;
         let rightX = posX;
 
         if (leftChild && rightChild) {
-          // Both children: spread them
-          leftX = posX - nodeSpacing.x / 2;
-          rightX = posX + nodeSpacing.x / 2;
+          // Both children: calculate positions based on subtree widths
+          const leftWidth = getSubtreeWidth(leftChild);
+          const rightWidth = getSubtreeWidth(rightChild);
+          
+          // Center the parent above children
+          const totalWidth = leftWidth + rightWidth + horizontalSpacing;
+          const startX = posX - totalWidth / 2 + leftWidth / 2;
+          
+          leftX = startX - leftWidth / 2;
+          rightX = startX + leftWidth + horizontalSpacing + rightWidth / 2;
         } else if (leftChild) {
-          // Only left child: center it
-          leftX = posX - nodeSpacing.x / 4;
+          // Only left child: center it below parent
+          const leftWidth = getSubtreeWidth(leftChild);
+          leftX = posX - leftWidth / 2;
         } else if (rightChild) {
-          // Only right child: center it
-          rightX = posX + nodeSpacing.x / 4;
+          // Only right child: center it below parent
+          const rightWidth = getSubtreeWidth(rightChild);
+          rightX = posX + rightWidth / 2;
         }
 
         if (leftChild) {
@@ -242,7 +284,23 @@ const TreeView: React.FC = () => {
       }
     };
 
-    processNode(tree, x, y);
+    // Start from center
+    const rootWidth = getSubtreeWidth(tree);
+    const startX = rootWidth / 2 - nodeWidth / 2;
+    processNode(tree, startX, 50);
+
+    // Center all nodes
+    if (nodes.length > 0) {
+      const minX = Math.min(...nodes.map(n => n.position.x));
+      const maxX = Math.max(...nodes.map(n => n.position.x));
+      const centerX = (minX + maxX) / 2;
+      const offsetX = 0 - centerX;
+
+      nodes.forEach(node => {
+        node.position.x += offsetX;
+      });
+    }
+
     return { nodes, edges };
   }, []);
 

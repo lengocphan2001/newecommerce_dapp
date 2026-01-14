@@ -10,14 +10,23 @@ export interface CartItem {
   thumbnailUrl?: string;
 }
 
+interface AnimationState {
+  isAnimating: boolean;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}
+
 interface ShoppingCartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">) => void;
+  addItem: (item: Omit<CartItem, "quantity">, buttonElement?: HTMLElement | null) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   totalAmount: number;
+  animation: AnimationState | null;
 }
 
 const ShoppingCartContext = createContext<ShoppingCartContextType | undefined>(undefined);
@@ -34,6 +43,7 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
       return [];
     }
   });
+  const [animation, setAnimation] = useState<AnimationState | null>(null);
 
   // Sync to localStorage
   useEffect(() => {
@@ -44,7 +54,7 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
     }
   }, [items]);
 
-  const addItem = useCallback((item: Omit<CartItem, "quantity">) => {
+  const addItem = useCallback((item: Omit<CartItem, "quantity">, buttonElement?: HTMLElement | null) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === item.productId);
       if (existing) {
@@ -56,6 +66,56 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
       }
       return [...prev, { ...item, quantity: 1 }];
     });
+
+    // Trigger animation if button element is provided
+    if (buttonElement && typeof window !== "undefined") {
+      const buttonRect = buttonElement.getBoundingClientRect();
+      const startX = buttonRect.left + buttonRect.width / 2;
+      const startY = buttonRect.top + buttonRect.height / 2;
+
+      // Try to find cart icon - check header first, then bottom nav
+      let cartRect: DOMRect | null = null;
+      
+      const headerCart = document.querySelector('[data-cart-icon]') as HTMLElement;
+      const bottomNavCart = document.querySelector('[data-bottom-nav-cart]') as HTMLElement;
+      
+      if (headerCart) {
+        cartRect = headerCart.getBoundingClientRect();
+      } else if (bottomNavCart) {
+        cartRect = bottomNavCart.getBoundingClientRect();
+      }
+
+      if (!cartRect) {
+        // If cart not found, use a default position (top right)
+        cartRect = {
+          left: window.innerWidth - 60,
+          top: 20,
+          width: 40,
+          height: 40,
+          right: window.innerWidth - 20,
+          bottom: 60,
+          x: window.innerWidth - 60,
+          y: 20,
+          toJSON: () => {},
+        } as DOMRect;
+      }
+
+      const endX = cartRect.left + cartRect.width / 2;
+      const endY = cartRect.top + cartRect.height / 2;
+
+      setAnimation({
+        isAnimating: true,
+        startX,
+        startY,
+        endX,
+        endY,
+      });
+
+      // Clear animation after it completes
+      setTimeout(() => {
+        setAnimation(null);
+      }, 800);
+    }
   }, []);
 
   const removeItem = useCallback((productId: string) => {
@@ -89,6 +149,7 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
         clearCart,
         totalItems,
         totalAmount,
+        animation,
       }}
     >
       {children}

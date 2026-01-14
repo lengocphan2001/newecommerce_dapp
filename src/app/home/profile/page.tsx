@@ -88,7 +88,7 @@ export default function ProfilePage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
             </span>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePal</span>
+            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePalMall</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
@@ -197,7 +197,7 @@ export default function ProfilePage() {
         </section>
 
         <div className="mt-8 text-center px-4">
-          <p className="text-[11px] text-slate-400 font-medium tracking-wide">VINMALL DAPP v2.1.0 • BINARY ECOSYSTEM</p>
+          <p className="text-[11px] text-slate-400 font-medium tracking-wide">SAFEPALMALL DAPP v2.1.0 • BINARY ECOSYSTEM</p>
         </div>
       </main>
     </div>

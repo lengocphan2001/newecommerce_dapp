@@ -76,6 +76,7 @@ export default function AppHeader({
               <button
                 onClick={() => router.push("/home/cart")}
                 className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors bg-white border border-gray-200 shadow-sm"
+                data-cart-icon
               >
                 <span className="material-symbols-outlined text-slate-700 text-xl">shopping_cart</span>
               </button>

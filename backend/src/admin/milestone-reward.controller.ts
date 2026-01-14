@@ -28,12 +28,12 @@ export class MilestoneRewardController {
 
   @Put('config')
   async updateConfig(
-    @Body() body: { rewardX: number; rewardY: number; rewardZ: number },
+    @Body() body: { percentX: number; percentY: number; percentZ: number },
   ) {
     return this.milestoneRewardService.setConfig(
-      body.rewardX,
-      body.rewardY,
-      body.rewardZ,
+      body.percentX,
+      body.percentY,
+      body.percentZ,
     );
   }
 

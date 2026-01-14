@@ -28,6 +28,7 @@ export default function ProductsPage() {
     vietnam: false,
     usa: false,
   });
+  const [addToCartAnimating, setAddToCartAnimating] = useState<string | null>(null);
   const { t } = useI18n();
   const { addItem } = useShoppingCart();
   const router = useRouter();
@@ -76,12 +77,19 @@ export default function ProductsPage() {
     if (product.stock <= 0) {
       return;
     }
+    
+    // Animation effect
+    setAddToCartAnimating(product.id);
+    setTimeout(() => setAddToCartAnimating(null), 600);
+    
+    // Pass button element for animation
+    const buttonElement = e.currentTarget as HTMLElement;
     addItem({
       productId: product.id,
       productName: product.name,
       price: product.price,
       thumbnailUrl: product.thumbnailUrl,
-    });
+    }, buttonElement);
   };
 
   const handleProductClick = (productId: string) => {
@@ -286,13 +294,15 @@ export default function ProductsPage() {
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0}
-                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${
+                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${
                           product.stock > 0
-                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30"
+                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
                             : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
-                        }`}
+                        } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
                       >
-                        <span className="material-symbols-outlined text-[20px]">add</span>
+                        <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>
+                          {addToCartAnimating === product.id ? 'check' : 'add'}
+                        </span>
                       </button>
                     </div>
                     {product.stock > 0 && (

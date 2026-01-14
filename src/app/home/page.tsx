@@ -31,11 +31,12 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
-  const [selectedCountries, setSelectedCountries] = useState<('VIETNAM' | 'USA')[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<'VIETNAM' | 'USA' | null>('VIETNAM');
   const [flagImageError, setFlagImageError] = useState<{ vietnam: boolean; usa: boolean }>({
     vietnam: false,
     usa: false,
   });
+  const [addToCartAnimating, setAddToCartAnimating] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -45,7 +46,7 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCountries]);
+  }, [selectedCountry]);
 
   const loadWalletInfo = () => {
     if (typeof window !== "undefined") {
@@ -69,17 +70,21 @@ export default function HomePage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      // Fetch all products, then filter by selected countries on frontend
+      // Fetch all products, then filter by selected country on frontend
       const data = await api.getProducts();
       let filtered = Array.isArray(data) ? data : [];
       
-      // Filter by selected countries if any
-      if (selectedCountries.length > 0) {
+      // Default: only show Vietnam products if no country selected
+      if (!selectedCountry) {
         filtered = filtered.filter((product) => {
           const productCountries = product.countries || [];
-          return selectedCountries.some(country => 
-            Array.isArray(productCountries) && productCountries.includes(country)
-          );
+          return Array.isArray(productCountries) && productCountries.includes('VIETNAM');
+        });
+      } else {
+        // Filter by selected country
+        filtered = filtered.filter((product) => {
+          const productCountries = product.countries || [];
+          return Array.isArray(productCountries) && productCountries.includes(selectedCountry);
         });
       }
       
@@ -105,33 +110,38 @@ export default function HomePage() {
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     if (product.stock <= 0) return;
+    
+    // Animation effect
+    setAddToCartAnimating(product.id);
+    setTimeout(() => setAddToCartAnimating(null), 600);
+    
+    // Pass button element for animation
+    const buttonElement = e.currentTarget as HTMLElement;
     addItem({
       productId: product.id,
       productName: product.name,
       price: product.price,
       thumbnailUrl: product.thumbnailUrl,
-    });
+    }, buttonElement);
   };
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getCountryLabel = (countries: ('VIETNAM' | 'USA')[]) => {
-    if (countries.length === 0) return t("popularGoods");
-    if (countries.length === 1) {
-      return countries[0] === 'VIETNAM' ? 'Vietnam Local Products' : 'USA Local Products';
-    }
-    return 'All Selected Products';
+  const getCountryLabel = (country: 'VIETNAM' | 'USA' | null) => {
+    if (!country) return t("popularGoods");
+    return country === 'VIETNAM' ? 'Vietnam Local Products' : 'USA Local Products';
   };
 
   const toggleCountry = (country: 'VIETNAM' | 'USA') => {
-    setSelectedCountries(prev => {
-      if (prev.includes(country)) {
-        return prev.filter(c => c !== country);
-      } else {
-        return [...prev, country];
+    setSelectedCountry(prev => {
+      // If clicking the same country, deselect it (show default Vietnam)
+      if (prev === country) {
+        return 'VIETNAM'; // Always default to Vietnam when deselecting
       }
+      // Otherwise, select the clicked country
+      return country;
     });
   };
 
@@ -146,7 +156,7 @@ export default function HomePage() {
       />
 
       {/* Wallet Status Chip */}
-      <WalletStatusChip walletAddress={walletAddress || undefined} walletName="SafePal" />
+      <WalletStatusChip walletAddress={walletAddress || undefined} walletName="SafePalMall" />
 
       {/* Search Bar */}
       <div className="px-4 py-4 bg-white shadow-sm mb-2">
@@ -182,9 +192,10 @@ export default function HomePage() {
                 <p className="text-gray-100 text-sm mb-4 max-w-[80%] font-medium drop-shadow-sm">Get crypto rewards on every referral purchase in your network.</p>
                 <button
                   onClick={() => router.push("/home/affiliate")}
-                  className="w-fit px-5 py-2.5 bg-white text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
+                  className="w-fit px-5 py-2.5 bg-white text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-100 transition-all shadow-lg active:scale-95 relative overflow-hidden group"
                 >
-                  {t("myNetwork")}
+                  <span className="relative z-10">{t("myNetwork")}</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-active:translate-x-full transition-transform duration-500"></div>
                 </button>
               </div>
             </div>
@@ -198,11 +209,11 @@ export default function HomePage() {
             <button
               onClick={() => toggleCountry('VIETNAM')}
               className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
-                selectedCountries.includes('VIETNAM') ? '' : 'group'
+                selectedCountry === 'VIETNAM' ? '' : 'group'
               }`}
             >
               <div className={`w-16 h-16 rounded-full bg-white ${
-                selectedCountries.includes('VIETNAM')
+                selectedCountry === 'VIETNAM'
                   ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
                   : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
               }`}>
@@ -220,7 +231,7 @@ export default function HomePage() {
                 </div>
               </div>
               <span className={`text-xs ${
-                selectedCountries.includes('VIETNAM') 
+                selectedCountry === 'VIETNAM' 
                   ? 'text-primary font-bold' 
                   : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
               }`}>
@@ -230,11 +241,11 @@ export default function HomePage() {
             <button
               onClick={() => toggleCountry('USA')}
               className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
-                selectedCountries.includes('USA') ? '' : 'group'
+                selectedCountry === 'USA' ? '' : 'group'
               }`}
             >
               <div className={`w-16 h-16 rounded-full bg-white ${
-                selectedCountries.includes('USA')
+                selectedCountry === 'USA'
                   ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
                   : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
               }`}>
@@ -252,7 +263,7 @@ export default function HomePage() {
                 </div>
               </div>
               <span className={`text-xs ${
-                selectedCountries.includes('USA')
+                selectedCountry === 'USA'
                   ? 'text-primary font-bold'
                   : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
               }`}>
@@ -267,7 +278,7 @@ export default function HomePage() {
         {/* Featured Products Grid */}
         <div className="px-4 pt-4 pb-8 bg-white">
           <div className="flex justify-between items-center mb-5">
-            <h3 className="text-lg font-bold text-text-dark">{getCountryLabel(selectedCountries)}</h3>
+            <h3 className="text-lg font-bold text-text-dark">{getCountryLabel(selectedCountry)}</h3>
             <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>
           </div>
           {loading ? (
@@ -338,13 +349,15 @@ export default function HomePage() {
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0}
-                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-colors ${
+                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${
                           product.stock > 0
-                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30"
+                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
                             : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
-                        }`}
+                        } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
                       >
-                        <span className="material-symbols-outlined text-[20px]">add</span>
+                        <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>
+                          {addToCartAnimating === product.id ? 'check' : 'add'}
+                        </span>
                       </button>
                     </div>
                   </div>

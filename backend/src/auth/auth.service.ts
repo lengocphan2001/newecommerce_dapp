@@ -118,6 +118,14 @@ export class AuthService {
     };
   }
 
+  async isFirstUser() {
+    const count = await this.userService.countNonAdminUsers();
+    return {
+      isFirstUser: count === 0,
+      count,
+    };
+  }
+
   async walletLogin(walletAddress: string) {
     const user = await this.userService.findByWalletAddress(walletAddress);
     if (!user) {
@@ -288,7 +296,12 @@ export class AuthService {
       throw new ConflictException('Username already exists');
     }
 
+    // Check if this is the first user (excluding admin)
+    const nonAdminUserCount = await this.userService.countNonAdminUsers();
+    const isFirstUser = nonAdminUserCount === 0;
+
     // Validate referral code (username) if provided and determine position in binary tree
+    // If this is the first user, referral code is optional (they become root)
     let parentId: string | null = null;
     let position: 'left' | 'right' | null = null;
     let referralUserId: string | null = null; // Lưu ID của referral user (người giới thiệu ban đầu)
@@ -323,7 +336,11 @@ export class AuthService {
         position = slot.position;
         // eslint-disable-next-line no-console
       }
+    } else if (!isFirstUser) {
+      // If not first user and no referral code provided, throw error
+      throw new ConflictException('Referral code is required for registration');
     }
+    // If isFirstUser and no referral code, parentId and position remain null (root user)
 
     // Create user without password
     // Lưu ý: 

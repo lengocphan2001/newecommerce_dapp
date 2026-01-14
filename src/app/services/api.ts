@@ -9,6 +9,14 @@ export const api = {
     return response.json();
   },
 
+  async isFirstUser() {
+    const response = await fetch(`${API_BASE_URL}/auth/registration/is-first-user`);
+    if (!response.ok) {
+      throw new Error('Failed to check if first user');
+    }
+    return response.json();
+  },
+
   async walletRegister(data: {
     walletAddress: string;
     chainId: string;

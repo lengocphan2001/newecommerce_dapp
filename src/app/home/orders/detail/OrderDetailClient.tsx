@@ -300,7 +300,7 @@ export default function OrderDetailClient() {
                 <div className="flex-1">
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("paymentMethodSafePal")}</p>
                     <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-slate-900 text-sm font-bold">SafePal Wallet (USDT)</span>
+                        <span className="text-slate-900 text-sm font-bold">SafePalMall Wallet (USDT)</span>
                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-bold">BEP20</span>
                     </div>
                     {order.transactionHash && (

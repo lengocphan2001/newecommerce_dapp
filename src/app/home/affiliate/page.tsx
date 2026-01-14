@@ -229,7 +229,7 @@ export default function AffiliatePage() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                 </span>
                 <span className="text-xs font-semibold text-primary-dark">
-                  SafePal
+                  SafePalMall
                 </span>
               </div>
               <button className="flex items-center justify-center rounded-full h-10 w-10 bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">

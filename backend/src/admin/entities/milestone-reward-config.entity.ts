@@ -11,17 +11,20 @@ export class MilestoneRewardConfig {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Reward for milestone 2, 8, 14, 20... (pattern: 2 + 6n)
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  rewardX: number; // e.g., 10.00
+  // Percentage reward for milestone 2, 8, 14, 20... (pattern: 2 + 6n)
+  // Reward = referrer's totalPurchaseAmount * percentX / 100
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  percentX: number; // e.g., 1.00 = 1%
 
-  // Reward for milestone 4, 10, 16, 22... (pattern: 4 + 6n)
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  rewardY: number; // e.g., 20.00
+  // Percentage reward for milestone 4, 10, 16, 22... (pattern: 4 + 6n)
+  // Reward = referrer's totalPurchaseAmount * percentY / 100
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  percentY: number; // e.g., 2.00 = 2%
 
-  // Reward for milestone 6, 12, 18, 24... (pattern: 6 + 6n)
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  rewardZ: number; // e.g., 30.00
+  // Percentage reward for milestone 6, 12, 18, 24... (pattern: 6 + 6n)
+  // Reward = referrer's totalPurchaseAmount * percentZ / 100
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  percentZ: number; // e.g., 3.00 = 3%
 
   @Column({ default: true })
   isActive: boolean;

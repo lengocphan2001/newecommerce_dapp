@@ -106,6 +106,7 @@ export default function BottomNav() {
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
               }`}
               type="button"
+              {...(item.href === "/home/cart" ? { "data-bottom-nav-cart": true } : {})}
             >
               <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${
                 active ? "font-bold" : ""

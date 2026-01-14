@@ -164,13 +164,25 @@ export default function HomePage() {
             localStorage.setItem("token", loginResult.token);
           }
         } catch (loginError: any) {
-          // If login fails, log but continue (user might still have a valid token)
+          // If login fails, try to continue with existing token if any
+          const existingToken = localStorage.getItem("token");
+          if (!existingToken) {
+            // No token at all, redirect to register
+            router.push("/register");
+            return;
+          }
         }
       } catch (e: any) {
-        // If check fails, assume user exists and continue (fallback behavior)
+        // If check fails, try to use existing token
+        const existingToken = localStorage.getItem("token");
+        if (!existingToken) {
+          // No token, redirect to register
+          router.push("/register");
+          return;
+        }
       }
 
-      // User exists, continue to home
+      // User exists and has token, continue to home
       await fetchUsdtBep20AndStore(addr);
       router.push("/home");
     } catch (e: any) {
@@ -211,14 +223,11 @@ export default function HomePage() {
           {/* Logo section */}
           <div className="flex flex-col items-center justify-center mb-12">
             <div className="relative group">
-              <div className="relative w-36 h-36 bg-white rounded-[2.5rem] flex items-center justify-center shadow-soft border border-slate-100 z-10 transition-transform duration-500 hover:scale-105">
-                <span className="material-symbols-outlined text-primary !text-[72px] drop-shadow-sm">
-                  shopping_cart
-                </span>
-              </div>
-              <div className="absolute -top-4 -right-4 w-12 h-12 bg-green-100 rounded-full blur-xl opacity-60"></div>
-              <div className="absolute -bottom-4 -left-4 w-14 h-14 bg-primary/20 rounded-full blur-xl opacity-60"></div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-primary/5 rounded-full blur-2xl -z-10"></div>
+              <img 
+                src="/images/unnamed.png" 
+                alt="SafePalMall Logo" 
+                className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
+              />
             </div>
           </div>
 
@@ -226,7 +235,7 @@ export default function HomePage() {
           <div className="flex flex-col items-center text-center space-y-6">
             <h1 className="text-text-main tracking-tight text-3xl md:text-4xl font-bold leading-[1.15]">
               {t("loginTitle")} <br/>
-              <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-600">
+              <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
                 {t("loginSubtitle")}
               </span>
             </h1>
@@ -241,14 +250,14 @@ export default function HomePage() {
           <button
             onClick={handleConnectAndLogin}
             disabled={isConnecting}
-            className="w-full group relative flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-emerald-500 hover:from-primary-dark hover:to-emerald-600 active:scale-[0.98] text-emerald-950 h-16 rounded-2xl font-bold text-lg transition-all duration-300 shadow-glow hover:shadow-[0_0_30px_rgba(19,236,91,0.5)] border border-emerald-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full group relative flex items-center justify-center gap-3 bg-gradient-to-r from-primary to-purple-500 hover:from-primary-dark hover:to-purple-600 active:scale-[0.98] text-purple-950 h-16 rounded-2xl font-bold text-lg transition-all duration-300 shadow-glow hover:shadow-[0_0_30px_rgba(147,51,234,0.5)] border border-purple-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isConnecting ? (
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-950/60 border-t-emerald-950"></span>
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-950/60 border-t-purple-950"></span>
             ) : (
               <>
                 <div className="bg-white/20 p-2 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                  <span className="material-symbols-outlined !text-[22px] text-emerald-950">
+                  <span className="material-symbols-outlined !text-[22px] text-purple-950">
                     account_balance_wallet
                   </span>
                 </div>

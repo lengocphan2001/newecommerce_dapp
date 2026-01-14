@@ -32,6 +32,10 @@ export default function ProductDetailClient() {
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const [isSliderPaused, setIsSliderPaused] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [addToCartAnimating, setAddToCartAnimating] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
   const { addItem, totalItems } = useShoppingCart();
 
   useEffect(() => {
@@ -48,6 +52,69 @@ export default function ProductDetailClient() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // Compute all images from product
+  const allImages = product
+    ? [
+        product.thumbnailUrl,
+        ...(product.detailImageUrls || []),
+      ].filter(Boolean) as string[]
+    : [];
+
+  // Auto-slide images
+  useEffect(() => {
+    if (!product || !allImages.length || allImages.length <= 1 || isSliderPaused) return;
+
+    const interval = setInterval(() => {
+      setSelectedImageIndex((prev) => (prev + 1) % allImages.length);
+    }, 4000); // Change image every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [product, allImages.length, isSliderPaused]);
+
+  // Swipe handlers
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+    setIsSliderPaused(true);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart) return;
+    const currentTouch = e.targetTouches[0].clientX;
+    const distance = touchStart - currentTouch;
+    setSwipeOffset(distance);
+  };
+
+  const onTouchEndHandler = (e: React.TouchEvent) => {
+    if (!touchStart) {
+      setTouchStart(null);
+      setTouchEnd(null);
+      setSwipeOffset(0);
+      setIsSliderPaused(false);
+      return;
+    }
+
+    const touchEndPos = e.changedTouches[0].clientX;
+    const distance = touchStart - touchEndPos;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && allImages.length > 1) {
+      setSelectedImageIndex((prev) => (prev + 1) % allImages.length);
+    }
+    if (isRightSwipe && allImages.length > 1) {
+      setSelectedImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    }
+
+    setTouchStart(null);
+    setTouchEnd(null);
+    setSwipeOffset(0);
+    setIsSliderPaused(true);
+    setTimeout(() => setIsSliderPaused(false), 3000);
+  };
 
   const fetchProduct = async () => {
     try {
@@ -80,8 +147,15 @@ export default function ProductDetailClient() {
     }).format(price);
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e?: React.MouseEvent) => {
     if (!product || product.stock === 0) return;
+
+    // Animation effect
+    setAddToCartAnimating(true);
+    setTimeout(() => setAddToCartAnimating(false), 600);
+
+    // Get button element for animation
+    const buttonElement = e?.currentTarget as HTMLElement;
 
     for (let i = 0; i < quantity; i++) {
       addItem({
@@ -89,30 +163,12 @@ export default function ProductDetailClient() {
         productName: product.name,
         price: product.price,
         thumbnailUrl: product.thumbnailUrl,
-      });
+      }, i === 0 ? buttonElement : undefined); // Only pass element for first item
     }
 
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 2000);
   };
-
-  const allImages = product
-    ? [
-        product.thumbnailUrl,
-        ...(product.detailImageUrls || []),
-      ].filter(Boolean) as string[]
-    : [];
-
-  // Auto-play slider
-  useEffect(() => {
-    if (allImages.length <= 1 || isSliderPaused) return;
-
-    const interval = setInterval(() => {
-      setSelectedImageIndex((prev) => (prev + 1) % allImages.length);
-    }, 4000); // Change image every 4 seconds
-
-    return () => clearInterval(interval);
-  }, [allImages.length, isSliderPaused]);
 
   // Calculate commission percentage (example: 12.5%)
   const commissionPercentage = 12.5;
@@ -211,16 +267,65 @@ export default function ProductDetailClient() {
         className="relative w-full aspect-[4/5] bg-gray-100 group overflow-hidden rounded-b-[2.5rem] shadow-md z-0"
         onMouseEnter={() => setIsSliderPaused(true)}
         onMouseLeave={() => setIsSliderPaused(false)}
-        onTouchStart={() => setIsSliderPaused(true)}
-        onTouchEnd={() => {
-          setTimeout(() => setIsSliderPaused(false), 2000);
-        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEndHandler}
       >
         {allImages.length > 0 ? (
-          <div
-            className="w-full h-full bg-center bg-cover transition-all duration-500 ease-in-out scale-105"
-            style={{ backgroundImage: `url('${allImages[selectedImageIndex]}')` }}
-          ></div>
+          <div className="relative w-full h-full overflow-hidden">
+            {/* Current image */}
+            <div
+              className="absolute inset-0 w-full h-full bg-center bg-cover transition-all duration-300 ease-out scale-105"
+              style={{
+                backgroundImage: `url('${allImages[selectedImageIndex]}')`,
+                transform: `translateX(${swipeOffset}px) scale(1.05)`,
+              }}
+            ></div>
+            {/* Previous image (for swipe effect) */}
+            {swipeOffset > 0 && selectedImageIndex > 0 && (
+              <div
+                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
+                style={{
+                  backgroundImage: `url('${allImages[selectedImageIndex - 1]}')`,
+                  transform: `translateX(${swipeOffset - 100}px) scale(1.05)`,
+                  opacity: Math.abs(swipeOffset) / 100,
+                }}
+              ></div>
+            )}
+            {/* Next image (for swipe effect) */}
+            {swipeOffset < 0 && selectedImageIndex < allImages.length - 1 && (
+              <div
+                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
+                style={{
+                  backgroundImage: `url('${allImages[selectedImageIndex + 1]}')`,
+                  transform: `translateX(${swipeOffset + 100}px) scale(1.05)`,
+                  opacity: Math.abs(swipeOffset) / 100,
+                }}
+              ></div>
+            )}
+            {/* First image when swiping right from first image */}
+            {swipeOffset < 0 && selectedImageIndex === 0 && allImages.length > 1 && (
+              <div
+                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
+                style={{
+                  backgroundImage: `url('${allImages[allImages.length - 1]}')`,
+                  transform: `translateX(${swipeOffset + 100}px) scale(1.05)`,
+                  opacity: Math.abs(swipeOffset) / 100,
+                }}
+              ></div>
+            )}
+            {/* Last image when swiping left from last image */}
+            {swipeOffset > 0 && selectedImageIndex === allImages.length - 1 && allImages.length > 1 && (
+              <div
+                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
+                style={{
+                  backgroundImage: `url('${allImages[0]}')`,
+                  transform: `translateX(${swipeOffset - 100}px) scale(1.05)`,
+                  opacity: Math.abs(swipeOffset) / 100,
+                }}
+              ></div>
+            )}
+          </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gray-100 text-6xl">
             📦
@@ -428,16 +533,21 @@ export default function ProductDetailClient() {
               </button>
             </div>
             <button
-              onClick={handleAddToCart}
+              onClick={(e) => handleAddToCart(e)}
               disabled={product.stock === 0}
-              className="flex h-14 flex-1 items-center justify-between rounded-2xl bg-primary px-6 font-bold text-white shadow-lg shadow-blue-500/30 active:scale-[0.98] transition-all hover:bg-primary-dark group overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex h-14 flex-1 items-center justify-between rounded-2xl bg-primary px-6 font-bold text-white shadow-lg shadow-purple-500/30 active:scale-[0.95] transition-all hover:bg-primary-dark group overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed ${addToCartAnimating ? 'animate-pulse ring-4 ring-purple-300' : ''}`}
             >
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              <span className="flex items-center gap-2 relative z-10">
+              {addToCartAnimating && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-2xl animate-bounce">check_circle</span>
+                </div>
+              )}
+              <span className={`flex items-center gap-2 relative z-10 transition-opacity ${addToCartAnimating ? 'opacity-0' : 'opacity-100'}`}>
                 <span className="material-symbols-outlined">shopping_cart</span>
                 {t("addToCart")}
               </span>
-              <span className="relative z-10 text-lg">${formatPrice(product.price * quantity)}</span>
+              <span className={`relative z-10 text-lg transition-opacity ${addToCartAnimating ? 'opacity-0' : 'opacity-100'}`}>${formatPrice(product.price * quantity)}</span>
             </button>
           </div>
         </div>

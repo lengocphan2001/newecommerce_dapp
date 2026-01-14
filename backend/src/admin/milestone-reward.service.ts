@@ -46,16 +46,17 @@ export class MilestoneRewardService {
 
   /**
    * Create or update milestone config
+   * percentX, percentY, percentZ are percentages (e.g., 1.00 = 1%, 2.50 = 2.5%)
    */
-  async setConfig(rewardX: number, rewardY: number, rewardZ: number): Promise<MilestoneRewardConfig> {
+  async setConfig(percentX: number, percentY: number, percentZ: number): Promise<MilestoneRewardConfig> {
     // Deactivate all existing configs
     await this.configRepository.update({ isActive: true }, { isActive: false });
 
     // Create new active config
     const config = this.configRepository.create({
-      rewardX,
-      rewardY,
-      rewardZ,
+      percentX,
+      percentY,
+      percentZ,
       isActive: true,
     });
 
@@ -64,15 +65,18 @@ export class MilestoneRewardService {
 
   /**
    * Count direct referrals via left/right links for a user
-   * Only counts users who have purchased a package (packageType != 'NONE')
+   * Only counts users who have purchased a package (packageType != 'NONE') AND have transactions (totalPurchaseAmount > 0)
    */
   async countDirectReferrals(userId: string): Promise<number> {
-    return this.userRepository.count({
-      where: { 
-        referralUserId: userId,
-        packageType: Not('NONE' as any), // Only count users who have purchased a package
-      },
-    });
+    // Use query builder to check both packageType and totalPurchaseAmount
+    const count = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user.referralUserId = :userId', { userId })
+      .andWhere('user.packageType != :nonePackage', { nonePackage: 'NONE' })
+      .andWhere('user.totalPurchaseAmount > :zero', { zero: 0 })
+      .getCount();
+    
+    return count;
   }
 
   /**
@@ -98,23 +102,35 @@ export class MilestoneRewardService {
   }
 
   /**
-   * Get reward amount for a milestone count
+   * Get reward percentage for a milestone count
    */
-  async getRewardAmount(milestoneCount: number): Promise<number> {
+  async getRewardPercent(milestoneCount: number): Promise<number> {
     const config = await this.getConfig();
     if (!config) return 0;
 
     const rewardType = this.getRewardType(milestoneCount);
     switch (rewardType) {
       case 'X':
-        return config.rewardX;
+        return config.percentX || 0;
       case 'Y':
-        return config.rewardY;
+        return config.percentY || 0;
       case 'Z':
-        return config.rewardZ;
+        return config.percentZ || 0;
       default:
         return 0;
     }
+  }
+
+  /**
+   * Calculate reward amount based on referrer's totalPurchaseAmount and milestone percentage
+   */
+  async calculateRewardAmount(milestoneCount: number, referrerPurchaseAmount: number): Promise<number> {
+    const percent = await this.getRewardPercent(milestoneCount);
+    if (percent <= 0 || referrerPurchaseAmount <= 0) {
+      return 0;
+    }
+    // Calculate: referrerPurchaseAmount * percent / 100
+    return (referrerPurchaseAmount * percent) / 100;
   }
 
   /**
@@ -155,23 +171,57 @@ export class MilestoneRewardService {
       return; // Already claimed
     }
 
-    // Get reward amount
+    // Get reward percentage and calculate amount based on referrer's totalPurchaseAmount
     const rewardType = this.getRewardType(currentCount);
-    let rewardAmount = 0;
+    let percent = 0;
     switch (rewardType) {
       case 'X':
-        rewardAmount = config.rewardX;
+        percent = config.percentX || 0;
         break;
       case 'Y':
-        rewardAmount = config.rewardY;
+        percent = config.percentY || 0;
         break;
       case 'Z':
-        rewardAmount = config.rewardZ;
+        percent = config.percentZ || 0;
         break;
     }
 
+    if (percent <= 0) {
+      return; // No reward percentage configured
+    }
+
+    // Get referrer's totalPurchaseAmount
+    const referrerPurchaseAmount = referralUser.totalPurchaseAmount || 0;
+    
+    if (referrerPurchaseAmount <= 0) {
+      return; // Referrer has no purchase amount, no reward - cả referrer phải có giao dịch
+    }
+
+    // Verify that all counted referrals also have transactions
+    // Double-check: ensure all direct referrals have totalPurchaseAmount > 0
+    const directReferrals = await this.userRepository.find({
+      where: { 
+        referralUserId: referralUserId,
+        packageType: Not('NONE' as any),
+      },
+    });
+
+    // Filter to only count those with transactions
+    const referralsWithTransactions = directReferrals.filter(
+      (ref) => (ref.totalPurchaseAmount || 0) > 0
+    );
+
+    // Re-verify milestone count matches actual referrals with transactions
+    if (referralsWithTransactions.length !== currentCount) {
+      // Count mismatch - milestone should not be awarded
+      return;
+    }
+
+    // Calculate reward amount: referrerPurchaseAmount * percent / 100
+    const rewardAmount = (referrerPurchaseAmount * percent) / 100;
+
     if (rewardAmount <= 0) {
-      return; // No reward configured
+      return; // Calculated reward is 0 or negative
     }
 
     // Create milestone record
@@ -180,6 +230,8 @@ export class MilestoneRewardService {
       milestoneCount: currentCount,
       rewardAmount,
       rewardType,
+      referrerPurchaseAmount,
+      percentUsed: percent,
       status: 'PENDING', // Will be updated to PAID after commission is awarded
     });
 
