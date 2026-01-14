@@ -207,6 +207,17 @@ const CommissionsPage: React.FC = () => {
       render: (status: string) => getStatusTag(status),
     },
     {
+      title: 'Notes',
+      dataIndex: 'notes',
+      key: 'notes',
+      width: 200,
+      render: (notes: string) => (
+        <span style={{ fontSize: '12px', color: '#888', fontStyle: 'italic' }}>
+          {notes || '-'}
+        </span>
+      ),
+    },
+    {
       title: 'Created At',
       dataIndex: 'createdAt',
       key: 'createdAt',

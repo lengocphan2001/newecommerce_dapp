@@ -7,6 +7,8 @@ import { User } from '../user/entities/user.entity';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
+import { CommissionConfigService } from '../admin/commission-config.service';
+import { PackageType } from '../admin/entities/commission-config.entity';
 
 @Injectable()
 export class OrderService {
@@ -21,6 +23,7 @@ export class OrderService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
+    private configService: CommissionConfigService,
   ) {}
 
   async findAll(query: any) {
@@ -74,10 +77,12 @@ export class OrderService {
       const itemTotal = product.price * item.quantity;
       totalAmount += itemTotal;
 
-      // Calculate shipping fee for USA products
-      const productCountries = product.countries || [];
-      if (Array.isArray(productCountries) && productCountries.includes('USA') && product.shippingFee) {
-        shippingFee += (product.shippingFee || 0) * item.quantity;
+      // Calculate shipping fee (take the highest fee among all items that have shipping fee)
+      const fee = product.shippingFee ? Number(product.shippingFee) : 0;
+      if (fee > 0) {
+        if (fee > shippingFee) {
+          shippingFee = fee;
+        }
       }
 
       items.push({
@@ -226,6 +231,7 @@ export class OrderService {
 
   /**
    * Kiểm tra xem đơn hàng có phải là tái tiêu dùng không
+   * Logic đồng bộ với CommissionService.checkReconsumption
    */
   private async checkIfReconsumption(
     user: User | null,
@@ -235,32 +241,23 @@ export class OrderService {
       return false;
     }
 
-    // Get config from CommissionService (via commissionService which has access to config)
-    // We'll use the same logic as CommissionService.checkReconsumption
-    // For now, use a simple approach - inject CommissionConfigService if needed
-    // Or we can duplicate the logic here
-    
-    // Temporary: Use hardcoded values, will be replaced when we inject config service
-    const config =
-      user.packageType === 'NPP'
-        ? {
-            RECONSUMPTION_THRESHOLD: 0.01,
-            RECONSUMPTION_REQUIRED: 0.001,
-          }
-        : {
-            RECONSUMPTION_THRESHOLD: 0.001,
-            RECONSUMPTION_REQUIRED: 0.0001,
-          };
+    const config = await this.configService.findByPackageType(
+      user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
+    );
 
-    // Nếu đã đạt ngưỡng hoa hồng và chưa đủ tái tiêu dùng
-    if (user.totalCommissionReceived >= config.RECONSUMPTION_THRESHOLD) {
-      const cycles = Math.floor(
-        user.totalCommissionReceived / config.RECONSUMPTION_THRESHOLD,
-      );
-      const requiredReconsumption = cycles * config.RECONSUMPTION_REQUIRED;
+    if (!config) return false;
 
-      if (user.totalReconsumptionAmount < requiredReconsumption) {
-        return true; // Đây là đơn hàng tái tiêu dùng
+    // Sử dụng totalCommissionReceived (đã bao gồm PENDING) để check ngưỡng
+    const threshold = parseFloat(config.reconsumptionThreshold.toString());
+    const required = parseFloat(config.reconsumptionRequired.toString());
+
+    if (user.totalCommissionReceived >= threshold) {
+      const cycles = Math.floor(user.totalCommissionReceived / threshold);
+      const requiredTotal = cycles * required;
+
+      // Nếu hiện tại chưa đủ tái tiêu dùng, thì đơn hàng này sẽ được tính vào tái tiêu dùng
+      if (user.totalReconsumptionAmount < requiredTotal) {
+        return true;
       }
     }
 

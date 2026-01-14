@@ -708,36 +708,42 @@ export default function AffiliatePage() {
 
                   const activityStyle = getActivityIcon(activity.type);
                   const isPending = activity.status === "PENDING";
+                  const isBlocked = activity.status === "BLOCKED";
 
                   return (
                     <div
                       key={activity.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-100 shadow-sm"
+                      className={`flex items-center justify-between p-3 rounded-lg bg-white border ${isBlocked ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'} shadow-sm`}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`h-10 w-10 rounded-full ${activityStyle.color} flex items-center justify-center ${activityStyle.textColor}`}
+                          className={`h-10 w-10 rounded-full ${isBlocked ? 'bg-orange-100' : activityStyle.color} flex items-center justify-center ${isBlocked ? 'text-orange-600' : activityStyle.textColor}`}
                         >
                           <span className="material-symbols-outlined text-lg">
-                            {activityStyle.icon}
+                            {isBlocked ? 'lock' : activityStyle.icon}
                           </span>
                         </div>
                         <div>
                           <p className="text-sm font-bold text-text-dark">
                             {getActivityTitle(activity.type)}
+                            {isBlocked && (
+                              <span className="ml-2 text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase">
+                                {t("blocked") || "Bị chặn"}
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {getActivitySubtitle(activity.type)}
+                            {isBlocked ? (t("reconsumptionRequired") || "Cần tái tiêu dùng") : getActivitySubtitle(activity.type)}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p
                           className={`text-sm font-bold ${
-                            isPending ? "text-yellow-600" : "text-primary-dark"
+                            isBlocked ? "text-orange-600" : (isPending ? "text-yellow-600" : "text-primary-dark")
                           }`}
                         >
-                          {isPending ? t("pending") : "+"} $
+                          {isBlocked ? "" : (isPending ? t("pending") : "+")} $
                           {formatPrice(activity.amount)}
                         </p>
                         <p className="text-[10px] text-gray-400">

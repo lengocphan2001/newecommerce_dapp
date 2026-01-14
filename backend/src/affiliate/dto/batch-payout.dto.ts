@@ -13,6 +13,11 @@ export class PayoutRecipientDto {
   @IsString()
   @IsNotEmpty()
   amount: string; // Amount in token units (as string to preserve precision)
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  commissionIds?: string[]; // Optional: specifically which commissions to pay
 }
 
 export class BatchPayoutDto {

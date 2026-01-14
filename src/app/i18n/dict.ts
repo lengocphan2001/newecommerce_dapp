@@ -327,6 +327,8 @@ export type I18nKey =
   | "members"
   | "memberId"
   | "addMember"
+  | "blocked"
+  | "reconsumptionRequired"
   | "maxCommission"
   | "totalCommissionCanReceive"
   | "received"
@@ -667,6 +669,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     members: "Thành viên",
     memberId: "ID:",
     addMember: "Thêm",
+    blocked: "Bị chặn",
+    reconsumptionRequired: "Cần tái tiêu dùng",
     maxCommission: "Hoa hồng tối đa",
     totalCommissionCanReceive: "Tổng hoa hồng có thể nhận",
     received: "Đã nhận",
@@ -1004,6 +1008,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     members: "Members",
     memberId: "ID:",
     addMember: "Add",
+    blocked: "Blocked",
+    reconsumptionRequired: "Reconsumption required",
     maxCommission: "Maximum Commission",
     totalCommissionCanReceive: "Total Commission Can Receive",
     received: "Received",
@@ -1341,6 +1347,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     members: "회원",
     memberId: "ID:",
     addMember: "추가",
+    blocked: "차단됨",
+    reconsumptionRequired: "재소비 필요",
     maxCommission: "최대 커미션",
     totalCommissionCanReceive: "받을 수 있는 총 커미션",
     received: "받음",

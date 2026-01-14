@@ -6,11 +6,13 @@ import { Order } from './entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { User } from '../user/entities/user.entity';
 import { AffiliateModule } from '../affiliate/affiliate.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, Product, User]),
     forwardRef(() => AffiliateModule),
+    forwardRef(() => AdminModule),
   ],
   controllers: [OrderController],
   providers: [OrderService],

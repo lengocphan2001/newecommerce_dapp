@@ -389,6 +389,12 @@ export default function ProductDetailClient() {
                   ${formatPrice(product.price)}
                 </span>
               </div>
+              {product.shippingFee > 0 && (
+                <div className="flex items-center gap-1 text-text-sub font-medium bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                  <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+                  <span className="text-xs">+ ${formatPrice(product.shippingFee)} {t("shippingFee")}</span>
+                </div>
+              )}
             </div>
 
             {/* Stock Progress */}

@@ -96,6 +96,7 @@ export class CommissionPayoutService {
         userId: data.user.id,
         walletAddress: walletAddress,
         amount: data.totalAmount.toString(),
+        commissionIds: data.commissions.map((c) => c.id),
       });
 
       commissionIds.push(...data.commissions.map((c) => c.id));
@@ -119,15 +120,28 @@ export class CommissionPayoutService {
     await queryRunner.startTransaction();
 
     try {
-      // Get commission IDs from recipients
-      const userIds = dto.recipients.map((r) => r.userId);
-      const commissions = await this.commissionRepository.find({
-        where: {
-          userId: In(userIds),
-          status: CommissionStatus.PENDING,
-        },
-        relations: ['user'],
-      });
+      // Get specific commission IDs from recipients if available
+      const specificCommissionIds = dto.recipients.flatMap(r => r.commissionIds || []);
+      
+      let commissions: Commission[];
+      if (specificCommissionIds.length > 0) {
+        commissions = await this.commissionRepository.find({
+          where: {
+            id: In(specificCommissionIds),
+            status: CommissionStatus.PENDING,
+          },
+          relations: ['user'],
+        });
+      } else {
+        const userIds = dto.recipients.map((r) => r.userId);
+        commissions = await this.commissionRepository.find({
+          where: {
+            userId: In(userIds),
+            status: CommissionStatus.PENDING,
+          },
+          relations: ['user'],
+        });
+      }
 
       if (commissions.length === 0) {
         throw new Error('No pending commissions found for the provided recipients');
@@ -154,9 +168,10 @@ export class CommissionPayoutService {
         batchId,
       );
 
-      // Update commissions in database
+      // Update commissions in database (only those that were actually paid)
       const commissionMap = new Map<string, Commission[]>();
       for (const commission of commissions) {
+        if (!commission.user?.walletAddress) continue;
         const walletAddress = commission.user.walletAddress.toLowerCase();
         if (!commissionMap.has(walletAddress)) {
           commissionMap.set(walletAddress, []);
@@ -257,6 +272,8 @@ export class CommissionPayoutService {
     amount: number,
     orderId?: string, // Optional: specific orderId to find commission (e.g., milestone-{id})
   ): Promise<{ batchId: string; txHash: string; success: boolean }> {
+    let commissionIds: string[] = [];
+
     // If orderId is provided, find the specific commission
     if (orderId) {
       const commission = await this.commissionRepository.findOne({
@@ -278,6 +295,7 @@ export class CommissionPayoutService {
           `Amount mismatch. Commission amount: ${commission.amount}, Provided: ${amount}`,
         );
       }
+      commissionIds = [commission.id];
     }
 
     const dto: BatchPayoutDto = {
@@ -286,6 +304,7 @@ export class CommissionPayoutService {
           userId,
           walletAddress,
           amount: amount.toString(),
+          commissionIds: commissionIds.length > 0 ? commissionIds : undefined,
         },
       ],
     };

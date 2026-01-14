@@ -94,25 +94,27 @@ export default function CheckoutPage() {
 
   const calculateShippingFee = async () => {
     try {
-      let totalShippingFee = 0;
+      let maxShippingFee = 0;
       
       // Fetch product details to get shippingFee and countries
       for (const item of items) {
         try {
           const product = await api.getProduct(item.productId);
-          const productCountries = product.countries || [];
+          const fee = product.shippingFee ? Number(product.shippingFee) : 0;
           
-          // If product is available in USA and has shipping fee
-          if (Array.isArray(productCountries) && productCountries.includes('USA') && product.shippingFee) {
-            totalShippingFee += (product.shippingFee || 0) * item.quantity;
+          // If product has a shipping fee set
+          if (fee > 0) {
+            // Use the maximum shipping fee found among all items
+            if (fee > maxShippingFee) {
+              maxShippingFee = fee;
+            }
           }
         } catch (error) {
-          // Skip if product fetch fails
           console.error(`Failed to fetch product ${item.productId}:`, error);
         }
       }
       
-      setShippingFee(totalShippingFee);
+      setShippingFee(maxShippingFee);
     } catch (error) {
       console.error('Failed to calculate shipping fee:', error);
       setShippingFee(0);
@@ -386,8 +388,17 @@ export default function CheckoutPage() {
 
       const usdtContract = new Contract(USDT_BSC, ERC20_ABI, signer);
       const finalTotal = totalAmount + shippingFee;
-      const amount = parseUnits(finalTotal.toFixed(decimals), decimals);
-      const recipientAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET || "0x0000000000000000000000000000000000000000";
+      
+      // Ensure we have a valid decimal string and valid decimals
+      const formattedTotal = finalTotal.toFixed(Math.min(decimals, 18));
+      const amount = parseUnits(formattedTotal, decimals);
+      
+      // Use a fallback address if env is missing to prevent sending to 0x0
+      const recipientAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET;
+      
+      if (!recipientAddress || recipientAddress === "0x0000000000000000000000000000000000000000") {
+        throw new Error("Cửa hàng chưa thiết lập ví nhận thanh toán (NEXT_PUBLIC_PAYMENT_WALLET)");
+      }
 
       // 1. Send Transaction
       const transferTx = await usdtContract.transfer(recipientAddress, amount);

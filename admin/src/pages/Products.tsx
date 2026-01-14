@@ -336,11 +336,11 @@ const Products: React.FC = () => {
           </Form.Item>
           <Form.Item
             name="shippingFee"
-            label="Shipping Fee (USA) - USDT"
+            label="Shipping Fee (USDT)"
             rules={[{ type: 'number', min: 0 }]}
-            tooltip="Shipping fee for USA market in USDT"
+            tooltip="Shipping fee for product in USDT"
           >
-            <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} />
+            <InputNumber style={{ width: '100%' }} min={0} step={0.000001} precision={6} />
           </Form.Item>
           <Form.Item
             name="countries"
