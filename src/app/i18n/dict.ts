@@ -308,6 +308,7 @@ export type I18nKey =
   | "cashback5Percent"
   | "freeGasFeeLifetime"
   | "viewDetails"
+  | "collapse"
   | "viewOnChain"
   | "reviews"
   | "viewAllReviews"
@@ -650,6 +651,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     cashback5Percent: "Hoàn tiền 5% + Miễn phí gas fee trọn đời",
     freeGasFeeLifetime: "Miễn phí gas fee trọn đời",
     viewDetails: "Xem chi tiết",
+    collapse: "Thu gọn",
     viewOnChain: "View on Chain",
     reviews: "Đánh giá",
     viewAllReviews: "Xem tất cả ({count})",
@@ -989,6 +991,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     cashback5Percent: "5% Cashback + Free gas fee for life",
     freeGasFeeLifetime: "Free gas fee for life",
     viewDetails: "View Details",
+    collapse: "Collapse",
     viewOnChain: "View on Chain",
     reviews: "Reviews",
     viewAllReviews: "View all ({count})",
@@ -1328,6 +1331,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     cashback5Percent: "5% 캐시백 + 평생 무료 가스비",
     freeGasFeeLifetime: "평생 무료 가스비",
     viewDetails: "자세히 보기",
+    collapse: "접기",
     viewOnChain: "체인에서 보기",
     reviews: "리뷰",
     viewAllReviews: "전체 보기 ({count})",

@@ -389,7 +389,7 @@ export default function ProductDetailClient() {
                   ${formatPrice(product.price)}
                 </span>
               </div>
-              {product.shippingFee > 0 && (
+              {product.shippingFee !== undefined && product.shippingFee > 0 && (
                 <div className="flex items-center gap-1 text-text-sub font-medium bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
                   <span className="material-symbols-outlined text-[16px]">local_shipping</span>
                   <span className="text-xs">+ ${formatPrice(product.shippingFee)} {t("shippingFee")}</span>
@@ -449,29 +449,30 @@ export default function ProductDetailClient() {
               {t("productDescription")}
             </h3>
             <div className="relative group bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <p
-                className={`text-base leading-relaxed text-gray-500 text-justify ${
-                  isDescriptionExpanded ? "" : "line-clamp-4"
+              <div
+                className={`text-base leading-relaxed prose max-w-none ${
+                  isDescriptionExpanded ? "" : "line-clamp-[10]"
                 }`}
-              >
-                {product.description}
-              </p>
-              {!isDescriptionExpanded && (
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+                dangerouslySetInnerHTML={{ __html: product.description || "" }}
+              />
+              {!isDescriptionExpanded && (product.description?.length || 0) > 500 && (
+                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
               )}
-              <button
-                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                className="absolute bottom-2 right-2 text-sm font-bold text-primary hover:text-primary-dark flex items-center gap-1 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-lg"
-              >
-                {t("viewDetails")}{" "}
-                <span
-                  className={`material-symbols-outlined text-sm transition-transform ${
-                    isDescriptionExpanded ? "rotate-180" : ""
-                  }`}
+              {(product.description?.length || 0) > 500 && (
+                <button
+                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  className="mt-2 text-sm font-bold text-primary hover:text-primary-dark flex items-center gap-1 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-lg w-fit"
                 >
-                  keyboard_arrow_down
-                </span>
-              </button>
+                  {isDescriptionExpanded ? t("collapse") : t("viewDetails")}{" "}
+                  <span
+                    className={`material-symbols-outlined text-sm transition-transform ${
+                      isDescriptionExpanded ? "rotate-180" : ""
+                    }`}
+                  >
+                    keyboard_arrow_down
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         )}

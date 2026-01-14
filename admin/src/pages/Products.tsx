@@ -15,6 +15,7 @@ import {
   Select,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
@@ -46,6 +47,7 @@ const Products: React.FC = () => {
   const handleCreate = () => {
     setEditingProduct(null);
     form.resetFields();
+    form.setFieldsValue({ description: '' });
     setThumbnailFileList([]);
     setDetailFileList([]);
     setIsModalVisible(true);
@@ -55,6 +57,7 @@ const Products: React.FC = () => {
     setEditingProduct(product);
     form.setFieldsValue({
       ...product,
+      description: product.description || '',
       // Keep URLs in form values for submit; Upload UI is for new uploads only
       detailImageUrls: product.detailImageUrls || [],
     });
@@ -272,88 +275,131 @@ const Products: React.FC = () => {
         onCancel={() => setIsModalVisible(false)}
         onOk={() => form.submit()}
         width="90%"
-        style={{ maxWidth: 600 }}
+        style={{ maxWidth: 1000 }}
+        destroyOnClose
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
-            name="name"
-            label="Name"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="description" label="Description">
-            <Input.TextArea rows={4} />
-          </Form.Item>
-          <Form.Item label="Thumbnail">
-            <Upload
-              accept="image/*"
-              listType="picture"
-              maxCount={1}
-              fileList={thumbnailFileList}
-              beforeUpload={() => false}
-              onChange={({ fileList }) => setThumbnailFileList(fileList)}
+        {isModalVisible && (
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <Form.Item
+              name="name"
+              label="Name"
+              rules={[{ required: true }]}
             >
-              <Button>Choose thumbnail</Button>
-            </Upload>
-            {editingProduct?.thumbnailUrl ? (
-              <Typography.Text type="secondary">
-                Current: {editingProduct.thumbnailUrl}
-              </Typography.Text>
-            ) : null}
-          </Form.Item>
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="description"
+              label="Description"
+              trigger="onEditorChange"
+              validateTrigger="onEditorChange"
+            >
+              <Editor
+                apiKey='xhvi99zf95ueinybzalp9vwc7yaolsr1rxibrza2dzwb9c8e'
+                init={{
+                  height: 400,
+                  menubar: true,
+                  plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                  ],
+                  toolbar: 'undo redo | blocks | ' +
+                    'bold italic forecolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | image | help',
+                  content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+                  images_upload_handler: async (blobInfo: any) => {
+                    return new Promise(async (resolve, reject) => {
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', blobInfo.blob(), blobInfo.filename());
+                        const api = (await import('../services/api')).default;
+                        const uploadRes = await api.post('/uploads/image', fd, {
+                          headers: { 'Content-Type': 'multipart/form-data' },
+                        });
+                        if (uploadRes.data?.url) {
+                          resolve(uploadRes.data.url);
+                        } else {
+                          reject('Upload failed');
+                        }
+                      } catch (error) {
+                        reject('Upload error');
+                      }
+                    });
+                  }
+                }}
+              />
+            </Form.Item>
+            <Form.Item label="Thumbnail">
+              <Upload
+                accept="image/*"
+                listType="picture"
+                maxCount={1}
+                fileList={thumbnailFileList}
+                beforeUpload={() => false}
+                onChange={({ fileList }) => setThumbnailFileList(fileList)}
+              >
+                <Button>Choose thumbnail</Button>
+              </Upload>
+              {editingProduct?.thumbnailUrl ? (
+                <Typography.Text type="secondary">
+                  Current: {editingProduct.thumbnailUrl}
+                </Typography.Text>
+              ) : null}
+            </Form.Item>
 
-          <Form.Item label="Detail Images">
-            <Upload
-              accept="image/*"
-              listType="picture"
-              multiple
-              fileList={detailFileList}
-              beforeUpload={() => false}
-              onChange={({ fileList }) => setDetailFileList(fileList)}
+            <Form.Item label="Detail Images">
+              <Upload
+                accept="image/*"
+                listType="picture"
+                multiple
+                fileList={detailFileList}
+                beforeUpload={() => false}
+                onChange={({ fileList }) => setDetailFileList(fileList)}
+              >
+                <Button>Choose detail images</Button>
+              </Upload>
+              {editingProduct?.detailImageUrls?.length ? (
+                <Typography.Text type="secondary">
+                  Current: {editingProduct.detailImageUrls.length} image(s)
+                </Typography.Text>
+              ) : null}
+            </Form.Item>
+            <Form.Item
+              name="price"
+              label="Price"
+              rules={[{ required: true, type: 'number', min: 0 }]}
             >
-              <Button>Choose detail images</Button>
-            </Upload>
-            {editingProduct?.detailImageUrls?.length ? (
-              <Typography.Text type="secondary">
-                Current: {editingProduct.detailImageUrls.length} image(s)
-              </Typography.Text>
-            ) : null}
-          </Form.Item>
-          <Form.Item
-            name="price"
-            label="Price"
-            rules={[{ required: true, type: 'number', min: 0 }]}
-          >
-            <InputNumber style={{ width: '100%' }} min={0} />
-          </Form.Item>
-          <Form.Item
-            name="stock"
-            label="Stock"
-            rules={[{ type: 'number', min: 0 }]}
-          >
-            <InputNumber style={{ width: '100%' }} min={0} />
-          </Form.Item>
-          <Form.Item
-            name="shippingFee"
-            label="Shipping Fee (USDT)"
-            rules={[{ type: 'number', min: 0 }]}
-            tooltip="Shipping fee for product in USDT"
-          >
-            <InputNumber style={{ width: '100%' }} min={0} step={0.000001} precision={6} />
-          </Form.Item>
-          <Form.Item
-            name="countries"
-            label="Countries"
-            rules={[{ required: true, message: 'Please select at least one country' }]}
-            initialValue={['VIETNAM']}
-          >
-            <Select mode="multiple" style={{ width: '100%' }} placeholder="Select countries">
-              <Select.Option value="VIETNAM">Vietnam</Select.Option>
-              <Select.Option value="USA">USA</Select.Option>
-            </Select>
-          </Form.Item>
-        </Form>
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+            <Form.Item
+              name="stock"
+              label="Stock"
+              rules={[{ type: 'number', min: 0 }]}
+            >
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+            <Form.Item
+              name="shippingFee"
+              label="Shipping Fee (USDT)"
+              rules={[{ type: 'number', min: 0 }]}
+              tooltip="Shipping fee for product in USDT"
+            >
+              <InputNumber style={{ width: '100%' }} min={0} step={0.000001} precision={6} />
+            </Form.Item>
+            <Form.Item
+              name="countries"
+              label="Countries"
+              rules={[{ required: true, message: 'Please select at least one country' }]}
+              initialValue={['VIETNAM']}
+            >
+              <Select mode="multiple" style={{ width: '100%' }} placeholder="Select countries">
+                <Select.Option value="VIETNAM">Vietnam</Select.Option>
+                <Select.Option value="USA">USA</Select.Option>
+              </Select>
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
     </div>
   );
