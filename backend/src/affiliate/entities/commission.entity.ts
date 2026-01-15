@@ -39,6 +39,10 @@ export class Commission {
   @Column({ nullable: true })
   fromUserId: string; // User tạo ra đơn hàng (cho hoa hồng trực tiếp/quản lý)
 
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'fromUserId' })
+  fromUser: User;
+
   @Column({
     type: 'enum',
     enum: CommissionType,

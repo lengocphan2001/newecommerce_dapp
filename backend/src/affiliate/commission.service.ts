@@ -726,14 +726,20 @@ export class CommissionService {
     userId: string,
     query: { type?: CommissionType; status?: CommissionStatus },
   ): Promise<Commission[]> {
-    const where: any = { userId };
-    if (query.type) where.type = query.type;
-    if (query.status) where.status = query.status;
+    const qb = this.commissionRepository.createQueryBuilder('commission')
+      .leftJoinAndSelect('commission.fromUser', 'fromUser')
+      .where('commission.userId = :userId', { userId });
 
-    return this.commissionRepository.find({
-      where,
-      order: { createdAt: 'DESC' },
-    });
+    if (query.type) {
+      qb.andWhere('commission.type = :type', { type: query.type });
+    }
+    if (query.status) {
+      qb.andWhere('commission.status = :status', { status: query.status });
+    }
+
+    qb.orderBy('commission.createdAt', 'DESC');
+
+    return qb.getMany();
   }
 
   /**

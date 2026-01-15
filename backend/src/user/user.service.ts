@@ -160,22 +160,69 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    const leftChildren = await this.getDownline(userId, 'left');
-    const rightChildren = await this.getDownline(userId, 'right');
+    const leftMembers = await this.getAllDescendants(userId, 'left');
+    const rightMembers = await this.getAllDescendants(userId, 'right');
 
     return {
       left: {
-        count: leftChildren.length,
-        members: leftChildren,
+        count: leftMembers.length,
+        members: leftMembers,
         volume: user.leftBranchTotal || 0,
       },
       right: {
-        count: rightChildren.length,
-        members: rightChildren,
+        count: rightMembers.length,
+        members: rightMembers,
         volume: user.rightBranchTotal || 0,
       },
-      total: leftChildren.length + rightChildren.length,
+      total: leftMembers.length + rightMembers.length,
     };
+  }
+
+  /**
+   * Lấy tất cả thành viên trong một nhánh (đệ quy)
+   */
+  private async getAllDescendants(parentId: string, position?: 'left' | 'right', currentDepth: number = 1): Promise<any[]> {
+    const query = this.userRepository.createQueryBuilder('user')
+      .select(['user.id', 'user.username', 'user.fullName', 'user.avatar', 'user.packageType', 'user.position', 'user.leftBranchTotal', 'user.rightBranchTotal', 'user.totalPurchaseAmount', 'user.createdAt'])
+      .where('user.parentId = :parentId', { parentId });
+    
+    if (position) {
+      query.andWhere('user.position = :position', { position });
+    }
+
+    const children = await query.getMany();
+    let descendants: any[] = [];
+
+    for (const child of children) {
+      const member = { ...child, depth: currentDepth };
+      descendants.push(member);
+      
+      const subDescendants = await this.getAllDescendants(child.id, undefined, currentDepth + 1);
+      descendants = [...descendants, ...subDescendants];
+    }
+
+    return descendants;
+  }
+
+  /**
+   * Đếm tất cả thành viên trong một nhánh (đệ quy)
+   */
+  private async countAllDescendants(parentId: string, position?: 'left' | 'right'): Promise<number> {
+    const query = this.userRepository.createQueryBuilder('user')
+      .where('user.parentId = :parentId', { parentId });
+    
+    if (position) {
+      query.andWhere('user.position = :position', { position });
+    }
+
+    const children = await query.getMany();
+    let count = children.length;
+
+    for (const child of children) {
+      count += await this.countAllDescendants(child.id);
+    }
+
+    return count;
   }
 
   async create(createUserDto: any) {

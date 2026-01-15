@@ -9,6 +9,7 @@ import { CommissionService } from '../affiliate/commission.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { CommissionConfigService } from '../admin/commission-config.service';
 import { PackageType } from '../admin/entities/commission-config.entity';
+import { GoogleSheetsService } from '../common/google-sheets.service';
 
 @Injectable()
 export class OrderService {
@@ -24,6 +25,7 @@ export class OrderService {
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
     private configService: CommissionConfigService,
+    private googleSheetsService: GoogleSheetsService,
   ) {}
 
   async findAll(query: any) {
@@ -113,6 +115,15 @@ export class OrderService {
     });
 
     const savedOrder = await this.orderRepository.save(order);
+
+    // Sync to Google Sheets
+    try {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      this.googleSheetsService.syncOrder(savedOrder, user || undefined);
+    } catch (error) {
+      console.error('Failed to sync to Google Sheets after creation:', error);
+    }
+
     return savedOrder;
   }
 
@@ -156,6 +167,9 @@ export class OrderService {
       order.isReconsumption = isReconsumption;
 
       const savedOrder = await this.orderRepository.save(order);
+
+      // Sync to Google Sheets
+      this.googleSheetsService.syncOrder(savedOrder, user || undefined);
 
       // Cập nhật tổng tái tiêu dùng nếu là đơn hàng tái tiêu dùng
       if (isReconsumption && user) {
@@ -204,7 +218,17 @@ export class OrderService {
     }
 
     order.status = newStatus;
-    return this.orderRepository.save(order);
+    const finalSavedOrder = await this.orderRepository.save(order);
+
+    // Sync to Google Sheets
+    try {
+      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      this.googleSheetsService.syncOrder(finalSavedOrder, user || undefined);
+    } catch (error) {
+      console.error('Failed to sync to Google Sheets after status update:', error);
+    }
+
+    return finalSavedOrder;
   }
 
   async cancelOrder(id: string) {
@@ -226,7 +250,17 @@ export class OrderService {
     }
 
     order.status = OrderStatus.CANCELLED;
-    return this.orderRepository.save(order);
+    const cancelledOrder = await this.orderRepository.save(order);
+
+    // Sync to Google Sheets
+    try {
+      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      this.googleSheetsService.syncOrder(cancelledOrder, user || undefined);
+    } catch (error) {
+      console.error('Failed to sync to Google Sheets after cancellation:', error);
+    }
+
+    return cancelledOrder;
   }
 
   /**

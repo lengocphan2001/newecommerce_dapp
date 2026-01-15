@@ -4,6 +4,8 @@ import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
+import { CommissionConfigService } from '../admin/commission-config.service';
+import { PackageType } from '../admin/entities/commission-config.entity';
 import * as bcrypt from 'bcryptjs';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 
@@ -16,6 +18,8 @@ export class AuthService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => MilestoneRewardService))
     private milestoneRewardService: MilestoneRewardService,
+    @Inject(forwardRef(() => CommissionConfigService))
+    private commissionConfigService: CommissionConfigService,
   ) { }
 
   async login(loginDto: LoginDto) {
@@ -195,14 +199,42 @@ export class AuthService {
     // Get pending commissions for recent activity
     const pendingCommissions = await this.commissionService.getCommissions(userId, { status: CommissionStatus.PENDING });
     const recentCommissions = await this.commissionService.getCommissions(userId, {});
-    const recentActivity = recentCommissions.slice(0, 5).map((c: any) => ({
-      id: c.id,
-      type: c.type,
-      amount: formatDecimal(c.amount),
-      status: c.status,
-      createdAt: c.createdAt,
-      fromUserId: c.fromUserId,
+    const recentActivity = await Promise.all(recentCommissions.slice(0, 20).map(async (c: any) => {
+      let fromUsername = c.fromUser?.username || c.fromUser?.fullName;
+      
+      // Fallback if relation didn't load
+      if (!fromUsername && c.fromUserId) {
+        try {
+          const fromUser = await this.userService.findOne(c.fromUserId);
+          if (fromUser) {
+            fromUsername = fromUser.username || fromUser.fullName;
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      return {
+        id: c.id,
+        type: c.type,
+        amount: formatDecimal(c.amount),
+        status: c.status,
+        createdAt: c.createdAt,
+        fromUserId: c.fromUserId,
+        fromUsername: fromUsername,
+      };
     }));
+
+    // Get commission config for max limit
+    let maxCommission = '0.00';
+    if (user.packageType !== 'NONE') {
+      const config = await this.commissionConfigService.findByPackageType(
+        user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
+      );
+      if (config) {
+        maxCommission = formatDecimal(config.reconsumptionThreshold);
+      }
+    }
 
     return {
       referralCode,
@@ -219,6 +251,7 @@ export class AuthService {
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
+      maxCommission,
       packageType: user.packageType,
       totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
       pendingRewards: formatDecimal(pendingCommissions.reduce((sum: number, c: any) => {
