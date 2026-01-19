@@ -6,12 +6,14 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserModule } from '../user/user.module';
+import { StaffModule } from '../staff/staff.module';
 import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
     UserModule,
+    StaffModule,
     forwardRef(() => AffiliateModule),
     forwardRef(() => AdminModule),
     PassportModule,

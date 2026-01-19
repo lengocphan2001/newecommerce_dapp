@@ -342,7 +342,16 @@ export type I18nKey =
   | "whatIsSafePal"
   | "securedByWeb3"
   | "walletNotFound"
-  | "cannotConnectWallet";
+  | "cannotConnectWallet"
+  | "favorite"
+  | "sold"
+  | "productDetails"
+  | "category"
+  | "brand"
+  | "viewMore"
+  | "chatNow"
+  | "addToCartButton"
+  | "buyNowButton";
 
 export const DEFAULT_LANG: Lang = "en";
 
@@ -685,7 +694,16 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     whatIsSafePal: "SafePalMall    là gì?",
     securedByWeb3: "Bảo mật bởi Công nghệ Web3",
     walletNotFound: "Không tìm thấy ví. Vui lòng cài đặt SafePalMall Wallet.",
-    cannotConnectWallet: "Không thể kết nối ví"
+    cannotConnectWallet: "Không thể kết nối ví",
+    favorite: "Yêu Thích",
+    sold: "Đã bán",
+    productDetails: "Chi tiết sản phẩm",
+    category: "Danh mục",
+    brand: "Thương hiệu",
+    viewMore: "Xem thêm",
+    chatNow: "Chat ngay",
+    addToCartButton: "Thêm vào giỏ hàng",
+    buyNowButton: "Mua ngay"
   },
   en: {
     appName: "SafepalMall",
@@ -1025,7 +1043,16 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     whatIsSafePal: "What is SafePalMall?",
     securedByWeb3: "Secured by Web3 Technology",
     walletNotFound: "Wallet not found. Please install SafePalMall Wallet.",
-    cannotConnectWallet: "Cannot connect wallet"
+    cannotConnectWallet: "Cannot connect wallet",
+    favorite: "Favorite",
+    sold: "Sold",
+    productDetails: "Product Details",
+    category: "Category",
+    brand: "Brand",
+    viewMore: "View More",
+    chatNow: "Chat Now",
+    addToCartButton: "Add to Cart",
+    buyNowButton: "Buy Now"
   },
   ko: {
     appName: "SafepalMall",
@@ -1365,6 +1392,15 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     whatIsSafePal: "SafePal이란?",
     securedByWeb3: "Web3 기술로 보호됨",
     walletNotFound: "지갑을 찾을 수 없습니다. SafePalMall 지갑을 설치해주세요.",
-    cannotConnectWallet: "지갑을 연결할 수 없습니다"
+    cannotConnectWallet: "지갑을 연결할 수 없습니다",
+    favorite: "즐겨찾기",
+    sold: "판매됨",
+    productDetails: "제품 세부정보",
+    category: "카테고리",
+    brand: "브랜드",
+    viewMore: "더 보기",
+    chatNow: "지금 채팅",
+    addToCartButton: "장바구니에 추가",
+    buyNowButton: "지금 구매"
   },
 };

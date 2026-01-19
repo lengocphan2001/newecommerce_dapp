@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
@@ -31,6 +31,11 @@ export default function AppHeader({
   const { t } = useI18n();
   const router = useRouter();
   const { totalItems } = useShoppingCart();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const displayTitle = title || (titleKey ? t(titleKey) : "");
 
@@ -80,7 +85,7 @@ export default function AppHeader({
               >
                 <span className="material-symbols-outlined text-slate-700 text-xl">shopping_cart</span>
               </button>
-              {totalItems > 0 && (
+              {mounted && totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white ring-2 ring-white">
                   {totalItems}
                 </span>

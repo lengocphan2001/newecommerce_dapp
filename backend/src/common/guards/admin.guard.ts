@@ -6,7 +6,8 @@ export class AdminGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
     const user = req.user;
 
-    if (!user?.isAdmin) {
+    // Allow staff (type === 'staff') or users with isAdmin flag
+    if (!user?.isAdmin && user?.type !== 'staff') {
       throw new ForbiddenException('Admin access required');
     }
 

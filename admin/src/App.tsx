@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import AdminLayout from './layouts/AdminLayout';
+import NotificationManager from './components/NotificationManager';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Products from './pages/Products';
@@ -16,6 +18,8 @@ import CommissionConfig from './pages/CommissionConfig';
 import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
 import TreeView from './pages/TreeView';
+import Staffs from './pages/Staffs';
+import Roles from './pages/Roles';
 import Login from './pages/Login';
 import './App.css';
 
@@ -25,9 +29,13 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 function App() {
+  const token = localStorage.getItem('token');
+
   return (
-    <BrowserRouter basename="/admin">
-      <Routes>
+    <AuthProvider>
+      <NotificationManager token={token} />
+      <BrowserRouter basename="/admin">
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route
           path="/"
@@ -189,8 +197,29 @@ function App() {
             </PrivateRoute>
           }
         />
-      </Routes>
-    </BrowserRouter>
+        <Route
+          path="/staffs"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <Staffs />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/roles"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <Roles />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

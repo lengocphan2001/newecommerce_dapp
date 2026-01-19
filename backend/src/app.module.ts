@@ -28,6 +28,14 @@ import { Category } from './category/entities/category.entity';
 import { Slider } from './slider/entities/slider.entity';
 import { SliderModule } from './slider/slider.module';
 import { UploadModule } from './upload/upload.module';
+import { Staff } from './staff/entities/staff.entity';
+import { StaffSession } from './staff/entities/staff-session.entity';
+import { Role } from './role/entities/role.entity';
+import { Permission } from './permission/entities/permission.entity';
+import { StaffModule } from './staff/staff.module';
+import { RoleModule } from './role/role.module';
+import { PermissionModule } from './permission/permission.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -51,7 +59,7 @@ import { UploadModule } from './upload/upload.module';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone, Category, Slider],
+        entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone, Category, Slider, Staff, StaffSession, Role, Permission],
         synchronize: 
           configService.get<string>('FORCE_SYNC') === 'true' || 
           configService.get<string>('NODE_ENV') !== 'production',
@@ -72,6 +80,10 @@ import { UploadModule } from './upload/upload.module';
     AdminModule,
     AuditLogModule,
     UploadModule,
+    StaffModule,
+    RoleModule,
+    PermissionModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,8 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { AdminSeedService } from './common/seed/admin-seed.service';
+import { StaffSeedService } from './common/seed/staff-seed.service';
 import { CommissionConfigService } from './admin/commission-config.service';
+import { PermissionService } from './permission/permission.service';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -65,12 +66,13 @@ async function bootstrap() {
     }),
   );
 
-  // Seed default admin user (code-based; not ENV-based)
+  // Seed default super admin staff
   try {
-    const adminSeedService = app.get(AdminSeedService);
-    await adminSeedService.seed();
+    const staffSeedService = app.get(StaffSeedService);
+    await staffSeedService.seed();
   } catch (error) {
     // eslint-disable-next-line no-console
+    console.error('Failed to seed super admin staff:', error);
   }
 
   // Initialize default commission configs
@@ -80,6 +82,15 @@ async function bootstrap() {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to initialize commission configs:', error);
+  }
+
+  // Seed permissions
+  try {
+    const permissionService = app.get(PermissionService);
+    await permissionService.seedPermissions();
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to seed permissions:', error);
   }
 
   // Default to 3002 to avoid clashing with:

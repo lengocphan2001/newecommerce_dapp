@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { StaffService } from '../staff/staff.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
@@ -13,6 +14,7 @@ import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 export class AuthService {
   constructor(
     private userService: UserService,
+    private staffService: StaffService,
     private jwtService: JwtService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
@@ -48,6 +50,55 @@ export class AuthService {
   }
 
   async adminLogin(loginDto: LoginDto) {
+    // Try to find staff first
+    let staff = await this.staffService.findByEmail(loginDto.email);
+    
+    if (staff) {
+      // Staff login
+      if (staff.status !== 'ACTIVE') {
+        throw new UnauthorizedException('Account is not active');
+      }
+
+      const isPasswordValid = await bcrypt.compare(loginDto.password, staff.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      const payload = {
+        sub: staff.id,
+        email: staff.email,
+        staffId: staff.id,
+        isSuperAdmin: staff.isSuperAdmin,
+        type: 'staff',
+      };
+      const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
+      const token = this.jwtService.sign(payload, { expiresIn: expiresIn as any });
+
+      // Calculate expiration date
+      const expiresAt = new Date();
+      const hours = expiresIn.includes('h') ? parseInt(expiresIn.replace('h', '')) : 24;
+      expiresAt.setHours(expiresAt.getHours() + hours);
+
+      // Create session (if StaffSessionService is available)
+      // Note: This requires StaffSessionService to be injected
+      // For now, we'll skip session creation to avoid circular dependency
+      // Session can be created in a separate endpoint if needed
+
+      return {
+        token,
+        expiresAt,
+        user: {
+          id: staff.id,
+          email: staff.email,
+          fullName: staff.fullName,
+          isAdmin: true,
+          isSuperAdmin: staff.isSuperAdmin,
+          type: 'staff',
+        },
+      };
+    }
+
+    // Fallback to user with isAdmin flag (for backward compatibility)
     const user = await this.userService.findByEmail(loginDto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -63,7 +114,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin, type: 'user' };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -73,6 +124,7 @@ export class AuthService {
         email: user.email,
         fullName: user.fullName,
         isAdmin: user.isAdmin,
+        type: 'user',
       },
     };
   }
@@ -162,6 +214,51 @@ export class AuthService {
         username: user.username,
         fullName: user.fullName,
       } : null,
+    };
+  }
+
+  async getMe(user: any) {
+    // If it's a staff user, return staff info with permissions
+    if (user.type === 'staff' || user.staffId) {
+      const staff = await this.staffService.findOne(user.staffId || user.sub);
+      return {
+        id: staff.id,
+        email: staff.email,
+        fullName: staff.fullName,
+        phone: staff.phone,
+        avatar: staff.avatar,
+        status: staff.status,
+        isAdmin: true,
+        isSuperAdmin: staff.isSuperAdmin,
+        type: 'staff',
+        roles: staff.roles?.map((role) => ({
+          id: role.id,
+          name: role.name,
+          description: role.description,
+          permissions: role.permissions?.map((perm) => ({
+            id: perm.id,
+            code: perm.code,
+            name: perm.name,
+            description: perm.description,
+            module: perm.module,
+          })),
+        })),
+      };
+    }
+
+    // Legacy admin user
+    const userEntity = await this.userService.findOne(user.sub);
+    if (!userEntity) {
+      throw new UnauthorizedException('User not found');
+    }
+    return {
+      id: userEntity.id,
+      email: userEntity.email,
+      fullName: userEntity.fullName,
+      isAdmin: userEntity.isAdmin,
+      isSuperAdmin: false,
+      type: 'user',
+      roles: [],
     };
   }
 

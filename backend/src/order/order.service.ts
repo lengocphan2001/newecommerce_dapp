@@ -124,6 +124,9 @@ export class OrderService {
       console.error('Failed to sync to Google Sheets after creation:', error);
     }
 
+    // Emit notification event (will be handled by order controller)
+    // This allows the controller to inject NotificationsGateway
+
     return savedOrder;
   }
 

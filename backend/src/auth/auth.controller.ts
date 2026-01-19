@@ -63,6 +63,12 @@ export class AuthController {
     return this.authService.checkReferral(username);
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Request() req: any) {
+    return this.authService.getMe(req.user);
+  }
+
   @Get('referral/info')
   @UseGuards(JwtAuthGuard)
   async getReferralInfo(@Request() req: any) {

@@ -1,11 +1,13 @@
-import { Module } from '@nestjs/common';
-import { UserModule } from '../../user/user.module';
-import { AdminSeedService } from './admin-seed.service';
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { StaffModule } from '../../staff/staff.module';
+import { Staff } from '../../staff/entities/staff.entity';
+import { StaffSeedService } from './staff-seed.service';
 
 @Module({
-  imports: [UserModule],
-  providers: [AdminSeedService],
-  exports: [AdminSeedService],
+  imports: [TypeOrmModule.forFeature([Staff])],
+  providers: [StaffSeedService],
+  exports: [StaffSeedService],
 })
 export class AdminSeedModule {}
 

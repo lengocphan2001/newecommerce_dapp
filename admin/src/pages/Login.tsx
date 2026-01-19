@@ -13,8 +13,13 @@ const Login: React.FC = () => {
     try {
       const response = await api.post('/auth/admin/login', values);
       localStorage.setItem('token', response.data.token);
+      // Store user info for quick access
+      if (response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+      }
       message.success('Login successful');
-      navigate('/dashboard');
+      // Reload to refresh auth context
+      window.location.href = '/admin/dashboard';
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Login failed');
     } finally {

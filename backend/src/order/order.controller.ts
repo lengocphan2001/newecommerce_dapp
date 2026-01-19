@@ -2,10 +2,14 @@ import { Controller, Get, Post, Put, Body, Param, Query, Request, UseGuards } fr
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly notificationsGateway: NotificationsGateway,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -32,7 +36,12 @@ export class OrderController {
   @UseGuards(JwtAuthGuard)
   async create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     const userId = req.user.userId || req.user.sub;
-    return this.orderService.create(createOrderDto, userId);
+    const order = await this.orderService.create(createOrderDto, userId);
+    
+    // Notify all connected staff about new order
+    this.notificationsGateway.notifyNewOrder(order);
+    
+    return order;
   }
 
   @Put(':id/status')

@@ -22,6 +22,10 @@ import { AuditLog } from '../src/audit-log/entities/audit-log.entity';
 import { CommissionConfig } from '../src/admin/entities/commission-config.entity';
 import { MilestoneRewardConfig } from '../src/admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from '../src/admin/entities/user-milestone.entity';
+import { Staff } from '../src/staff/entities/staff.entity';
+import { StaffSession } from '../src/staff/entities/staff-session.entity';
+import { Role } from '../src/role/entities/role.entity';
+import { Permission } from '../src/permission/entities/permission.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -53,7 +57,7 @@ async function initializeDatabase() {
   
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone],
+    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone, Staff, StaffSession, Role, Permission],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
   });

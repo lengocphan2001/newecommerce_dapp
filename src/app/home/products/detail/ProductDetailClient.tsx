@@ -6,6 +6,13 @@ import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -15,7 +22,11 @@ interface Product {
   shippingFee?: number;
   thumbnailUrl?: string;
   detailImageUrls?: string[];
+  categoryId?: string;
+  category?: Category;
+  countries?: ('VIETNAM' | 'USA')[];
   createdAt: string;
+  soldCount?: number;
 }
 
 export default function ProductDetailClient() {
@@ -26,16 +37,12 @@ export default function ProductDetailClient() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [headerScrolled, setHeaderScrolled] = useState(false);
-  const [isSliderPaused, setIsSliderPaused] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [addToCartAnimating, setAddToCartAnimating] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const { addItem, totalItems } = useShoppingCart();
 
   useEffect(() => {
@@ -43,15 +50,6 @@ export default function ProductDetailClient() {
       fetchProduct();
     }
   }, [productId]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      setHeaderScrolled(scrollY > 100);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   // Compute all images from product
   const allImages = product
@@ -61,59 +59,51 @@ export default function ProductDetailClient() {
       ].filter(Boolean) as string[]
     : [];
 
-  // Auto-slide images
-  useEffect(() => {
-    if (!product || !allImages.length || allImages.length <= 1 || isSliderPaused) return;
-
-    const interval = setInterval(() => {
-      setSelectedImageIndex((prev) => (prev + 1) % allImages.length);
-    }, 4000); // Change image every 4 seconds
-
-    return () => clearInterval(interval);
-  }, [product, allImages.length, isSliderPaused]);
-
-  // Swipe handlers
+  // Swipe handlers with smooth drag
   const minSwipeDistance = 50;
 
   const onTouchStart = (e: React.TouchEvent) => {
+    if (allImages.length <= 1) return;
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
-    setIsSliderPaused(true);
+    setDragOffset(0);
+    setIsDragging(true);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart) return;
-    const currentTouch = e.targetTouches[0].clientX;
-    const distance = touchStart - currentTouch;
-    setSwipeOffset(distance);
+    if (!touchStart || allImages.length <= 1) return;
+    e.preventDefault();
+    const currentX = e.targetTouches[0].clientX;
+    const diff = currentX - touchStart;
+    // Limit drag to prevent over-scrolling
+    const maxDrag = typeof window !== 'undefined' ? window.innerWidth * 0.3 : 150;
+    const limitedDiff = Math.max(-maxDrag, Math.min(maxDrag, diff));
+    setDragOffset(limitedDiff);
+    setTouchEnd(currentX);
   };
 
-  const onTouchEndHandler = (e: React.TouchEvent) => {
-    if (!touchStart) {
-      setTouchStart(null);
-      setTouchEnd(null);
-      setSwipeOffset(0);
-      setIsSliderPaused(false);
+  const onTouchEnd = () => {
+    if (!touchStart || allImages.length <= 1) {
+      setIsDragging(false);
+      setDragOffset(0);
       return;
     }
-
-    const touchEndPos = e.changedTouches[0].clientX;
-    const distance = touchStart - touchEndPos;
+    
+    const distance = touchStart - (touchEnd || touchStart);
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
-    if (isLeftSwipe && allImages.length > 1) {
+    if (isLeftSwipe) {
       setSelectedImageIndex((prev) => (prev + 1) % allImages.length);
-    }
-    if (isRightSwipe && allImages.length > 1) {
+    } else if (isRightSwipe) {
       setSelectedImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
     }
-
+    
+    // Reset states
     setTouchStart(null);
     setTouchEnd(null);
-    setSwipeOffset(0);
-    setIsSliderPaused(true);
-    setTimeout(() => setIsSliderPaused(false), 3000);
+    setDragOffset(0);
+    setIsDragging(false);
   };
 
   const fetchProduct = async () => {
@@ -149,41 +139,32 @@ export default function ProductDetailClient() {
 
   const handleAddToCart = (e?: React.MouseEvent) => {
     if (!product || product.stock === 0) return;
-
-    // Animation effect
-    setAddToCartAnimating(true);
-    setTimeout(() => setAddToCartAnimating(false), 600);
-
-    // Get button element for animation
     const buttonElement = e?.currentTarget as HTMLElement;
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      price: product.price,
+      thumbnailUrl: product.thumbnailUrl,
+    }, buttonElement);
+  };
 
-    for (let i = 0; i < quantity; i++) {
-      addItem({
-        productId: product.id,
-        productName: product.name,
-        price: product.price,
-        thumbnailUrl: product.thumbnailUrl,
-      }, i === 0 ? buttonElement : undefined); // Only pass element for first item
-    }
-
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 2000);
+  const handleBuyNow = () => {
+    if (!product || product.stock === 0) return;
+    handleAddToCart();
+    router.push('/home/cart');
   };
 
   // Calculate commission percentage (example: 12.5%)
   const commissionPercentage = 12.5;
   const tokenAmount = (product?.price || 0) * 0.125;
-  // Calculate sold percentage (assuming total stock was 100, adjust as needed)
-  const totalStock = product ? product.stock + 86 : 100; // Example: if 15 left, 86 sold = 101 total
-  const soldPercentage = product && totalStock > 0 
-    ? Math.min(100, Math.round(((totalStock - product.stock) / totalStock) * 100)) 
-    : 86; // Default to 86% if calculation fails
+  const soldCount = product?.soldCount || 0;
+  const rating = 5;
 
   if (loading) {
     return (
-      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background-gray">
+      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-20 bg-background text-text-main font-display antialiased">
         <div className="animate-pulse space-y-4 p-4">
-          <div className="aspect-[4/5] bg-gray-200 rounded-b-[2.5rem]"></div>
+          <div className="aspect-square bg-gray-200 rounded"></div>
           <div className="h-6 bg-gray-200 rounded w-3/4"></div>
           <div className="h-4 bg-gray-200 rounded w-1/2"></div>
         </div>
@@ -193,13 +174,13 @@ export default function ProductDetailClient() {
 
   if (!product) {
     return (
-      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background">
-        <div className="fixed top-0 z-50 flex w-full items-center justify-between p-4 pt-12 lg:pt-4">
+      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-20 bg-background">
+        <div className="fixed top-0 z-50 flex w-full items-center justify-between p-4 pt-10">
           <button
             onClick={() => router.back()}
-            className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 backdrop-blur shadow-sm hover:bg-white active:scale-95 transition-all text-gray-900"
+            className="relative z-10 flex size-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined text-xl">arrow_back</span>
           </button>
         </div>
         <div className="flex-1 flex items-center justify-center p-8 text-center">
@@ -218,112 +199,55 @@ export default function ProductDetailClient() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background-gray text-gray-900 font-display antialiased">
-      {/* Custom Header with Scroll Effect */}
-      <div
-        className={`fixed top-0 z-50 flex w-full items-center justify-between p-4 pt-12 lg:pt-4 transition-all duration-300`}
-        id="top-bar"
-      >
-        <div
-          className={`absolute inset-0 bg-white/90 backdrop-blur-md transition-opacity duration-300 shadow-sm ${
-            headerScrolled ? "opacity-100" : "opacity-0"
-          }`}
-          id="top-bar-bg"
-        ></div>
-        <button
-          onClick={() => router.back()}
-          className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 backdrop-blur shadow-sm hover:bg-white active:scale-95 transition-all text-gray-900"
-        >
-          <span className="material-symbols-outlined">arrow_back</span>
-        </button>
-        <h2
-          className={`relative z-10 text-gray-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center truncate px-4 transition-opacity duration-300 ${
-            headerScrolled ? "opacity-100" : "opacity-0"
-          }`}
-          id="header-title"
-        >
-          {product.name}
-        </h2>
-        <div className="relative z-10 flex items-center gap-2">
-          <button className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 backdrop-blur shadow-sm hover:bg-white active:scale-95 transition-all text-text-main">
-            <span className="material-symbols-outlined">share</span>
-          </button>
-          <button
-            onClick={() => router.push("/home/cart")}
-            className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 backdrop-blur shadow-sm hover:bg-white active:scale-95 transition-all text-text-main"
-          >
-            <span className="material-symbols-outlined">shopping_cart</span>
-            {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
-                {totalItems}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Image Gallery */}
-      <div
-        className="relative w-full aspect-[4/5] bg-gray-100 group overflow-hidden rounded-b-[2.5rem] shadow-md z-0"
-        onMouseEnter={() => setIsSliderPaused(true)}
-        onMouseLeave={() => setIsSliderPaused(false)}
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background text-text-main font-display antialiased">
+      {/* Image Slider */}
+      <div 
+        className="relative w-full aspect-square bg-white overflow-hidden touch-none select-none"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEndHandler}
+        onTouchEnd={onTouchEnd}
+        style={{ touchAction: 'pan-x' }}
       >
         {allImages.length > 0 ? (
-          <div className="relative w-full h-full overflow-hidden">
-            {/* Current image */}
-            <div
-              className="absolute inset-0 w-full h-full bg-center bg-cover transition-all duration-300 ease-out scale-105"
+          <div className="relative w-full h-full">
+            {/* Image Container with smooth transform */}
+            <div 
+              className="absolute inset-0 flex"
               style={{
-                backgroundImage: `url('${allImages[selectedImageIndex]}')`,
-                transform: `translateX(${swipeOffset}px) scale(1.05)`,
+                transform: `translateX(calc(${-selectedImageIndex * 100}% + ${dragOffset}px))`,
+                transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                willChange: isDragging ? 'transform' : 'auto',
               }}
-            ></div>
-            {/* Previous image (for swipe effect) */}
-            {swipeOffset > 0 && selectedImageIndex > 0 && (
-              <div
-                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
-                style={{
-                  backgroundImage: `url('${allImages[selectedImageIndex - 1]}')`,
-                  transform: `translateX(${swipeOffset - 100}px) scale(1.05)`,
-                  opacity: Math.abs(swipeOffset) / 100,
-                }}
-              ></div>
+            >
+              {allImages.map((imageUrl, index) => (
+                <div
+                  key={index}
+                  className="w-full h-full flex-shrink-0 bg-center bg-cover"
+                  style={{ backgroundImage: `url('${imageUrl}')` }}
+                />
+              ))}
+            </div>
+            {/* Navigation Dots */}
+            {allImages.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                {allImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`h-2 rounded-full transition-all ${
+                      index === selectedImageIndex
+                        ? 'w-6 bg-white'
+                        : 'w-2 bg-white/50 hover:bg-white/75'
+                    }`}
+                  />
+                ))}
+              </div>
             )}
-            {/* Next image (for swipe effect) */}
-            {swipeOffset < 0 && selectedImageIndex < allImages.length - 1 && (
-              <div
-                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
-                style={{
-                  backgroundImage: `url('${allImages[selectedImageIndex + 1]}')`,
-                  transform: `translateX(${swipeOffset + 100}px) scale(1.05)`,
-                  opacity: Math.abs(swipeOffset) / 100,
-                }}
-              ></div>
-            )}
-            {/* First image when swiping right from first image */}
-            {swipeOffset < 0 && selectedImageIndex === 0 && allImages.length > 1 && (
-              <div
-                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
-                style={{
-                  backgroundImage: `url('${allImages[allImages.length - 1]}')`,
-                  transform: `translateX(${swipeOffset + 100}px) scale(1.05)`,
-                  opacity: Math.abs(swipeOffset) / 100,
-                }}
-              ></div>
-            )}
-            {/* Last image when swiping left from last image */}
-            {swipeOffset > 0 && selectedImageIndex === allImages.length - 1 && allImages.length > 1 && (
-              <div
-                className="absolute inset-0 w-full h-full bg-center bg-cover scale-105"
-                style={{
-                  backgroundImage: `url('${allImages[0]}')`,
-                  transform: `translateX(${swipeOffset - 100}px) scale(1.05)`,
-                  opacity: Math.abs(swipeOffset) / 100,
-                }}
-              ></div>
+            {/* Image Counter */}
+            {allImages.length > 1 && (
+              <div className="absolute bottom-4 right-4 bg-white/80 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm z-10">
+                {selectedImageIndex + 1}/{allImages.length}
+              </div>
             )}
           </div>
         ) : (
@@ -331,141 +255,68 @@ export default function ProductDetailClient() {
             📦
           </div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black/30 to-transparent"></div>
-        
-        {/* Image Dots Indicator */}
-        {allImages.length > 1 && (
-          <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2 p-1.5 rounded-full bg-black/20 backdrop-blur-md">
-            {allImages.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setSelectedImageIndex(index);
-                  setIsSliderPaused(true);
-                  setTimeout(() => setIsSliderPaused(false), 3000);
-                }}
-                className={`h-2 w-2 rounded-full transition-all duration-300 ${
-                  selectedImageIndex === index
-                    ? "bg-white shadow-sm w-6"
-                    : "bg-white/50 hover:bg-white/80"
-                }`}
-              ></button>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Product Info Card */}
-      <div className="flex flex-col gap-8 px-5 py-6 -mt-6 relative z-10">
-        <div className="flex flex-col gap-4 bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="bg-blue-50 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ring-1 ring-blue-100">
-                  {t("organic")}
-                </span>
-                <span className="bg-orange-50 text-orange-600 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ring-1 ring-orange-100">
-                  {t("bestSeller")}
-                </span>
-              </div>
-              <h1 className="text-2xl font-bold leading-tight tracking-tight text-gray-900">
-                {product.name}
-              </h1>
-            </div>
-            <button className="group flex size-12 shrink-0 items-center justify-center rounded-full bg-blue-50 hover:bg-red-50 active:scale-95 transition-all">
-              <span
-                className="material-symbols-outlined text-blue-300 group-hover:text-red-500 group-active:text-red-500 transition-colors"
-                style={{ fontVariationSettings: "'FILL' 0" }}
-              >
-                favorite
-              </span>
-            </button>
+      {/* Product Info */}
+      <div className="bg-white p-4 flex flex-col gap-2">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <span className="text-3xl font-bold text-orange-600">${formatPrice(product.price)}</span>
           </div>
-
-          <div className="flex flex-col gap-3 border-t border-dashed border-gray-200 pt-4">
-            <div className="flex flex-wrap items-baseline justify-between">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-extrabold text-primary">
-                  ${formatPrice(product.price)}
-                </span>
-              </div>
-              {product.shippingFee !== undefined && product.shippingFee > 0 && (
-                <div className="flex items-center gap-1 text-text-sub font-medium bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
-                  <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-                  <span className="text-xs">+ ${formatPrice(product.shippingFee)} {t("shippingFee")}</span>
-                </div>
-              )}
+          
+        </div>
+        <h1 className="text-xl font-semibold leading-tight text-text-main line-clamp-2">
+          <span className="bg-orange-600 text-white text-xs px-2 py-0.5 rounded mr-2 align-middle font-bold">{t("favorite")}</span>
+          {product.name}
+        </h1>
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center gap-1">
+            <div className="flex text-yellow-500 gap-0.5">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className="material-symbols-outlined text-base fill-current">star</span>
+              ))}
             </div>
-
-            {/* Stock Progress */}
-            {product.stock > 0 && (
-              <div className="flex flex-col gap-1.5 bg-slate-50 rounded-lg p-3">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-orange-600 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">timelapse</span>
-                    {t("lowStock").replace("{count}", product.stock.toString())}
-                  </span>
-                  <span className="text-gray-600">
-                    {t("soldPercentage").replace("{percentage}", soldPercentage.toString())}
-                  </span>
-                </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-red-500 shadow-sm"
-                    style={{ width: `${soldPercentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            )}
+            <span className="text-sm text-text-main border-l border-gray-300 pl-1.5 ml-1.5 font-medium">{rating}</span>
+            <span className="text-sm text-text-sub border-l border-gray-300 pl-1.5 ml-1.5">{t("sold")} {soldCount > 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount}</span>
           </div>
         </div>
+      </div>
 
-        {/* Feature Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1 rounded-2xl bg-blue-50/50 p-4 border border-blue-100">
-            <span className="material-symbols-outlined text-2xl text-primary mb-1">
-              trending_up
-            </span>
-            <p className="text-sm font-bold text-gray-900">{t("highCommission")}</p>
-            <p className="text-xs text-gray-500">
-              {t("highCommissionDesc").replace("{percentage}", commissionPercentage.toString())}
-            </p>
-          </div>
-          <div className="flex flex-col gap-1 rounded-2xl bg-gray-50 p-4 border border-gray-200">
-            <span className="material-symbols-outlined text-2xl text-blue-500 mb-1">
-              local_shipping
-            </span>
-            <p className="text-sm font-bold text-gray-900">{t("fastDelivery")}</p>
-            <p className="text-xs text-gray-500">
-              {t("fastDeliveryDesc").replace("{amount}", "20")}
-            </p>
+      {/* Product Details */}
+      <div className="mt-2 bg-white p-4 pb-24">
+        <h3 className="text-sm font-medium mb-3">{t("productDetails")}</h3>
+        <div className="flex flex-col gap-2">
+          {product.category && (
+            <div className="flex text-sm">
+              <span className="w-28 text-text-sub">{t("category")}</span>
+              <span className="text-blue-600">{product.category.name}</span>
+            </div>
+          )}
+          <div className="flex text-sm">
+            <span className="w-28 text-text-sub">{t("brand")}</span>
+            <span className="text-text-main">SafePalMall</span>
           </div>
         </div>
-
-        {/* Description */}
         {product.description && (
-          <div className="flex flex-col gap-3">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 border-l-4 border-primary pl-3">
-              {t("productDescription")}
-            </h3>
-            <div className="relative group bg-gray-50 rounded-xl p-4 border border-gray-200">
+          <div className="mt-4">
+            <div className="relative group">
               <div
-                className={`text-base leading-relaxed prose max-w-none ${
+                className={`text-sm text-text-sub leading-relaxed prose max-w-none ${
                   isDescriptionExpanded ? "" : "line-clamp-[10]"
                 }`}
                 dangerouslySetInnerHTML={{ __html: product.description || "" }}
               />
               {!isDescriptionExpanded && (product.description?.length || 0) > 500 && (
-                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-none z-10"></div>
               )}
               {(product.description?.length || 0) > 500 && (
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="mt-2 text-sm font-bold text-primary hover:text-primary-dark flex items-center gap-1 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-lg w-fit"
+                  className="relative z-20 w-full mt-4 flex items-center justify-center gap-1 text-orange-600 text-sm font-medium py-2 border-t border-gray-50 bg-white"
                 >
-                  {isDescriptionExpanded ? t("collapse") : t("viewDetails")}{" "}
+                  {isDescriptionExpanded ? t("collapse") : t("viewMore")}{" "}
                   <span
-                    className={`material-symbols-outlined text-sm transition-transform ${
+                    className={`material-symbols-outlined text-base transition-transform ${
                       isDescriptionExpanded ? "rotate-180" : ""
                     }`}
                   >
@@ -476,99 +327,72 @@ export default function ProductDetailClient() {
             </div>
           </div>
         )}
+      </div>
 
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div className="flex flex-col gap-4 border-t border-gray-100 pt-6">
-            <h3 className="text-lg font-bold text-text-main border-l-4 border-primary pl-3">
-              {t("relatedProducts")}
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {relatedProducts.map((relatedProduct) => (
-                <button
-                  key={relatedProduct.id}
-                  onClick={() => router.push(`/home/products/detail?id=${relatedProduct.id}`)}
-                  className="flex flex-col gap-2 bg-white rounded-xl shadow-soft p-3 border border-gray-100 active:scale-[0.98] transition-transform text-left"
-                >
-                  <div className="aspect-square w-full rounded-lg bg-gray-100 overflow-hidden">
-                    {relatedProduct.thumbnailUrl ? (
-                      <img
-                        src={relatedProduct.thumbnailUrl}
-                        alt={relatedProduct.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-4xl">
-                        📦
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <h4 className="text-sm font-bold text-gray-900 truncate">
-                      {relatedProduct.name}
-                    </h4>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-primary">
-                        ${formatPrice(relatedProduct.price)}
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="">
-        <div className="mx-auto w-full max-w-md">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 shrink-0 items-center rounded-2xl bg-gray-50 border border-gray-200 px-2 shadow-inner">
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                disabled={quantity <= 1}
-                className="flex size-10 items-center justify-center rounded-xl text-gray-500 hover:bg-white hover:shadow-sm transition-all active:scale-90 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-xl">remove</span>
-              </button>
-              <span className="w-10 text-center text-lg font-bold text-gray-900">{quantity}</span>
-              <button
-                onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                disabled={quantity >= product.stock}
-                className="flex size-10 items-center justify-center rounded-xl text-gray-900 hover:bg-white hover:shadow-sm transition-all active:scale-90 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-xl">add</span>
-              </button>
-            </div>
-            <button
-              onClick={(e) => handleAddToCart(e)}
-              disabled={product.stock === 0}
-              className={`flex h-14 flex-1 items-center justify-between rounded-2xl bg-primary px-6 font-bold text-white shadow-lg shadow-purple-500/30 active:scale-[0.95] transition-all hover:bg-primary-dark group overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed ${addToCartAnimating ? 'animate-pulse ring-4 ring-purple-300' : ''}`}
-            >
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              {addToCartAnimating && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-2xl animate-bounce">check_circle</span>
-                </div>
-              )}
-              <span className={`flex items-center gap-2 relative z-10 transition-opacity ${addToCartAnimating ? 'opacity-0' : 'opacity-100'}`}>
-                <span className="material-symbols-outlined">shopping_cart</span>
-                {t("addToCart")}
-              </span>
-              <span className={`relative z-10 text-lg transition-opacity ${addToCartAnimating ? 'opacity-0' : 'opacity-100'}`}>${formatPrice(product.price * quantity)}</span>
-            </button>
-          </div>
+      {/* Action Buttons - Above bottom nav */}
+      <div className="fixed bottom-24 left-0 right-0 z-[75] px-4 pb-2">
+        <div className="max-w-md mx-auto flex gap-2">
+          <button
+            onClick={handleAddToCart}
+            disabled={product.stock === 0}
+            className="flex-1 flex items-center justify-center gap-2 bg-orange-50 text-orange-600 font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-orange-100 transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
+            <span className="text-sm">{t("addToCartButton")}</span>
+          </button>
+          <button
+            onClick={handleBuyNow}
+            disabled={product.stock === 0}
+            className="flex-1 flex items-center justify-center gap-2 bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-orange-700 transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">shopping_bag</span>
+            <span className="text-sm">{t("buyNowButton")}</span>
+          </button>
         </div>
       </div>
-      </div>
 
-      {/* Success Notification */}
-      {showSuccess && (
-        <div className="fixed top-20 left-1/2 z-[120] -translate-x-1/2 transform">
-          <div className="rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-lg">
-            {t("addedToCart").replace("{quantity}", quantity.toString())}
+      {/* Related Products */}
+      {relatedProducts.length > 0 && (
+        <div className="mt-2 bg-white p-4 pb-24">
+          <h3 className="text-base font-medium mb-3">{t("relatedProducts")}</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {relatedProducts.map((relatedProduct) => (
+              <button
+                key={relatedProduct.id}
+                onClick={() => router.push(`/home/products/detail?id=${relatedProduct.id}`)}
+                className="bg-white border border-gray-100 flex flex-col text-left"
+              >
+                <div className="aspect-square w-full bg-cover bg-center" style={{
+                  backgroundImage: relatedProduct.thumbnailUrl ? `url('${relatedProduct.thumbnailUrl}')` : 'none',
+                  backgroundColor: '#f5f5f5'
+                }}></div>
+                <div className="p-2 flex flex-col gap-1">
+                  <span className="text-xs text-text-main line-clamp-2">{relatedProduct.name}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-orange-600">${formatPrice(relatedProduct.price)}</span>
+                    <span className="text-[10px] text-text-sub">{t("sold")} {relatedProduct.soldCount || 0}</span>
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}
+
+      {/* Bottom Fixed Bar - Chat only */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex h-[60px]">
+        <button className="flex flex-1 flex-col items-center justify-center border-r border-gray-50 hover:bg-gray-50 transition-colors">
+          <span className="material-symbols-outlined text-orange-600 text-2xl">chat_bubble_outline</span>
+          <span className="text-[10px] text-text-main mt-0.5">{t("chatNow")}</span>
+        </button>
+        <div className="flex-[2] flex items-center justify-center text-text-sub text-xs">
+          {product.stock > 0 ? (
+            <span className="text-green-600 font-medium">{t("stockAvailable")}</span>
+          ) : (
+            <span className="text-red-600 font-medium">{t("outOfStock")}</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

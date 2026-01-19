@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
+import { Order, OrderStatus } from '../order/entities/order.entity';
 import { CreateProductDto, UpdateProductDto } from './dto';
 
 @Injectable()
@@ -9,7 +10,35 @@ export class ProductService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
   ) {}
+
+  /**
+   * Calculate sold count for a product from orders
+   */
+  private async calculateSoldCount(productId: string): Promise<number> {
+    const orders = await this.orderRepository.find({
+      where: [
+        { status: OrderStatus.CONFIRMED },
+        { status: OrderStatus.PROCESSING },
+        { status: OrderStatus.SHIPPED },
+        { status: OrderStatus.DELIVERED },
+      ],
+    });
+
+    let soldCount = 0;
+    for (const order of orders) {
+      const items = order.items || [];
+      for (const item of items) {
+        if (item.productId === productId) {
+          soldCount += item.quantity || 0;
+        }
+      }
+    }
+
+    return soldCount;
+  }
 
   async findAll(query: any) {
     // Build query with relations
@@ -32,7 +61,18 @@ export class ProductService {
       });
     }
 
-    return allProducts;
+    // Calculate sold count for each product
+    const productsWithSoldCount = await Promise.all(
+      allProducts.map(async (product) => {
+        const soldCount = await this.calculateSoldCount(product.id);
+        return {
+          ...product,
+          soldCount,
+        };
+      })
+    );
+
+    return productsWithSoldCount;
   }
 
   async findOne(id: string) {
@@ -43,7 +83,14 @@ export class ProductService {
     if (!product) {
       throw new NotFoundException('Product not found');
     }
-    return product;
+    
+    // Calculate sold count
+    const soldCount = await this.calculateSoldCount(id);
+    
+    return {
+      ...product,
+      soldCount,
+    };
   }
 
   async create(createProductDto: CreateProductDto) {
