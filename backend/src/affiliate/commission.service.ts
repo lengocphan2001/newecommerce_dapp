@@ -338,6 +338,13 @@ export class CommissionService {
     for (const ancestor of ancestors) {
       if (ancestor.packageType === 'NONE') continue;
 
+      // Kiểm tra xem ancestor có đủ cả 2 nhánh trái và phải không
+      const hasBothBranches = await this.hasBothBranches(ancestor.id);
+      if (!hasBothBranches) {
+        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} does not have both left and right branches, skipping group commission`);
+        continue;
+      }
+
       // Xác định buyer thuộc nhánh nào của ancestor
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
       
@@ -688,6 +695,22 @@ export class CommissionService {
       return 'left';
     }
     return 'right';
+  }
+
+  /**
+   * Kiểm tra xem user có đủ cả 2 nhánh trái và phải không
+   * Trả về true nếu có cả left child và right child, false nếu thiếu một trong hai
+   */
+  private async hasBothBranches(userId: string): Promise<boolean> {
+    const leftChild = await this.userRepository.findOne({
+      where: { parentId: userId, position: 'left' },
+    });
+
+    const rightChild = await this.userRepository.findOne({
+      where: { parentId: userId, position: 'right' },
+    });
+
+    return !!(leftChild && rightChild);
   }
 
   /**

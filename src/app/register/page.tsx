@@ -343,21 +343,6 @@ function RegisterForm() {
             </select>
           </div>
 
-          {/* Address */}
-          <div>
-            <label htmlFor="address" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("address")}
-            </label>
-            <input
-              type="text"
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder={t("enterAddress")}
-            />
-          </div>
-
           {/* Phone Number */}
           <div>
             <label htmlFor="phoneNumber" className="mb-1 block text-sm font-medium text-zinc-700">
@@ -373,6 +358,23 @@ function RegisterForm() {
               required
             />
           </div>
+
+          {/* Address */}
+          <div>
+            <label htmlFor="address" className="mb-1 block text-sm font-medium text-zinc-700">
+              {t("address")}
+            </label>
+            <input
+              type="text"
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder={t("enterAddress")}
+            />
+          </div>
+
+          
 
           {/* Email */}
           <div>
