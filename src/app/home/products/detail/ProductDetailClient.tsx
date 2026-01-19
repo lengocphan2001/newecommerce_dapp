@@ -222,9 +222,25 @@ export default function ProductDetailClient() {
               {allImages.map((imageUrl, index) => (
                 <div
                   key={index}
-                  className="w-full h-full flex-shrink-0 bg-center bg-cover"
-                  style={{ backgroundImage: `url('${imageUrl}')` }}
-                />
+                  className="w-full h-full flex-shrink-0 relative bg-white"
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`Product image ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    style={{
+                      imageRendering: 'auto',
+                      WebkitImageRendering: 'auto',
+                      backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
+                      transform: 'translateZ(0)',
+                      WebkitTransform: 'translateZ(0)',
+                    }}
+                    loading={index === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    fetchPriority={index === 0 ? 'high' : 'auto'}
+                  />
+                </div>
               ))}
             </div>
             {/* Navigation Dots */}
