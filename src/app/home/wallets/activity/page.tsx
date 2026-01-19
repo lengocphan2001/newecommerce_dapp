@@ -23,6 +23,7 @@ interface ActivityItem {
   date: Date;
   orderId?: string;
   fromUserId?: string;
+  fromUsername?: string;
 }
 
 type TabType = 'all' | 'shopping' | 'commission' | 'system';
@@ -113,7 +114,7 @@ export default function ActivityPage() {
           id: activity.id,
           type: 'commission',
           title: commissionType, // Use the calculated commissionType directly
-          description: `${formatTime(activity.createdAt)} • ${activity.fromUserId ? `${t("fromMember")} ${activity.fromUserId.slice(-6)}` : ''}`,
+          description: `${formatTime(activity.createdAt)} • ${activity.fromUsername ? `${t("fromMember")}: ${activity.fromUsername}` : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '')}`,
           amount: parseFloat(activity.amount),
           amountLabel: `+$${Number(activity.amount).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}`,
           status: 'Đã cộng',
@@ -123,6 +124,7 @@ export default function ActivityPage() {
           iconBgColor: activityType === 'GROUP' ? 'bg-amber-500/10' : 'bg-amber-500/10',
           date: new Date(activity.createdAt),
           fromUserId: activity.fromUserId,
+          fromUsername: activity.fromUsername,
         });
       });
     }

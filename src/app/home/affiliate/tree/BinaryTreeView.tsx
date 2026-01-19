@@ -17,6 +17,7 @@ interface TreeNode {
   rightBranchTotal?: number;
   totalPurchaseAmount?: number;
   createdAt?: string;
+  depth?: number;
 }
 
 export default function BinaryTreeView() {
@@ -29,6 +30,7 @@ export default function BinaryTreeView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [myReferralCode, setMyReferralCode] = useState("");
 
   useEffect(() => {
     fetchTreeData();
@@ -38,6 +40,7 @@ export default function BinaryTreeView() {
     try {
       setLoading(true);
       const info = await api.getReferralInfo();
+      setMyReferralCode(info.referralCode || "");
       
       // Format members data
       const leftMembers = (info.treeStats?.left?.members || []).map((member: any) => ({
@@ -51,6 +54,7 @@ export default function BinaryTreeView() {
         rightBranchTotal: typeof member.rightBranchTotal === 'number' ? member.rightBranchTotal : parseFloat(member.rightBranchTotal || '0') || 0,
         totalPurchaseAmount: typeof member.totalPurchaseAmount === 'number' ? member.totalPurchaseAmount : parseFloat(member.totalPurchaseAmount || '0') || 0,
         createdAt: member.createdAt,
+        depth: member.depth || 1,
       }));
 
       const rightMembers = (info.treeStats?.right?.members || []).map((member: any) => ({
@@ -64,6 +68,7 @@ export default function BinaryTreeView() {
         rightBranchTotal: typeof member.rightBranchTotal === 'number' ? member.rightBranchTotal : parseFloat(member.rightBranchTotal || '0') || 0,
         totalPurchaseAmount: typeof member.totalPurchaseAmount === 'number' ? member.totalPurchaseAmount : parseFloat(member.totalPurchaseAmount || '0') || 0,
         createdAt: member.createdAt,
+        depth: member.depth || 1,
       }));
 
       setTreeData({
@@ -225,32 +230,48 @@ export default function BinaryTreeView() {
               {treeData.left.members.map((member) => (
                 <div
                   key={member.id}
-                  className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2"
+                  className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 relative overflow-hidden"
+                  style={{ 
+                    marginLeft: `${(member.depth || 1) > 1 ? (member.depth! - 1) * 8 : 0}px`,
+                    borderColor: (member.depth || 1) > 1 ? '#e2e8f0' : '#135bec20'
+                  }}
                 >
+                  {(member.depth || 1) > 1 && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-100"></div>
+                  )}
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-sm">person</span>
+                    <span className="material-symbols-outlined text-primary text-sm">
+                      {member.packageType === 'NPP' ? 'workspace_premium' : member.packageType === 'CTV' ? 'stars' : 'person'}
+                    </span>
                   </div>
                   <div className="min-w-0 overflow-hidden flex-1">
                     <p className="text-[11px] font-bold truncate text-text-dark">
                       {member.fullName || member.username}
                     </p>
-                    <p className="text-[9px] text-gray-400">{t("memberId")} {member.username}</p>
-                    {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
-                      <p className="text-[9px] text-primary-dark font-semibold">
-                        ${formatPrice(member.totalPurchaseAmount)}
-                      </p>
-                    )}
-                    {member.createdAt && (
-                      <p className="text-[9px] text-gray-400 mt-0.5">
-                        {formatDate(member.createdAt)}
-                      </p>
-                    )}
+                    <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[8px] px-1 rounded font-bold ${
+                        member.packageType === 'NPP' ? 'bg-purple-100 text-purple-700' : 
+                        member.packageType === 'CTV' ? 'bg-blue-100 text-blue-700' : 
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {member.packageType === 'NONE' ? 'USER' : member.packageType}
+                      </span>
+                      {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
+                        <p className="text-[9px] text-emerald-600 font-bold">
+                          ${formatPrice(member.totalPurchaseAmount)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
               
               {/* Add Member Button */}
-              <button className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
+              <button 
+                onClick={() => router.push(`/register?ref=${myReferralCode}&leg=left`)}
+                className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
+              >
                 <span className="material-symbols-outlined text-primary text-xl">add_circle</span>
                 <span className="text-[10px] font-bold text-primary uppercase">{t("addMember")}</span>
               </button>
@@ -279,32 +300,48 @@ export default function BinaryTreeView() {
               {treeData.right.members.map((member) => (
                 <div
                   key={member.id}
-                  className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2"
+                  className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 relative overflow-hidden"
+                  style={{ 
+                    marginLeft: `${(member.depth || 1) > 1 ? (member.depth! - 1) * 8 : 0}px`,
+                    borderColor: (member.depth || 1) > 1 ? '#e2e8f0' : '#135bec20'
+                  }}
                 >
+                  {(member.depth || 1) > 1 && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-100"></div>
+                  )}
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-sm">person</span>
+                    <span className="material-symbols-outlined text-primary text-sm">
+                      {member.packageType === 'NPP' ? 'workspace_premium' : member.packageType === 'CTV' ? 'stars' : 'person'}
+                    </span>
                   </div>
                   <div className="min-w-0 overflow-hidden flex-1">
                     <p className="text-[11px] font-bold truncate text-text-dark">
                       {member.fullName || member.username}
                     </p>
-                    <p className="text-[9px] text-gray-400">{t("memberId")} {member.username}</p>
-                    {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
-                      <p className="text-[9px] text-primary-dark font-semibold">
-                        ${formatPrice(member.totalPurchaseAmount)}
-                      </p>
-                    )}
-                    {member.createdAt && (
-                      <p className="text-[9px] text-gray-400 mt-0.5">
-                        {formatDate(member.createdAt)}
-                      </p>
-                    )}
+                    <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[8px] px-1 rounded font-bold ${
+                        member.packageType === 'NPP' ? 'bg-purple-100 text-purple-700' : 
+                        member.packageType === 'CTV' ? 'bg-blue-100 text-blue-700' : 
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {member.packageType === 'NONE' ? 'USER' : member.packageType}
+                      </span>
+                      {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
+                        <p className="text-[9px] text-emerald-600 font-bold">
+                          ${formatPrice(member.totalPurchaseAmount)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
               
               {/* Add Member Button */}
-              <button className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform">
+              <button 
+                onClick={() => router.push(`/register?ref=${myReferralCode}&leg=right`)}
+                className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
+              >
                 <span className="material-symbols-outlined text-primary text-xl">add_circle</span>
                 <span className="text-[10px] font-bold text-primary uppercase">{t("addMember")}</span>
               </button>

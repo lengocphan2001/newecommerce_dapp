@@ -36,6 +36,7 @@ export default function AffiliatePage() {
       status: string;
       createdAt: string;
       fromUserId?: string;
+      fromUsername?: string;
     }>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -675,17 +676,12 @@ export default function AffiliatePage() {
                     }
                   };
 
-                  const getActivitySubtitle = (type: string) => {
-                    switch (type) {
-                      case "DIRECT":
-                        return t("fromDirectReferral");
-                      case "GROUP":
-                        return t("fromBinaryNetwork");
-                      case "MANAGEMENT":
-                        return t("fromTeamPerformance");
-                      default:
-                        return t("commissionReceived");
-                    }
+                  const getActivitySubtitle = (activity: any) => {
+                    const fromInfo = activity.fromUsername 
+                      ? `${t("fromMember")}: ${activity.fromUsername}` 
+                      : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
+                    
+                    return fromInfo;
                   };
 
                   const formatTimeAgo = (dateString: string) => {
@@ -733,7 +729,7 @@ export default function AffiliatePage() {
                             )}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {isBlocked ? (t("reconsumptionRequired") || "Cần tái tiêu dùng") : getActivitySubtitle(activity.type)}
+                            {isBlocked ? (t("reconsumptionRequired") || "Cần tái tiêu dùng") : getActivitySubtitle(activity)}
                           </p>
                         </div>
                       </div>

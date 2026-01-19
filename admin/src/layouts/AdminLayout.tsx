@@ -15,6 +15,8 @@ import {
   DollarOutlined,
   ThunderboltOutlined,
   SettingOutlined,
+  AppstoreOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -44,6 +46,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       key: '/products',
       icon: <ShoppingOutlined />,
       label: 'Products',
+    },
+    {
+      key: '/categories',
+      icon: <AppstoreOutlined />,
+      label: 'Categories',
+    },
+    {
+      key: '/sliders',
+      icon: <PictureOutlined />,
+      label: 'Sliders',
     },
     {
       key: '/orders',
@@ -128,7 +140,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={location.pathname ? [location.pathname] : []}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />

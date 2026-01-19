@@ -31,7 +31,9 @@ const CommissionConfigPage: React.FC = () => {
   const loadConfigs = useCallback(async () => {
     try {
       setLoading(true);
-      const configs = await commissionConfigService.getAll();
+      const response = await commissionConfigService.getAll();
+      // Ensure configs is always an array
+      const configs = Array.isArray(response) ? response : [];
       const ctv = configs.find((c) => c.packageType === 'CTV');
       const npp = configs.find((c) => c.packageType === 'NPP');
 
@@ -95,8 +97,21 @@ const CommissionConfigPage: React.FC = () => {
 
       if (ctvConfig) {
         // Update existing config
-        await commissionConfigService.update(ctvConfig.id, updateData);
+        const updated = await commissionConfigService.update(ctvConfig.id, updateData);
         message.success('CTV config updated successfully');
+        // Update local state immediately
+        setCtvConfig(updated);
+        // Update form with new values
+        ctvForm.setFieldsValue({
+          directRate: updated.directRate * 100,
+          groupRate: updated.groupRate * 100,
+          managementRateF1: updated.managementRateF1 * 100,
+          managementRateF2: updated.managementRateF2 ? updated.managementRateF2 * 100 : null,
+          managementRateF3: updated.managementRateF3 ? updated.managementRateF3 * 100 : null,
+          packageValue: updated.packageValue,
+          reconsumptionThreshold: updated.reconsumptionThreshold,
+          reconsumptionRequired: updated.reconsumptionRequired,
+        });
       } else {
         // Create new config if it doesn't exist
         const createData: CreateCommissionConfigDto = {
@@ -105,8 +120,8 @@ const CommissionConfigPage: React.FC = () => {
         };
         await commissionConfigService.create(createData);
         message.success('CTV config created successfully');
+        await loadConfigs();
       }
-      await loadConfigs();
     } catch (error: any) {
       message.error('Failed to save CTV config: ' + (error.message || 'Unknown error'));
     } finally {
@@ -130,8 +145,21 @@ const CommissionConfigPage: React.FC = () => {
 
       if (nppConfig) {
         // Update existing config
-        await commissionConfigService.update(nppConfig.id, updateData);
+        const updated = await commissionConfigService.update(nppConfig.id, updateData);
         message.success('NPP config updated successfully');
+        // Update local state immediately
+        setNppConfig(updated);
+        // Update form with new values
+        nppForm.setFieldsValue({
+          directRate: updated.directRate * 100,
+          groupRate: updated.groupRate * 100,
+          managementRateF1: updated.managementRateF1 * 100,
+          managementRateF2: updated.managementRateF2 ? updated.managementRateF2 * 100 : null,
+          managementRateF3: updated.managementRateF3 ? updated.managementRateF3 * 100 : null,
+          packageValue: updated.packageValue,
+          reconsumptionThreshold: updated.reconsumptionThreshold,
+          reconsumptionRequired: updated.reconsumptionRequired,
+        });
       } else {
         // Create new config if it doesn't exist
         const createData: CreateCommissionConfigDto = {
@@ -140,8 +168,8 @@ const CommissionConfigPage: React.FC = () => {
         };
         await commissionConfigService.create(createData);
         message.success('NPP config created successfully');
+        await loadConfigs();
       }
-      await loadConfigs();
     } catch (error: any) {
       message.error('Failed to save NPP config: ' + (error.message || 'Unknown error'));
     } finally {
@@ -186,7 +214,15 @@ const CommissionConfigPage: React.FC = () => {
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -203,7 +239,15 @@ const CommissionConfigPage: React.FC = () => {
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -220,7 +264,15 @@ const CommissionConfigPage: React.FC = () => {
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -242,7 +294,15 @@ const CommissionConfigPage: React.FC = () => {
                       min={0}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `$ ${value}`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '$ ';
+                        const strValue = String(value);
+                        if (strValue === '') return '$ ';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '$ ';
+                        return `$ ${num.toFixed(4)}`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('$ ', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -258,7 +318,15 @@ const CommissionConfigPage: React.FC = () => {
                       min={0}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `$ ${value}`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '$ ';
+                        const strValue = String(value);
+                        if (strValue === '') return '$ ';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '$ ';
+                        return `$ ${num.toFixed(4)}`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('$ ', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -274,7 +342,15 @@ const CommissionConfigPage: React.FC = () => {
                       min={0}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `$ ${value}`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '$ ';
+                        const strValue = String(value);
+                        if (strValue === '') return '$ ';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '$ ';
+                        return `$ ${num.toFixed(4)}`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('$ ', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -321,7 +397,15 @@ const CommissionConfigPage: React.FC = () => {
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -338,7 +422,15 @@ const CommissionConfigPage: React.FC = () => {
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -355,7 +447,15 @@ const CommissionConfigPage: React.FC = () => {
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -365,13 +465,22 @@ const CommissionConfigPage: React.FC = () => {
                   <Form.Item
                     label="Management Rate (F2)"
                     name="managementRateF2"
+                    rules={[]}
                   >
                     <InputNumber
                       min={0}
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -381,13 +490,22 @@ const CommissionConfigPage: React.FC = () => {
                   <Form.Item
                     label="Management Rate (F3)"
                     name="managementRateF3"
+                    rules={[]}
                   >
                     <InputNumber
                       min={0}
                       max={100}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `${value}%`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '';
+                        const strValue = String(value);
+                        if (strValue === '') return '';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '';
+                        return `${num.toFixed(4)}%`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('%', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -409,7 +527,15 @@ const CommissionConfigPage: React.FC = () => {
                       min={0}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `$ ${value}`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '$ ';
+                        const strValue = String(value);
+                        if (strValue === '') return '$ ';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '$ ';
+                        return `$ ${num.toFixed(4)}`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('$ ', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -425,7 +551,15 @@ const CommissionConfigPage: React.FC = () => {
                       min={0}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `$ ${value}`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '$ ';
+                        const strValue = String(value);
+                        if (strValue === '') return '$ ';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '$ ';
+                        return `$ ${num.toFixed(4)}`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('$ ', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />
@@ -441,7 +575,15 @@ const CommissionConfigPage: React.FC = () => {
                       min={0}
                       step={0.0001}
                       precision={4}
-                      formatter={(value) => `$ ${value}`}
+                      stringMode
+                      formatter={(value) => {
+                        if (!value) return '$ ';
+                        const strValue = String(value);
+                        if (strValue === '') return '$ ';
+                        const num = parseFloat(strValue);
+                        if (isNaN(num)) return '$ ';
+                        return `$ ${num.toFixed(4)}`;
+                      }}
                       parser={(value) => (parseFloat(value!.replace('$ ', '')) || 0) as any}
                       style={{ width: '100%' }}
                     />

@@ -9,7 +9,19 @@ import { handleAuthError } from "@/app/utils/auth";
 export default function ProfilePage() {
   const router = useRouter();
   const { t } = useI18n();
-  const [userInfo, setUserInfo] = useState<{ fullName?: string; username?: string; avatar?: string } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ 
+    fullName?: string; 
+    username?: string; 
+    avatar?: string;
+    packageType?: string;
+    accumulatedPurchases?: string;
+    bonusCommission?: string;
+    maxCommission?: string;
+    treeStats?: {
+      left: { count: number };
+      right: { count: number };
+    };
+  } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,11 +120,43 @@ export default function ProfilePage() {
             </div>
             <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm"></div>
           </div>
-          <div className="mt-4 text-center">
+          <div className="mt-4 text-center w-full">
             <h2 className="text-2xl font-bold text-slate-900">{userInfo?.fullName || "Nguyễn Văn A"}</h2>
-            <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
-              <span className="bg-blue-50 text-[#135bec] text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Active</span>
+            <div className="flex flex-col items-center gap-2 mt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
+                <span className="bg-blue-50 text-[#135bec] text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  {userInfo?.packageType === 'NONE' ? 'User' : userInfo?.packageType}
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-3 gap-3 mt-6 w-full max-w-sm mx-auto">
+              <div className="bg-blue-50/50 rounded-2xl p-3 border border-blue-100/50">
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight mb-1">{t("affiliateAccumulatedPurchases")}</p>
+                <p className="text-sm font-black text-slate-900 truncate">${userInfo?.accumulatedPurchases || "0.00"}</p>
+              </div>
+              <div className="bg-emerald-50/50 rounded-2xl p-3 border border-emerald-100/50">
+                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight mb-1">{t("commission")}</p>
+                <p className="text-sm font-black text-slate-900 truncate">${userInfo?.bonusCommission || "0.00"}</p>
+              </div>
+              <div className="bg-purple-50/50 rounded-2xl p-3 border border-purple-100/50">
+                <p className="text-[10px] font-bold text-purple-600 uppercase tracking-tight mb-1">{t("maximum")}</p>
+                <p className="text-sm font-black text-slate-900 truncate">${userInfo?.maxCommission || "0.00"}</p>
+              </div>
+            </div>
+
+            {/* Branch Members Stats */}
+            <div className="flex items-center justify-center gap-4 mt-4 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 text-slate-500 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                <span className="material-symbols-outlined text-sm">group</span>
+                {t("affiliateLeftBranchLabel")}: <span className="text-[#135bec]">{userInfo?.treeStats?.left?.count || 0}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-500 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
+                <span className="material-symbols-outlined text-sm">group</span>
+                {t("affiliateRightBranchLabel")}: <span className="text-[#135bec]">{userInfo?.treeStats?.right?.count || 0}</span>
+              </div>
             </div>
             
             {walletAddress ? (

@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { KycModule } from './kyc/kyc.module';
 import { ProductModule } from './product/product.module';
+import { CategoryModule } from './category/category.module';
 import { OrderModule } from './order/order.module';
 import { WalletModule } from './wallet/wallet.module';
 import { AffiliateModule } from './affiliate/affiliate.module';
@@ -23,6 +24,9 @@ import { AuditLog } from './audit-log/entities/audit-log.entity';
 import { CommissionConfig } from './admin/entities/commission-config.entity';
 import { MilestoneRewardConfig } from './admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from './admin/entities/user-milestone.entity';
+import { Category } from './category/entities/category.entity';
+import { Slider } from './slider/entities/slider.entity';
+import { SliderModule } from './slider/slider.module';
 import { UploadModule } from './upload/upload.module';
 
 @Module({
@@ -47,7 +51,7 @@ import { UploadModule } from './upload/upload.module';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone],
+        entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone, Category, Slider],
         synchronize: 
           configService.get<string>('FORCE_SYNC') === 'true' || 
           configService.get<string>('NODE_ENV') !== 'production',
@@ -59,7 +63,9 @@ import { UploadModule } from './upload/upload.module';
     AuthModule,
     UserModule,
     KycModule,
+    CategoryModule,
     ProductModule,
+    SliderModule,
     OrderModule,
     WalletModule,
     AffiliateModule,

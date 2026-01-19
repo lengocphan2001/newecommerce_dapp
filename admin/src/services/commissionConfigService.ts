@@ -41,7 +41,14 @@ export interface UpdateCommissionConfigDto {
 export const commissionConfigService = {
   async getAll(): Promise<CommissionConfig[]> {
     const response = await api.get('/admin/commission-config');
-    return response.data;
+    // Handle different response formats
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return [];
   },
 
   async getById(id: string): Promise<CommissionConfig> {

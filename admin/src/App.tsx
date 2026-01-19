@@ -4,6 +4,8 @@ import AdminLayout from './layouts/AdminLayout';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Products from './pages/Products';
+import Categories from './pages/Categories';
+import Sliders from './pages/Sliders';
 import Orders from './pages/Orders';
 import KYC from './pages/KYC';
 import Wallet from './pages/Wallet';
@@ -63,6 +65,26 @@ function App() {
             <PrivateRoute>
               <AdminLayout>
                 <Products />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <Categories />
+              </AdminLayout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/sliders"
+          element={
+            <PrivateRoute>
+              <AdminLayout>
+                <Sliders />
               </AdminLayout>
             </PrivateRoute>
           }

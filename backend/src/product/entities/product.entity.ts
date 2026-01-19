@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Category } from '../../category/entities/category.entity';
 
 @Entity('products')
 export class Product {
@@ -57,6 +60,13 @@ export class Product {
   // Store array of countries as JSON (product can be available in multiple countries)
   @Column({ type: 'simple-json', nullable: true })
   countries?: string[]; // Array of 'VIETNAM' | 'USA'
+
+  @Column({ nullable: true })
+  categoryId?: string;
+
+  @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'categoryId' })
+  category?: Category;
 
   @CreateDateColumn()
   createdAt: Date;

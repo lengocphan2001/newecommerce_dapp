@@ -344,7 +344,7 @@ export type I18nKey =
   | "walletNotFound"
   | "cannotConnectWallet";
 
-export const DEFAULT_LANG: Lang = "vi";
+export const DEFAULT_LANG: Lang = "en";
 
 export const DICT: Record<Lang, Record<I18nKey, string>> = {
   vi: {
@@ -364,7 +364,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     navOrders: "Đơn hàng",
     navProfile: "Cá nhân",
     navAffiliate: "Đội nhóm",
-    navShopping: "Mua sắm",
+    navShopping: "Giỏ hàng",
     navWallets: "Ví",
     navAccount: "Tài khoản",
     langLabel: "Ngôn ngữ",
@@ -570,7 +570,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     noRecentActivity: "Không có hoạt động gần đây",
     totalNetWorth: "Tổng tài sản",
     connectedToSafePal: "Đã kết nối ví SafePalMall",
-    shopping: "Mua sắm",
+    shopping: "Giỏ hàng",
     affiliate: "Liên kết",
     assets: "Tài sản",
     recentActivityTitle: "Hoạt động gần đây",

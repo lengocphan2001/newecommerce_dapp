@@ -12,14 +12,21 @@ export class ProductService {
   ) {}
 
   async findAll(query: any) {
-    // Load all products first (since filtering JSON arrays in SQL is complex)
-    const allProducts = await this.productRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+    // Build query with relations
+    const queryBuilder = this.productRepository.createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .orderBy('product.createdAt', 'DESC');
+
+    // Filter by category if provided
+    if (query.categoryId) {
+      queryBuilder.where('product.categoryId = :categoryId', { categoryId: query.categoryId });
+    }
+
+    let allProducts = await queryBuilder.getMany();
 
     // Filter by country if provided (check if countries array contains the country)
     if (query.country && (query.country === 'VIETNAM' || query.country === 'USA')) {
-      return allProducts.filter((product) => {
+      allProducts = allProducts.filter((product) => {
         const countries = product.countries || [];
         return Array.isArray(countries) && countries.includes(query.country);
       });
@@ -29,7 +36,10 @@ export class ProductService {
   }
 
   async findOne(id: string) {
-    const product = await this.productRepository.findOne({ where: { id } });
+    const product = await this.productRepository.findOne({ 
+      where: { id },
+      relations: ['category'],
+    });
     if (!product) {
       throw new NotFoundException('Product not found');
     }

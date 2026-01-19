@@ -248,7 +248,7 @@ export default function WalletsPage() {
   // Assets list
   const assets: Asset[] = [
     {
-      symbol: "GRC",
+      symbol: "SFPM",
       name: "USDT",
       balance: affiliateBalance,
       usdValue: affiliateBalance,

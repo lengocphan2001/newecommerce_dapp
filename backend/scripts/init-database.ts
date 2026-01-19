@@ -14,6 +14,8 @@ import * as dotenv from 'dotenv';
 import { User } from '../src/user/entities/user.entity';
 import { Address } from '../src/user/entities/address.entity';
 import { Product } from '../src/product/entities/product.entity';
+import { Category } from '../src/category/entities/category.entity';
+import { Slider } from '../src/slider/entities/slider.entity';
 import { Order } from '../src/order/entities/order.entity';
 import { Commission } from '../src/affiliate/entities/commission.entity';
 import { AuditLog } from '../src/audit-log/entities/audit-log.entity';
@@ -51,7 +53,7 @@ async function initializeDatabase() {
   
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [User, Address, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone],
+    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
   });

@@ -9,6 +9,23 @@ import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+}
+
+interface Slider {
+  id: string;
+  imageUrl: string;
+  title?: string;
+  description?: string;
+  linkUrl?: string;
+  order: number;
+  isActive: boolean;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -19,6 +36,8 @@ interface Product {
   thumbnailUrl?: string;
   detailImageUrls?: string[];
   countries?: ('VIETNAM' | 'USA')[];
+  categoryId?: string;
+  category?: Category;
   createdAt: string;
 }
 
@@ -32,6 +51,10 @@ export default function HomePage() {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [selectedCountry, setSelectedCountry] = useState<'VIETNAM' | 'USA' | null>('VIETNAM');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [sliders, setSliders] = useState<Slider[]>([]);
+  const [currentSliderIndex, setCurrentSliderIndex] = useState(0);
   const [flagImageError, setFlagImageError] = useState<{ vietnam: boolean; usa: boolean }>({
     vietnam: false,
     usa: false,
@@ -40,13 +63,42 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
+    fetchSliders();
     loadWalletInfo();
     loadReferralInfo();
   }, []);
 
   useEffect(() => {
+    if (sliders.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentSliderIndex((prev) => (prev + 1) % sliders.length);
+      }, 5000); // Auto slide every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [sliders.length]);
+
+  useEffect(() => {
     fetchProducts();
-  }, [selectedCountry]);
+  }, [selectedCountry, selectedCategoryId]);
+
+  const fetchCategories = async () => {
+    try {
+      const data = await api.getCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch categories');
+    }
+  };
+
+  const fetchSliders = async () => {
+    try {
+      const data = await api.getSliders(true);
+      setSliders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch sliders');
+    }
+  };
 
   const loadWalletInfo = () => {
     if (typeof window !== "undefined") {
@@ -70,18 +122,12 @@ export default function HomePage() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      // Fetch all products, then filter by selected country on frontend
-      const data = await api.getProducts();
+      // Fetch products with filters
+      const data = await api.getProducts(selectedCountry || undefined, selectedCategoryId || undefined);
       let filtered = Array.isArray(data) ? data : [];
       
-      // Default: only show Vietnam products if no country selected
-      if (!selectedCountry) {
-        filtered = filtered.filter((product) => {
-          const productCountries = product.countries || [];
-          return Array.isArray(productCountries) && productCountries.includes('VIETNAM');
-        });
-      } else {
-        // Filter by selected country
+      // Additional frontend filtering if needed
+      if (selectedCountry) {
         filtered = filtered.filter((product) => {
           const productCountries = product.countries || [];
           return Array.isArray(productCountries) && productCountries.includes(selectedCountry);
@@ -178,29 +224,90 @@ export default function HomePage() {
       <div className="flex-1 overflow-y-auto pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
         {/* Countries Filter */}
 
-        {/* Affiliate Promo Banner */}
-        <div className="p-4 bg-white mb-2">
-          <div className="flex flex-col @container rounded-2xl overflow-hidden shadow-md bg-white relative group border border-gray-100">
-            <div className="w-full h-44 bg-cover bg-center" style={{
-              backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCrk7J4sv4lRh4C-WbNBD2MwjaWm5aa-w17HArU1Md9USSMdDE48KKGPponID9p64un-gcB-JVApF-f45IlesRnkmLtbkLSOOGgCiYHdabTcAJHmYo-aLRyJn6nF4rpDo1vxtSKPonZh6aSMnj0_8eFoOnBTLshrpb2AXQj2hA7t-aLOndPn0sF1M7Gr650SxylYsZ4OWHmwdah0qDw2utnrMVnUlIr3mHZR-oyRxAjwBh1KC4YGg5_Bd3g3qfKxB7Tb1F7CKFGMqo")',
-            }}>
-              <div className="w-full h-full bg-gradient-to-r from-gray-900/90 to-gray-900/10 p-5 flex flex-col justify-center">
-                <div className="inline-flex items-center gap-1 mb-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm uppercase tracking-wider">{t("binarySystem")}</span>
-                </div>
-                <h2 className="text-white text-2xl font-bold leading-tight mb-1">{t("earn5Back")}</h2>
-                <p className="text-gray-100 text-sm mb-4 max-w-[80%] font-medium drop-shadow-sm">Get crypto rewards on every referral purchase in your network.</p>
-                <button
-                  onClick={() => router.push("/home/affiliate")}
-                  className="w-fit px-5 py-2.5 bg-white text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-100 transition-all shadow-lg active:scale-95 relative overflow-hidden group"
-                >
-                  <span className="relative z-10">{t("myNetwork")}</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-active:translate-x-full transition-transform duration-500"></div>
-                </button>
+        {/* Slider Banner */}
+        {sliders.length > 0 && (
+          <div className="p-4 bg-white mb-2">
+            <div className="relative rounded-2xl overflow-hidden shadow-md border border-gray-100">
+              <div className="relative w-full h-44 overflow-hidden">
+                {sliders.map((slider, index) => (
+                  <div
+                    key={slider.id}
+                    className={`absolute inset-0 transition-opacity duration-500 ${
+                      index === currentSliderIndex ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    style={{
+                      backgroundImage: `url("${slider.imageUrl}")`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
+                    {(slider.title || slider.description) && (
+                      <div className="w-full h-full bg-gradient-to-r from-gray-900/90 to-gray-900/10 p-5 flex flex-col justify-center">
+                        {slider.title && (
+                          <h2 className="text-white text-2xl font-bold leading-tight mb-1">{slider.title}</h2>
+                        )}
+                        {slider.description && (
+                          <p className="text-gray-100 text-sm mb-4 max-w-[80%] font-medium drop-shadow-sm">{slider.description}</p>
+                        )}
+                        {slider.linkUrl && (
+                          <button
+                            onClick={() => {
+                              if (slider.linkUrl?.startsWith('/')) {
+                                router.push(slider.linkUrl);
+                              } else {
+                                window.open(slider.linkUrl, '_blank');
+                              }
+                            }}
+                            className="w-fit px-5 py-2.5 bg-white text-gray-900 text-sm font-bold rounded-lg hover:bg-gray-100 transition-all shadow-lg active:scale-95 relative overflow-hidden group"
+                          >
+                            <span className="relative z-10">View More</span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-active:translate-x-full transition-transform duration-500"></div>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+              {/* Slider Indicators */}
+              {sliders.length > 1 && (
+                <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2">
+                  {sliders.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentSliderIndex(index)}
+                      className={`h-2 rounded-full transition-all ${
+                        index === currentSliderIndex
+                          ? 'w-6 bg-white'
+                          : 'w-2 bg-white/50 hover:bg-white/75'
+                      }`}
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* Navigation Arrows */}
+              {sliders.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setCurrentSliderIndex((prev) => (prev - 1 + sliders.length) % sliders.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white backdrop-blur-sm rounded-full shadow-lg transition-all flex items-center justify-center z-10"
+                    aria-label="Previous slide"
+                  >
+                    <span className="material-symbols-outlined text-gray-900 text-xl leading-none">chevron_left</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentSliderIndex((prev) => (prev + 1) % sliders.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white backdrop-blur-sm rounded-full shadow-lg transition-all flex items-center justify-center z-10"
+                    aria-label="Next slide"
+                  >
+                    <span className="material-symbols-outlined text-gray-900 text-xl leading-none">chevron_right</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
-        </div>
+        )}
         <div className="bg-white mb-2 pt-4">
           <div className="flex justify-between items-center px-4 mb-4">
             <h3 className="text-lg font-bold text-text-dark leading-none">{t("countries")}</h3>
@@ -273,7 +380,46 @@ export default function HomePage() {
           </div>
         </div>
 
-        
+        {/* Categories Filter */}
+        {categories.length > 0 && (
+          <div className="bg-white mb-2 pt-4">
+            <div className="flex justify-between items-center px-4 mb-4">
+              <h3 className="text-lg font-bold text-text-dark leading-none">Categories</h3>
+            </div>
+            <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar pb-4">
+              <button
+                onClick={() => setSelectedCategoryId(null)}
+                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                  selectedCategoryId === null
+                    ? 'bg-primary text-white border-primary shadow-md'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                }`}
+              >
+                <span className="text-sm font-medium">All</span>
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategoryId(category.id)}
+                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                    selectedCategoryId === category.id
+                      ? 'bg-primary text-white border-primary shadow-md'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                  }`}
+                >
+                  {category.imageUrl && (
+                    <img 
+                      src={category.imageUrl} 
+                      alt={category.name}
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  )}
+                  <span className="text-sm font-medium">{category.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Featured Products Grid */}
         <div className="px-4 pt-4 pb-8 bg-white">

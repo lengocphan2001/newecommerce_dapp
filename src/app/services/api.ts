@@ -64,13 +64,37 @@ export const api = {
     return response.json();
   },
 
-  async getProducts(country?: 'VIETNAM' | 'USA') {
-    const url = country 
-      ? `${API_BASE_URL}/products?country=${country}`
+  async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string) {
+    const params = new URLSearchParams();
+    if (country) {
+      params.append('country', country);
+    }
+    if (categoryId) {
+      params.append('categoryId', categoryId);
+    }
+    const url = params.toString() 
+      ? `${API_BASE_URL}/products?${params.toString()}`
       : `${API_BASE_URL}/products`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch products');
+    }
+    return response.json();
+  },
+
+  async getCategories() {
+    const response = await fetch(`${API_BASE_URL}/categories`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories');
+    }
+    return response.json();
+  },
+
+  async getSliders(activeOnly: boolean = true) {
+    const url = `${API_BASE_URL}/sliders?activeOnly=${activeOnly}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error('Failed to fetch sliders');
     }
     return response.json();
   },

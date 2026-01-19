@@ -14,22 +14,18 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 const STORAGE_KEY = "lang";
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  // Initialize with stored language immediately to avoid flash of default language
-  const [lang, setLangState] = useState<Lang>(() => {
-    if (typeof window === "undefined") return DEFAULT_LANG;
+  // Always start with DEFAULT_LANG (en) for every new session/access
+  const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
+
+  useEffect(() => {
+    // Clear any previously stored language to ensure next access is also default
     try {
-      const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
-      if (stored && (stored === "vi" || stored === "en" || stored === "ko")) {
-        return stored;
-      }
+      localStorage.removeItem(STORAGE_KEY);
     } catch {
       // ignore
     }
-    return DEFAULT_LANG;
-  });
 
-  // Sync with localStorage changes from other tabs/windows
-  useEffect(() => {
+    // Sync with localStorage changes from other tabs/windows if user changes it
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         const newLang = e.newValue as Lang;
@@ -68,5 +64,3 @@ export function useI18n() {
   if (!ctx) throw new Error("useI18n must be used within I18nProvider");
   return ctx;
 }
-
-

@@ -7,6 +7,7 @@ import {
   IsArray,
   ArrayUnique,
   Matches,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -51,5 +52,9 @@ export class CreateProductDto {
   @IsArray()
   @IsOptional()
   countries?: ('VIETNAM' | 'USA')[];
+
+  @IsUUID()
+  @IsOptional()
+  categoryId?: string;
 }
 

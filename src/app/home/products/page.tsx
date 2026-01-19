@@ -7,6 +7,13 @@ import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { api } from "@/app/services/api";
 
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -16,6 +23,8 @@ interface Product {
   stock: number;
   shippingFee?: number;
   countries?: ('VIETNAM' | 'USA')[];
+  categoryId?: string;
+  category?: Category;
 }
 
 export default function ProductsPage() {
@@ -24,6 +33,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<('VIETNAM' | 'USA')[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [flagImageError, setFlagImageError] = useState<{ vietnam: boolean; usa: boolean }>({
     vietnam: false,
     usa: false,
@@ -35,19 +46,31 @@ export default function ProductsPage() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCountries]);
+  }, [selectedCountries, selectedCategoryId]);
+
+  const fetchCategories = async () => {
+    try {
+      const data = await api.getCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to fetch categories');
+    }
+  };
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await api.getProducts();
+      // Get first selected country for API call, or undefined
+      const country = selectedCountries.length > 0 ? selectedCountries[0] : undefined;
+      const response = await api.getProducts(country, selectedCategoryId || undefined);
       let filtered = Array.isArray(response) ? response : response.data || [];
       
-      // Filter by selected countries if any
+      // Additional frontend filtering by countries if multiple selected
       if (selectedCountries.length > 0) {
         filtered = filtered.filter((product: Product) => {
           const productCountries = product.countries || [];
@@ -212,6 +235,47 @@ export default function ProductsPage() {
             </button>
           </div>
         </div>
+
+        {/* Categories Filter */}
+        {categories.length > 0 && (
+          <div className="bg-white mb-2 pt-4">
+            <div className="flex justify-between items-center px-4 mb-4">
+              <h3 className="text-lg font-bold text-text-dark leading-none">Categories</h3>
+            </div>
+            <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar pb-4">
+              <button
+                onClick={() => setSelectedCategoryId(null)}
+                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                  selectedCategoryId === null
+                    ? 'bg-primary text-white border-primary shadow-md'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                }`}
+              >
+                <span className="text-sm font-medium">All</span>
+              </button>
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategoryId(category.id)}
+                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                    selectedCategoryId === category.id
+                      ? 'bg-primary text-white border-primary shadow-md'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                  }`}
+                >
+                  {category.imageUrl && (
+                    <img 
+                      src={category.imageUrl} 
+                      alt={category.name}
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  )}
+                  <span className="text-sm font-medium">{category.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="px-4 pt-4 pb-8 bg-white">

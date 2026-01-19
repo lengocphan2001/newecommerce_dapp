@@ -17,10 +17,12 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
+import { categoryService, Category } from '../services/categoryService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -30,7 +32,17 @@ const Products: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await categoryService.getAll();
+      setCategories(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Failed to fetch categories');
+    }
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -60,6 +72,7 @@ const Products: React.FC = () => {
       description: product.description || '',
       // Keep URLs in form values for submit; Upload UI is for new uploads only
       detailImageUrls: product.detailImageUrls || [],
+      categoryId: product.categoryId || undefined,
     });
     setThumbnailFileList([]);
     setDetailFileList([]);
@@ -171,6 +184,14 @@ const Products: React.FC = () => {
         ),
     },
     {
+      title: 'Category',
+      dataIndex: 'category',
+      key: 'category',
+      width: 150,
+      render: (category?: { name: string }) => category?.name || '-',
+      responsive: ['md'] as any,
+    },
+    {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
@@ -276,7 +297,7 @@ const Products: React.FC = () => {
         onOk={() => form.submit()}
         width="90%"
         style={{ maxWidth: 1000 }}
-        destroyOnClose
+        destroyOnHidden
       >
         {isModalVisible && (
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
@@ -386,6 +407,19 @@ const Products: React.FC = () => {
               tooltip="Shipping fee for product in USDT"
             >
               <InputNumber style={{ width: '100%' }} min={0} step={0.000001} precision={6} />
+            </Form.Item>
+            <Form.Item
+              name="categoryId"
+              label="Category"
+              rules={[]}
+            >
+              <Select style={{ width: '100%' }} placeholder="Select category" allowClear>
+                {categories.map((cat) => (
+                  <Select.Option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
             <Form.Item
               name="countries"
