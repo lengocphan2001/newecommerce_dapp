@@ -10,6 +10,7 @@ import {
 } from './entities/commission.entity';
 import { CommissionConfigService } from '../admin/commission-config.service';
 import { PackageType } from '../admin/entities/commission-config.entity';
+import { formatDecimalsInObject } from '../common/utils/number.util';
 
 @Injectable()
 export class CommissionService {
@@ -771,7 +772,9 @@ export class CommissionService {
 
     qb.orderBy('commission.createdAt', 'DESC');
 
-    return qb.getMany();
+    const commissions = await qb.getMany();
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(commissions) as Commission[];
   }
 
   /**
@@ -878,11 +881,13 @@ export class CommissionService {
     if (query.type) where.type = query.type;
     if (query.userId) where.userId = query.userId;
 
-    return this.commissionRepository.find({
+    const commissions = await this.commissionRepository.find({
       where,
       relations: ['user'],
       order: { createdAt: 'DESC' },
     });
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(commissions) as Commission[];
   }
 
   /**
@@ -908,7 +913,9 @@ export class CommissionService {
       commission.notes = notes;
     }
 
-    return this.commissionRepository.save(commission);
+    const saved = await this.commissionRepository.save(commission);
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(saved) as Commission;
   }
 
   /**

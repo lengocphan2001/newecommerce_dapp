@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommissionConfig, PackageType } from './entities/commission-config.entity';
 import { CreateCommissionConfigDto, UpdateCommissionConfigDto } from './dto/commission-config.dto';
+import { formatDecimalsInObject } from '../common/utils/number.util';
 
 @Injectable()
 export class CommissionConfigService {
@@ -15,18 +16,23 @@ export class CommissionConfigService {
    * Get all commission configs
    */
   async findAll(): Promise<CommissionConfig[]> {
-    return this.configRepository.find({
+    const configs = await this.configRepository.find({
       order: { packageType: 'ASC' },
     });
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(configs) as CommissionConfig[];
   }
 
   /**
    * Get config by package type
    */
   async findByPackageType(packageType: PackageType): Promise<CommissionConfig | null> {
-    return this.configRepository.findOne({
+    const config = await this.configRepository.findOne({
       where: { packageType },
     });
+    if (!config) return null;
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(config) as CommissionConfig;
   }
 
   /**
@@ -37,7 +43,8 @@ export class CommissionConfigService {
     if (!config) {
       throw new NotFoundException(`Commission config with ID ${id} not found`);
     }
-    return config;
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(config) as CommissionConfig;
   }
 
   /**
@@ -51,7 +58,9 @@ export class CommissionConfigService {
     }
 
     const config = this.configRepository.create(createDto);
-    return this.configRepository.save(config);
+    const saved = await this.configRepository.save(config);
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(saved) as CommissionConfig;
   }
 
   /**
@@ -60,7 +69,9 @@ export class CommissionConfigService {
   async update(id: string, updateDto: UpdateCommissionConfigDto): Promise<CommissionConfig> {
     const config = await this.findOne(id);
     Object.assign(config, updateDto);
-    return this.configRepository.save(config);
+    const saved = await this.configRepository.save(config);
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(saved) as CommissionConfig;
   }
 
   /**
@@ -75,7 +86,9 @@ export class CommissionConfigService {
       throw new NotFoundException(`Config for package type ${packageType} not found`);
     }
     Object.assign(config, updateDto);
-    return this.configRepository.save(config);
+    const saved = await this.configRepository.save(config);
+    // Format decimal numbers to fix floating-point precision issues
+    return formatDecimalsInObject(saved) as CommissionConfig;
   }
 
   /**
