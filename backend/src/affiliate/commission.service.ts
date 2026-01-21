@@ -353,6 +353,12 @@ export class CommissionService {
 
       this.logger.log(`[GROUP COMMISSION] Ancestor ${ancestor.id}: buyerSide=${buyerSide}, weakSide=${weakSide} (Current volumes - Left: ${ancestor.leftBranchTotal}, Right: ${ancestor.rightBranchTotal})`);
 
+      // QUAN TRỌNG: Nếu cả hai nhánh đều = 0 (giao dịch đầu tiên), không tính hoa hồng nhóm
+      if (ancestor.leftBranchTotal === 0 && ancestor.rightBranchTotal === 0) {
+        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} has both branches at 0 (first transaction), skipping group commission`);
+        continue;
+      }
+
       // Nếu hai nhánh bằng nhau (weakSide === null) HOẶC đơn hàng phát sinh ở đúng nhánh yếu -> Trả hoa hồng
       if (weakSide === null || buyerSide === weakSide) {
         const canReceiveCommission = await this.checkReconsumption(ancestor);
@@ -671,8 +677,11 @@ export class CommissionService {
 
   /**
    * Xác định nhánh yếu (nhánh có tổng doanh số thấp hơn)
-   * Nếu cả hai nhánh đều = 0, trả về 'left' làm mặc định
+   * Nếu cả hai nhánh bằng nhau (có thể cả 2 = 0 hoặc cả 2 > 0 và bằng nhau), trả về null
    * Reload user từ DB để có volume mới nhất
+   * 
+   * LƯU Ý: Giao dịch đầu tiên (cả 2 nhánh = 0) sẽ không được tính hoa hồng nhóm
+   * Logic này được xử lý ở calculateGroupCommission
    */
   private async getWeakSide(userId: string): Promise<'left' | 'right' | null> {
     // Reload user từ DB để có volume mới nhất

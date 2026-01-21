@@ -2,9 +2,9 @@ import api from './api';
 
 export interface MilestoneRewardConfig {
   id: string;
-  rewardX: number;
-  rewardY: number;
-  rewardZ: number;
+  percentX: number;
+  percentY: number;
+  percentZ: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -31,11 +31,11 @@ export const milestoneRewardService = {
     return response.data;
   },
 
-  async updateConfig(rewardX: number, rewardY: number, rewardZ: number): Promise<MilestoneRewardConfig> {
+  async updateConfig(percentX: number, percentY: number, percentZ: number): Promise<MilestoneRewardConfig> {
     const response = await api.put('/admin/milestone-reward/config', {
-      rewardX,
-      rewardY,
-      rewardZ,
+      percentX,
+      percentY,
+      percentZ,
     });
     return response.data;
   },

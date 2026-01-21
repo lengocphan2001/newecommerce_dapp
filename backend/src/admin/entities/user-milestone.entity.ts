@@ -23,7 +23,7 @@ export class UserMilestone {
   user: User;
 
   @Column({ type: 'int' })
-  milestoneCount: number; // 2, 4, 6, 8, 10, 12...
+  milestoneCount: number; // 2, 4, 8, 16, 32, 64... (powers of 2)
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   rewardAmount: number;

@@ -230,12 +230,9 @@ export default function ProductDetailClient() {
                     className="w-full h-full object-cover"
                     style={{
                       imageRendering: 'auto',
-                      WebkitImageRendering: 'auto',
                       backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden',
                       transform: 'translateZ(0)',
-                      WebkitTransform: 'translateZ(0)',
-                    }}
+                    } as React.CSSProperties}
                     loading={index === 0 ? 'eager' : 'lazy'}
                     decoding="async"
                     fetchPriority={index === 0 ? 'high' : 'auto'}

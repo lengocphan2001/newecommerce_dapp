@@ -80,25 +80,40 @@ export class MilestoneRewardService {
   }
 
   /**
-   * Get which reward type (X, Y, Z) for a milestone count
-   * Pattern: 2→X, 4→Y, 6→Z, 8→X, 10→Y, 12→Z, 14→X, 16→Y, 18→Z...
+   * Check if a number is a power of 2
    */
-  getRewardType(milestoneCount: number): 'X' | 'Y' | 'Z' {
-    // Pattern repeats every 6: 2→X, 4→Y, 6→Z, 8→X, 10→Y, 12→Z...
-    const remainder = milestoneCount % 6;
-    if (remainder === 2) return 'X'; // 2, 8, 14, 20...
-    if (remainder === 4) return 'Y'; // 4, 10, 16, 22...
-    if (remainder === 0) return 'Z'; // 6, 12, 18, 24...
-    // Should not happen for valid milestones (2, 4, 6, 8, 10, 12...)
-    return 'X'; // fallback
+  private isPowerOfTwo(n: number): boolean {
+    if (n < 2) return false;
+    // A number is a power of 2 if (n & (n - 1)) === 0
+    return (n & (n - 1)) === 0;
   }
 
   /**
-   * Check if milestone count is valid (2, 4, 6, 8, 10, 12...)
+   * Get which reward type (X, Y, Z) for a milestone count
+   * Pattern: 2→X, 4→Y, 8→Z, 16→X, 32→Y, 64→Z, 128→X...
+   * Pattern repeats every 3 milestones
+   */
+  getRewardType(milestoneCount: number): 'X' | 'Y' | 'Z' {
+    // Find the position in the power-of-2 sequence: 2, 4, 8, 16, 32, 64...
+    // Calculate log2 to get position (1, 2, 3, 4, 5, 6...)
+    const position = Math.log2(milestoneCount);
+    
+    // Pattern repeats every 3: position 1→X, 2→Y, 3→Z, 4→X, 5→Y, 6→Z...
+    const remainder = position % 3;
+    if (remainder === 1) return 'X'; // 2, 16, 128... (position 1, 4, 7...)
+    if (remainder === 2) return 'Y'; // 4, 32, 256... (position 2, 5, 8...)
+    if (remainder === 0) return 'Z'; // 8, 64, 512... (position 3, 6, 9...)
+    
+    // Fallback
+    return 'X';
+  }
+
+  /**
+   * Check if milestone count is valid (2, 4, 8, 16, 32, 64...)
+   * Must be a power of 2 and >= 2
    */
   isValidMilestone(count: number): boolean {
-    // Must be even and >= 2
-    return count >= 2 && count % 2 === 0;
+    return count >= 2 && this.isPowerOfTwo(count);
   }
 
   /**
@@ -122,15 +137,16 @@ export class MilestoneRewardService {
   }
 
   /**
-   * Calculate reward amount based on referrer's totalPurchaseAmount and milestone percentage
+   * Calculate reward amount based on base purchase amount and milestone percentage
+   * (Base amount can be the milestone group purchase total)
    */
-  async calculateRewardAmount(milestoneCount: number, referrerPurchaseAmount: number): Promise<number> {
+  async calculateRewardAmount(milestoneCount: number, baseAmount: number): Promise<number> {
     const percent = await this.getRewardPercent(milestoneCount);
-    if (percent <= 0 || referrerPurchaseAmount <= 0) {
+    if (percent <= 0 || baseAmount <= 0) {
       return 0;
     }
-    // Calculate: referrerPurchaseAmount * percent / 100
-    return (referrerPurchaseAmount * percent) / 100;
+    // Calculate: baseAmount * percent / 100
+    return (baseAmount * percent) / 100;
   }
 
   /**
@@ -204,6 +220,7 @@ export class MilestoneRewardService {
         referralUserId: referralUserId,
         packageType: Not('NONE' as any),
       },
+      order: { createdAt: 'ASC' }, // ensure deterministic grouping by time
     });
 
     // Filter to only count those with transactions
@@ -217,8 +234,27 @@ export class MilestoneRewardService {
       return;
     }
 
-    // Calculate reward amount: referrerPurchaseAmount * percent / 100
-    const rewardAmount = (referrerPurchaseAmount * percent) / 100;
+    // New rule: milestone reward based on the newest group of referrals for this milestone
+    // Example:
+    // - Milestone 2: use referral #1-2 (groupSize = 2)
+    // - Milestone 4: use referral #3-4 (groupSize = 2)
+    // - Milestone 8: use referral #5-8 (groupSize = 4)
+    // General: groupSize = currentCount / 2; take the last groupSize referrals
+    const groupSize = Math.max(1, currentCount / 2);
+    const startIndex = currentCount - groupSize;
+    const targetRefs = referralsWithTransactions.slice(startIndex, currentCount);
+
+    const groupPurchaseTotal = targetRefs.reduce(
+      (sum, ref) => sum + (Number(ref.totalPurchaseAmount) || 0),
+      0,
+    );
+
+    if (groupPurchaseTotal <= 0) {
+      return; // No qualifying purchase volume in this milestone group
+    }
+
+    // Calculate reward amount: sum of the group's purchase amounts * percent / 100
+    const rewardAmount = (groupPurchaseTotal * percent) / 100;
 
     if (rewardAmount <= 0) {
       return; // Calculated reward is 0 or negative
@@ -230,7 +266,8 @@ export class MilestoneRewardService {
       milestoneCount: currentCount,
       rewardAmount,
       rewardType,
-      referrerPurchaseAmount,
+      // Store the purchase total of the milestone group (for audit)
+      referrerPurchaseAmount: groupPurchaseTotal,
       percentUsed: percent,
       status: 'PENDING', // Will be updated to PAID after commission is awarded
     });

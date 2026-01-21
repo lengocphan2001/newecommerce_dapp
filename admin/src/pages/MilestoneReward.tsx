@@ -33,16 +33,16 @@ const MilestoneRewardPage: React.FC = () => {
       if (configData) {
         setConfig(configData);
         form.setFieldsValue({
-          rewardX: configData.rewardX,
-          rewardY: configData.rewardY,
-          rewardZ: configData.rewardZ,
+          percentX: configData.percentX,
+          percentY: configData.percentY,
+          percentZ: configData.percentZ,
         });
       } else {
-        // Set default values
+        // Set default values (percentages)
         form.setFieldsValue({
-          rewardX: 10,
-          rewardY: 20,
-          rewardZ: 30,
+          percentX: 1.0,
+          percentY: 2.0,
+          percentZ: 3.0,
         });
       }
     } catch (error: any) {
@@ -70,9 +70,9 @@ const MilestoneRewardPage: React.FC = () => {
     try {
       setLoading(true);
       await milestoneRewardService.updateConfig(
-        values.rewardX,
-        values.rewardY,
-        values.rewardZ,
+        values.percentX,
+        values.percentY,
+        values.percentZ,
       );
       message.success('Milestone reward config updated successfully');
       await loadConfig();
@@ -156,50 +156,56 @@ const MilestoneRewardPage: React.FC = () => {
               layout="vertical"
               onFinish={handleSubmit}
               initialValues={{
-                rewardX: 10,
-                rewardY: 20,
-                rewardZ: 30,
+                percentX: 1.0,
+                percentY: 2.0,
+                percentZ: 3.0,
               }}
             >
               <Form.Item
-                label="Reward X (for 2, 8, 14, 20... referrals)"
-                name="rewardX"
-                rules={[{ required: true, message: 'Please enter reward X' }]}
+                label="Reward X % (for 2, 16, 128... referrals)"
+                name="percentX"
+                rules={[{ required: true, message: 'Please enter reward X percentage' }]}
+                tooltip="Percentage of referrer's total purchase amount. Example: 1.00 = 1%"
               >
                 <InputNumber
                   min={0}
+                  max={100}
                   step={0.01}
                   precision={2}
                   style={{ width: '100%' }}
-                  prefix="$"
+                  suffix="%"
                 />
               </Form.Item>
 
               <Form.Item
-                label="Reward Y (for 4, 10, 16, 22... referrals)"
-                name="rewardY"
-                rules={[{ required: true, message: 'Please enter reward Y' }]}
+                label="Reward Y % (for 4, 32, 256... referrals)"
+                name="percentY"
+                rules={[{ required: true, message: 'Please enter reward Y percentage' }]}
+                tooltip="Percentage of referrer's total purchase amount. Example: 2.00 = 2%"
               >
                 <InputNumber
                   min={0}
+                  max={100}
                   step={0.01}
                   precision={2}
                   style={{ width: '100%' }}
-                  prefix="$"
+                  suffix="%"
                 />
               </Form.Item>
 
               <Form.Item
-                label="Reward Z (for 6, 12, 18, 24... referrals)"
-                name="rewardZ"
-                rules={[{ required: true, message: 'Please enter reward Z' }]}
+                label="Reward Z % (for 8, 64, 512... referrals)"
+                name="percentZ"
+                rules={[{ required: true, message: 'Please enter reward Z percentage' }]}
+                tooltip="Percentage of referrer's total purchase amount. Example: 3.00 = 3%"
               >
                 <InputNumber
                   min={0}
+                  max={100}
                   step={0.01}
                   precision={2}
                   style={{ width: '100%' }}
-                  prefix="$"
+                  suffix="%"
                 />
               </Form.Item>
 
