@@ -48,39 +48,31 @@ const AffiliatePage: React.FC = () => {
       return '0.00';
     }
     
-    // If already a string, use it directly to preserve precision
-    let amountStr: string;
-    if (typeof amount === 'string') {
-      amountStr = amount;
-    } else {
-      // Convert number to string, but use toFixed with high precision to avoid scientific notation
-      // Use 18 decimal places (matching database precision)
-      amountStr = amount.toFixed(18);
+    // Convert to number first to handle floating-point precision issues
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    
+    // Handle NaN
+    if (isNaN(num)) {
+      return '0.00';
     }
     
-    // Handle scientific notation (e.g., 1e-8)
-    if (amountStr.includes('e') || amountStr.includes('E')) {
-      // Convert from scientific notation to fixed decimal with full precision (18 digits)
-      const num = typeof amount === 'number' ? amount : parseFloat(amountStr);
-      amountStr = num.toFixed(18);
-    }
+    // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
+    // This fixes floating-point precision issues like 0.020000000000000004
+    let amountStr = num.toFixed(8);
     
     // Remove trailing zeros but keep at least 2 decimal places
-    // Split into integer and decimal parts
-    let [integerPart, decimalPart = ''] = amountStr.split('.');
-    
-    // Remove trailing zeros from decimal part
-    decimalPart = decimalPart.replace(/0+$/, '');
-    
-    // If no decimal part or all zeros, use .00
-    if (!decimalPart) {
-      decimalPart = '00';
-    } else if (decimalPart.length < 2) {
-      // Ensure at least 2 decimal places for display
-      decimalPart = decimalPart.padEnd(2, '0');
+    amountStr = amountStr.replace(/\.?0+$/, '');
+    if (!amountStr.includes('.')) {
+      amountStr += '.00';
+    } else {
+      const [integerPart, decimalPart] = amountStr.split('.');
+      if (decimalPart.length < 2) {
+        amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
+      }
     }
     
-    // Format integer part with thousand separators
+    // Split into integer and decimal parts for formatting
+    const [integerPart, decimalPart] = amountStr.split('.');
     const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     
     return `${formattedInteger}.${decimalPart}`;

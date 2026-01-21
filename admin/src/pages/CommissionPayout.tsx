@@ -257,8 +257,39 @@ const CommissionPayout: React.FC = () => {
   };
 
   const formatPrice = (amount: number | string) => {
-    if (!amount || amount === 0) return '0.00';
-    return parseFloat(String(amount)).toFixed(5);
+    // Handle null/undefined/zero
+    if (amount === 0 || amount === null || amount === undefined || amount === '0') {
+      return '0.00';
+    }
+    
+    // Convert to number first to handle floating-point precision issues
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    
+    // Handle NaN
+    if (isNaN(num)) {
+      return '0.00';
+    }
+    
+    // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
+    // This fixes floating-point precision issues like 0.020000000000000004
+    let amountStr = num.toFixed(8);
+    
+    // Remove trailing zeros but keep at least 2 decimal places
+    amountStr = amountStr.replace(/\.?0+$/, '');
+    if (!amountStr.includes('.')) {
+      amountStr += '.00';
+    } else {
+      const [integerPart, decimalPart] = amountStr.split('.');
+      if (decimalPart.length < 2) {
+        amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
+      }
+    }
+    
+    // Split into integer and decimal parts for formatting
+    const [integerPart, decimalPart] = amountStr.split('.');
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    
+    return `${formattedInteger}.${decimalPart}`;
   };
 
   const pendingColumns = [

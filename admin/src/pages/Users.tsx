@@ -381,7 +381,23 @@ const Users: React.FC = () => {
                 pagination={{ pageSize: 10 }}
                 columns={[
                   { title: 'Type', dataIndex: 'type', key: 'type' },
-                  { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (amount: any) => `$${typeof amount === 'string' ? amount : amount.toFixed(4)}` },
+                  { 
+                    title: 'Amount', 
+                    dataIndex: 'amount', 
+                    key: 'amount', 
+                    render: (amount: any) => {
+                      if (amount === 0 || amount === null || amount === undefined) return '$0.00';
+                      const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+                      if (isNaN(num)) return '$0.00';
+                      let str = num.toFixed(8).replace(/\.?0+$/, '');
+                      if (!str.includes('.')) str += '.00';
+                      else {
+                        const [int, dec] = str.split('.');
+                        if (dec.length < 2) str = `${int}.${dec.padEnd(2, '0')}`;
+                      }
+                      return `$${str}`;
+                    }
+                  },
                   { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag color={status === 'PAID' ? 'green' : 'orange'}>{status}</Tag> },
                   { title: 'Order ID', dataIndex: 'orderId', key: 'orderId' },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
@@ -396,7 +412,22 @@ const Users: React.FC = () => {
                 pagination={{ pageSize: 10 }}
                 columns={[
                   { title: 'Order ID', dataIndex: 'id', key: 'id' },
-                  { title: 'Total Amount', dataIndex: 'totalAmount', key: 'totalAmount', render: (amount: number) => `$${amount.toFixed(4)} USDT` },
+                  { 
+                    title: 'Total Amount', 
+                    dataIndex: 'totalAmount', 
+                    key: 'totalAmount', 
+                    render: (amount: number) => {
+                      if (amount === 0 || amount === null || amount === undefined) return '$0.00 USDT';
+                      if (isNaN(amount)) return '$0.00 USDT';
+                      let str = amount.toFixed(8).replace(/\.?0+$/, '');
+                      if (!str.includes('.')) str += '.00';
+                      else {
+                        const [int, dec] = str.split('.');
+                        if (dec.length < 2) str = `${int}.${dec.padEnd(2, '0')}`;
+                      }
+                      return `$${str} USDT`;
+                    }
+                  },
                   { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag>{status}</Tag> },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
                 ]}
