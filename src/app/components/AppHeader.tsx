@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
+import { api } from "@/app/services/api";
 
 interface AppHeaderProps {
   titleKey?: "homeTitle" | "appName" | "productsTitle" | "ordersTitle" | "profileTitle" | "navAffiliate" | "navShopping" | "navWallets" | "navAccount" | "activityHistory";
@@ -32,10 +33,25 @@ export default function AppHeader({
   const router = useRouter();
   const { totalItems } = useShoppingCart();
   const [mounted, setMounted] = useState(false);
+  const [needsReconsumption, setNeedsReconsumption] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    checkReconsumptionStatus();
   }, []);
+
+  const checkReconsumptionStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const status = await api.checkReconsumption();
+      setNeedsReconsumption(status.needsReconsumption || false);
+    } catch (error) {
+      // Silently fail - user might not be logged in
+      setNeedsReconsumption(false);
+    }
+  };
 
   const displayTitle = title || (titleKey ? t(titleKey) : "");
 
@@ -76,6 +92,18 @@ export default function AppHeader({
 
         {/* Right Section */}
         <div className="flex items-center gap-2 shrink-0">
+          {mounted && needsReconsumption && (
+            <div className="relative">
+              <button
+                onClick={() => router.push("/home/shopping")}
+                className="flex items-center justify-center size-10 rounded-full hover:bg-orange-50 transition-colors bg-white border-2 border-orange-400 shadow-sm"
+                title="Cần tái tiêu dùng để tiếp tục nhận hoa hồng"
+              >
+                <span className="material-symbols-outlined text-orange-500 text-xl animate-pulse">notifications_active</span>
+              </button>
+              <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-orange-500 ring-2 ring-white animate-ping"></span>
+            </div>
+          )}
           {showActions && (
             <div className="relative">
               <button

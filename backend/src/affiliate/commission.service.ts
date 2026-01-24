@@ -183,6 +183,7 @@ export class CommissionService {
 
   /**
    * Cập nhật package type của user dựa trên tổng giá trị mua
+   * Nếu user đã đạt ngưỡng và đang có packageType = NONE, restore packageType khi tái tiêu dùng
    */
   private async updateUserPackage(user: User, orderAmount: number): Promise<void> {
     const newTotalPurchase = user.totalPurchaseAmount + orderAmount;
@@ -190,11 +191,22 @@ export class CommissionService {
     let newPackageType: 'NONE' | 'CTV' | 'NPP' = user.packageType;
 
     const nppConfig = await this.getConfig('NPP');
-    if (newTotalPurchase >= nppConfig.PACKAGE_VALUE) {
-      newPackageType = 'NPP';
+    const ctvConfig = await this.getConfig('CTV');
+    
+    // Nếu user đang có packageType = NONE và đã đạt ngưỡng, có thể là tái tiêu dùng
+    // Restore packageType dựa trên orderAmount
+    if (user.packageType === 'NONE' && user.totalCommissionReceived >= ctvConfig.RECONSUMPTION_THRESHOLD) {
+      // User đã đạt ngưỡng, nếu mua hàng với giá trị >= packageValue → restore packageType
+      if (orderAmount >= nppConfig.PACKAGE_VALUE) {
+        newPackageType = 'NPP';
+      } else if (orderAmount >= ctvConfig.PACKAGE_VALUE) {
+        newPackageType = 'CTV';
+      }
     } else {
-      const ctvConfig = await this.getConfig('CTV');
-      if (newTotalPurchase >= ctvConfig.PACKAGE_VALUE) {
+      // Logic bình thường: cập nhật packageType dựa trên tổng giá trị mua
+      if (newTotalPurchase >= nppConfig.PACKAGE_VALUE) {
+        newPackageType = 'NPP';
+      } else if (newTotalPurchase >= ctvConfig.PACKAGE_VALUE) {
         newPackageType = 'CTV';
       }
     }
@@ -204,6 +216,7 @@ export class CommissionService {
         packageType: newPackageType,
         totalPurchaseAmount: newTotalPurchase,
       });
+      this.logger.log(`User ${user.id} packageType updated from ${user.packageType} to ${newPackageType}`);
     } else {
       await this.userRepository.update(user.id, {
         totalPurchaseAmount: newTotalPurchase,
@@ -282,6 +295,20 @@ export class CommissionService {
           })
           .where("id = :id", { id: referrer.id })
           .execute();
+        
+        // Kiểm tra xem có đạt ngưỡng không, nếu có thì set packageType về NONE
+        const updatedReferrer = await this.userRepository.findOne({ where: { id: referrer.id } });
+        if (updatedReferrer) {
+          const newTotalCommission = updatedReferrer.totalCommissionReceived;
+          const threshold = config.RECONSUMPTION_THRESHOLD;
+          if (newTotalCommission >= threshold) {
+            // Đã đạt ngưỡng → set packageType về NONE
+            await this.userRepository.update(referrer.id, {
+              packageType: 'NONE',
+            });
+            this.logger.log(`User ${referrer.id} reached threshold ${threshold}, packageType set to NONE`);
+          }
+        }
       }
     } catch (error: any) {
       this.logger.error(`Error creating direct commission for referrer ${referrer.id}, buyer ${buyer.id}:`, error.stack || error.message);
@@ -418,6 +445,20 @@ export class CommissionService {
         })
         .where("id = :id", { id: ancestor.id })
         .execute();
+      
+      // Kiểm tra xem có đạt ngưỡng không, nếu có thì set packageType về NONE
+      const updatedAncestor = await this.userRepository.findOne({ where: { id: ancestor.id } });
+      if (updatedAncestor) {
+        const newTotalCommission = updatedAncestor.totalCommissionReceived;
+        const config = await this.getConfig(ancestor.packageType === 'NPP' ? 'NPP' : 'CTV');
+        if (newTotalCommission >= config.RECONSUMPTION_THRESHOLD) {
+          // Đã đạt ngưỡng → set packageType về NONE
+          await this.userRepository.update(ancestor.id, {
+            packageType: 'NONE',
+          });
+          this.logger.log(`User ${ancestor.id} reached threshold ${config.RECONSUMPTION_THRESHOLD}, packageType set to NONE`);
+        }
+      }
     }
   }
 
@@ -612,6 +653,20 @@ export class CommissionService {
         })
         .where("id = :id", { id: manager.id })
         .execute();
+      
+      // Kiểm tra xem có đạt ngưỡng không, nếu có thì set packageType về NONE
+      const updatedManager = await this.userRepository.findOne({ where: { id: manager.id } });
+      if (updatedManager) {
+        const newTotalCommission = updatedManager.totalCommissionReceived;
+        const config = await this.getConfig(manager.packageType === 'NPP' ? 'NPP' : 'CTV');
+        if (newTotalCommission >= config.RECONSUMPTION_THRESHOLD) {
+          // Đã đạt ngưỡng → set packageType về NONE
+          await this.userRepository.update(manager.id, {
+            packageType: 'NONE',
+          });
+          this.logger.log(`User ${manager.id} reached threshold ${config.RECONSUMPTION_THRESHOLD}, packageType set to NONE`);
+        }
+      }
     }
   }
 
@@ -619,11 +674,11 @@ export class CommissionService {
    * Kiểm tra điều kiện tái tiêu dùng
    * Trả về true nếu có thể nhận hoa hồng, false nếu cần tái tiêu dùng
    * 
-   * Logic:
+   * Logic mới (đơn giản hóa):
    * - Nếu chưa đạt ngưỡng hoa hồng → có thể nhận hoa hồng bình thường
-   * - Nếu đã đạt ngưỡng → phải kiểm tra tái tiêu dùng
-   *   - Đã đủ tái tiêu dùng → có thể nhận hoa hồng
-   *   - Chưa đủ tái tiêu dùng → không thể nhận hoa hồng
+   * - Nếu đã đạt ngưỡng → phải mua hàng với giá trị >= packageValue để tiếp tục nhận hoa hồng
+   *   - Nếu đã mua hàng với giá trị >= packageValue sau khi đạt ngưỡng → có thể nhận hoa hồng
+   *   - Nếu chưa mua → không thể nhận hoa hồng (packageType sẽ bị set về NONE)
    * 
    * QUAN TRỌNG: Chỉ tính các commission (direct, group, management), KHÔNG tính milestone
    */
@@ -637,7 +692,7 @@ export class CommissionService {
     );
 
     const threshold = config.RECONSUMPTION_THRESHOLD;
-    const required = config.RECONSUMPTION_REQUIRED;
+    const packageValue = config.PACKAGE_VALUE;
 
     this.logger.debug(`[RECONSUMPTION CHECK] User ${user.id}: totalCommissionReceived=${user.totalCommissionReceived}, threshold=${threshold}`);
 
@@ -647,14 +702,13 @@ export class CommissionService {
     }
 
     // Đã đạt ngưỡng → phải kiểm tra tái tiêu dùng
-    const cycles = Math.floor(user.totalCommissionReceived / threshold);
-    const requiredTotal = cycles * required;
+    // User cần mua hàng với giá trị >= packageValue để tiếp tục nhận hoa hồng
+    // Kiểm tra xem có đơn hàng tái tiêu dùng nào với giá trị >= packageValue sau khi đạt ngưỡng không
+    const hasReconsumed = user.totalReconsumptionAmount >= packageValue;
 
-    const hasEnough = user.totalReconsumptionAmount >= requiredTotal;
+    this.logger.debug(`[RECONSUMPTION CHECK] User ${user.id}: threshold=${threshold}, packageValue=${packageValue}, totalReconsumptionAmount=${user.totalReconsumptionAmount}, hasReconsumed=${hasReconsumed}`);
 
-    this.logger.debug(`[RECONSUMPTION CHECK] User ${user.id}: cycles=${cycles}, required=${requiredTotal}, actual=${user.totalReconsumptionAmount}, hasEnough=${hasEnough}`);
-
-    return hasEnough;
+    return hasReconsumed;
   }
 
   /**
@@ -759,22 +813,31 @@ export class CommissionService {
     userId: string,
     query: { type?: CommissionType; status?: CommissionStatus },
   ): Promise<Commission[]> {
-    const qb = this.commissionRepository.createQueryBuilder('commission')
-      .leftJoinAndSelect('commission.fromUser', 'fromUser')
-      .where('commission.userId = :userId', { userId });
+    // Use find() instead of QueryBuilder to ensure all columns are selected
+    const where: any = { userId };
+    if (query.type) where.type = query.type;
+    if (query.status) where.status = query.status;
 
-    if (query.type) {
-      qb.andWhere('commission.type = :type', { type: query.type });
-    }
-    if (query.status) {
-      qb.andWhere('commission.status = :status', { status: query.status });
-    }
-
-    qb.orderBy('commission.createdAt', 'DESC');
-
-    const commissions = await qb.getMany();
+    const commissions = await this.commissionRepository.find({
+      where,
+      relations: ['fromUser'],
+      order: { createdAt: 'DESC' },
+    });
+    
     // Format decimal numbers to fix floating-point precision issues
-    return formatDecimalsInObject(commissions) as Commission[];
+    // formatDecimalsInObject should preserve Date objects, but let's be safe
+    const formatted = formatDecimalsInObject(commissions) as Commission[];
+    
+    // Ensure createdAt is preserved (formatDecimalsInObject might convert Date to string)
+    formatted.forEach((c, index) => {
+      const original = commissions[index];
+      if (original && original.createdAt) {
+        // Preserve the original Date object
+        (c as any).createdAt = original.createdAt;
+      }
+    });
+    
+    return formatted;
   }
 
   /**

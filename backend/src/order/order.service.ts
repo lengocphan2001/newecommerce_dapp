@@ -268,34 +268,54 @@ export class OrderService {
 
   /**
    * Kiểm tra xem đơn hàng có phải là tái tiêu dùng không
-   * Logic đồng bộ với CommissionService.checkReconsumption
+   * Logic mới (đơn giản hóa): User đã đạt ngưỡng hoa hồng và cần mua hàng với giá trị >= packageValue
    */
   private async checkIfReconsumption(
     user: User | null,
     orderAmount: number,
   ): Promise<boolean> {
-    if (!user || user.packageType === 'NONE') {
+    if (!user) {
       return false;
     }
 
+    // Nếu user đang có packageType = NONE, có thể là đã đạt ngưỡng và cần tái tiêu dùng
+    // Hoặc user chưa có package
+    if (user.packageType === 'NONE') {
+      // Kiểm tra xem user có đạt ngưỡng không
+      // Nếu đạt ngưỡng và orderAmount >= packageValue của CTV hoặc NPP → là tái tiêu dùng
+      const ctvConfig = await this.configService.findByPackageType(PackageType.CTV);
+      const nppConfig = await this.configService.findByPackageType(PackageType.NPP);
+      
+      if (ctvConfig && user.totalCommissionReceived >= parseFloat(ctvConfig.reconsumptionThreshold.toString())) {
+        const packageValue = parseFloat(ctvConfig.packageValue.toString());
+        if (orderAmount >= packageValue) {
+          return true;
+        }
+      }
+      
+      if (nppConfig && user.totalCommissionReceived >= parseFloat(nppConfig.reconsumptionThreshold.toString())) {
+        const packageValue = parseFloat(nppConfig.packageValue.toString());
+        if (orderAmount >= packageValue) {
+          return true;
+        }
+      }
+      
+      return false;
+    }
+
+    // User có packageType (CTV hoặc NPP)
     const config = await this.configService.findByPackageType(
       user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
     );
 
     if (!config) return false;
 
-    // Sử dụng totalCommissionReceived (đã bao gồm PENDING) để check ngưỡng
     const threshold = parseFloat(config.reconsumptionThreshold.toString());
-    const required = parseFloat(config.reconsumptionRequired.toString());
+    const packageValue = parseFloat(config.packageValue.toString());
 
-    if (user.totalCommissionReceived >= threshold) {
-      const cycles = Math.floor(user.totalCommissionReceived / threshold);
-      const requiredTotal = cycles * required;
-
-      // Nếu hiện tại chưa đủ tái tiêu dùng, thì đơn hàng này sẽ được tính vào tái tiêu dùng
-      if (user.totalReconsumptionAmount < requiredTotal) {
-        return true;
-      }
+    // Nếu đã đạt ngưỡng và orderAmount >= packageValue → là tái tiêu dùng
+    if (user.totalCommissionReceived >= threshold && orderAmount >= packageValue) {
+      return true;
     }
 
     return false;

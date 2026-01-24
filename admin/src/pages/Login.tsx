@@ -12,10 +12,11 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.post('/auth/admin/login', values);
-      localStorage.setItem('token', response.data.token);
+      // Use admin_token to avoid conflict with client token
+      localStorage.setItem('admin_token', response.data.token);
       // Store user info for quick access
       if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('admin_user', JSON.stringify(response.data.user));
       }
       message.success('Login successful');
       // Reload to refresh auth context

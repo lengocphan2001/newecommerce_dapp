@@ -16,7 +16,8 @@ const api = axios.create({
 // Request interceptor để thêm token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // Use admin_token to avoid conflict with client token
+    const token = localStorage.getItem('admin_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -43,7 +44,8 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
       window.location.href = '/login';
     }
     // Handle JSON parse errors

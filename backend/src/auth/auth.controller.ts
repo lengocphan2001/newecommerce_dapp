@@ -99,5 +99,11 @@ export class AuthController {
         : config.packageValue,
     };
   }
+
+  @Get('reconsumption/check')
+  @UseGuards(JwtAuthGuard)
+  async checkReconsumption(@Request() req: any) {
+    return this.authService.checkReconsumptionStatus(req.user.sub);
+  }
 }
 

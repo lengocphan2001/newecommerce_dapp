@@ -137,6 +137,27 @@ export const api = {
     return response.json();
   },
 
+  async checkReconsumption() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/reconsumption/check`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to check reconsumption status' }));
+      throw new Error(error.message || 'Failed to check reconsumption status');
+    }
+    return response.json();
+  },
+
   async getChildren(userId: string, position?: 'left' | 'right') {
     const token = localStorage.getItem('token');
     if (!token) {

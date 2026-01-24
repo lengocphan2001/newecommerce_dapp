@@ -17,17 +17,35 @@ export default function ProfilePage() {
     accumulatedPurchases?: string;
     bonusCommission?: string;
     maxCommission?: string;
+    totalReconsumptionAmount?: string;
     treeStats?: {
-      left: { count: number };
-      right: { count: number };
+      left: { count: number; total: number };
+      right: { count: number; total: number };
     };
   } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [reconsumptionStatus, setReconsumptionStatus] = useState<{
+    needsReconsumption?: boolean;
+    threshold?: number;
+    packageValue?: number;
+    currentCommission?: number;
+  } | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
     loadWalletStatus();
+    loadReconsumptionStatus();
   }, []);
+
+  const loadReconsumptionStatus = async () => {
+    try {
+      const status = await api.checkReconsumption();
+      setReconsumptionStatus(status);
+    } catch (error) {
+      // Silently fail
+    }
+  };
 
   const loadUserProfile = async () => {
     try {
@@ -84,6 +102,46 @@ export default function ProfilePage() {
     router.push("/");
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert(t("imageTooLarge"));
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const avatarUrl = await api.uploadAvatar(file);
+      
+      // Update local state
+      setUserInfo(prev => prev ? { ...prev, avatar: avatarUrl } : null);
+      localStorage.setItem("userAvatar", avatarUrl);
+      
+      alert(t("avatarUploaded"));
+      
+      // Reload profile to get updated info
+      await loadUserProfile();
+    } catch (error: any) {
+      alert(error.message || t("avatarUploadFailed"));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const calculateReconsumptionCycles = () => {
+    if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
+    return Math.floor(reconsumptionStatus.currentCommission / reconsumptionStatus.threshold);
+  };
+
+  const calculateCommissionProgress = () => {
+    if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
+    const progress = (reconsumptionStatus.currentCommission / reconsumptionStatus.threshold) * 100;
+    return Math.min(progress, 100);
+  };
+
   return (
     <div className="bg-white text-slate-900 min-h-screen flex flex-col font-display">
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
@@ -119,6 +177,24 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm"></div>
+            <label 
+              htmlFor="avatar-upload"
+              className="absolute bottom-0 right-0 flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-primary-dark text-white shadow-lg cursor-pointer transition-all active:scale-95"
+            >
+              {uploadingAvatar ? (
+                <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-base">photo_camera</span>
+              )}
+            </label>
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="hidden"
+              disabled={uploadingAvatar}
+            />
           </div>
           <div className="mt-4 text-center w-full">
             <h2 className="text-2xl font-bold text-slate-900">{userInfo?.fullName || "Nguyễn Văn A"}</h2>
@@ -147,15 +223,55 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Branch Members Stats */}
-            <div className="flex items-center justify-center gap-4 mt-4 text-xs font-bold uppercase tracking-wider">
-              <div className="flex items-center gap-1.5 text-slate-500 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                <span className="material-symbols-outlined text-sm">group</span>
-                {t("affiliateLeftBranchLabel")}: <span className="text-[#135bec]">{userInfo?.treeStats?.left?.count || 0}</span>
+            {/* Commission Progress Bar */}
+            {reconsumptionStatus && reconsumptionStatus.threshold && (
+              <div className="w-full max-w-sm mx-auto mt-6 bg-white rounded-2xl p-4 border border-purple-100 shadow-sm">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-slate-700">{t("maxCommission")}</span>
+                  <span className="text-xs font-semibold text-primary">
+                    ${reconsumptionStatus.currentCommission?.toFixed(5) || "0.00"} / ${reconsumptionStatus.threshold}
+                  </span>
+                </div>
+                <div className="h-2 bg-purple-100 rounded-full overflow-hidden mb-3">
+                  <div 
+                    className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full transition-all duration-500"
+                    style={{ width: `${calculateCommissionProgress()}%` }}
+                  ></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
+                    <p className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">Số lần tái tiêu dùng</p>
+                    <p className="text-sm font-black text-slate-900">{calculateReconsumptionCycles()} lần</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
+                    <p className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">Đã tái tiêu dùng</p>
+                    <p className="text-sm font-black text-slate-900">${userInfo?.totalReconsumptionAmount || "0.00"}</p>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 text-slate-500 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                <span className="material-symbols-outlined text-sm">group</span>
-                {t("affiliateRightBranchLabel")}: <span className="text-[#135bec]">{userInfo?.treeStats?.right?.count || 0}</span>
+            )}
+
+            {/* Branch Members Stats */}
+            <div className="flex flex-col gap-3 mt-6 w-full max-w-sm mx-auto">
+              <div className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-slate-500">group</span>
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{t("affiliateLeftBranchLabel")}</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-black text-[#135bec]">{userInfo?.treeStats?.left?.count || 0} người</span>
+                  <span className="text-[10px] font-semibold text-slate-500">${(userInfo?.treeStats?.left?.total || 0).toFixed(4)}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-slate-500">group</span>
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{t("affiliateRightBranchLabel")}</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-sm font-black text-[#135bec]">{userInfo?.treeStats?.right?.count || 0} người</span>
+                  <span className="text-[10px] font-semibold text-slate-500">${(userInfo?.treeStats?.right?.total || 0).toFixed(4)}</span>
+                </div>
               </div>
             </div>
             

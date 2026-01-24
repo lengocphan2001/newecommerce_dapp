@@ -47,7 +47,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
-    const token = localStorage.getItem('token');
+    // Use admin_token to avoid conflict with client token
+    const token = localStorage.getItem('admin_token');
     if (!token) {
       setUser(null);
       setPermissions([]);

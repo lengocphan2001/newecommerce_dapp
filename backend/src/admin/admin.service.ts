@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Address } from '../user/entities/address.entity';
-import { Order } from '../order/entities/order.entity';
+import { Order, OrderStatus } from '../order/entities/order.entity';
+import { Product } from '../product/entities/product.entity';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
@@ -17,6 +18,8 @@ export class AdminService {
     private addressRepository: Repository<Address>,
     @InjectRepository(Order)
     private orderRepository: Repository<Order>,
+    @InjectRepository(Product)
+    private productRepository: Repository<Product>,
     private userService: UserService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
@@ -25,8 +28,47 @@ export class AdminService {
   ) {}
 
   async getDashboard() {
-    // TODO: Implement get dashboard stats logic
-    return { message: 'Get dashboard stats' };
+    // Get total counts
+    const [totalUsers, totalProducts, totalOrders] = await Promise.all([
+      this.userRepository.count(),
+      this.productRepository.count(),
+      this.orderRepository.count(),
+    ]);
+
+    // Calculate total revenue from all delivered orders
+    const deliveredOrders = await this.orderRepository.find({
+      where: { status: OrderStatus.DELIVERED },
+    });
+    const totalRevenue = deliveredOrders.reduce(
+      (sum, order) => sum + (parseFloat(String(order.totalAmount)) || 0),
+      0,
+    );
+
+    // Get recent orders (last 10)
+    const recentOrders = await this.orderRepository.find({
+      order: { createdAt: 'DESC' },
+      take: 10,
+      relations: [],
+    });
+
+    // Format recent orders for frontend
+    const formattedRecentOrders = recentOrders.map((order) => ({
+      id: order.id,
+      userId: order.userId,
+      totalAmount: parseFloat(String(order.totalAmount || 0)),
+      status: order.status,
+      items: order.items,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    }));
+
+    return {
+      totalUsers,
+      totalProducts,
+      totalOrders,
+      totalRevenue,
+      recentOrders: formattedRecentOrders,
+    };
   }
 
   async getUsers(query: any) {

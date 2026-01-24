@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, message } from 'antd';
 import {
   UserOutlined,
   ShoppingOutlined,
@@ -7,6 +7,22 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
+import type { ColumnsType } from 'antd/es/table';
+
+interface RecentOrder {
+  id: string;
+  userId: string;
+  totalAmount: number;
+  status: string;
+  items: Array<{
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -16,6 +32,7 @@ const Dashboard: React.FC = () => {
     totalOrders: 0,
     totalRevenue: 0,
   });
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -24,24 +41,52 @@ const Dashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       const response = await adminService.getDashboard();
-      // Giả sử API trả về data như này
+      const data = response.data || response;
       setStats({
-        totalUsers: response.data?.totalUsers || 0,
-        totalProducts: response.data?.totalProducts || 0,
-        totalOrders: response.data?.totalOrders || 0,
-        totalRevenue: response.data?.totalRevenue || 0,
+        totalUsers: data.totalUsers || 0,
+        totalProducts: data.totalProducts || 0,
+        totalOrders: data.totalOrders || 0,
+        totalRevenue: data.totalRevenue || 0,
       });
-    } catch (error) {
+      setRecentOrders(data.recentOrders || []);
+    } catch (error: any) {
+      console.error('Failed to fetch dashboard data:', error);
+      message.error(error.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const columns = [
+  const columns: ColumnsType<RecentOrder> = [
     {
-      title: 'Recent Orders',
+      title: 'Order ID',
       dataIndex: 'id',
       key: 'id',
+      render: (id: string) => id.substring(0, 8) + '...',
+      width: 120,
+    },
+    {
+      title: 'User ID',
+      dataIndex: 'userId',
+      key: 'userId',
+      render: (userId: string) => userId.substring(0, 8) + '...',
+      width: 120,
+    },
+    {
+      title: 'Items',
+      key: 'items',
+      render: (_, record) => {
+        const itemCount = record.items?.length || 0;
+        const totalQuantity = record.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+        return `${itemCount} item(s) (${totalQuantity} total)`;
+      },
+    },
+    {
+      title: 'Total Amount',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      render: (amount: number) => `${amount.toFixed(2)} USDT`,
+      align: 'right',
     },
     {
       title: 'Status',
@@ -49,14 +94,22 @@ const Dashboard: React.FC = () => {
       key: 'status',
       render: (status: string) => {
         const colorMap: Record<string, string> = {
-          PENDING: 'orange',
-          PROCESSING: 'blue',
-          SHIPPED: 'cyan',
-          DELIVERED: 'green',
-          CANCELLED: 'red',
+          pending: 'orange',
+          confirmed: 'blue',
+          processing: 'blue',
+          shipped: 'cyan',
+          delivered: 'green',
+          cancelled: 'red',
         };
-        return <Tag color={colorMap[status]}>{status}</Tag>;
+        const statusUpper = status.toUpperCase();
+        return <Tag color={colorMap[status] || 'default'}>{statusUpper}</Tag>;
       },
+    },
+    {
+      title: 'Created At',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date: string) => new Date(date).toLocaleString(),
     },
   ];
 
@@ -107,14 +160,15 @@ const Dashboard: React.FC = () => {
         </Col>
       </Row>
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={24}>
           <Card title="Recent Orders">
             <Table
               columns={columns}
-              dataSource={[]}
+              dataSource={recentOrders}
               loading={loading}
-              pagination={false}
+              pagination={{ pageSize: 10 }}
               size="small"
+              rowKey="id"
             />
           </Card>
         </Col>

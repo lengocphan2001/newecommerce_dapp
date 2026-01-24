@@ -159,8 +159,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <LogoutOutlined />,
       label: 'Logout',
       onClick: () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        // Use admin_token to avoid conflict with client token
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
         navigate('/login');
       },
     },

@@ -17,10 +17,11 @@ import { UserModule } from '../user/user.module';
 import { OrderModule } from '../order/order.module';
 import { Address } from '../user/entities/address.entity';
 import { Order } from '../order/entities/order.entity';
+import { Product } from '../product/entities/product.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, CommissionConfig, MilestoneRewardConfig, UserMilestone, Address, Order]),
+    TypeOrmModule.forFeature([User, CommissionConfig, MilestoneRewardConfig, UserMilestone, Address, Order, Product]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),

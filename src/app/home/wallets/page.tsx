@@ -263,6 +263,30 @@ export default function WalletsPage() {
     },
   ];
 
+  // Helper function to safely format date
+  const formatDateSafe = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
+
+  // Helper function to safely create Date for sorting
+  const createDateSafe = (dateString: string | null | undefined): string => {
+    if (!dateString) return new Date(0).toISOString();
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return new Date(0).toISOString();
+      return dateString;
+    } catch {
+      return new Date(0).toISOString();
+    }
+  };
+
   // Recent transactions - combine commissions and orders
   const allTransactions: Transaction[] = [
     // Commissions
@@ -283,8 +307,8 @@ export default function WalletsPage() {
         title: commissionTitle,
         amount: parseFloat(activity.amount),
         status: activity.status === 'PENDING' ? t("pending") : t("completed"),
-        date: new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        createdAt: activity.createdAt, // Keep original for sorting
+        date: formatDateSafe(activity.createdAt),
+        createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
         icon: 'call_received',
         iconColor: 'text-[#13ec5b]',
       };
@@ -296,8 +320,8 @@ export default function WalletsPage() {
       title: t("orderPurchase"),
       amount: -order.totalAmount, // Negative for purchases
       status: order.status === 'delivered' ? t("completed") : t("pending"),
-      date: new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      createdAt: order.createdAt, // Keep original for sorting
+      date: formatDateSafe(order.createdAt),
+      createdAt: createDateSafe(order.createdAt), // Keep original for sorting
       icon: 'shopping_cart',
       iconColor: 'text-blue-600',
     })) || []),
@@ -305,10 +329,16 @@ export default function WalletsPage() {
   
   // Sort by createdAt descending and take top 5
   const transactions: Transaction[] = allTransactions
+    .filter((tx: any) => tx.date) // Filter out transactions with invalid dates
     .sort((a: any, b: any) => {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return dateB - dateA;
+      try {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        if (isNaN(dateA) || isNaN(dateB)) return 0;
+        return dateB - dateA;
+      } catch {
+        return 0;
+      }
     })
     .slice(0, 5)
     .map(({ createdAt, ...rest }: any) => rest); // Remove createdAt before displaying

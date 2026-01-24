@@ -509,10 +509,10 @@ export default function CheckoutPage() {
   return (
     <div className="bg-background-light font-display text-text-main antialiased flex flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-blue-100 px-4 py-3 flex items-center justify-between shadow-sm">
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-purple-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <button 
           onClick={() => router.back()}
-          className="size-10 flex items-center justify-center rounded-full bg-blue-50 hover:bg-blue-100 text-slate-600 transition active:scale-95"
+          className="size-10 flex items-center justify-center rounded-full bg-purple-50 hover:bg-purple-100 text-slate-600 transition active:scale-95"
         >
           <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
         </button>
@@ -525,13 +525,13 @@ export default function CheckoutPage() {
         {/* Section 1: Shipping Information */}
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
-            <span className="flex items-center justify-center size-6 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm ring-2 ring-blue-100">1</span>
+            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">1</span>
             <h2 className="text-base font-bold text-slate-700">{t("shippingInfo")}</h2>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-card border border-blue-100 group transition-all hover:border-blue-600/30">
+          <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 group transition-all hover:border-primary/30">
             <div className="flex gap-4">
               <div className="shrink-0 pt-1">
-                <div className="size-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 border border-blue-100">
+                <div className="size-10 rounded-full bg-purple-50 flex items-center justify-center text-primary border border-purple-100">
                   <span className="material-symbols-outlined">location_on</span>
                 </div>
               </div>
@@ -540,7 +540,7 @@ export default function CheckoutPage() {
                   <p className="font-bold text-slate-900 text-lg">{checkoutUser?.fullName || "Nguyễn Văn A"}</p>
                   <button 
                     onClick={() => router.push("/home/profile/address")}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition"
+                    className="text-xs font-semibold text-primary hover:text-primary-dark px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 transition"
                   >
                     {t("change")}
                   </button>
@@ -560,10 +560,10 @@ export default function CheckoutPage() {
         {/* Section 2: Payment Method */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 px-1">
-            <span className="flex items-center justify-center size-6 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm ring-2 ring-blue-100">2</span>
+            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">2</span>
             <h2 className="text-base font-bold text-slate-700">{t("paymentMethod")}</h2>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-card border border-blue-100 flex items-center justify-between">
+          <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="size-10 rounded-full bg-gray-100 bg-cover bg-center border border-slate-200" style={{
@@ -588,7 +588,7 @@ export default function CheckoutPage() {
             ) : (
               <button
                 onClick={connectWallet}
-                className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition"
+                className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary-dark transition"
               >
                 {t("connect")}
               </button>
@@ -596,7 +596,7 @@ export default function CheckoutPage() {
           </div>
           <div className="space-y-3">
             <p className="text-xs font-semibold text-text-sub px-1 uppercase tracking-wider">{t("paymentAsset")}</p>
-            <div className="flex items-center p-3.5 rounded-xl border-2 border-blue-600 bg-blue-50">
+            <div className="flex items-center p-3.5 rounded-xl border-2 border-primary bg-purple-50">
               <div className="size-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100">
                 <span className="material-symbols-outlined text-[22px]">attach_money</span>
               </div>
@@ -607,7 +607,7 @@ export default function CheckoutPage() {
                 </div>
                 <p className="text-xs text-text-sub mt-0.5">Số dư: <span className="font-semibold text-slate-700">{formatBalance(usdtBalance)}</span></p>
               </div>
-              <div className="size-5 rounded-full border-[1.5px] border-blue-600 bg-blue-600 flex items-center justify-center">
+              <div className="size-5 rounded-full border-[1.5px] border-primary bg-primary flex items-center justify-center">
                 <div className="size-2 bg-white rounded-full"></div>
               </div>
             </div>
@@ -617,10 +617,10 @@ export default function CheckoutPage() {
         {/* Section 3: Payment Details */}
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
-            <span className="flex items-center justify-center size-6 rounded-full bg-blue-600 text-white text-xs font-bold shadow-sm ring-2 ring-blue-100">3</span>
+            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">3</span>
             <h2 className="text-base font-bold text-slate-700">{t("paymentDetails")}</h2>
           </div>
-          <div className="bg-white p-5 rounded-2xl shadow-card border border-blue-100 space-y-3.5">
+          <div className="bg-white p-5 rounded-2xl shadow-card border border-purple-100 space-y-3.5">
             <div className="flex justify-between text-sm items-center">
               <span className="text-text-sub font-medium">{t("productPrice")}</span>
               <span className="font-bold text-slate-900">{formatPrice(totalAmount)} USDT</span>
@@ -636,7 +636,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* Footer */}
-      <div className="bg-white border-t border-blue-100 shadow-[0_-8px_30px_rgba(37,99,235,0.06)] p-4 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+      <div className="bg-white border-t border-purple-100 shadow-[0_-8px_30px_rgba(139,92,246,0.06)] p-4 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="max-w-lg mx-auto flex gap-4 items-center justify-between">
             <div className="flex flex-col">
               <span className="text-xs text-text-sub font-medium mb-0.5">{t("totalPayment")}</span>
@@ -648,7 +648,7 @@ export default function CheckoutPage() {
             <button 
               onClick={handlePayment}
               disabled={processingStep !== "idle" || !walletAddress || parseFloat(usdtBalance || "0") < finalTotal}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>{processingStep !== "idle" ? t("processingPayment") : t("confirmPurchase")}</span>
               {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}

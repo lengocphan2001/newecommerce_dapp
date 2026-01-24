@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, IsPhoneNumber, IsIn } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, IsPhoneNumber, IsIn, Matches, MinLength, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class WalletRegisterDto {
@@ -12,6 +12,11 @@ export class WalletRegisterDto {
 
   @IsString()
   @IsNotEmpty()
+  @MinLength(3, { message: 'Username must be at least 3 characters' })
+  @MaxLength(20, { message: 'Username must not exceed 20 characters' })
+  @Matches(/^[a-zA-Z0-9_]+$/, { 
+    message: 'Username can only contain letters, numbers and underscores (no spaces or special characters)' 
+  })
   username: string;
 
   @IsString()

@@ -133,6 +133,19 @@ function RegisterForm() {
       setError("Vui lòng nhập tên người dùng");
       return;
     }
+    // Username validation: only letters, numbers, and underscores
+    if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      setError(t("usernameInvalid"));
+      return;
+    }
+    if (formData.username.length < 3) {
+      setError(t("usernameTooShort"));
+      return;
+    }
+    if (formData.username.length > 20) {
+      setError(t("usernameTooLong"));
+      return;
+    }
     if (!formData.fullName.trim()) {
       setError("Vui lòng nhập họ tên");
       return;
@@ -302,8 +315,14 @@ function RegisterForm() {
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder={t("enterUsername")}
+              pattern="[a-zA-Z0-9_]+"
+              minLength={3}
+              maxLength={20}
               required
             />
+            <p className="mt-1 text-xs text-zinc-500">
+              {t("usernameHelper")}
+            </p>
           </div>
 
           {/* Full Name */}

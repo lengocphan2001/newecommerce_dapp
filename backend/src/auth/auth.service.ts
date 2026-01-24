@@ -311,12 +311,44 @@ export class AuthService {
         }
       }
 
+      // Ensure createdAt is always a string (ISO format) for proper JSON serialization
+      let createdAtStr: string | null = null;
+      
+      // Debug: log the commission to see what we have
+      if (!c.createdAt) {
+        console.warn('Commission missing createdAt:', c.id, c);
+      }
+      
+      if (c.createdAt) {
+        if (c.createdAt instanceof Date) {
+          createdAtStr = c.createdAt.toISOString();
+        } else if (typeof c.createdAt === 'string') {
+          // Already a string, use it directly
+          createdAtStr = c.createdAt;
+        } else {
+          // Try to convert to Date first, then to ISO string
+          try {
+            const date = new Date(c.createdAt as any);
+            if (!isNaN(date.getTime())) {
+              createdAtStr = date.toISOString();
+            }
+          } catch (e) {
+            // If conversion fails, set to null
+            createdAtStr = null;
+          }
+        }
+      } else {
+        // If createdAt is null/undefined, try to get it from database directly
+        // This should not happen, but handle it gracefully
+        console.error('Commission createdAt is null/undefined for commission:', c.id);
+      }
+
       return {
         id: c.id,
         type: c.type,
         amount: formatDecimal(c.amount),
         status: c.status,
-        createdAt: c.createdAt,
+        createdAt: createdAtStr,
         fromUserId: c.fromUserId,
         fromUsername: fromUsername,
       };
@@ -359,6 +391,85 @@ export class AuthService {
       avatar: user.avatar,
       createdAt: user.createdAt,
       id: user.id,
+    };
+  }
+
+  /**
+   * Kiểm tra trạng thái tái tiêu dùng của user
+   * Trả về thông tin về việc user có cần tái tiêu dùng không
+   */
+  async checkReconsumptionStatus(userId: string) {
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Nếu user chưa có package hoặc packageType = NONE nhưng chưa đạt ngưỡng
+    if (user.packageType === 'NONE') {
+      // Kiểm tra xem có đạt ngưỡng không
+      const ctvConfig = await this.commissionConfigService.findByPackageType(PackageType.CTV);
+      const nppConfig = await this.commissionConfigService.findByPackageType(PackageType.NPP);
+      
+      let threshold = 0;
+      let packageValue = 0;
+      
+      if (ctvConfig && user.totalCommissionReceived >= parseFloat(ctvConfig.reconsumptionThreshold.toString())) {
+        threshold = parseFloat(ctvConfig.reconsumptionThreshold.toString());
+        packageValue = parseFloat(ctvConfig.packageValue.toString());
+      } else if (nppConfig && user.totalCommissionReceived >= parseFloat(nppConfig.reconsumptionThreshold.toString())) {
+        threshold = parseFloat(nppConfig.reconsumptionThreshold.toString());
+        packageValue = parseFloat(nppConfig.packageValue.toString());
+      }
+      
+      if (threshold > 0) {
+        return {
+          needsReconsumption: true,
+          threshold,
+          packageValue,
+          currentCommission: user.totalCommissionReceived,
+          message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua hàng với giá trị tối thiểu ${packageValue} USDT để tiếp tục nhận hoa hồng.`,
+        };
+      }
+      
+      return {
+        needsReconsumption: false,
+        message: 'Bạn chưa đạt ngưỡng hoa hồng.',
+      };
+    }
+
+    // User có packageType (CTV hoặc NPP)
+    const config = await this.commissionConfigService.findByPackageType(
+      user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
+    );
+
+    if (!config) {
+      return {
+        needsReconsumption: false,
+        message: 'Không tìm thấy cấu hình package.',
+      };
+    }
+
+    const threshold = parseFloat(config.reconsumptionThreshold.toString());
+    const packageValue = parseFloat(config.packageValue.toString());
+
+    // Nếu chưa đạt ngưỡng
+    if (user.totalCommissionReceived < threshold) {
+      return {
+        needsReconsumption: false,
+        threshold,
+        currentCommission: user.totalCommissionReceived,
+        remaining: threshold - user.totalCommissionReceived,
+        message: `Bạn cần nhận thêm ${(threshold - user.totalCommissionReceived).toFixed(5)} USDT để đạt ngưỡng.`,
+      };
+    }
+
+    // Đã đạt ngưỡng → cần tái tiêu dùng
+    return {
+      needsReconsumption: true,
+      threshold,
+      packageValue,
+      currentCommission: user.totalCommissionReceived,
+      message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua hàng với giá trị tối thiểu ${packageValue} USDT để tiếp tục nhận hoa hồng.`,
     };
   }
 

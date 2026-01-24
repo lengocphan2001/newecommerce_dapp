@@ -24,12 +24,14 @@ import Login from './pages/Login';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const token = localStorage.getItem('token');
+  // Use admin_token to avoid conflict with client token
+  const token = localStorage.getItem('admin_token');
   return token ? <>{children}</> : <Navigate to="/login" />;
 };
 
 function App() {
-  const token = localStorage.getItem('token');
+  // Use admin_token to avoid conflict with client token
+  const token = localStorage.getItem('admin_token');
 
   return (
     <AuthProvider>

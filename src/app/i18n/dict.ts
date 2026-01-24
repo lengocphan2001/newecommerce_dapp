@@ -351,7 +351,11 @@ export type I18nKey =
   | "viewMore"
   | "chatNow"
   | "addToCartButton"
-  | "buyNowButton";
+  | "buyNowButton"
+  | "usernameHelper"
+  | "usernameInvalid"
+  | "usernameTooShort"
+  | "usernameTooLong";
 
 export const DEFAULT_LANG: Lang = "en";
 
@@ -703,7 +707,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     viewMore: "Xem thêm",
     chatNow: "Chat ngay",
     addToCartButton: "Thêm vào giỏ hàng",
-    buyNowButton: "Mua ngay"
+    buyNowButton: "Mua ngay",
+    usernameHelper: "Chỉ được dùng chữ cái, số và dấu gạch dưới (_). Độ dài: 3-20 ký tự",
+    usernameInvalid: "Tên người dùng chỉ được chứa chữ cái, số và dấu gạch dưới (không có dấu cách hoặc ký tự đặc biệt)",
+    usernameTooShort: "Tên người dùng phải có ít nhất 3 ký tự",
+    usernameTooLong: "Tên người dùng không được quá 20 ký tự"
   },
   en: {
     appName: "SafepalMall",
@@ -1052,7 +1060,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     viewMore: "View More",
     chatNow: "Chat Now",
     addToCartButton: "Add to Cart",
-    buyNowButton: "Buy Now"
+    buyNowButton: "Buy Now",
+    usernameHelper: "Only letters, numbers and underscores allowed. Length: 3-20 characters",
+    usernameInvalid: "Username can only contain letters, numbers and underscores (no spaces or special characters)",
+    usernameTooShort: "Username must be at least 3 characters",
+    usernameTooLong: "Username must not exceed 20 characters"
   },
   ko: {
     appName: "SafepalMall",
@@ -1401,6 +1413,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     viewMore: "더 보기",
     chatNow: "지금 채팅",
     addToCartButton: "장바구니에 추가",
-    buyNowButton: "지금 구매"
+    buyNowButton: "지금 구매",
+    usernameHelper: "문자, 숫자 및 밑줄(_)만 사용 가능. 길이: 3-20자",
+    usernameInvalid: "사용자명은 문자, 숫자 및 밑줄만 포함할 수 있습니다 (공백이나 특수문자 불가)",
+    usernameTooShort: "사용자명은 최소 3자 이상이어야 합니다",
+    usernameTooLong: "사용자명은 20자를 초과할 수 없습니다"
   },
 };

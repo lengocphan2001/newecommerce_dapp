@@ -37,6 +37,54 @@ export default function ActivityPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [referralInfo, setReferralInfo] = useState<any>(null);
 
+  // Helper function to format datetime - must be defined before use
+  // Only formats valid dates from createdAt, no fallback to current date
+  const formatDateTime = (dateInput: string | null | undefined | Date | any) => {
+    if (!dateInput) return '';
+    
+    // Skip empty objects (like {} from backend before fix)
+    if (typeof dateInput === 'object' && !(dateInput instanceof Date)) {
+      if (Object.keys(dateInput).length === 0) {
+        return ''; // Empty object {}
+      }
+      // Try to get date from object properties if available
+      if (dateInput.$date) {
+        dateInput = dateInput.$date;
+      } else {
+        return '';
+      }
+    }
+    
+    try {
+      let date: Date;
+      
+      // Handle different input types
+      if (dateInput instanceof Date) {
+        date = dateInput;
+      } else if (typeof dateInput === 'string') {
+        date = new Date(dateInput);
+      } else {
+        return '';
+      }
+      
+      if (isNaN(date.getTime())) {
+        // Return empty string if date is invalid - don't fallback to current date
+        return '';
+      }
+      
+      // Format: "DD/MM/YYYY HH:mm"
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (error) {
+      // Return empty string on error - don't fallback to current date
+      return '';
+    }
+  };
+
   useEffect(() => {
     fetchActivityData();
   }, []);
@@ -80,11 +128,31 @@ export default function ActivityPage() {
     // Add shopping activities (orders)
     orders.forEach((order: any) => {
       const totalAmount = parseFloat(order.totalAmount) || 0;
+      // Only use createdAt if it's valid, otherwise use current date for sorting only
+      let orderDate: Date;
+      let hasValidDate = false;
+      try {
+        if (order.createdAt) {
+          orderDate = new Date(order.createdAt);
+          if (!isNaN(orderDate.getTime())) {
+            hasValidDate = true;
+          } else {
+            orderDate = new Date(); // Only for sorting, won't be displayed
+          }
+        } else {
+          orderDate = new Date(); // Only for sorting, won't be displayed
+        }
+      } catch {
+        orderDate = new Date(); // Only for sorting, won't be displayed
+      }
+      
+      // Format datetime from original createdAt, not from orderDate
+      const datetimeStr = formatDateTime(order.createdAt);
       allActivities.push({
         id: order.id,
         type: 'shopping',
         title: t("successfulTransaction"),
-        description: `${formatTime(order.createdAt)} • ${t("orderNumber")} #${order.id.slice(-8).toUpperCase()}`,
+        description: datetimeStr ? `${datetimeStr} • ${t("orderNumber")} #${order.id.slice(-8).toUpperCase()}` : `${t("orderNumber")} #${order.id.slice(-8).toUpperCase()}`,
         amount: -totalAmount,
         amountLabel: totalAmount > 0 ? `-$${Number(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}` : '$0',
         status: order.status === 'delivered' || order.status === 'confirmed' ? 'Hoàn tất' : t("pending"),
@@ -92,7 +160,7 @@ export default function ActivityPage() {
         icon: 'shopping_bag',
         iconColor: 'text-primary',
         iconBgColor: 'bg-primary/10',
-        date: new Date(order.createdAt),
+        date: orderDate,
         orderId: order.id,
       });
     });
@@ -110,11 +178,36 @@ export default function ActivityPage() {
           ? t("groupCommission")
           : t("managementCommission");
         
+        // Use the same simple logic as order items
+        let activityDate: Date;
+        try {
+          if (activity.createdAt) {
+            activityDate = new Date(activity.createdAt);
+            if (isNaN(activityDate.getTime())) {
+              activityDate = new Date(); // Only for sorting, won't be displayed
+            }
+          } else {
+            activityDate = new Date(); // Only for sorting, won't be displayed
+          }
+        } catch {
+          activityDate = new Date(); // Only for sorting, won't be displayed
+        }
+        
+        // Format datetime from original createdAt, not from activityDate (same as orders)
+        const datetimeStr = formatDateTime(activity.createdAt);
+        const fromMemberInfo = activity.fromUsername 
+          ? `${t("fromMember")}: ${activity.fromUsername}` 
+          : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
+        
+        const description = datetimeStr 
+          ? `${datetimeStr} • ${fromMemberInfo}` 
+          : fromMemberInfo;
+        
         allActivities.push({
           id: activity.id,
           type: 'commission',
           title: commissionType, // Use the calculated commissionType directly
-          description: `${formatTime(activity.createdAt)} • ${activity.fromUsername ? `${t("fromMember")}: ${activity.fromUsername}` : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '')}`,
+          description: description,
           amount: parseFloat(activity.amount),
           amountLabel: `+$${Number(activity.amount).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}`,
           status: 'Đã cộng',
@@ -122,7 +215,7 @@ export default function ActivityPage() {
           icon: activityType === 'GROUP' ? 'account_tree' : 'card_membership',
           iconColor: activityType === 'GROUP' ? 'text-amber-500' : 'text-amber-500',
           iconBgColor: activityType === 'GROUP' ? 'bg-amber-500/10' : 'bg-amber-500/10',
-          date: new Date(activity.createdAt),
+          date: activityDate,
           fromUserId: activity.fromUserId,
           fromUsername: activity.fromUsername,
         });
@@ -136,11 +229,15 @@ export default function ActivityPage() {
         // Add wallet connect activity
         const connectTime = localStorage.getItem('walletConnectTime');
         const connectDate = connectTime ? new Date(connectTime) : new Date();
+        // Format datetime from original connectTime, not from connectDate
+        const connectDateTimeStr = formatDateTime(connectTime);
+        const addressInfo = `${t("address")}: ${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
+        
         allActivities.push({
           id: 'wallet-connect',
           type: 'system',
           title: t("walletConnect"),
-          description: `${formatTime(connectDate.toISOString())} • ${t("address")}: ${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`,
+          description: connectDateTimeStr ? `${connectDateTimeStr} • ${addressInfo}` : addressInfo,
           status: t("verified"),
           statusColor: 'text-green-600',
           icon: 'account_balance_wallet',
@@ -157,29 +254,38 @@ export default function ActivityPage() {
     setActivities(allActivities);
   }, [orders, referralInfo, t]);
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+  const formatTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch {
+      return '';
+    }
   };
 
   const formatDate = (date: Date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const activityDate = new Date(date);
-    activityDate.setHours(0, 0, 0, 0);
-
-    if (activityDate.getTime() === today.getTime()) {
-      return t("today");
-    } else if (activityDate.getTime() === yesterday.getTime()) {
-      return t("yesterday");
-    } else {
-      // Format: "Ngày 18 Tháng 10"
+    try {
+      if (!date || isNaN(date.getTime())) {
+        // If date is invalid, try to use current date but still format it properly
+        const now = new Date();
+        const day = now.getDate();
+        const month = now.toLocaleDateString('vi-VN', { month: 'long' });
+        return `Ngày ${day} ${month.charAt(0).toUpperCase() + month.slice(1)}`;
+      }
+      
+      // Always format as "Ngày X Tháng Y" (e.g., "Ngày 7 Tháng 1")
       const day = date.getDate();
       const month = date.toLocaleDateString('vi-VN', { month: 'long' });
+      return `Ngày ${day} ${month.charAt(0).toUpperCase() + month.slice(1)}`;
+    } catch {
+      // Fallback: use current date formatted
+      const now = new Date();
+      const day = now.getDate();
+      const month = now.toLocaleDateString('vi-VN', { month: 'long' });
       return `Ngày ${day} ${month.charAt(0).toUpperCase() + month.slice(1)}`;
     }
   };
@@ -201,12 +307,35 @@ export default function ActivityPage() {
   }, {} as Record<string, ActivityItem[]>);
 
   const dateGroups = Object.keys(groupedActivities).sort((a, b) => {
-    // Sort: today first, then yesterday, then by date
-    if (a === t("today")) return -1;
-    if (b === t("today")) return 1;
-    if (a === t("yesterday")) return -1;
-    if (b === t("yesterday")) return 1;
-    return b.localeCompare(a);
+    // Sort by date descending (newest first)
+    // Parse dates from "Ngày X Tháng Y" format for proper sorting
+    try {
+      const parseDateFromString = (dateStr: string): Date => {
+        // Extract day and month from "Ngày X Tháng Y" format
+        const match = dateStr.match(/Ngày (\d+) Tháng (\w+)/);
+        if (match) {
+          const day = parseInt(match[1], 10);
+          const monthName = match[2].toLowerCase();
+          const monthMap: Record<string, number> = {
+            'một': 1, 'hai': 2, 'ba': 3, 'bốn': 4, 'năm': 5, 'sáu': 6,
+            'bảy': 7, 'tám': 8, 'chín': 9, 'mười': 10, 'mười một': 11, 'mười hai': 12,
+            'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+            'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+          };
+          const month = monthMap[monthName] || new Date().getMonth() + 1;
+          const year = new Date().getFullYear();
+          return new Date(year, month - 1, day);
+        }
+        return new Date();
+      };
+      
+      const dateA = parseDateFromString(a);
+      const dateB = parseDateFromString(b);
+      return dateB.getTime() - dateA.getTime(); // Descending order
+    } catch {
+      // Fallback to string comparison
+      return b.localeCompare(a);
+    }
   });
 
   if (loading) {

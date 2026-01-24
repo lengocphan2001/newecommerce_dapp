@@ -168,11 +168,13 @@ export class UserService {
         count: leftMembers.length,
         members: leftMembers,
         volume: user.leftBranchTotal || 0,
+        total: user.leftBranchTotal || 0, // Total sales for left branch
       },
       right: {
         count: rightMembers.length,
         members: rightMembers,
         volume: user.rightBranchTotal || 0,
+        total: user.rightBranchTotal || 0, // Total sales for right branch
       },
       total: leftMembers.length + rightMembers.length,
     };
