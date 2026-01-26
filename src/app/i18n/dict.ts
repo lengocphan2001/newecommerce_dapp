@@ -348,6 +348,8 @@ export type I18nKey =
   | "productDetails"
   | "category"
   | "brand"
+  | "origin"
+  | "clothingType"
   | "viewMore"
   | "chatNow"
   | "addToCartButton"
@@ -355,7 +357,16 @@ export type I18nKey =
   | "usernameHelper"
   | "usernameInvalid"
   | "usernameTooShort"
-  | "usernameTooLong";
+  | "usernameTooLong"
+  | "verifying"
+  | "verifyEmailSuccess"
+  | "verifyEmailFailed"
+  | "verifyEmailMissingToken"
+  | "backToAccount"
+  | "sendVerificationEmail"
+  | "emailVerification"
+  | "emailVerified"
+  | "emailNotVerified";
 
 export const DEFAULT_LANG: Lang = "en";
 
@@ -704,6 +715,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productDetails: "Chi tiết sản phẩm",
     category: "Danh mục",
     brand: "Thương hiệu",
+    origin: "Xuất xứ",
+    clothingType: "Loại trang phục",
     viewMore: "Xem thêm",
     chatNow: "Chat ngay",
     addToCartButton: "Thêm vào giỏ hàng",
@@ -711,7 +724,16 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     usernameHelper: "Chỉ được dùng chữ cái, số và dấu gạch dưới (_). Độ dài: 3-20 ký tự",
     usernameInvalid: "Tên người dùng chỉ được chứa chữ cái, số và dấu gạch dưới (không có dấu cách hoặc ký tự đặc biệt)",
     usernameTooShort: "Tên người dùng phải có ít nhất 3 ký tự",
-    usernameTooLong: "Tên người dùng không được quá 20 ký tự"
+    usernameTooLong: "Tên người dùng không được quá 20 ký tự",
+    verifying: "Đang xác thực...",
+    verifyEmailSuccess: "Xác thực email thành công",
+    verifyEmailFailed: "Xác thực email thất bại",
+    verifyEmailMissingToken: "Thiếu link xác thực.",
+    backToAccount: "Về tài khoản",
+    sendVerificationEmail: "Gửi email xác thực",
+    emailVerification: "Xác thực email",
+    emailVerified: "Đã xác thực email",
+    emailNotVerified: "Email chưa được xác thực. Nhấn nút bên dưới để nhận link xác thực."
   },
   en: {
     appName: "SafepalMall",
@@ -1057,6 +1079,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productDetails: "Product Details",
     category: "Category",
     brand: "Brand",
+    origin: "Origin",
+    clothingType: "Clothing Type",
     viewMore: "View More",
     chatNow: "Chat Now",
     addToCartButton: "Add to Cart",
@@ -1064,7 +1088,16 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     usernameHelper: "Only letters, numbers and underscores allowed. Length: 3-20 characters",
     usernameInvalid: "Username can only contain letters, numbers and underscores (no spaces or special characters)",
     usernameTooShort: "Username must be at least 3 characters",
-    usernameTooLong: "Username must not exceed 20 characters"
+    usernameTooLong: "Username must not exceed 20 characters",
+    verifying: "Verifying...",
+    verifyEmailSuccess: "Email verified successfully",
+    verifyEmailFailed: "Email verification failed",
+    verifyEmailMissingToken: "Missing verification link.",
+    backToAccount: "Back to account",
+    sendVerificationEmail: "Send verification email",
+    emailVerification: "Email verification",
+    emailVerified: "Email verified",
+    emailNotVerified: "Email not verified. Click the button below to receive a verification link."
   },
   ko: {
     appName: "SafepalMall",
@@ -1410,6 +1443,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productDetails: "제품 세부정보",
     category: "카테고리",
     brand: "브랜드",
+    origin: "원산지",
+    clothingType: "의류 종류",
     viewMore: "더 보기",
     chatNow: "지금 채팅",
     addToCartButton: "장바구니에 추가",
@@ -1417,6 +1452,15 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     usernameHelper: "문자, 숫자 및 밑줄(_)만 사용 가능. 길이: 3-20자",
     usernameInvalid: "사용자명은 문자, 숫자 및 밑줄만 포함할 수 있습니다 (공백이나 특수문자 불가)",
     usernameTooShort: "사용자명은 최소 3자 이상이어야 합니다",
-    usernameTooLong: "사용자명은 20자를 초과할 수 없습니다"
+    usernameTooLong: "사용자명은 20자를 초과할 수 없습니다",
+    verifying: "확인 중...",
+    verifyEmailSuccess: "이메일 인증 성공",
+    verifyEmailFailed: "이메일 인증 실패",
+    verifyEmailMissingToken: "인증 링크가 없습니다.",
+    backToAccount: "계정으로 돌아가기",
+    sendVerificationEmail: "인증 이메일 보내기",
+    emailVerification: "이메일 인증",
+    emailVerified: "이메일 인증됨",
+    emailNotVerified: "이메일이 인증되지 않았습니다. 아래 버튼을 눌러 인증 링크를 받으세요."
   },
 };

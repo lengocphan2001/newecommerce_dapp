@@ -55,5 +55,17 @@ export class UpdateProductDto {
   @IsUUID()
   @IsOptional()
   categoryId?: string;
+
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @IsString()
+  @IsOptional()
+  origin?: string;
+
+  @IsString()
+  @IsOptional()
+  clothingType?: string;
 }
 

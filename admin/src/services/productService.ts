@@ -17,6 +17,9 @@ export interface Product {
     description?: string;
     imageUrl?: string;
   };
+  brand?: string;
+  origin?: string;
+  clothingType?: string;
   createdAt?: string;
 }
 

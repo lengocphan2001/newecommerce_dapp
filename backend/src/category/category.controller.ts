@@ -12,9 +12,19 @@ export class CategoryController {
     return this.categoryService.findAll();
   }
 
+  @Get('tree')
+  async findTree() {
+    return this.categoryService.findTree();
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.categoryService.findOne(id);
+  }
+
+  @Get(':id/breadcrumb')
+  async getBreadcrumb(@Param('id') id: string) {
+    return this.categoryService.getBreadcrumb(id);
   }
 
   @Post()

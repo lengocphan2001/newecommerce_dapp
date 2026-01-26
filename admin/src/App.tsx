@@ -33,10 +33,17 @@ function App() {
   // Use admin_token to avoid conflict with client token
   const token = localStorage.getItem('admin_token');
 
+  // Use /admin basename only when URL actually starts with /admin (e.g. production or reverse-proxy).
+  // When running dev server at root (e.g. http://localhost:3000/), basename must be "" so the Router can match "/".
+  const basename =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+      ? '/admin'
+      : '';
+
   return (
     <AuthProvider>
       <NotificationManager token={token} />
-      <BrowserRouter basename="/admin">
+      <BrowserRouter basename={basename}>
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route

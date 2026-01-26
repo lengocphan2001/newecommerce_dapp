@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { StaffService } from '../staff/staff.service';
@@ -8,6 +8,7 @@ import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { CommissionConfigService } from '../admin/commission-config.service';
 import { PackageType } from '../admin/entities/commission-config.entity';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 
 @Injectable()
@@ -217,6 +218,44 @@ export class AuthService {
     };
   }
 
+  async sendVerificationEmail(userId: string) {
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (user.emailVerified) {
+      return { message: 'Email already verified' };
+    }
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    await this.userService.setEmailVerificationToken(userId, token, expiresAt);
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const verifyUrl = `${baseUrl}/home/verify-email?token=${token}`;
+    // TODO: Send email via SMTP/nodemailer when configured. For now return link.
+    return {
+      message: 'Verification email sent',
+      verifyUrl,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  async verifyEmail(token: string) {
+    if (!token || token.trim() === '') {
+      throw new BadRequestException('Token is required');
+    }
+    const user = await this.userService.findByEmailVerificationToken(token.trim());
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification link');
+    }
+    const now = new Date();
+    if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < now) {
+      throw new BadRequestException('Verification link has expired');
+    }
+    await this.userService.setEmailVerified(user.id);
+    return { message: 'Email verified successfully', email: user.email };
+  }
+
   async getMe(user: any) {
     // If it's a staff user, return staff info with permissions
     if (user.type === 'staff' || user.staffId) {
@@ -259,6 +298,7 @@ export class AuthService {
       isSuperAdmin: false,
       type: 'user',
       roles: [],
+      emailVerified: userEntity.emailVerified,
     };
   }
 
@@ -391,6 +431,7 @@ export class AuthService {
       avatar: user.avatar,
       createdAt: user.createdAt,
       id: user.id,
+      emailVerified: user.emailVerified,
     };
   }
 

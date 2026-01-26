@@ -416,10 +416,19 @@ const Products: React.FC = () => {
               <Select style={{ width: '100%' }} placeholder="Select category" allowClear>
                 {categories.map((cat) => (
                   <Select.Option key={cat.id} value={cat.id}>
-                    {cat.name}
+                    {cat.parent ? `${cat.parent.name} › ${cat.name}` : cat.name}
                   </Select.Option>
                 ))}
               </Select>
+            </Form.Item>
+            <Form.Item name="brand" label="Brand (optional)">
+              <Input placeholder="e.g. SafePalMall" />
+            </Form.Item>
+            <Form.Item name="origin" label="Xuất xứ / Origin (optional)">
+              <Input placeholder="e.g. Việt Nam" />
+            </Form.Item>
+            <Form.Item name="clothingType" label="Loại trang phục / Clothing type (optional)">
+              <Input placeholder="e.g. Đồ lẻ, Bộ" />
             </Form.Item>
             <Form.Item
               name="countries"

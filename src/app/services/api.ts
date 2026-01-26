@@ -375,4 +375,29 @@ export const api = {
     }
     return response.json();
   },
+
+  async verifyEmail(token: string) {
+    const response = await fetch(
+      `${API_BASE_URL}/auth/verify-email?token=${encodeURIComponent(token)}`
+    );
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Verification failed');
+    }
+    return response.json();
+  },
+
+  async sendVerificationEmail() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/auth/send-verification-email`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to send verification email');
+    }
+    return response.json();
+  },
 };

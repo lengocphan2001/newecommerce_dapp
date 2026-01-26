@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
@@ -24,9 +24,13 @@ interface Product {
   detailImageUrls?: string[];
   categoryId?: string;
   category?: Category;
+  categoryBreadcrumb?: string[];
   countries?: ('VIETNAM' | 'USA')[];
   createdAt: string;
   soldCount?: number;
+  brand?: string;
+  origin?: string;
+  clothingType?: string;
 }
 
 export default function ProductDetailClient() {
@@ -44,12 +48,25 @@ export default function ProductDetailClient() {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const { addItem, totalItems } = useShoppingCart();
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (productId) {
       fetchProduct();
     }
   }, [productId]);
+
+  // Non-passive touchmove so preventDefault() works when swiping (avoids console warning)
+  useEffect(() => {
+    const el = sliderRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchStartRef.current !== null) e.preventDefault();
+    };
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
 
   // Compute all images from product
   const allImages = product
@@ -65,14 +82,15 @@ export default function ProductDetailClient() {
   const onTouchStart = (e: React.TouchEvent) => {
     if (allImages.length <= 1) return;
     setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    const x = e.targetTouches[0].clientX;
+    setTouchStart(x);
+    touchStartRef.current = x;
     setDragOffset(0);
     setIsDragging(true);
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (!touchStart || allImages.length <= 1) return;
-    e.preventDefault();
     const currentX = e.targetTouches[0].clientX;
     const diff = currentX - touchStart;
     // Limit drag to prevent over-scrolling
@@ -84,6 +102,7 @@ export default function ProductDetailClient() {
 
   const onTouchEnd = () => {
     if (!touchStart || allImages.length <= 1) {
+      touchStartRef.current = null;
       setIsDragging(false);
       setDragOffset(0);
       return;
@@ -100,6 +119,7 @@ export default function ProductDetailClient() {
     }
     
     // Reset states
+    touchStartRef.current = null;
     setTouchStart(null);
     setTouchEnd(null);
     setDragOffset(0);
@@ -201,12 +221,13 @@ export default function ProductDetailClient() {
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background text-text-main font-display antialiased">
       {/* Image Slider */}
-      <div 
+      <div
+        ref={sliderRef}
         className="relative w-full aspect-square bg-white overflow-hidden touch-none select-none"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        style={{ touchAction: 'pan-x' }}
+        style={{ touchAction: "pan-x" }}
       >
         {allImages.length > 0 ? (
           <div className="relative w-full h-full">
@@ -240,22 +261,6 @@ export default function ProductDetailClient() {
                 </div>
               ))}
             </div>
-            {/* Navigation Dots */}
-            {allImages.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                {allImages.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`h-2 rounded-full transition-all ${
-                      index === selectedImageIndex
-                        ? 'w-6 bg-white'
-                        : 'w-2 bg-white/50 hover:bg-white/75'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
             {/* Image Counter */}
             {allImages.length > 1 && (
               <div className="absolute bottom-4 right-4 bg-white/80 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm z-10">
@@ -274,12 +279,12 @@ export default function ProductDetailClient() {
       <div className="bg-white p-4 flex flex-col gap-2">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <span className="text-3xl font-bold text-orange-600">${formatPrice(product.price)}</span>
+            <span className="text-3xl font-bold text-violet-600">${formatPrice(product.price)}</span>
           </div>
           
         </div>
         <h1 className="text-xl font-semibold leading-tight text-text-main line-clamp-2">
-          <span className="bg-orange-600 text-white text-xs px-2 py-0.5 rounded mr-2 align-middle font-bold">{t("favorite")}</span>
+          <span className="bg-violet-600 text-white text-xs px-2 py-0.5 rounded mr-2 align-middle font-bold">{t("favorite")}</span>
           {product.name}
         </h1>
         <div className="flex items-center justify-between mt-1">
@@ -295,20 +300,38 @@ export default function ProductDetailClient() {
         </div>
       </div>
 
-      {/* Product Details */}
+      {/* Product Details – only show attributes that have values */}
       <div className="mt-2 bg-white p-4 pb-24">
         <h3 className="text-sm font-medium mb-3">{t("productDetails")}</h3>
         <div className="flex flex-col gap-2">
-          {product.category && (
+          {((product.categoryBreadcrumb && product.categoryBreadcrumb.length > 0) || (product.category != null && product.category.name != null && product.category.name !== "")) && (
             <div className="flex text-sm">
               <span className="w-28 text-text-sub">{t("category")}</span>
-              <span className="text-blue-600">{product.category.name}</span>
+              <span className="text-violet-600">
+                {product.categoryBreadcrumb && product.categoryBreadcrumb.length > 0
+                  ? product.categoryBreadcrumb.join(" › ")
+                  : product.category?.name}
+              </span>
             </div>
           )}
-          <div className="flex text-sm">
-            <span className="w-28 text-text-sub">{t("brand")}</span>
-            <span className="text-text-main">SafePalMall</span>
-          </div>
+          {product.brand != null && product.brand.trim() !== "" && (
+            <div className="flex text-sm">
+              <span className="w-28 text-text-sub">{t("brand")}</span>
+              <span className="text-text-main">{product.brand}</span>
+            </div>
+          )}
+          {product.origin != null && product.origin.trim() !== "" && (
+            <div className="flex text-sm">
+              <span className="w-28 text-text-sub">{t("origin")}</span>
+              <span className="text-text-main">{product.origin}</span>
+            </div>
+          )}
+          {product.clothingType != null && product.clothingType.trim() !== "" && (
+            <div className="flex text-sm">
+              <span className="w-28 text-text-sub">{t("clothingType")}</span>
+              <span className="text-text-main">{product.clothingType}</span>
+            </div>
+          )}
         </div>
         {product.description && (
           <div className="mt-4">
@@ -325,7 +348,7 @@ export default function ProductDetailClient() {
               {(product.description?.length || 0) > 500 && (
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="relative z-20 w-full mt-4 flex items-center justify-center gap-1 text-orange-600 text-sm font-medium py-2 border-t border-gray-50 bg-white"
+                  className="relative z-20 w-full mt-4 flex items-center justify-center gap-1 text-violet-600 text-sm font-medium py-2 border-t border-gray-50 bg-white"
                 >
                   {isDescriptionExpanded ? t("collapse") : t("viewMore")}{" "}
                   <span
@@ -348,7 +371,7 @@ export default function ProductDetailClient() {
           <button
             onClick={handleAddToCart}
             disabled={product.stock === 0}
-            className="flex-1 flex items-center justify-center gap-2 bg-orange-50 text-orange-600 font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-orange-100 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-violet-50 text-violet-600 font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-violet-100 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
             <span className="text-sm">{t("addToCartButton")}</span>
@@ -356,7 +379,7 @@ export default function ProductDetailClient() {
           <button
             onClick={handleBuyNow}
             disabled={product.stock === 0}
-            className="flex-1 flex items-center justify-center gap-2 bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-orange-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-violet-700 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">shopping_bag</span>
             <span className="text-sm">{t("buyNowButton")}</span>
@@ -382,7 +405,7 @@ export default function ProductDetailClient() {
                 <div className="p-2 flex flex-col gap-1">
                   <span className="text-xs text-text-main line-clamp-2">{relatedProduct.name}</span>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-orange-600">${formatPrice(relatedProduct.price)}</span>
+                    <span className="text-sm font-bold text-violet-600">${formatPrice(relatedProduct.price)}</span>
                     <span className="text-[10px] text-text-sub">{t("sold")} {relatedProduct.soldCount || 0}</span>
                   </div>
                 </div>
@@ -395,7 +418,7 @@ export default function ProductDetailClient() {
       {/* Bottom Fixed Bar - Chat only */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex h-[60px]">
         <button className="flex flex-1 flex-col items-center justify-center border-r border-gray-50 hover:bg-gray-50 transition-colors">
-          <span className="material-symbols-outlined text-orange-600 text-2xl">chat_bubble_outline</span>
+          <span className="material-symbols-outlined text-violet-600 text-2xl">chat_bubble_outline</span>
           <span className="text-[10px] text-text-main mt-0.5">{t("chatNow")}</span>
         </button>
         <div className="flex-[2] flex items-center justify-center text-text-sub text-xs">

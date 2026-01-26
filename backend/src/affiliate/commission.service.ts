@@ -1025,6 +1025,7 @@ export class CommissionService {
 
   /**
    * Lấy tất cả commissions (chỉ admin)
+   * Đảm bảo createdAt trả về ISO string để table admin hiển thị đúng
    */
   async getAllCommissions(query: {
     status?: CommissionStatus;
@@ -1042,7 +1043,18 @@ export class CommissionService {
       order: { createdAt: 'DESC' },
     });
     // Format decimal numbers to fix floating-point precision issues
-    return formatDecimalsInObject(commissions) as Commission[];
+    const formatted = formatDecimalsInObject(commissions) as Commission[];
+    // Đảm bảo createdAt luôn là ISO string cho admin table
+    return formatted.map((c, index) => {
+      const raw = commissions[index];
+      const createdAt =
+        c.createdAt instanceof Date
+          ? (c.createdAt as Date).toISOString()
+          : raw?.createdAt instanceof Date
+            ? (raw.createdAt as Date).toISOString()
+            : (c.createdAt as any);
+      return { ...c, createdAt };
+    }) as Commission[];
   }
 
   /**

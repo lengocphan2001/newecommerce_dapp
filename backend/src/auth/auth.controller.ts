@@ -63,6 +63,17 @@ export class AuthController {
     return this.authService.checkReferral(username);
   }
 
+  @Post('send-verification-email')
+  @UseGuards(JwtAuthGuard)
+  async sendVerificationEmail(@Request() req: any) {
+    return this.authService.sendVerificationEmail(req.user.sub);
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.authService.verifyEmail(token || '');
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req: any) {

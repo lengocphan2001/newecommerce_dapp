@@ -61,6 +61,11 @@ export function formatDecimalsInObject(obj: any, maxDecimals: number = 8): any {
     return obj;
   }
 
+  // Preserve Date objects (they have no enumerable keys and would become {})
+  if (typeof obj === 'object' && obj instanceof Date) {
+    return obj;
+  }
+
   if (typeof obj === 'number') {
     // Check if it's a decimal number (has decimal part)
     if (obj % 1 !== 0) {

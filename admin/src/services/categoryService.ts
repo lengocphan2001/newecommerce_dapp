@@ -5,6 +5,8 @@ export interface Category {
   name: string;
   description?: string;
   imageUrl?: string;
+  parentId?: string;
+  parent?: Category;
   createdAt?: string;
   updatedAt?: string;
 }

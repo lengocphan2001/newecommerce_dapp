@@ -11,13 +11,16 @@ import {
   Typography,
   message,
   Popconfirm,
+  Select,
 } from 'antd';
+import type { UploadFile } from 'antd/es/upload/interface';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { categoryService, Category } from '../services/categoryService';
-import type { UploadFile } from 'antd/es/upload/interface';
+
+type CategoryWithParent = Category & { parent?: Category; parentId?: string };
 
 const Categories: React.FC = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryWithParent[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -47,10 +50,11 @@ const Categories: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleEdit = (category: Category) => {
+  const handleEdit = (category: CategoryWithParent) => {
     setEditingCategory(category);
     form.setFieldsValue({
       ...category,
+      parentId: category.parentId ?? undefined,
     });
     setImageFileList([]);
     setIsModalVisible(true);
@@ -85,7 +89,9 @@ const Categories: React.FC = () => {
       }
 
       const payload: any = {
-        ...values,
+        name: values.name,
+        description: values.description ?? null,
+        parentId: values.parentId ?? null,
       };
       if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
         payload.imageUrl = imageUrl;
@@ -136,8 +142,15 @@ const Categories: React.FC = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      width: 200,
+      width: 180,
       ellipsis: true,
+    },
+    {
+      title: 'Parent',
+      dataIndex: 'parent',
+      key: 'parent',
+      width: 120,
+      render: (parent?: { name: string }) => parent?.name || '-',
     },
     {
       title: 'Description',
@@ -158,7 +171,7 @@ const Categories: React.FC = () => {
       key: 'actions',
       width: 150,
       fixed: 'right' as any,
-      render: (_: any, record: Category) => (
+      render: (_: any, record: CategoryWithParent) => (
         <Space size="small">
           <Button
             type="link"
@@ -225,6 +238,19 @@ const Categories: React.FC = () => {
               rules={[{ required: true, message: 'Please enter category name' }]}
             >
               <Input placeholder="Category name" />
+            </Form.Item>
+            <Form.Item name="parentId" label="Parent category (max 3 levels)">
+              <Select
+                allowClear
+                placeholder="None (root category)"
+                optionFilterProp="label"
+                options={categories
+                  .filter((c) => !editingCategory || c.id !== editingCategory.id)
+                  .map((c) => ({
+                    value: c.id,
+                    label: c.parent ? `${c.parent.name} › ${c.name}` : c.name,
+                  }))}
+              />
             </Form.Item>
             <Form.Item
               name="description"

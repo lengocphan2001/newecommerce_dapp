@@ -75,6 +75,13 @@ const CommissionsPage: React.FC = () => {
     setFilteredCommissions(filtered);
   };
 
+  /** Format date safely; avoid "Invalid Date" when API returns unexpected value */
+  const formatDate = (value: string | Date | number | null | undefined): string => {
+    if (value == null || value === '') return '-';
+    const d = value instanceof Date ? value : new Date(value as string | number);
+    return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+  };
+
   const formatPrice = (amount: number | string) => {
     // Handle null/undefined/zero
     if (amount === 0 || amount === null || amount === undefined || amount === '0') {
@@ -239,7 +246,7 @@ const CommissionsPage: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string | Date | null | undefined) => formatDate(date),
     },
     {
       title: 'Actions',
@@ -416,7 +423,7 @@ const CommissionsPage: React.FC = () => {
                 </Descriptions.Item>
               )}
               <Descriptions.Item label="Created At" span={2}>
-                {new Date(selectedCommission.createdAt).toLocaleString()}
+                {formatDate(selectedCommission.createdAt)}
               </Descriptions.Item>
               {selectedCommission.notes && (
                 <Descriptions.Item label="Notes" span={2}>

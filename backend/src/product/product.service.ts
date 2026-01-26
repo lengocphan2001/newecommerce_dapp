@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
+import { CategoryService } from '../category/category.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class ProductService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    private readonly categoryService: CategoryService,
   ) {}
 
   /**
@@ -84,12 +86,20 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
     
-    // Calculate sold count
     const soldCount = await this.calculateSoldCount(id);
+    let categoryBreadcrumb: string[] = [];
+    if (product.categoryId) {
+      try {
+        categoryBreadcrumb = await this.categoryService.getBreadcrumb(product.categoryId);
+      } catch {
+        // ignore
+      }
+    }
     
     return {
       ...product,
       soldCount,
+      categoryBreadcrumb,
     };
   }
 

@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   Matches,
+  IsUUID,
 } from 'class-validator';
 
 export class UpdateCategoryDto {
@@ -18,4 +19,8 @@ export class UpdateCategoryDto {
   })
   @IsOptional()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsUUID(undefined, { message: 'parentId must be a valid UUID when provided' })
+  parentId?: string | null;
 }

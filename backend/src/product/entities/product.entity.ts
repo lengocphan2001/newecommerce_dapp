@@ -68,6 +68,18 @@ export class Product {
   @JoinColumn({ name: 'categoryId' })
   category?: Category;
 
+  /** Brand – only show in details if set */
+  @Column({ nullable: true })
+  brand?: string;
+
+  /** Xuất xứ (origin) – only show in details if set */
+  @Column({ nullable: true })
+  origin?: string;
+
+  /** Loại trang phục (clothing type) – only show in details if set */
+  @Column({ nullable: true })
+  clothingType?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

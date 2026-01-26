@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   Matches,
+  IsUUID,
 } from 'class-validator';
 
 export class CreateCategoryDto {
@@ -19,4 +20,8 @@ export class CreateCategoryDto {
   })
   @IsOptional()
   imageUrl?: string;
+
+  @IsUUID()
+  @IsOptional()
+  parentId?: string;
 }
