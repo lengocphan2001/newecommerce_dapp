@@ -74,6 +74,12 @@ export class AuthController {
     return this.authService.verifyEmail(token || '');
   }
 
+  @Post('verify-email')
+  @UseGuards(JwtAuthGuard)
+  async verifyEmailByCode(@Request() req: any, @Body() body: { code?: string }) {
+    return this.authService.verifyEmailByCode(req.user.sub, body?.code || '');
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req: any) {

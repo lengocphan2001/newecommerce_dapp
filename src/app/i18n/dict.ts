@@ -366,7 +366,11 @@ export type I18nKey =
   | "sendVerificationEmail"
   | "emailVerification"
   | "emailVerified"
-  | "emailNotVerified";
+  | "emailNotVerified"
+  | "enterVerificationCode"
+  | "verifyCode"
+  | "resendCode"
+  | "enter6DigitCode";
 
 export const DEFAULT_LANG: Lang = "en";
 
@@ -733,7 +737,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     sendVerificationEmail: "Gửi email xác thực",
     emailVerification: "Xác thực email",
     emailVerified: "Đã xác thực email",
-    emailNotVerified: "Email chưa được xác thực. Nhấn nút bên dưới để nhận link xác thực."
+    emailNotVerified: "Email chưa được xác thực. Nhấn nút bên dưới để nhận mã 6 số.",
+    enterVerificationCode: "Nhập mã 6 số đã gửi đến email của bạn:",
+    verifyCode: "Xác thực",
+    resendCode: "Gửi lại mã",
+    enter6DigitCode: "Vui lòng nhập đủ 6 số."
   },
   en: {
     appName: "SafepalMall",
@@ -1097,7 +1105,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     sendVerificationEmail: "Send verification email",
     emailVerification: "Email verification",
     emailVerified: "Email verified",
-    emailNotVerified: "Email not verified. Click the button below to receive a verification link."
+    emailNotVerified: "Email not verified. Click the button below to receive a 6-digit code.",
+    enterVerificationCode: "Enter the 6-digit code sent to your email:",
+    verifyCode: "Verify",
+    resendCode: "Resend code",
+    enter6DigitCode: "Please enter 6 digits."
   },
   ko: {
     appName: "SafepalMall",
@@ -1461,6 +1473,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     sendVerificationEmail: "인증 이메일 보내기",
     emailVerification: "이메일 인증",
     emailVerified: "이메일 인증됨",
-    emailNotVerified: "이메일이 인증되지 않았습니다. 아래 버튼을 눌러 인증 링크를 받으세요."
+    emailNotVerified: "이메일이 인증되지 않았습니다. 아래 버튼을 눌러 6자리 코드를 받으세요.",
+    enterVerificationCode: "이메일로 받은 6자리 코드를 입력하세요:",
+    verifyCode: "인증",
+    resendCode: "코드 다시 받기",
+    enter6DigitCode: "6자리를 입력하세요."
   },
 };

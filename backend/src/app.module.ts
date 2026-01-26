@@ -36,10 +36,12 @@ import { StaffModule } from './staff/staff.module';
 import { RoleModule } from './role/role.module';
 import { PermissionModule } from './permission/permission.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    MailModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',

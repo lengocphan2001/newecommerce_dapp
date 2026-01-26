@@ -12,22 +12,48 @@ export default function AccountPage() {
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [sendingVerify, setSendingVerify] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState("");
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
-  useEffect(() => {
+  const refreshVerified = () => {
     api.getReferralInfo().then((res: { emailVerified?: boolean }) => {
       setEmailVerified(!!res.emailVerified);
     }).catch(() => setEmailVerified(null));
+  };
+
+  useEffect(() => {
+    refreshVerified();
   }, []);
 
   const handleSendVerification = () => {
     setSendingVerify(true);
     setVerifyMessage("");
+    setShowCodeInput(false);
     api.sendVerificationEmail()
-      .then((res: { message?: string; verifyUrl?: string }) => {
-        setVerifyMessage(res.verifyUrl ? `${res.message}. Link: ${res.verifyUrl}` : (res.message || ""));
+      .then((res: { message?: string; code?: string }) => {
+        setVerifyMessage(res.message || (res.code ? `Mã: ${res.code}` : ""));
+        setShowCodeInput(true);
       })
       .catch((err: Error) => setVerifyMessage(err.message || "Failed"))
       .finally(() => setSendingVerify(false));
+  };
+
+  const handleVerifyCode = () => {
+    if (!verificationCode.trim() || verificationCode.trim().length !== 6) {
+      setVerifyMessage(t("enter6DigitCode"));
+      return;
+    }
+    setVerifying(true);
+    setVerifyMessage("");
+    api.verifyEmailByCode(verificationCode)
+      .then(() => {
+        setVerificationCode("");
+        setShowCodeInput(false);
+        refreshVerified();
+      })
+      .catch((err: Error) => setVerifyMessage(err.message || "Failed"))
+      .finally(() => setVerifying(false));
   };
 
   return (
@@ -80,14 +106,47 @@ export default function AccountPage() {
             {emailVerified === false && (
               <>
                 <p className="text-xs text-zinc-500 mb-3">{t("emailNotVerified")}</p>
-                <button
-                  type="button"
-                  onClick={handleSendVerification}
-                  disabled={sendingVerify}
-                  className="text-sm py-2 px-3 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
-                >
-                  {sendingVerify ? "..." : t("sendVerificationEmail")}
-                </button>
+                {!showCodeInput ? (
+                  <button
+                    type="button"
+                    onClick={handleSendVerification}
+                    disabled={sendingVerify}
+                    className="text-sm py-2 px-3 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {sendingVerify ? "..." : t("sendVerificationEmail")}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-zinc-600">{t("enterVerificationCode")}</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="000000"
+                      className="w-full rounded-lg border border-zinc-200 px-4 py-2 text-center text-lg font-mono tracking-[0.3em]"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleVerifyCode}
+                        disabled={verifying || verificationCode.length !== 6}
+                        className="flex-1 text-sm py-2 px-3 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                      >
+                        {verifying ? "..." : t("verifyCode")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendVerification}
+                        disabled={sendingVerify}
+                        className="text-sm py-2 px-3 rounded-lg border border-zinc-200 text-zinc-700"
+                      >
+                        {t("resendCode")}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {verifyMessage && (
                   <p className="text-xs text-zinc-600 mt-2 break-all">{verifyMessage}</p>
                 )}

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -74,5 +74,24 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-soft p-8 max-w-md w-full text-center">
+            <div className="inline-flex items-center justify-center size-16 rounded-full bg-violet-100 text-violet-600 mb-4 animate-pulse">
+              <span className="material-symbols-outlined text-3xl">mark_email_unread</span>
+            </div>
+            <p className="text-text-main font-medium">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

@@ -400,4 +400,22 @@ export const api = {
     }
     return response.json();
   },
+
+  async verifyEmailByCode(code: string) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ code: code.trim() }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Verification failed');
+    }
+    return response.json();
+  },
 };

@@ -18,12 +18,18 @@ export default function ProfilePage() {
     bonusCommission?: string;
     maxCommission?: string;
     totalReconsumptionAmount?: string;
+    emailVerified?: boolean;
     treeStats?: {
       left: { count: number; total: number };
       right: { count: number; total: number };
     };
   } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [sendingVerify, setSendingVerify] = useState(false);
+  const [verifyMessage, setVerifyMessage] = useState("");
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const [reconsumptionStatus, setReconsumptionStatus] = useState<{
     needsReconsumption?: boolean;
     threshold?: number;
@@ -100,6 +106,39 @@ export default function ProfilePage() {
     localStorage.removeItem("token");
     localStorage.removeItem("walletAddress");
     router.push("/");
+  };
+
+  const handleSendVerification = () => {
+    setSendingVerify(true);
+    setVerifyMessage("");
+    setShowCodeInput(false);
+    api.sendVerificationEmail()
+      .then((res: { message?: string; code?: string }) => {
+        setVerifyMessage(res.message || "");
+        if (res.code) setVerifyMessage((m) => `${m} Mã: ${res.code}`);
+        setShowCodeInput(true);
+        loadUserProfile();
+      })
+      .catch((err: Error) => setVerifyMessage(err.message || "Failed"))
+      .finally(() => setSendingVerify(false));
+  };
+
+  const handleVerifyCode = () => {
+    if (!verificationCode.trim() || verificationCode.trim().length !== 6) {
+      setVerifyMessage(t("enter6DigitCode"));
+      return;
+    }
+    setVerifying(true);
+    setVerifyMessage("");
+    api.verifyEmailByCode(verificationCode)
+      .then(() => {
+        setVerifyMessage("");
+        setVerificationCode("");
+        setShowCodeInput(false);
+        loadUserProfile();
+      })
+      .catch((err: Error) => setVerifyMessage(err.message || "Failed"))
+      .finally(() => setVerifying(false));
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,6 +336,65 @@ export default function ProfilePage() {
         </section>
 
         <section className="px-4 space-y-4">
+          {/* Email verification */}
+          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] p-4">
+            <p className="text-sm font-semibold text-slate-800 mb-3">{t("emailVerification")}</p>
+            {userInfo?.emailVerified === true ? (
+              <p className="text-xs text-green-600 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                {t("emailVerified")}
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-slate-500 mb-3">{t("emailNotVerified")}</p>
+                {!showCodeInput ? (
+                  <button
+                    type="button"
+                    onClick={handleSendVerification}
+                    disabled={sendingVerify}
+                    className="text-sm py-2.5 px-4 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                  >
+                    {sendingVerify ? "..." : t("sendVerificationEmail")}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-600">{t("enterVerificationCode")}</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="000000"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-center text-lg font-mono tracking-[0.4em]"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleVerifyCode}
+                        disabled={verifying || verificationCode.length !== 6}
+                        className="flex-1 text-sm py-2.5 px-4 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                      >
+                        {verifying ? "..." : t("verifyCode")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendVerification}
+                        disabled={sendingVerify}
+                        className="text-sm py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50"
+                      >
+                        {t("resendCode")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {verifyMessage && (
+                  <p className="text-xs text-slate-600 mt-3 break-all">{verifyMessage}</p>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
             <button 
                 onClick={() => router.push('/home/profile/edit')}

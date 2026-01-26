@@ -7,6 +7,7 @@ import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { CommissionConfigService } from '../admin/commission-config.service';
 import { PackageType } from '../admin/entities/commission-config.entity';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
@@ -17,6 +18,7 @@ export class AuthService {
     private userService: UserService,
     private staffService: StaffService,
     private jwtService: JwtService,
+    private mailService: MailService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
     @Inject(forwardRef(() => MilestoneRewardService))
@@ -226,18 +228,58 @@ export class AuthService {
     if (user.emailVerified) {
       return { message: 'Email already verified' };
     }
-    const token = crypto.randomBytes(32).toString('hex');
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
-    await this.userService.setEmailVerificationToken(userId, token, expiresAt);
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const verifyUrl = `${baseUrl}/home/verify-email?token=${token}`;
-    // TODO: Send email via SMTP/nodemailer when configured. For now return link.
+    const expiresInMinutes = 10;
+    expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
+    await this.userService.setEmailVerificationToken(userId, code, expiresAt);
+
+    const sent = this.mailService.isEnabled() &&
+      (await this.mailService.sendVerificationCode(user.email, code, expiresInMinutes));
+    if (!this.mailService.isEnabled() || !sent) {
+      if (!this.mailService.isEnabled()) {
+        return {
+          message: 'Verification code generated. Configure SMTP to send by email.',
+          code,
+          expiresAt: expiresAt.toISOString(),
+          expiresInMinutes,
+        };
+      }
+      return {
+        message: 'Failed to send email. Please try again or use the code below.',
+        code,
+        expiresAt: expiresAt.toISOString(),
+        expiresInMinutes,
+      };
+    }
     return {
-      message: 'Verification email sent',
-      verifyUrl,
+      message: 'Verification code sent to your email',
       expiresAt: expiresAt.toISOString(),
+      expiresInMinutes,
     };
+  }
+
+  async verifyEmailByCode(userId: string, code: string) {
+    if (!code || code.trim().length !== 6) {
+      throw new BadRequestException('Please enter the 6-digit code');
+    }
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (user.emailVerified) {
+      return { message: 'Email already verified' };
+    }
+    const trimmed = code.trim();
+    if (user.emailVerificationToken !== trimmed) {
+      throw new BadRequestException('Invalid verification code');
+    }
+    const now = new Date();
+    if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < now) {
+      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    }
+    await this.userService.setEmailVerified(user.id);
+    return { message: 'Email verified successfully', email: user.email };
   }
 
   async verifyEmail(token: string) {
