@@ -464,9 +464,7 @@ export default function HomePage() {
                         📦
                       </div>
                     )}
-                    <button className="absolute top-2 right-2 bg-white/80 hover:bg-white backdrop-blur-md p-1.5 rounded-full text-gray-400 hover:text-red-500 transition-colors shadow-sm">
-                      <span className="material-symbols-outlined text-[18px]">favorite</span>
-                    </button>
+
                     {product.stock <= 0 && (
                       <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-sm">{t("sale")}</div>
                     )}

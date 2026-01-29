@@ -296,7 +296,7 @@ export default function ProductDetailClient() {
 
         </div>
         <h1 className="text-xl font-semibold leading-tight text-text-main line-clamp-2">
-          <span className="bg-violet-600 text-white text-xs px-2 py-0.5 rounded mr-2 align-middle font-bold">{t("favorite")}</span>
+
           {getLocalizedContent(product.name, product.nameEn)}
         </h1>
         <div className="flex items-center justify-between mt-1">
