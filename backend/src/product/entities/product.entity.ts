@@ -17,8 +17,14 @@ export class Product {
   @Column()
   name: string;
 
+  @Column({ nullable: true })
+  nameEn?: string;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
+
+  @Column({ type: 'text', nullable: true })
+  descriptionEn?: string;
 
   // Use decimal for currency-like values (USDT supports up to 8 decimal places)
   @Column({
@@ -72,13 +78,22 @@ export class Product {
   @Column({ nullable: true })
   brand?: string;
 
+  @Column({ nullable: true })
+  brandEn?: string;
+
   /** Xuất xứ (origin) – only show in details if set */
   @Column({ nullable: true })
   origin?: string;
 
+  @Column({ nullable: true })
+  originEn?: string;
+
   /** Loại trang phục (clothing type) – only show in details if set */
   @Column({ nullable: true })
   clothingType?: string;
+
+  @Column({ nullable: true })
+  clothingTypeEn?: string;
 
   @CreateDateColumn()
   createdAt: Date;

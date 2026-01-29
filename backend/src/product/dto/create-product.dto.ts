@@ -17,7 +17,15 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
+  nameEn?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  descriptionEn?: string;
 
   @IsNumber()
   @IsNotEmpty()
@@ -63,10 +71,22 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
+  brandEn?: string;
+
+  @IsString()
+  @IsOptional()
   origin?: string;
 
   @IsString()
   @IsOptional()
+  originEn?: string;
+
+  @IsString()
+  @IsOptional()
   clothingType?: string;
+
+  @IsString()
+  @IsOptional()
+  clothingTypeEn?: string;
 }
 

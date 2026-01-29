@@ -370,7 +370,9 @@ export type I18nKey =
   | "enterVerificationCode"
   | "verifyCode"
   | "resendCode"
-  | "enter6DigitCode";
+  | "enter6DigitCode"
+  | "usernameInvalidNoSpecial"
+  | "milestoneReward";
 
 export const DEFAULT_LANG: Lang = "en";
 
@@ -587,6 +589,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     directCommission: "Hoa hồng trực tiếp",
     groupCommission: "Hoa hồng nhóm",
     managementCommission: "Hoa hồng quản lý",
+    milestoneReward: "Thưởng cột mốc",
     commissionReceived: "Đã nhận hoa hồng",
     fromDirectReferral: "Từ giới thiệu trực tiếp",
     fromBinaryNetwork: "Từ mạng lưới nhị phân",
@@ -725,8 +728,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     chatNow: "Chat ngay",
     addToCartButton: "Thêm vào giỏ hàng",
     buyNowButton: "Mua ngay",
-    usernameHelper: "Chỉ được dùng chữ cái, số và dấu gạch dưới (_). Độ dài: 3-20 ký tự",
-    usernameInvalid: "Tên người dùng chỉ được chứa chữ cái, số và dấu gạch dưới (không có dấu cách hoặc ký tự đặc biệt)",
+    usernameHelper: "Chỉ được dùng chữ cái và số. Độ dài: 3-20 ký tự",
+    usernameInvalid: "Tên người dùng chỉ được chứa chữ cái, số (không có dấu cách hoặc ký tự đặc biệt)",
+    usernameInvalidNoSpecial: "Tên người dùng chỉ được chứa chữ cái và số (không có dấu cách hoặc ký tự đặc biệt)",
     usernameTooShort: "Tên người dùng phải có ít nhất 3 ký tự",
     usernameTooLong: "Tên người dùng không được quá 20 ký tự",
     verifying: "Đang xác thực...",
@@ -955,6 +959,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     directCommission: "Direct Commission",
     groupCommission: "Group Commission",
     managementCommission: "Management Commission",
+    milestoneReward: "Milestone Reward",
     commissionReceived: "Commission Received",
     fromDirectReferral: "From Direct Referral",
     fromBinaryNetwork: "From Binary Network",
@@ -1093,10 +1098,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     chatNow: "Chat Now",
     addToCartButton: "Add to Cart",
     buyNowButton: "Buy Now",
-    usernameHelper: "Only letters, numbers and underscores allowed. Length: 3-20 characters",
-    usernameInvalid: "Username can only contain letters, numbers and underscores (no spaces or special characters)",
+    usernameHelper: "Only letters and numbers allowed. Length: 3-20 characters",
+    usernameInvalid: "Username can only contain letters and numbers (no spaces or special characters)",
+    usernameInvalidNoSpecial: "Username can only contain letters and numbers (no spaces or special characters)",
     usernameTooShort: "Username must be at least 3 characters",
-    usernameTooLong: "Username must not exceed 20 characters",
+    usernameTooLong: "Username cannot exceed 20 characters",
     verifying: "Verifying...",
     verifyEmailSuccess: "Email verified successfully",
     verifyEmailFailed: "Email verification failed",
@@ -1323,6 +1329,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     directCommission: "직접 커미션",
     groupCommission: "그룹 커미션",
     managementCommission: "관리 커미션",
+    milestoneReward: "마일스톤 보상",
     commissionReceived: "커미션 수령",
     fromDirectReferral: "직접 추천에서",
     fromBinaryNetwork: "바이너리 네트워크에서",
@@ -1461,8 +1468,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     chatNow: "지금 채팅",
     addToCartButton: "장바구니에 추가",
     buyNowButton: "지금 구매",
-    usernameHelper: "문자, 숫자 및 밑줄(_)만 사용 가능. 길이: 3-20자",
-    usernameInvalid: "사용자명은 문자, 숫자 및 밑줄만 포함할 수 있습니다 (공백이나 특수문자 불가)",
+    usernameHelper: "문자 및 숫자만 사용 가능. 길이: 3-20자",
+    usernameInvalid: "사용자명은 문자와 숫자만 포함할 수 있습니다 (공백이나 특수문자 불가)",
+    usernameInvalidNoSpecial: "사용자명은 문자와 숫자만 포함할 수 있습니다 (공백이나 특수문자 불가)",
     usernameTooShort: "사용자명은 최소 3자 이상이어야 합니다",
     usernameTooLong: "사용자명은 20자를 초과할 수 없습니다",
     verifying: "확인 중...",

@@ -41,7 +41,7 @@ export default function ActivityPage() {
   // Only formats valid dates from createdAt, no fallback to current date
   const formatDateTime = (dateInput: string | null | undefined | Date | any) => {
     if (!dateInput) return '';
-    
+
     // Skip empty objects (like {} from backend before fix)
     if (typeof dateInput === 'object' && !(dateInput instanceof Date)) {
       if (Object.keys(dateInput).length === 0) {
@@ -54,10 +54,10 @@ export default function ActivityPage() {
         return '';
       }
     }
-    
+
     try {
       let date: Date;
-      
+
       // Handle different input types
       if (dateInput instanceof Date) {
         date = dateInput;
@@ -66,12 +66,12 @@ export default function ActivityPage() {
       } else {
         return '';
       }
-      
+
       if (isNaN(date.getTime())) {
         // Return empty string if date is invalid - don't fallback to current date
         return '';
       }
-      
+
       // Format: "DD/MM/YYYY HH:mm"
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -92,7 +92,7 @@ export default function ActivityPage() {
   const fetchActivityData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch orders
       try {
         const ordersData = await api.getOrders();
@@ -145,7 +145,7 @@ export default function ActivityPage() {
       } catch {
         orderDate = new Date(); // Only for sorting, won't be displayed
       }
-      
+
       // Format datetime from original createdAt, not from orderDate
       const datetimeStr = formatDateTime(order.createdAt);
       allActivities.push({
@@ -170,14 +170,17 @@ export default function ActivityPage() {
       referralInfo.recentActivity.forEach((activity: any) => {
         // Normalize activity type to handle both uppercase and lowercase
         const activityType = String(activity.type || '').toUpperCase();
-        
+
         // Determine commission type label
-        const commissionType = activityType === 'DIRECT' 
+        // Determine commission type label
+        const commissionType = activityType === 'DIRECT'
           ? t("directCommission")
-          : activityType === 'GROUP' 
-          ? t("groupCommission")
-          : t("managementCommission");
-        
+          : activityType === 'GROUP'
+            ? t("groupCommission")
+            : activityType === 'MILESTONE'
+              ? t("milestoneReward")
+              : t("managementCommission");
+
         // Use the same simple logic as order items
         let activityDate: Date;
         try {
@@ -192,17 +195,17 @@ export default function ActivityPage() {
         } catch {
           activityDate = new Date(); // Only for sorting, won't be displayed
         }
-        
+
         // Format datetime from original createdAt, not from activityDate (same as orders)
         const datetimeStr = formatDateTime(activity.createdAt);
-        const fromMemberInfo = activity.fromUsername 
-          ? `${t("fromMember")}: ${activity.fromUsername}` 
+        const fromMemberInfo = activity.fromUsername
+          ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
-        
-        const description = datetimeStr 
-          ? `${datetimeStr} • ${fromMemberInfo}` 
+
+        const description = datetimeStr
+          ? `${datetimeStr} • ${fromMemberInfo}`
           : fromMemberInfo;
-        
+
         allActivities.push({
           id: activity.id,
           type: 'commission',
@@ -232,7 +235,7 @@ export default function ActivityPage() {
         // Format datetime from original connectTime, not from connectDate
         const connectDateTimeStr = formatDateTime(connectTime);
         const addressInfo = `${t("address")}: ${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
-        
+
         allActivities.push({
           id: 'wallet-connect',
           type: 'system',
@@ -250,7 +253,7 @@ export default function ActivityPage() {
 
     // Sort by date descending
     allActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
-    
+
     setActivities(allActivities);
   }, [orders, referralInfo, t]);
 
@@ -276,7 +279,7 @@ export default function ActivityPage() {
         const month = now.toLocaleDateString('vi-VN', { month: 'long' });
         return `Ngày ${day} ${month.charAt(0).toUpperCase() + month.slice(1)}`;
       }
-      
+
       // Always format as "Ngày X Tháng Y" (e.g., "Ngày 7 Tháng 1")
       const day = date.getDate();
       const month = date.toLocaleDateString('vi-VN', { month: 'long' });
@@ -328,7 +331,7 @@ export default function ActivityPage() {
         }
         return new Date();
       };
-      
+
       const dateA = parseDateFromString(a);
       const dateB = parseDateFromString(b);
       return dateB.getTime() - dateA.getTime(); // Descending order
@@ -354,7 +357,7 @@ export default function ActivityPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
         <div className="flex items-center justify-between px-4 py-3">
-          <button 
+          <button
             onClick={() => router.back()}
             className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
           >
@@ -373,41 +376,37 @@ export default function ActivityPage() {
           <div className="flex gap-6 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setActiveTab('all')}
-              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${
-                activeTab === 'all'
+              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'all'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-[#4c669a]'
-              }`}
+                }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("all")}</p>
             </button>
             <button
               onClick={() => setActiveTab('shopping')}
-              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${
-                activeTab === 'shopping'
+              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'shopping'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-[#4c669a]'
-              }`}
+                }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("shopping")}</p>
             </button>
             <button
               onClick={() => setActiveTab('commission')}
-              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${
-                activeTab === 'commission'
+              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'commission'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-[#4c669a]'
-              }`}
+                }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("commission")}</p>
             </button>
             <button
               onClick={() => setActiveTab('system')}
-              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${
-                activeTab === 'system'
+              className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'system'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-[#4c669a]'
-              }`}
+                }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("system")}</p>
             </button>
@@ -423,20 +422,18 @@ export default function ActivityPage() {
         ) : (
           dateGroups.map((dateKey, dateIndex) => (
             <div key={dateKey}>
-              <h3 className={`text-[#0d121b] text-base font-bold leading-tight tracking-[-0.015em] px-4 pb-3 ${
-                dateIndex === 0 ? 'pt-6' : 'pt-8'
-              }`}>
+              <h3 className={`text-[#0d121b] text-base font-bold leading-tight tracking-[-0.015em] px-4 pb-3 ${dateIndex === 0 ? 'pt-6' : 'pt-8'
+                }`}>
                 {dateKey}
               </h3>
               <div className="bg-white mx-4 rounded-xl overflow-hidden shadow-sm">
                 {groupedActivities[dateKey].map((activity, index) => (
                   <div
                     key={activity.id}
-                    className={`flex items-center gap-4 px-4 min-h-[72px] py-3 justify-between ${
-                      index < groupedActivities[dateKey].length - 1
+                    className={`flex items-center gap-4 px-4 min-h-[72px] py-3 justify-between ${index < groupedActivities[dateKey].length - 1
                         ? 'border-b border-[#f0f2f5]'
                         : ''
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`${activity.iconBgColor} ${activity.iconColor} flex items-center justify-center rounded-xl shrink-0 size-12`}>
@@ -454,9 +451,8 @@ export default function ActivityPage() {
                     <div className="shrink-0 text-right">
                       {activity.amount !== undefined && (
                         <>
-                          <p className={`text-base font-bold leading-normal ${
-                            activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'
-                          }`}>
+                          <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'
+                            }`}>
                             {activity.amountLabel || `${activity.amount >= 0 ? '+' : '-'}$${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}`}
                           </p>
                           {activity.status && (

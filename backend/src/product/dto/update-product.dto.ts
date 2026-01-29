@@ -16,7 +16,15 @@ export class UpdateProductDto {
 
   @IsString()
   @IsOptional()
+  nameEn?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  descriptionEn?: string;
 
   @IsNumber()
   @IsOptional()
@@ -62,10 +70,22 @@ export class UpdateProductDto {
 
   @IsString()
   @IsOptional()
+  brandEn?: string;
+
+  @IsString()
+  @IsOptional()
   origin?: string;
 
   @IsString()
   @IsOptional()
+  originEn?: string;
+
+  @IsString()
+  @IsOptional()
   clothingType?: string;
+
+  @IsString()
+  @IsOptional()
+  clothingTypeEn?: string;
 }
 

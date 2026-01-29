@@ -16,7 +16,9 @@ interface Category {
 interface Product {
   id: string;
   name: string;
+  nameEn?: string;
   description?: string;
+  descriptionEn?: string;
   price: number;
   stock: number;
   shippingFee?: number;
@@ -29,14 +31,17 @@ interface Product {
   createdAt: string;
   soldCount?: number;
   brand?: string;
+  brandEn?: string;
   origin?: string;
+  originEn?: string;
   clothingType?: string;
+  clothingTypeEn?: string;
 }
 
 export default function ProductDetailClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const productId = searchParams.get('id') as string;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +55,13 @@ export default function ProductDetailClient() {
   const { addItem, totalItems } = useShoppingCart();
   const sliderRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
+
+  // Helper to get localized content
+  const getLocalizedContent = (viContent?: string, enContent?: string) => {
+    if (!viContent && !enContent) return ""; // Handle cases where both are undefined/null
+    if (lang === 'vi') return viContent || enContent || ""; // Prefer VI, fallback to EN
+    return enContent || viContent || ""; // Prefer EN, fallback to VI
+  };
 
   useEffect(() => {
     if (productId) {
@@ -71,9 +83,9 @@ export default function ProductDetailClient() {
   // Compute all images from product
   const allImages = product
     ? [
-        product.thumbnailUrl,
-        ...(product.detailImageUrls || []),
-      ].filter(Boolean) as string[]
+      product.thumbnailUrl,
+      ...(product.detailImageUrls || []),
+    ].filter(Boolean) as string[]
     : [];
 
   // Swipe handlers with smooth drag
@@ -107,7 +119,7 @@ export default function ProductDetailClient() {
       setDragOffset(0);
       return;
     }
-    
+
     const distance = touchStart - (touchEnd || touchStart);
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
@@ -117,7 +129,7 @@ export default function ProductDetailClient() {
     } else if (isRightSwipe) {
       setSelectedImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
     }
-    
+
     // Reset states
     touchStartRef.current = null;
     setTouchStart(null);
@@ -131,7 +143,7 @@ export default function ProductDetailClient() {
       setLoading(true);
       const data = await api.getProduct(productId);
       setProduct(data);
-      
+
       // Fetch related products
       try {
         const allProducts = await api.getProducts();
@@ -162,7 +174,7 @@ export default function ProductDetailClient() {
     const buttonElement = e?.currentTarget as HTMLElement;
     addItem({
       productId: product.id,
-      productName: product.name,
+      productName: getLocalizedContent(product.name, product.nameEn),
       price: product.price,
       thumbnailUrl: product.thumbnailUrl,
     }, buttonElement);
@@ -232,7 +244,7 @@ export default function ProductDetailClient() {
         {allImages.length > 0 ? (
           <div className="relative w-full h-full">
             {/* Image Container with smooth transform */}
-            <div 
+            <div
               className="absolute inset-0 flex"
               style={{
                 transform: `translateX(calc(${-selectedImageIndex * 100}% + ${dragOffset}px))`,
@@ -281,11 +293,11 @@ export default function ProductDetailClient() {
           <div className="flex items-center gap-2">
             <span className="text-3xl font-bold text-violet-600">${formatPrice(product.price)}</span>
           </div>
-          
+
         </div>
         <h1 className="text-xl font-semibold leading-tight text-text-main line-clamp-2">
           <span className="bg-violet-600 text-white text-xs px-2 py-0.5 rounded mr-2 align-middle font-bold">{t("favorite")}</span>
-          {product.name}
+          {getLocalizedContent(product.name, product.nameEn)}
         </h1>
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1">
@@ -314,47 +326,45 @@ export default function ProductDetailClient() {
               </span>
             </div>
           )}
-          {product.brand != null && product.brand.trim() !== "" && (
+          {(product.brand || product.brandEn) && (
             <div className="flex text-sm">
               <span className="w-28 text-text-sub">{t("brand")}</span>
-              <span className="text-text-main">{product.brand}</span>
+              <span className="text-text-main">{getLocalizedContent(product.brand, product.brandEn)}</span>
             </div>
           )}
-          {product.origin != null && product.origin.trim() !== "" && (
+          {(product.origin || product.originEn) && (
             <div className="flex text-sm">
               <span className="w-28 text-text-sub">{t("origin")}</span>
-              <span className="text-text-main">{product.origin}</span>
+              <span className="text-text-main">{getLocalizedContent(product.origin, product.originEn)}</span>
             </div>
           )}
-          {product.clothingType != null && product.clothingType.trim() !== "" && (
+          {(product.clothingType || product.clothingTypeEn) && (
             <div className="flex text-sm">
               <span className="w-28 text-text-sub">{t("clothingType")}</span>
-              <span className="text-text-main">{product.clothingType}</span>
+              <span className="text-text-main">{getLocalizedContent(product.clothingType, product.clothingTypeEn)}</span>
             </div>
           )}
         </div>
-        {product.description && (
+        {(product.description || product.descriptionEn) && (
           <div className="mt-4">
             <div className="relative group">
               <div
-                className={`text-sm text-text-sub leading-relaxed prose max-w-none ${
-                  isDescriptionExpanded ? "" : "line-clamp-[10]"
-                }`}
-                dangerouslySetInnerHTML={{ __html: product.description || "" }}
+                className={`text-sm text-text-sub leading-relaxed prose max-w-none ${isDescriptionExpanded ? "" : "line-clamp-[10]"
+                  }`}
+                dangerouslySetInnerHTML={{ __html: getLocalizedContent(product.description, product.descriptionEn) || "" }}
               />
-              {!isDescriptionExpanded && (product.description?.length || 0) > 500 && (
+              {!isDescriptionExpanded && (getLocalizedContent(product.description, product.descriptionEn)?.length || 0) > 500 && (
                 <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/95 to-transparent pointer-events-none z-10"></div>
               )}
-              {(product.description?.length || 0) > 500 && (
+              {(getLocalizedContent(product.description, product.descriptionEn)?.length || 0) > 500 && (
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
                   className="relative z-20 w-full mt-4 flex items-center justify-center gap-1 text-violet-600 text-sm font-medium py-2 border-t border-gray-50 bg-white"
                 >
                   {isDescriptionExpanded ? t("collapse") : t("viewMore")}{" "}
                   <span
-                    className={`material-symbols-outlined text-base transition-transform ${
-                      isDescriptionExpanded ? "rotate-180" : ""
-                    }`}
+                    className={`material-symbols-outlined text-base transition-transform ${isDescriptionExpanded ? "rotate-180" : ""
+                      }`}
                   >
                     keyboard_arrow_down
                   </span>
@@ -403,7 +413,7 @@ export default function ProductDetailClient() {
                   backgroundColor: '#f5f5f5'
                 }}></div>
                 <div className="p-2 flex flex-col gap-1">
-                  <span className="text-xs text-text-main line-clamp-2">{relatedProduct.name}</span>
+                  <span className="text-xs text-text-main line-clamp-2">{getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}</span>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-bold text-violet-600">${formatPrice(relatedProduct.price)}</span>
                     <span className="text-[10px] text-text-sub">{t("sold")} {relatedProduct.soldCount || 0}</span>

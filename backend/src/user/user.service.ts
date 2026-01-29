@@ -167,6 +167,33 @@ export class UserService {
     return { parentId: directChild.id, position: weakLeg };
   }
 
+  /**
+   * Tìm vị trí "ngoài cùng" của nhánh (Extreme Left hoặc Extreme Right)
+   * Chỉ đi theo 1 hướng (targetPosition) cho đến khi gặp slot trống
+   * Dùng cho việc xếp cây theo kiểu "Power Leg" (dây)
+   */
+  async findExtremeSlotInBranch(
+    startUserId: string,
+    targetPosition: 'left' | 'right',
+  ): Promise<{ parentId: string; position: 'left' | 'right' }> {
+    let currentId = startUserId;
+
+    while (true) {
+      // Kiểm tra xem node hiện tại có child ở vị trí targetPosition không
+      const child = await this.userRepository.findOne({
+        where: { parentId: currentId, position: targetPosition },
+      });
+
+      if (!child) {
+        // Không có child ở vị trí này -> Đây là slot trống cần tìm
+        return { parentId: currentId, position: targetPosition };
+      }
+
+      // Có child, tiếp tục đi xuống theo nhánh đó
+      currentId = child.id;
+    }
+  }
+
   async getDownline(userId: string, position?: 'left' | 'right') {
     const where: any = { parentId: userId };
     if (position) {

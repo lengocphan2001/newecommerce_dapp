@@ -17,14 +17,22 @@ interface Category {
 interface Product {
   id: string;
   name: string;
+  nameEn?: string;
   price: number;
   description?: string;
+  descriptionEn?: string;
   thumbnailUrl?: string;
   stock: number;
   shippingFee?: number;
   countries?: ('VIETNAM' | 'USA')[];
   categoryId?: string;
   category?: Category;
+  brand?: string;
+  brandEn?: string;
+  origin?: string;
+  originEn?: string;
+  clothingType?: string;
+  clothingTypeEn?: string;
 }
 
 export default function ProductsPage() {
@@ -40,9 +48,15 @@ export default function ProductsPage() {
     usa: false,
   });
   const [addToCartAnimating, setAddToCartAnimating] = useState<string | null>(null);
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { addItem } = useShoppingCart();
   const router = useRouter();
+
+  // Helper to get localized content
+  const getLocalizedContent = (viContent: string, enContent?: string) => {
+    if (lang === 'vi') return viContent;
+    return enContent || viContent;
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -69,17 +83,17 @@ export default function ProductsPage() {
       const country = selectedCountries.length > 0 ? selectedCountries[0] : undefined;
       const response = await api.getProducts(country, selectedCategoryId || undefined);
       let filtered = Array.isArray(response) ? response : response.data || [];
-      
+
       // Additional frontend filtering by countries if multiple selected
       if (selectedCountries.length > 0) {
         filtered = filtered.filter((product: Product) => {
           const productCountries = product.countries || [];
-          return selectedCountries.some(country => 
+          return selectedCountries.some(country =>
             Array.isArray(productCountries) && productCountries.includes(country)
           );
         });
       }
-      
+
       setProducts(filtered);
     } catch (err: any) {
       setError(err.message || t("failedToLoadProducts"));
@@ -100,16 +114,20 @@ export default function ProductsPage() {
     if (product.stock <= 0) {
       return;
     }
-    
+
     // Animation effect
     setAddToCartAnimating(product.id);
     setTimeout(() => setAddToCartAnimating(null), 600);
-    
+
     // Pass button element for animation
     const buttonElement = e.currentTarget as HTMLElement;
+
+    // Use localized name for cart
+    const localizedName = getLocalizedContent(product.name, product.nameEn);
+
     addItem({
       productId: product.id,
-      productName: product.name,
+      productName: localizedName,
       price: product.price,
       thumbnailUrl: product.thumbnailUrl,
     }, buttonElement);
@@ -119,9 +137,10 @@ export default function ProductsPage() {
     router.push(`/home/products/detail?id=${productId}`);
   };
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter((product) => {
+    const displayName = getLocalizedContent(product.name, product.nameEn);
+    return displayName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const getCountryLabel = (countries: ('VIETNAM' | 'USA')[]) => {
     if (countries.length === 0) return t("productsTitle");
@@ -144,7 +163,7 @@ export default function ProductsPage() {
   return (
     <div className="flex flex-col bg-background-gray">
       <AppHeader titleKey="productsTitle" />
-      
+
       {/* Search Bar */}
       <div className="px-4 py-4 bg-white shadow-sm mb-2">
         <div className="relative flex w-full items-center">
@@ -171,65 +190,59 @@ export default function ProductsPage() {
           <div className="flex gap-6 px-4 overflow-x-auto hide-scrollbar pb-2">
             <button
               onClick={() => toggleCountry('VIETNAM')}
-              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
-                selectedCountries.includes('VIETNAM') ? '' : 'group'
-              }`}
+              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${selectedCountries.includes('VIETNAM') ? '' : 'group'
+                }`}
             >
-              <div className={`w-16 h-16 rounded-full bg-white ${
-                selectedCountries.includes('VIETNAM')
-                  ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
-                  : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
-              }`}>
+              <div className={`w-16 h-16 rounded-full bg-white ${selectedCountries.includes('VIETNAM')
+                ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
+                : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
+                }`}>
                 <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
                   {flagImageError.vietnam ? (
                     <span className="text-3xl">🇻🇳</span>
                   ) : (
-                    <img 
-                      src="https://flagcdn.com/w40/vn.png" 
-                      alt="Vietnam" 
+                    <img
+                      src="https://flagcdn.com/w40/vn.png"
+                      alt="Vietnam"
                       className="w-10 h-10 object-contain"
                       onError={() => setFlagImageError(prev => ({ ...prev, vietnam: true }))}
                     />
                   )}
                 </div>
               </div>
-              <span className={`text-xs ${
-                selectedCountries.includes('VIETNAM') 
-                  ? 'text-primary font-bold' 
-                  : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
-              }`}>
+              <span className={`text-xs ${selectedCountries.includes('VIETNAM')
+                ? 'text-primary font-bold'
+                : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
+                }`}>
                 Vietnam
               </span>
             </button>
             <button
               onClick={() => toggleCountry('USA')}
-              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
-                selectedCountries.includes('USA') ? '' : 'group'
-              }`}
+              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${selectedCountries.includes('USA') ? '' : 'group'
+                }`}
             >
-              <div className={`w-16 h-16 rounded-full bg-white ${
-                selectedCountries.includes('USA')
-                  ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
-                  : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
-              }`}>
+              <div className={`w-16 h-16 rounded-full bg-white ${selectedCountries.includes('USA')
+                ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
+                : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
+                }`}>
                 <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
                   {flagImageError.usa ? (
                     <span className="text-3xl">🇺🇸</span>
                   ) : (
-                    <img 
-                      src="https://flagcdn.com/w40/us.png" 
-                      alt="USA" 
+                    <img
+                      src="https://flagcdn.com/w40/us.png"
+                      alt="USA"
                       className="w-10 h-10 object-contain"
                       onError={() => setFlagImageError(prev => ({ ...prev, usa: true }))}
                     />
                   )}
                 </div>
               </div>
-              <span className={`text-xs ${
-                selectedCountries.includes('USA')
-                  ? 'text-primary font-bold'
-                  : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
-              }`}>
+              <span className={`text-xs ${selectedCountries.includes('USA')
+                ? 'text-primary font-bold'
+                : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
+                }`}>
                 USA
               </span>
             </button>
@@ -245,11 +258,10 @@ export default function ProductsPage() {
             <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar pb-4">
               <button
                 onClick={() => setSelectedCategoryId(null)}
-                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                  selectedCategoryId === null
-                    ? 'bg-primary text-white border-primary shadow-md'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
-                }`}
+                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${selectedCategoryId === null
+                  ? 'bg-primary text-white border-primary shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                  }`}
               >
                 <span className="text-sm font-medium">All</span>
               </button>
@@ -257,15 +269,14 @@ export default function ProductsPage() {
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategoryId(category.id)}
-                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                    selectedCategoryId === category.id
-                      ? 'bg-primary text-white border-primary shadow-md'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
-                  }`}
+                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${selectedCategoryId === category.id
+                    ? 'bg-primary text-white border-primary shadow-md'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                    }`}
                 >
                   {category.imageUrl && (
-                    <img 
-                      src={category.imageUrl} 
+                    <img
+                      src={category.imageUrl}
                       alt={category.name}
                       className="w-5 h-5 rounded-full object-cover"
                     />
@@ -337,7 +348,7 @@ export default function ProductsPage() {
                   <div className="p-3">
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="text-sm font-bold text-gray-900 line-clamp-2 min-h-[2.5em]">
-                        {product.name}
+                        {getLocalizedContent(product.name, product.nameEn)}
                       </h4>
                     </div>
                     <div className="flex items-center gap-1 mb-3">
@@ -358,11 +369,10 @@ export default function ProductsPage() {
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0}
-                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${
-                          product.stock > 0
-                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
-                            : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
-                        } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
+                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0
+                          ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
+                          : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
+                          } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
                       >
                         <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>
                           {addToCartAnimating === product.id ? 'check' : 'add'}

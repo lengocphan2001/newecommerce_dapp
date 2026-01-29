@@ -55,7 +55,7 @@ export class AuthService {
   async adminLogin(loginDto: LoginDto) {
     // Try to find staff first
     let staff = await this.staffService.findByEmail(loginDto.email);
-    
+
     if (staff) {
       // Staff login
       if (staff.status !== 'ACTIVE') {
@@ -380,7 +380,7 @@ export class AuthService {
     const recentCommissions = await this.commissionService.getCommissions(userId, {});
     const recentActivity = await Promise.all(recentCommissions.slice(0, 20).map(async (c: any) => {
       let fromUsername = c.fromUser?.username || c.fromUser?.fullName;
-      
+
       // Fallback if relation didn't load
       if (!fromUsername && c.fromUserId) {
         try {
@@ -395,12 +395,12 @@ export class AuthService {
 
       // Ensure createdAt is always a string (ISO format) for proper JSON serialization
       let createdAtStr: string | null = null;
-      
+
       // Debug: log the commission to see what we have
       if (!c.createdAt) {
         console.warn('Commission missing createdAt:', c.id, c);
       }
-      
+
       if (c.createdAt) {
         if (c.createdAt instanceof Date) {
           createdAtStr = c.createdAt.toISOString();
@@ -492,10 +492,10 @@ export class AuthService {
       // Kiểm tra xem có đạt ngưỡng không
       const ctvConfig = await this.commissionConfigService.findByPackageType(PackageType.CTV);
       const nppConfig = await this.commissionConfigService.findByPackageType(PackageType.NPP);
-      
+
       let threshold = 0;
       let packageValue = 0;
-      
+
       if (ctvConfig && user.totalCommissionReceived >= parseFloat(ctvConfig.reconsumptionThreshold.toString())) {
         threshold = parseFloat(ctvConfig.reconsumptionThreshold.toString());
         packageValue = parseFloat(ctvConfig.packageValue.toString());
@@ -503,7 +503,7 @@ export class AuthService {
         threshold = parseFloat(nppConfig.reconsumptionThreshold.toString());
         packageValue = parseFloat(nppConfig.packageValue.toString());
       }
-      
+
       if (threshold > 0) {
         return {
           needsReconsumption: true,
@@ -513,7 +513,7 @@ export class AuthService {
           message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua hàng với giá trị tối thiểu ${packageValue} USDT để tiếp tục nhận hoa hồng.`,
         };
       }
-      
+
       return {
         needsReconsumption: false,
         message: 'Bạn chưa đạt ngưỡng hoa hồng.',
@@ -644,18 +644,19 @@ export class AuthService {
       // Check if leg is specified in DTO (from URL parameter ?leg=left or ?leg=right)
       // Value is already normalized by @Transform decorator in DTO
       if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {
-        // User chỉ định nhánh cụ thể, tìm slot trống trong nhánh đó
-        const slot = await this.userService.findAvailableSlotInBranch(
+        // User chỉ định nhánh cụ thể, tìm vị trí ngoài cùng (extreme) của nhánh đó
+        const slot = await this.userService.findExtremeSlotInBranch(
           referralUserId,
           walletRegisterDto.leg,
         );
-        parentId = slot.parentId; // Parent trực tiếp trong tree (có thể khác referralUser nếu đã đầy)
+        parentId = slot.parentId; // Parent trực tiếp trong tree
         position = slot.position;
         // eslint-disable-next-line no-console
       } else {
-        // Automatically place in weak leg (leg with fewer children) của referral user
+        // Automatically place in weak leg (leg with fewer children) of referral user
+        // But still use "Extreme" placement (bottom of the weak leg)
         const weakLeg = await this.userService.getWeakLeg(referralUserId);
-        const slot = await this.userService.findAvailableSlotInBranch(referralUserId, weakLeg);
+        const slot = await this.userService.findExtremeSlotInBranch(referralUserId, weakLeg);
         parentId = slot.parentId; // Parent trực tiếp trong tree
         position = slot.position;
         // eslint-disable-next-line no-console

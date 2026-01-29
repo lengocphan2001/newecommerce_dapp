@@ -10,6 +10,7 @@ import { CommissionPayoutService } from '../affiliate/commission-payout.service'
 import { CommissionConfigService } from '../admin/commission-config.service';
 import { PackageType } from '../admin/entities/commission-config.entity';
 import { GoogleSheetsService } from '../common/google-sheets.service';
+import { MilestoneRewardService } from '../admin/milestone-reward.service';
 
 @Injectable()
 export class OrderService {
@@ -26,7 +27,8 @@ export class OrderService {
     private commissionPayoutService: CommissionPayoutService,
     private configService: CommissionConfigService,
     private googleSheetsService: GoogleSheetsService,
-  ) {}
+    private milestoneRewardService: MilestoneRewardService,
+  ) { }
 
   async findAll(query: any) {
     const where: any = {};
@@ -190,6 +192,13 @@ export class OrderService {
           await new Promise(resolve => setTimeout(resolve, 1000));
           // Sau khi tính commission xong, payout ngay lập tức
           const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
+
+          // Check milestone rewards for the referrer
+          if (user && user.referralUserId) {
+            this.milestoneRewardService.checkAndProcessMilestones(user.referralUserId)
+              .catch(err => console.error('[ORDER APPROVAL] Error processing milestones:', err));
+          }
+
           if (payoutResult) {
             console.log(`[ORDER APPROVAL] Payout successful for order ${savedOrder.id}: ${payoutResult.count} commissions paid`);
           } else {
@@ -285,21 +294,21 @@ export class OrderService {
       // Nếu đạt ngưỡng và orderAmount >= packageValue của CTV hoặc NPP → là tái tiêu dùng
       const ctvConfig = await this.configService.findByPackageType(PackageType.CTV);
       const nppConfig = await this.configService.findByPackageType(PackageType.NPP);
-      
+
       if (ctvConfig && user.totalCommissionReceived >= parseFloat(ctvConfig.reconsumptionThreshold.toString())) {
         const packageValue = parseFloat(ctvConfig.packageValue.toString());
         if (orderAmount >= packageValue) {
           return true;
         }
       }
-      
+
       if (nppConfig && user.totalCommissionReceived >= parseFloat(nppConfig.reconsumptionThreshold.toString())) {
         const packageValue = parseFloat(nppConfig.packageValue.toString());
         if (orderAmount >= packageValue) {
           return true;
         }
       }
-      
+
       return false;
     }
 

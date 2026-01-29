@@ -31,7 +31,7 @@ async function pollTransactionReceipt(txHash: string, timeout: number = 120000):
   const provider = new JsonRpcProvider(BSC_RPC);
   const startTime = Date.now();
   let lastError: any = null;
-  
+
   while (Date.now() - startTime < timeout) {
     try {
       const receipt = await provider.getTransactionReceipt(txHash);
@@ -54,11 +54,11 @@ async function pollTransactionReceipt(txHash: string, timeout: number = 120000):
       // Store error but continue polling (might be network issue)
       lastError = error;
     }
-    
+
     // Wait 3 seconds before next poll (slightly longer to avoid rate limiting)
     await new Promise(resolve => setTimeout(resolve, 3000));
   }
-  
+
   // If we have a last error, throw it, otherwise timeout
   if (lastError) {
     throw new Error(`Transaction polling failed: ${lastError.message}`);
@@ -83,10 +83,10 @@ export default function CheckoutPage() {
     loadWalletInfo();
     loadCheckoutUser();
     calculateShippingFee();
-    
+
     // Listen for address changes when returning from address page
     const handleStorageChange = () => {
-        loadCheckoutUser();
+      loadCheckoutUser();
     };
     window.addEventListener('focus', handleStorageChange);
     return () => window.removeEventListener('focus', handleStorageChange);
@@ -95,13 +95,13 @@ export default function CheckoutPage() {
   const calculateShippingFee = async () => {
     try {
       let maxShippingFee = 0;
-      
+
       // Fetch product details to get shippingFee and countries
       for (const item of items) {
         try {
           const product = await api.getProduct(item.productId);
           const fee = product.shippingFee ? Number(product.shippingFee) : 0;
-          
+
           // If product has a shipping fee set
           if (fee > 0) {
             // Use the maximum shipping fee found among all items
@@ -113,7 +113,7 @@ export default function CheckoutPage() {
           console.error(`Failed to fetch product ${item.productId}:`, error);
         }
       }
-      
+
       setShippingFee(maxShippingFee);
     } catch (error) {
       console.error('Failed to calculate shipping fee:', error);
@@ -123,42 +123,42 @@ export default function CheckoutPage() {
 
   const loadCheckoutUser = async () => {
     try {
-        let userBase = { fullName: "", phone: "" };
-        // 1. Try API for basic info
-        if (typeof api !== 'undefined') {
-            try {
-                const info = await api.getReferralInfo();
-                userBase = { 
-                    fullName: info.fullName || "Nguyễn Văn A", 
-                    phone: info.phone || info.phoneNumber || "+84 912 345 678"
-                };
-            } catch(e) {
-                // Basic fallback
-                userBase = { fullName: "Nguyễn Văn A", phone: "+84 912 345 678" };
-            }
+      let userBase = { fullName: "", phone: "" };
+      // 1. Try API for basic info
+      if (typeof api !== 'undefined') {
+        try {
+          const info = await api.getReferralInfo();
+          userBase = {
+            fullName: info.fullName || "Nguyễn Văn A",
+            phone: info.phone || info.phoneNumber || "+84 912 345 678"
+          };
+        } catch (e) {
+          // Basic fallback
+          userBase = { fullName: "Nguyễn Văn A", phone: "+84 912 345 678" };
         }
+      }
 
-        // 2. Check for "Selected Address" overrides from AddressPage (which saves to shippingUser/shippingAddress)
-        const storedUser = localStorage.getItem("shippingUser");
-        const storedAddress = localStorage.getItem("shippingAddress");
-        
-        if (storedUser && storedAddress) {
-            const parsedUser = JSON.parse(storedUser);
-            setCheckoutUser({
-                fullName: parsedUser.name || userBase.fullName,
-                phone: parsedUser.phone || userBase.phone,
-                address: storedAddress
-            });
-            setShippingAddress(storedAddress);
-        } else {
-             // Fallback to what we have or userAddress
-             const localAddr = localStorage.getItem("userAddress");
-             setCheckoutUser({
-                 ...userBase,
-                 address: localAddr || ""
-             });
-             setShippingAddress(localAddr || "");
-        }
+      // 2. Check for "Selected Address" overrides from AddressPage (which saves to shippingUser/shippingAddress)
+      const storedUser = localStorage.getItem("shippingUser");
+      const storedAddress = localStorage.getItem("shippingAddress");
+
+      if (storedUser && storedAddress) {
+        const parsedUser = JSON.parse(storedUser);
+        setCheckoutUser({
+          fullName: parsedUser.name || userBase.fullName,
+          phone: parsedUser.phone || userBase.phone,
+          address: storedAddress
+        });
+        setShippingAddress(storedAddress);
+      } else {
+        // Fallback to what we have or userAddress
+        const localAddr = localStorage.getItem("userAddress");
+        setCheckoutUser({
+          ...userBase,
+          address: localAddr || ""
+        });
+        setShippingAddress(localAddr || "");
+      }
     } catch (err) {
       // Error handled in UI
     }
@@ -176,7 +176,7 @@ export default function CheckoutPage() {
       ]);
       const formatted = formatUnits(balance as bigint, Number(decimals));
       setUsdtBalance(formatted);
-      
+
       // Cache balance
       try {
         localStorage.setItem("usdtBep20Balance", formatted);
@@ -265,7 +265,7 @@ export default function CheckoutPage() {
 
       // Check if already on BSC, if not, switch
       const chainId = await eth.request({ method: "eth_chainId" }) as string;
-      
+
       if (chainId !== BSC_CHAIN_ID) {
         try {
           await eth.request({
@@ -343,7 +343,7 @@ export default function CheckoutPage() {
           });
         } catch (switchError: any) {
           if (switchError.code === 4902 || switchError.code === -32603) {
-             await eth.request({
+            await eth.request({
               method: "wallet_addEthereumChain",
               params: [
                 {
@@ -388,36 +388,40 @@ export default function CheckoutPage() {
 
       const usdtContract = new Contract(USDT_BSC, ERC20_ABI, signer);
       const finalTotal = totalAmount + shippingFee;
-      
+
       // Ensure we have a valid decimal string and valid decimals
       const formattedTotal = finalTotal.toFixed(Math.min(decimals, 18));
       const amount = parseUnits(formattedTotal, decimals);
-      
+
       // Use a fallback address if env is missing to prevent sending to 0x0
       const recipientAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET;
-      
+
       if (!recipientAddress || recipientAddress === "0x0000000000000000000000000000000000000000") {
         throw new Error("Cửa hàng chưa thiết lập ví nhận thanh toán (NEXT_PUBLIC_PAYMENT_WALLET)");
       }
 
       // 1. Send Transaction
-      const transferTx = await usdtContract.transfer(recipientAddress, amount);
+      // Use standard contract method with explicit gas limit
+      const transferTx = await usdtContract.transfer(recipientAddress, amount, { gasLimit: 150000 });
       const transactionHash = transferTx.hash;
       const txStartTime = Date.now();
-      
-      // 2. Wait for confirmation - try wait() first with only 1 confirmation for speed
+
+      // 2. Wait for confirmation
       setProcessingStep("processing");
-      
+
+      // Artificial delay to ensure user sees the processing state
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       let receipt;
       try {
         // Try wait() with only 1 confirmation (faster) and reasonable timeout
         const waitStartTime = Date.now();
         // Wait for only 1 confirmation to speed up (BSC is fast, 1 confirmation is usually enough)
         const waitPromise = transferTx.wait(1); // Only wait for 1 confirmation
-        const waitTimeout = new Promise((_, reject) => 
+        const waitTimeout = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Wait timeout")), 30000) // 30 seconds should be enough for BSC
         );
-        
+
         receipt = await Promise.race([waitPromise, waitTimeout]) as any;
         const waitDuration = Date.now() - waitStartTime;
       } catch (waitError: any) {
@@ -426,25 +430,25 @@ export default function CheckoutPage() {
         receipt = await pollTransactionReceipt(transactionHash, 60000); // Reduced to 60s
         const pollDuration = Date.now() - pollStartTime;
       }
-      
+
       const totalTxTime = Date.now() - txStartTime;
-      
+
       if (!receipt || !receipt.hash) {
         throw new Error("Không thể xác nhận giao dịch");
       }
-      
+
       // Verify transaction status
       const status = receipt.status;
       const isSuccess = status === 1 || status === "0x1" || status === true;
       if (!isSuccess) {
         throw new Error("Giao dịch thất bại trên blockchain");
       }
-      
+
 
       // 3. Create Order
       const orderStartTime = Date.now();
       setProcessingStep("creating_order");
-      
+
       const token = localStorage.getItem("token");
       if (!token) {
         throw new Error("Vui lòng đăng nhập");
@@ -464,21 +468,21 @@ export default function CheckoutPage() {
       // 4. Success
       setProcessingStep("success");
       clearCart();
-      
+
       // Wait a bit before redirecting so user sees the success message
       setTimeout(() => {
-         router.push(`/home/orders?success=true&orderId=${orderData.id}`);
+        router.push(`/home/orders?success=true&orderId=${orderData.id}`);
       }, 1500); // Reduced from 2000ms to 1500ms
 
     } catch (err: any) {
-      
+
       // Check for user rejection
       if (err.code === "ACTION_REJECTED" || err.code === 4001 || err?.info?.error?.code === 4001 || (err.message && err.message.includes("rejected"))) {
-         setError("Bạn đã hủy giao dịch");
+        setError("Bạn đã hủy giao dịch");
       } else {
-         setError(err.message || "Thanh toán thất bại");
+        setError(err.message || "Thanh toán thất bại");
       }
-      
+
       setProcessingStep("error");
     }
   };
@@ -510,7 +514,7 @@ export default function CheckoutPage() {
     <div className="bg-background-light font-display text-text-main antialiased flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-purple-100 px-4 py-3 flex items-center justify-between shadow-sm">
-        <button 
+        <button
           onClick={() => router.back()}
           className="size-10 flex items-center justify-center rounded-full bg-purple-50 hover:bg-purple-100 text-slate-600 transition active:scale-95"
         >
@@ -538,7 +542,7 @@ export default function CheckoutPage() {
               <div className="flex-1 space-y-1">
                 <div className="flex justify-between items-center mb-1">
                   <p className="font-bold text-slate-900 text-lg">{checkoutUser?.fullName || "Nguyễn Văn A"}</p>
-                  <button 
+                  <button
                     onClick={() => router.push("/home/profile/address")}
                     className="text-xs font-semibold text-primary hover:text-primary-dark px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 transition"
                   >
@@ -546,7 +550,7 @@ export default function CheckoutPage() {
                   </button>
                 </div>
                 <p className="text-sm text-text-sub font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">call</span> 
+                  <span className="material-symbols-outlined text-[14px]">call</span>
                   {checkoutUser?.phone || "+84 912 345 678"}
                 </p>
                 <p className="text-sm text-text-sub leading-relaxed pt-1">
@@ -637,29 +641,29 @@ export default function CheckoutPage() {
 
       {/* Footer */}
       <div className="bg-white border-t border-purple-100 shadow-[0_-8px_30px_rgba(139,92,246,0.06)] p-4 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
-          <div className="max-w-lg mx-auto flex gap-4 items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs text-text-sub font-medium mb-0.5">{t("totalPayment")}</span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
-                <span className="text-sm font-bold text-slate-500">USDT</span>
-              </div>
+        <div className="max-w-lg mx-auto flex gap-4 items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs text-text-sub font-medium mb-0.5">{t("totalPayment")}</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
+              <span className="text-sm font-bold text-slate-500">USDT</span>
             </div>
-            <button 
-              onClick={handlePayment}
-              disabled={processingStep !== "idle" || !walletAddress || parseFloat(usdtBalance || "0") < finalTotal}
-              className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span>{processingStep !== "idle" ? t("processingPayment") : t("confirmPurchase")}</span>
-              {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
-            </button>
           </div>
+          <button
+            onClick={handlePayment}
+            disabled={processingStep !== "idle" || !walletAddress || parseFloat(usdtBalance || "0") < finalTotal}
+            className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span>{processingStep !== "idle" ? t("processingPayment") : t("confirmPurchase")}</span>
+            {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
+          </button>
+        </div>
       </div>
 
       {/* Error Message */}
       {/* Modal Processing */}
-      <TransactionProcessingModal 
-        isOpen={processingStep !== "idle"} 
+      <TransactionProcessingModal
+        isOpen={processingStep !== "idle"}
         step={processingStep}
         error={error}
         onClose={() => setProcessingStep("idle")}

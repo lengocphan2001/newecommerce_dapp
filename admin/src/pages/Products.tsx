@@ -13,6 +13,7 @@ import {
   message,
   Popconfirm,
   Select,
+  Tabs,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
@@ -59,7 +60,7 @@ const Products: React.FC = () => {
   const handleCreate = () => {
     setEditingProduct(null);
     form.resetFields();
-    form.setFieldsValue({ description: '' });
+    form.setFieldsValue({ description: '', descriptionEn: '' });
     setThumbnailFileList([]);
     setDetailFileList([]);
     setIsModalVisible(true);
@@ -70,6 +71,7 @@ const Products: React.FC = () => {
     form.setFieldsValue({
       ...product,
       description: product.description || '',
+      descriptionEn: product['descriptionEn' as keyof Product] || '',
       // Keep URLs in form values for submit; Upload UI is for new uploads only
       detailImageUrls: product.detailImageUrls || [],
       categoryId: product.categoryId || undefined,
@@ -301,56 +303,145 @@ const Products: React.FC = () => {
       >
         {isModalVisible && (
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Form.Item
-              name="name"
-              label="Name"
-              rules={[{ required: true }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="description"
-              label="Description"
-              trigger="onEditorChange"
-              validateTrigger="onEditorChange"
-            >
-              <Editor
-                apiKey='xhvi99zf95ueinybzalp9vwc7yaolsr1rxibrza2dzwb9c8e'
-                init={{
-                  height: 400,
-                  menubar: true,
-                  plugins: [
-                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                    'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-                  ],
-                  toolbar: 'undo redo | blocks | ' +
-                    'bold italic forecolor | alignleft aligncenter ' +
-                    'alignright alignjustify | bullist numlist outdent indent | ' +
-                    'removeformat | image | help',
-                  content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
-                  images_upload_handler: async (blobInfo: any) => {
-                    return new Promise(async (resolve, reject) => {
-                      try {
-                        const fd = new FormData();
-                        fd.append('file', blobInfo.blob(), blobInfo.filename());
-                        const api = (await import('../services/api')).default;
-                        const uploadRes = await api.post('/uploads/image', fd, {
-                          headers: { 'Content-Type': 'multipart/form-data' },
-                        });
-                        if (uploadRes.data?.url) {
-                          resolve(uploadRes.data.url);
-                        } else {
-                          reject('Upload failed');
-                        }
-                      } catch (error) {
-                        reject('Upload error');
-                      }
-                    });
-                  }
-                }}
-              />
-            </Form.Item>
+            <Tabs
+              defaultActiveKey="vi"
+              items={[
+                {
+                  key: 'vi',
+                  label: 'Tiếng Việt',
+                  children: (
+                    <>
+                      <Form.Item
+                        name="name"
+                        label="Tên sản phẩm"
+                        rules={[{ required: true, message: 'Vui lòng nhập tên sản phẩm' }]}
+                      >
+                        <Input placeholder="Nhập tên sản phẩm" />
+                      </Form.Item>
+                      <Form.Item
+                        name="description"
+                        label="Mô tả"
+                        trigger="onEditorChange"
+                        validateTrigger="onEditorChange"
+                      >
+                        <Editor
+                          apiKey='xhvi99zf95ueinybzalp9vwc7yaolsr1rxibrza2dzwb9c8e'
+                          init={{
+                            height: 400,
+                            menubar: true,
+                            plugins: [
+                              'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                              'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                              'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                            ],
+                            toolbar: 'undo redo | blocks | ' +
+                              'bold italic forecolor | alignleft aligncenter ' +
+                              'alignright alignjustify | bullist numlist outdent indent | ' +
+                              'removeformat | image | help',
+                            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+                            images_upload_handler: async (blobInfo: any) => {
+                              return new Promise(async (resolve, reject) => {
+                                try {
+                                  const fd = new FormData();
+                                  fd.append('file', blobInfo.blob(), blobInfo.filename());
+                                  const api = (await import('../services/api')).default;
+                                  const uploadRes = await api.post('/uploads/image', fd, {
+                                    headers: { 'Content-Type': 'multipart/form-data' },
+                                  });
+                                  if (uploadRes.data?.url) {
+                                    resolve(uploadRes.data.url);
+                                  } else {
+                                    reject('Upload failed');
+                                  }
+                                } catch (error) {
+                                  reject('Upload error');
+                                }
+                              });
+                            }
+                          }}
+                        />
+                      </Form.Item>
+                      <Form.Item name="brand" label="Thương hiệu (Tùy chọn)">
+                        <Input placeholder="VD: SafePalMall" />
+                      </Form.Item>
+                      <Form.Item name="origin" label="Xuất xứ (Tùy chọn)">
+                        <Input placeholder="VD: Việt Nam" />
+                      </Form.Item>
+                      <Form.Item name="clothingType" label="Loại trang phục (Tùy chọn)">
+                        <Input placeholder="VD: Đồ lẻ, Bộ" />
+                      </Form.Item>
+                    </>
+                  ),
+                },
+                {
+                  key: 'en',
+                  label: 'English',
+                  children: (
+                    <>
+                      <Form.Item
+                        name="nameEn"
+                        label="Product Name (English)"
+                      >
+                        <Input placeholder="Enter product name in English" />
+                      </Form.Item>
+                      <Form.Item
+                        name="descriptionEn"
+                        label="Description (English)"
+                        trigger="onEditorChange"
+                        validateTrigger="onEditorChange"
+                      >
+                        <Editor
+                          apiKey='xhvi99zf95ueinybzalp9vwc7yaolsr1rxibrza2dzwb9c8e'
+                          init={{
+                            height: 400,
+                            menubar: true,
+                            plugins: [
+                              'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                              'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                              'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                            ],
+                            toolbar: 'undo redo | blocks | ' +
+                              'bold italic forecolor | alignleft aligncenter ' +
+                              'alignright alignjustify | bullist numlist outdent indent | ' +
+                              'removeformat | image | help',
+                            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }',
+                            images_upload_handler: async (blobInfo: any) => {
+                              return new Promise(async (resolve, reject) => {
+                                try {
+                                  const fd = new FormData();
+                                  fd.append('file', blobInfo.blob(), blobInfo.filename());
+                                  const api = (await import('../services/api')).default;
+                                  const uploadRes = await api.post('/uploads/image', fd, {
+                                    headers: { 'Content-Type': 'multipart/form-data' },
+                                  });
+                                  if (uploadRes.data?.url) {
+                                    resolve(uploadRes.data.url);
+                                  } else {
+                                    reject('Upload failed');
+                                  }
+                                } catch (error) {
+                                  reject('Upload error');
+                                }
+                              });
+                            }
+                          }}
+                        />
+                      </Form.Item>
+                      <Form.Item name="brandEn" label="Brand (Optional)">
+                        <Input placeholder="e.g. SafePalMall" />
+                      </Form.Item>
+                      <Form.Item name="originEn" label="Origin (Optional)">
+                        <Input placeholder="e.g. Vietnam" />
+                      </Form.Item>
+                      <Form.Item name="clothingTypeEn" label="Clothing Type (Optional)">
+                        <Input placeholder="e.g. Single item, Set" />
+                      </Form.Item>
+                    </>
+                  ),
+                },
+              ]}
+            />
+
             <Form.Item label="Thumbnail">
               <Upload
                 accept="image/*"
@@ -420,15 +511,6 @@ const Products: React.FC = () => {
                   </Select.Option>
                 ))}
               </Select>
-            </Form.Item>
-            <Form.Item name="brand" label="Brand (optional)">
-              <Input placeholder="e.g. SafePalMall" />
-            </Form.Item>
-            <Form.Item name="origin" label="Xuất xứ / Origin (optional)">
-              <Input placeholder="e.g. Việt Nam" />
-            </Form.Item>
-            <Form.Item name="clothingType" label="Loại trang phục / Clothing type (optional)">
-              <Input placeholder="e.g. Đồ lẻ, Bộ" />
             </Form.Item>
             <Form.Item
               name="countries"

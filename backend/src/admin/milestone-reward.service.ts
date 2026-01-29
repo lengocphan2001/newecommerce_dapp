@@ -22,7 +22,7 @@ export class MilestoneRewardService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
-  ) {}
+  ) { }
 
   /**
    * Get active milestone config
@@ -72,10 +72,9 @@ export class MilestoneRewardService {
     const count = await this.userRepository
       .createQueryBuilder('user')
       .where('user.referralUserId = :userId', { userId })
-      .andWhere('user.packageType != :nonePackage', { nonePackage: 'NONE' })
       .andWhere('user.totalPurchaseAmount > :zero', { zero: 0 })
       .getCount();
-    
+
     return count;
   }
 
@@ -97,13 +96,13 @@ export class MilestoneRewardService {
     // Find the position in the power-of-2 sequence: 2, 4, 8, 16, 32, 64...
     // Calculate log2 to get position (1, 2, 3, 4, 5, 6...)
     const position = Math.log2(milestoneCount);
-    
+
     // Pattern repeats every 3: position 1→X, 2→Y, 3→Z, 4→X, 5→Y, 6→Z...
     const remainder = position % 3;
     if (remainder === 1) return 'X'; // 2, 16, 128... (position 1, 4, 7...)
     if (remainder === 2) return 'Y'; // 4, 32, 256... (position 2, 5, 8...)
     if (remainder === 0) return 'Z'; // 8, 64, 512... (position 3, 6, 9...)
-    
+
     // Fallback
     return 'X';
   }
@@ -167,167 +166,144 @@ export class MilestoneRewardService {
       return;
     }
 
-    // Count current referrals
-    const currentCount = await this.countDirectReferrals(referralUserId);
-
-    // Check if this is a milestone (2, 4, 6, 8, 10, 12...)
-    if (!this.isValidMilestone(currentCount)) {
-      return; // Not a milestone
-    }
-
-    // Check if this milestone was already claimed
-    const existing = await this.userMilestoneRepository.findOne({
-      where: {
-        userId: referralUserId,
-        milestoneCount: currentCount,
-      },
-    });
-
-    if (existing) {
-      return; // Already claimed
-    }
-
-    // Get reward percentage and calculate amount based on referrer's totalPurchaseAmount
-    const rewardType = this.getRewardType(currentCount);
-    let percent = 0;
-    switch (rewardType) {
-      case 'X':
-        percent = config.percentX || 0;
-        break;
-      case 'Y':
-        percent = config.percentY || 0;
-        break;
-      case 'Z':
-        percent = config.percentZ || 0;
-        break;
-    }
-
-    if (percent <= 0) {
-      return; // No reward percentage configured
-    }
-
-    // Get referrer's totalPurchaseAmount
-    const referrerPurchaseAmount = referralUser.totalPurchaseAmount || 0;
-    
-    if (referrerPurchaseAmount <= 0) {
-      return; // Referrer has no purchase amount, no reward - cả referrer phải có giao dịch
-    }
-
-    // Verify that all counted referrals also have transactions
-    // Double-check: ensure all direct referrals have totalPurchaseAmount > 0
+    // Fetch all referrals with transactions to support catch-up logic
     const directReferrals = await this.userRepository.find({
-      where: { 
+      where: {
         referralUserId: referralUserId,
-        packageType: Not('NONE' as any),
       },
-      order: { createdAt: 'ASC' }, // ensure deterministic grouping by time
+      order: { createdAt: 'ASC' }, // Critical: ensure deterministic grouping by time
     });
 
     // Filter to only count those with transactions
     const referralsWithTransactions = directReferrals.filter(
-      (ref) => (ref.totalPurchaseAmount || 0) > 0
+      (ref) => (Number(ref.totalPurchaseAmount) || 0) > 0
     );
 
-    // Re-verify milestone count matches actual referrals with transactions
-    if (referralsWithTransactions.length !== currentCount) {
-      // Count mismatch - milestone should not be awarded
+    const totalQualifiedReferrals = referralsWithTransactions.length;
+    this.logger.log(`[MILESTONE CHECK] User ${referralUserId} has ${totalQualifiedReferrals} qualified referrals. Checking for due milestones...`);
+
+    // Get referrer's totalPurchaseAmount checks
+    const referrerPurchaseAmount = Number(referralUser.totalPurchaseAmount) || 0;
+
+    if (referrerPurchaseAmount <= 0) {
+      this.logger.warn(`[MILESTONE CHECK] Referrer ${referralUserId} has 0 purchase amount. Ineligible.`);
       return;
     }
 
-    // New rule: milestone reward based on the newest group of referrals for this milestone
-    // Example:
-    // - Milestone 2: use referral #1-2 (groupSize = 2)
-    // - Milestone 4: use referral #3-4 (groupSize = 2)
-    // - Milestone 8: use referral #5-8 (groupSize = 4)
-    // General: groupSize = currentCount / 2; take the last groupSize referrals
-    const groupSize = Math.max(1, currentCount / 2);
-    const startIndex = currentCount - groupSize;
-    const targetRefs = referralsWithTransactions.slice(startIndex, currentCount);
+    // Loop through all potential milestones (2, 4, 8, 16...) <= totalQualifiedReferrals
+    let milestoneTarget = 2;
 
-    const groupPurchaseTotal = targetRefs.reduce(
-      (sum, ref) => sum + (Number(ref.totalPurchaseAmount) || 0),
-      0,
-    );
+    while (milestoneTarget <= totalQualifiedReferrals) {
+      // Check if this specific milestone (e.g. 2) is already paid
+      const existing = await this.userMilestoneRepository.findOne({
+        where: {
+          userId: referralUserId,
+          milestoneCount: milestoneTarget,
+        },
+      });
 
-    if (groupPurchaseTotal <= 0) {
-      return; // No qualifying purchase volume in this milestone group
-    }
-
-    // Calculate reward amount: sum of the group's purchase amounts * percent / 100
-    const rewardAmount = (groupPurchaseTotal * percent) / 100;
-
-    if (rewardAmount <= 0) {
-      return; // Calculated reward is 0 or negative
-    }
-
-    // Create milestone record
-    const milestone = this.userMilestoneRepository.create({
-      userId: referralUserId,
-      milestoneCount: currentCount,
-      rewardAmount,
-      rewardType,
-      // Store the purchase total of the milestone group (for audit)
-      referrerPurchaseAmount: groupPurchaseTotal,
-      percentUsed: percent,
-      status: 'PENDING', // Will be updated to PAID after commission is awarded
-    });
-
-    await this.userMilestoneRepository.save(milestone);
-
-    // Award commission to user (will transfer USDT automatically)
-    try {
-      // Create commission record (status: PENDING)
-      await this.commissionService.awardMilestoneReward(
-        referralUserId,
-        rewardAmount,
-        milestone.id,
-      );
-      
-      // Automatically transfer USDT to user's wallet if wallet address exists
-      if (referralUser.walletAddress) {
-        try {
-          this.logger.log(
-            `Transferring milestone reward ${rewardAmount} USDT to user ${referralUserId} (${referralUser.walletAddress})`,
-          );
-          const payoutResult = await this.commissionPayoutService.singlePayout(
-            referralUserId,
-            referralUser.walletAddress,
-            rewardAmount,
-            `milestone-${milestone.id}`, // Specify orderId to find the correct commission
-          );
-          this.logger.log(
-            `Milestone reward USDT transfer successful. BatchId: ${payoutResult.batchId}, TxHash: ${payoutResult.txHash}`,
-          );
-          
-          // Mark milestone as PAID after successful USDT transfer
-          milestone.status = 'PAID';
-          await this.userMilestoneRepository.save(milestone);
-        } catch (payoutError: any) {
-          // Log error but don't fail milestone award
-          // Commission record is already created with PENDING status
-          // USDT transfer can be retried later via admin panel
-          this.logger.error(
-            `Failed to transfer USDT for milestone reward: ${payoutError.message}. Commission remains PENDING and can be retried.`,
-            payoutError,
-          );
-          // Keep milestone as PENDING if USDT transfer fails
-          milestone.status = 'PENDING';
-          await this.userMilestoneRepository.save(milestone);
-        }
-      } else {
-        this.logger.warn(
-          `User ${referralUserId} has no wallet address, skipping USDT transfer for milestone reward. Commission remains PENDING.`,
-        );
-        // Keep milestone as PENDING if no wallet address
-        milestone.status = 'PENDING';
-        await this.userMilestoneRepository.save(milestone);
+      if (existing) {
+        // Already paid, move to next (4)
+        milestoneTarget *= 2;
+        continue;
       }
-    } catch (error) {
-      this.logger.error('Error awarding milestone reward:', error);
-      // Keep as PENDING if commission service fails (can retry later)
-      milestone.status = 'PENDING';
+
+      this.logger.log(`[MILESTONE CHECK] Found unpaid milestone ${milestoneTarget} for user ${referralUserId}. Processing...`);
+
+      // Determine the group of users responsible for this milestone
+      let startIndex: number;
+      let endIndex: number = milestoneTarget;
+
+      if (milestoneTarget === 2) {
+        // Special case: M2 uses first 2 users (index 0, 1)
+        startIndex = 0;
+      } else {
+        // Standard case: M4 uses users 2-3 (index 2, 3), M8 uses 4-7
+        startIndex = milestoneTarget / 2;
+      }
+
+      // Extract the specific group of referrals
+      const targetRefs = referralsWithTransactions.slice(startIndex, endIndex);
+
+      // Calculate group volume (just for logging/validation, base is referrer amount)
+      const groupPurchaseTotal = targetRefs.reduce(
+        (sum, ref) => sum + (Number(ref.totalPurchaseAmount) || 0),
+        0,
+      );
+
+      // Get reward percentage
+      const rewardType = this.getRewardType(milestoneTarget);
+      let percent = 0;
+      switch (rewardType) {
+        case 'X': percent = config.percentX || 0; break;
+        case 'Y': percent = config.percentY || 0; break;
+        case 'Z': percent = config.percentZ || 0; break;
+      }
+
+      if (percent <= 0) {
+        this.logger.warn(`[MILESTONE CHECK] No percentage configured for reward type ${rewardType} (milestone ${milestoneTarget}).`);
+        milestoneTarget *= 2;
+        continue;
+      }
+
+      // Calculate reward amount: GROUP's total purchase amount * percent / 100
+      // User request: "total order of milestone... total of two"
+      const rewardAmount = (groupPurchaseTotal * percent) / 100;
+
+      if (rewardAmount <= 0) {
+        this.logger.warn(`[MILESTONE CHECK] Calculated reward is 0. Base (Group Total): ${groupPurchaseTotal}, Percent: ${percent}.`);
+        milestoneTarget *= 2;
+        continue;
+      }
+
+      // Create milestone record
+      const milestone = this.userMilestoneRepository.create({
+        userId: referralUserId,
+        milestoneCount: milestoneTarget,
+        rewardAmount,
+        rewardType,
+        // Store the Group Total as the base used for calculation (repurposing the field or it's just the 'base' amount)
+        referrerPurchaseAmount: groupPurchaseTotal,
+        percentUsed: percent,
+        status: 'PENDING',
+      });
+
       await this.userMilestoneRepository.save(milestone);
-      throw error; // Re-throw to allow retry
+      this.logger.log(`[MILESTONE CHECK] Created milestone ${milestoneTarget} record for user ${referralUserId}. Amount: ${rewardAmount}`);
+
+      // Award commission
+      try {
+        await this.commissionService.awardMilestoneReward(
+          referralUserId,
+          rewardAmount,
+          milestone.id,
+        );
+
+        if (referralUser.walletAddress) {
+          try {
+            this.logger.log(`[MILESTONE CHECK] Transferring ${rewardAmount} USDT to ${referralUser.walletAddress}`);
+            const payoutResult = await this.commissionPayoutService.singlePayout(
+              referralUserId,
+              referralUser.walletAddress,
+              rewardAmount,
+              `milestone-${milestone.id}`,
+            );
+
+            milestone.status = 'PAID';
+            await this.userMilestoneRepository.save(milestone);
+            this.logger.log(`[MILESTONE CHECK] USDT transfer successful. Tx: ${payoutResult.txHash}`);
+          } catch (payoutError: any) {
+            this.logger.error(`[MILESTONE CHECK] USDT transfer failed: ${payoutError.message}`, payoutError);
+          }
+        } else {
+          this.logger.warn(`[MILESTONE CHECK] User has no wallet address. Keeping as PENDING.`);
+        }
+      } catch (error) {
+        this.logger.error(`[MILESTONE CHECK] Error awarding commission logic:`, error);
+      }
+
+      // Move to next milestone
+      milestoneTarget *= 2;
     }
   }
 

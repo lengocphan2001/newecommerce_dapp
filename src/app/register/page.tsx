@@ -60,7 +60,7 @@ function RegisterForm() {
 
     // Check if user is already registered and if this is first user
     let countdownTimer: NodeJS.Timeout | null = null;
-    
+
     const checkUserRegistration = async () => {
       try {
         setIsChecking(true);
@@ -68,7 +68,7 @@ function RegisterForm() {
           api.checkWallet(address),
           api.isFirstUser().catch(() => ({ isFirstUser: false, count: 0 })), // Fallback if API fails
         ]);
-        
+
         if (checkResult.exists) {
           setIsAlreadyRegistered(true);
           // Start countdown
@@ -104,7 +104,7 @@ function RegisterForm() {
     };
 
     checkUserRegistration();
-    
+
     // Cleanup timer on unmount
     return () => {
       if (countdownTimer) {
@@ -133,9 +133,9 @@ function RegisterForm() {
       setError("Vui lòng nhập tên người dùng");
       return;
     }
-    // Username validation: only letters, numbers, and underscores
-    if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      setError(t("usernameInvalid"));
+    // Username validation: only letters and numbers
+    if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
+      setError(t("usernameInvalidNoSpecial"));
       return;
     }
     if (formData.username.length < 3) {
@@ -182,7 +182,7 @@ function RegisterForm() {
     try {
       // Get leg from localStorage if exists
       const leg = localStorage.getItem("referralLeg") as 'left' | 'right' | null;
-      
+
       const result = await api.walletRegister({
         walletAddress,
         chainId,
@@ -195,7 +195,7 @@ function RegisterForm() {
         referralUser: formData.referralUser.trim() || undefined,
         leg: leg || undefined,
       });
-      
+
       // Clear leg from localStorage after registration
       if (leg) {
         localStorage.removeItem("referralLeg");
@@ -315,7 +315,7 @@ function RegisterForm() {
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder={t("enterUsername")}
-              pattern="[a-zA-Z0-9_]+"
+              pattern="[a-zA-Z0-9]+"
               minLength={3}
               maxLength={20}
               required
@@ -393,7 +393,7 @@ function RegisterForm() {
             />
           </div>
 
-          
+
 
           {/* Email */}
           <div>

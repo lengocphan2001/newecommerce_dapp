@@ -19,7 +19,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "backfill:referral-user-id": "ts-node -r tsconfig-paths/register src/common/scripts/backfill-referral-user-id.ts",
-    "db:init": "ts-node -r tsconfig-paths/register scripts/init-database.ts"
+    "db:init": "ts-node -r tsconfig-paths/register scripts/init-database.ts",
+    "clear:data": "ts-node -r tsconfig-paths/register scripts/clear-data.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

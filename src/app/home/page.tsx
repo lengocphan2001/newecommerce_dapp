@@ -29,6 +29,7 @@ interface Slider {
 interface Product {
   id: string;
   name: string;
+  nameEn?: string;
   description?: string;
   price: number;
   stock: number;
@@ -43,9 +44,15 @@ interface Product {
 
 export default function HomePage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { addItem } = useShoppingCart();
   const [products, setProducts] = useState<Product[]>([]);
+
+  // Helper to get localized content
+  const getLocalizedContent = (viContent: string, enContent?: string) => {
+    if (lang === 'vi') return viContent;
+    return enContent || viContent;
+  };
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [walletAddress, setWalletAddress] = useState<string>("");
@@ -125,7 +132,7 @@ export default function HomePage() {
       // Fetch products with filters
       const data = await api.getProducts(selectedCountry || undefined, selectedCategoryId || undefined);
       let filtered = Array.isArray(data) ? data : [];
-      
+
       // Additional frontend filtering if needed
       if (selectedCountry) {
         filtered = filtered.filter((product) => {
@@ -133,7 +140,7 @@ export default function HomePage() {
           return Array.isArray(productCountries) && productCountries.includes(selectedCountry);
         });
       }
-      
+
       setProducts(filtered);
     } catch (error) {
       setProducts([]);
@@ -156,24 +163,25 @@ export default function HomePage() {
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
     if (product.stock <= 0) return;
-    
+
     // Animation effect
     setAddToCartAnimating(product.id);
     setTimeout(() => setAddToCartAnimating(null), 600);
-    
+
     // Pass button element for animation
     const buttonElement = e.currentTarget as HTMLElement;
     addItem({
       productId: product.id,
-      productName: product.name,
+      productName: getLocalizedContent(product.name, product.nameEn),
       price: product.price,
       thumbnailUrl: product.thumbnailUrl,
     }, buttonElement);
   };
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter((product) => {
+    const displayName = getLocalizedContent(product.name, product.nameEn);
+    return displayName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const getCountryLabel = (country: 'VIETNAM' | 'USA' | null) => {
     if (!country) return t("popularGoods");
@@ -194,9 +202,9 @@ export default function HomePage() {
   return (
     <div className="flex flex-col bg-background-gray">
       {/* Header */}
-      <AppHeader 
-        titleKey="homeTitle" 
-        showMenu={true} 
+      <AppHeader
+        titleKey="homeTitle"
+        showMenu={true}
         showActions={true}
         right={<LanguageSelect variant="light" />}
       />
@@ -232,9 +240,8 @@ export default function HomePage() {
                 {sliders.map((slider, index) => (
                   <div
                     key={slider.id}
-                    className={`absolute inset-0 transition-opacity duration-500 ${
-                      index === currentSliderIndex ? 'opacity-100' : 'opacity-0'
-                    }`}
+                    className={`absolute inset-0 transition-opacity duration-500 ${index === currentSliderIndex ? 'opacity-100' : 'opacity-0'
+                      }`}
                     style={{
                       backgroundImage: `url("${slider.imageUrl}")`,
                       backgroundSize: 'cover',
@@ -276,11 +283,10 @@ export default function HomePage() {
                     <button
                       key={index}
                       onClick={() => setCurrentSliderIndex(index)}
-                      className={`h-2 rounded-full transition-all ${
-                        index === currentSliderIndex
-                          ? 'w-6 bg-white'
-                          : 'w-2 bg-white/50 hover:bg-white/75'
-                      }`}
+                      className={`h-2 rounded-full transition-all ${index === currentSliderIndex
+                        ? 'w-6 bg-white'
+                        : 'w-2 bg-white/50 hover:bg-white/75'
+                        }`}
                       aria-label={`Go to slide ${index + 1}`}
                     />
                   ))}
@@ -315,65 +321,59 @@ export default function HomePage() {
           <div className="flex gap-6 px-4 overflow-x-auto hide-scrollbar pb-2">
             <button
               onClick={() => toggleCountry('VIETNAM')}
-              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
-                selectedCountry === 'VIETNAM' ? '' : 'group'
-              }`}
+              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${selectedCountry === 'VIETNAM' ? '' : 'group'
+                }`}
             >
-              <div className={`w-16 h-16 rounded-full bg-white ${
-                selectedCountry === 'VIETNAM'
-                  ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
-                  : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
-              }`}>
+              <div className={`w-16 h-16 rounded-full bg-white ${selectedCountry === 'VIETNAM'
+                ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
+                : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
+                }`}>
                 <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
                   {flagImageError.vietnam ? (
                     <span className="text-3xl">🇻🇳</span>
                   ) : (
-                    <img 
-                      src="https://flagcdn.com/w40/vn.png" 
-                      alt="Vietnam" 
+                    <img
+                      src="https://flagcdn.com/w40/vn.png"
+                      alt="Vietnam"
                       className="w-10 h-10 object-contain"
                       onError={() => setFlagImageError(prev => ({ ...prev, vietnam: true }))}
                     />
                   )}
                 </div>
               </div>
-              <span className={`text-xs ${
-                selectedCountry === 'VIETNAM' 
-                  ? 'text-primary font-bold' 
-                  : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
-              }`}>
+              <span className={`text-xs ${selectedCountry === 'VIETNAM'
+                ? 'text-primary font-bold'
+                : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
+                }`}>
                 Vietnam
               </span>
             </button>
             <button
               onClick={() => toggleCountry('USA')}
-              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${
-                selectedCountry === 'USA' ? '' : 'group'
-              }`}
+              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${selectedCountry === 'USA' ? '' : 'group'
+                }`}
             >
-              <div className={`w-16 h-16 rounded-full bg-white ${
-                selectedCountry === 'USA'
-                  ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
-                  : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
-              }`}>
+              <div className={`w-16 h-16 rounded-full bg-white ${selectedCountry === 'USA'
+                ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
+                : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
+                }`}>
                 <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
                   {flagImageError.usa ? (
                     <span className="text-3xl">🇺🇸</span>
                   ) : (
-                    <img 
-                      src="https://flagcdn.com/w40/us.png" 
-                      alt="USA" 
+                    <img
+                      src="https://flagcdn.com/w40/us.png"
+                      alt="USA"
                       className="w-10 h-10 object-contain"
                       onError={() => setFlagImageError(prev => ({ ...prev, usa: true }))}
                     />
                   )}
                 </div>
               </div>
-              <span className={`text-xs ${
-                selectedCountry === 'USA'
-                  ? 'text-primary font-bold'
-                  : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
-              }`}>
+              <span className={`text-xs ${selectedCountry === 'USA'
+                ? 'text-primary font-bold'
+                : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
+                }`}>
                 USA
               </span>
             </button>
@@ -389,11 +389,10 @@ export default function HomePage() {
             <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar pb-4">
               <button
                 onClick={() => setSelectedCategoryId(null)}
-                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                  selectedCategoryId === null
-                    ? 'bg-primary text-white border-primary shadow-md'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
-                }`}
+                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${selectedCategoryId === null
+                  ? 'bg-primary text-white border-primary shadow-md'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                  }`}
               >
                 <span className="text-sm font-medium">All</span>
               </button>
@@ -401,15 +400,14 @@ export default function HomePage() {
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategoryId(category.id)}
-                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                    selectedCategoryId === category.id
-                      ? 'bg-primary text-white border-primary shadow-md'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
-                  }`}
+                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${selectedCategoryId === category.id
+                    ? 'bg-primary text-white border-primary shadow-md'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
+                    }`}
                 >
                   {category.imageUrl && (
-                    <img 
-                      src={category.imageUrl} 
+                    <img
+                      src={category.imageUrl}
                       alt={category.name}
                       className="w-5 h-5 rounded-full object-cover"
                     />
@@ -476,7 +474,7 @@ export default function HomePage() {
                   <div className="p-3">
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="text-sm font-bold text-gray-900 line-clamp-2 min-h-[2.5em]">
-                        {product.name}
+                        {getLocalizedContent(product.name, product.nameEn)}
                       </h4>
                     </div>
                     <div className="flex items-center gap-1 mb-3">
@@ -495,11 +493,10 @@ export default function HomePage() {
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0}
-                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${
-                          product.stock > 0
-                            ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
-                            : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
-                        } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
+                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0
+                          ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
+                          : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
+                          } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
                       >
                         <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>
                           {addToCartAnimating === product.id ? 'check' : 'add'}
