@@ -14,7 +14,7 @@ export class ProductService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly categoryService: CategoryService,
-  ) {}
+  ) { }
 
   /**
    * Calculate sold count for a product from orders
@@ -78,14 +78,14 @@ export class ProductService {
   }
 
   async findOne(id: string) {
-    const product = await this.productRepository.findOne({ 
+    const product = await this.productRepository.findOne({
       where: { id },
       relations: ['category'],
     });
     if (!product) {
       throw new NotFoundException('Product not found');
     }
-    
+
     const soldCount = await this.calculateSoldCount(id);
     let categoryBreadcrumb: string[] = [];
     if (product.categoryId) {
@@ -95,7 +95,7 @@ export class ProductService {
         // ignore
       }
     }
-    
+
     return {
       ...product,
       soldCount,
@@ -108,8 +108,8 @@ export class ProductService {
       ...createProductDto,
       stock: createProductDto.stock ?? 0,
       detailImageUrls: createProductDto.detailImageUrls ?? [],
-      countries: createProductDto.countries && createProductDto.countries.length > 0 
-        ? createProductDto.countries 
+      countries: createProductDto.countries && createProductDto.countries.length > 0
+        ? createProductDto.countries
         : ['VIETNAM'], // Default to Vietnam if not provided
     });
     return this.productRepository.save(product);

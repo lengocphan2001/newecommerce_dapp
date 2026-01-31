@@ -10,6 +10,8 @@ export interface Product {
   thumbnailUrl?: string;
   detailImageUrls?: string[];
   countries?: ('VIETNAM' | 'USA')[];
+  tags?: string[];
+  properties?: { name: string; values: string[] }[];
   categoryId?: string;
   category?: {
     id: string;

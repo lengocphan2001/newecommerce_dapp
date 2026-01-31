@@ -33,6 +33,7 @@ interface Product {
   originEn?: string;
   clothingType?: string;
   clothingTypeEn?: string;
+  tags?: string[];
 }
 
 export default function ProductsPage() {
@@ -111,7 +112,7 @@ export default function ProductsPage() {
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
-    if (product.stock <= 0) {
+    if (product.stock <= 0 || product.tags?.includes('COMING_SOON')) {
       return;
     }
 
@@ -336,12 +337,17 @@ export default function ProductsPage() {
                         📦
                       </div>
                     )}
-                    <button className="absolute top-2 right-2 bg-white/80 hover:bg-white backdrop-blur-md p-1.5 rounded-full text-gray-400 hover:text-red-500 transition-colors shadow-sm">
+                    <button className="absolute top-2 right-2 bg-white/80 hover:bg-white backdrop-blur-md p-1.5 rounded-full text-gray-400 hover:text-red-500 transition-colors shadow-sm z-20">
                       <span className="material-symbols-outlined text-[18px]">favorite</span>
                     </button>
-                    {product.stock <= 0 && (
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-sm">
-                        {t("sale")}
+                    {product.stock <= 0 && !product.tags?.includes('COMING_SOON') && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-gray-500 text-white text-[10px] font-bold rounded shadow-sm z-10">
+                        {lang === 'vi' ? 'Hết hàng' : 'Sold Out'}
+                      </div>
+                    )}
+                    {product.stock > 0 && product.tags?.includes('SALE') && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded shadow-sm z-10">
+                        SALE
                       </div>
                     )}
                   </div>
@@ -351,6 +357,14 @@ export default function ProductsPage() {
                         {getLocalizedContent(product.name, product.nameEn)}
                       </h4>
                     </div>
+
+                    {product.tags?.includes('COMING_SOON') && (
+                      <div className="mb-2">
+                        <span className="inline-block px-3 py-1 bg-red-600 text-white text-[10px] uppercase font-bold rounded-sm">
+                          {lang === 'vi' ? 'Sắp ra mắt' : 'Coming Soon'}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1 mb-3">
                       {product.stock > 0 ? (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">
@@ -368,10 +382,10 @@ export default function ProductsPage() {
                       </div>
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
-                        disabled={product.stock <= 0}
-                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0
+                        disabled={product.stock <= 0 || product.tags?.includes('COMING_SOON')}
+                        className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0 && !product.tags?.includes('COMING_SOON')
                           ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
-                          : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
+                          : "bg-gray-100 text-gray-600 cursor-not-allowed"
                           } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
                       >
                         <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>

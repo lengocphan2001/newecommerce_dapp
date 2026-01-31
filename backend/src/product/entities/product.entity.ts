@@ -67,6 +67,15 @@ export class Product {
   @Column({ type: 'simple-json', nullable: true })
   countries?: string[]; // Array of 'VIETNAM' | 'USA'
 
+  // Product tags/status e.g. 'SALE', 'COMING_SOON', 'new', 'hot'
+  @Column({ type: 'simple-json', nullable: true })
+  tags?: string[];
+
+  // Dynamic properties like Color, Size
+  // Structure: [{ name: 'Color', values: ['Red', 'Blue'] }, { name: 'Size', values: ['S', 'M'] }]
+  @Column({ type: 'simple-json', nullable: true })
+  properties?: { name: string; values: string[] }[];
+
   @Column({ nullable: true })
   categoryId?: string;
 

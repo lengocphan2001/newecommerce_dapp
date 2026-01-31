@@ -8,6 +8,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   thumbnailUrl?: string;
+  properties?: { [key: string]: string }; // Selected properties (e.g., { "Color": "Red", "Size": "M" })
 }
 
 interface AnimationState {
@@ -56,13 +57,25 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">, buttonElement?: HTMLElement | null) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === item.productId);
+      // Match by both productId AND properties to allow same product with different variants
+      const existing = prev.find((i) => {
+        if (i.productId !== item.productId) return false;
+        // If both have no properties, they match
+        if (!i.properties && !item.properties) return true;
+        // If only one has properties, they don't match
+        if (!i.properties || !item.properties) return false;
+        // Compare properties objects
+        const iKeys = Object.keys(i.properties).sort();
+        const itemKeys = Object.keys(item.properties).sort();
+        if (iKeys.length !== itemKeys.length) return false;
+        return iKeys.every(key => i.properties![key] === item.properties![key]);
+      });
       if (existing) {
-        return prev.map((i) =>
-          i.productId === item.productId
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
+        return prev.map((i) => {
+          const matches = i.productId === item.productId &&
+            JSON.stringify(i.properties || {}) === JSON.stringify(item.properties || {});
+          return matches ? { ...i, quantity: i.quantity + 1 } : i;
+        });
       }
       return [...prev, { ...item, quantity: 1 }];
     });
@@ -75,10 +88,10 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
 
       // Try to find cart icon - check header first, then bottom nav
       let cartRect: DOMRect | null = null;
-      
+
       const headerCart = document.querySelector('[data-cart-icon]') as HTMLElement;
       const bottomNavCart = document.querySelector('[data-bottom-nav-cart]') as HTMLElement;
-      
+
       if (headerCart) {
         cartRect = headerCart.getBoundingClientRect();
       } else if (bottomNavCart) {
@@ -96,7 +109,7 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
           bottom: 60,
           x: window.innerWidth - 60,
           y: 20,
-          toJSON: () => {},
+          toJSON: () => { },
         } as DOMRect;
       }
 

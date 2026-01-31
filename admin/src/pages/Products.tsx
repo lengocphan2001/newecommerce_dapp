@@ -15,11 +15,13 @@ import {
   Select,
   Tabs,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
 import type { UploadFile } from 'antd/es/upload/interface';
+
+const availableTags = ['SALE', 'COMING_SOON', 'HOT', 'NEW', 'SOLD_OUT'];
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -74,6 +76,8 @@ const Products: React.FC = () => {
       descriptionEn: product['descriptionEn' as keyof Product] || '',
       // Keep URLs in form values for submit; Upload UI is for new uploads only
       detailImageUrls: product.detailImageUrls || [],
+      tags: product.tags || [],
+      properties: product.properties || [],
       categoryId: product.categoryId || undefined,
     });
     setThumbnailFileList([]);
@@ -523,6 +527,63 @@ const Products: React.FC = () => {
                 <Select.Option value="USA">USA</Select.Option>
               </Select>
             </Form.Item>
+            <Form.Item
+              name="tags"
+              label="Tags"
+              rules={[]}
+              initialValue={[]}
+            >
+              <Select
+                mode="tags"
+                style={{ width: '100%' }}
+                placeholder="Select or enter tags (e.g. SALE, COMING_SOON, HOT)"
+                tokenSeparators={[',']}
+              >
+                {availableTags.map((tag) => (
+                  <Select.Option key={tag} value={tag}>
+                    {tag}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Typography.Title level={5}>Product Properties</Typography.Title>
+            <Form.List name="properties">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'name']}
+                        rules={[{ required: true, message: 'Missing property name' }]}
+                      >
+                        <Input placeholder="Property Name (e.g. Color)" />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'values']}
+                        rules={[{ required: true, message: 'Missing property values' }]}
+                      >
+                        <Select
+                          mode="tags"
+                          style={{ width: '200px' }}
+                          placeholder="Values (e.g. Red, Blue)"
+                          tokenSeparators={[',']}
+                          open={false}
+                        />
+                      </Form.Item>
+                      <MinusCircleOutlined onClick={() => remove(name)} />
+                    </Space>
+                  ))}
+                  <Form.Item>
+                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                      Add Property
+                    </Button>
+                  </Form.Item>
+                </>
+              )}
+            </Form.List>
           </Form>
         )}
       </Modal>

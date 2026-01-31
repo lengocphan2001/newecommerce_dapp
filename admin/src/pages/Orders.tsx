@@ -190,11 +190,11 @@ const Orders: React.FC = () => {
             <Descriptions.Item label="Status">
               <Tag color={
                 selectedOrder.status?.toUpperCase() === 'PENDING' ? 'orange' :
-                selectedOrder.status?.toUpperCase() === 'CONFIRMED' ? 'blue' :
-                selectedOrder.status?.toUpperCase() === 'PROCESSING' ? 'purple' :
-                selectedOrder.status?.toUpperCase() === 'SHIPPED' ? 'cyan' :
-                selectedOrder.status?.toUpperCase() === 'DELIVERED' ? 'green' :
-                selectedOrder.status?.toUpperCase() === 'CANCELLED' ? 'red' : 'default'
+                  selectedOrder.status?.toUpperCase() === 'CONFIRMED' ? 'blue' :
+                    selectedOrder.status?.toUpperCase() === 'PROCESSING' ? 'purple' :
+                      selectedOrder.status?.toUpperCase() === 'SHIPPED' ? 'cyan' :
+                        selectedOrder.status?.toUpperCase() === 'DELIVERED' ? 'green' :
+                          selectedOrder.status?.toUpperCase() === 'CANCELLED' ? 'red' : 'default'
               }>
                 {selectedOrder.status?.toUpperCase()}
               </Tag>
@@ -228,6 +228,21 @@ const Orders: React.FC = () => {
                 rowKey={(record) => record.productId || `${record.productName}-${record.quantity}`}
                 columns={[
                   { title: 'Product Name', dataIndex: 'productName', key: 'productName' },
+                  {
+                    title: 'Properties',
+                    dataIndex: 'properties',
+                    key: 'properties',
+                    render: (properties?: { [key: string]: string }) => {
+                      if (!properties || Object.keys(properties).length === 0) return '-';
+                      return (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {Object.entries(properties).map(([key, value]) => (
+                            <Tag key={key} color="purple">{key}: {value}</Tag>
+                          ))}
+                        </div>
+                      );
+                    },
+                  },
                   { title: 'Quantity', dataIndex: 'quantity', key: 'quantity' },
                   {
                     title: 'Price',

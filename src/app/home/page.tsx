@@ -40,6 +40,7 @@ interface Product {
   categoryId?: string;
   category?: Category;
   createdAt: string;
+  tags?: string[];
 }
 
 export default function HomePage() {
@@ -162,7 +163,7 @@ export default function HomePage() {
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
-    if (product.stock <= 0) return;
+    if (product.stock <= 0 || product.tags?.includes('COMING_SOON')) return;
 
     // Animation effect
     setAddToCartAnimating(product.id);
@@ -465,16 +466,31 @@ export default function HomePage() {
                       </div>
                     )}
 
-                    {product.stock <= 0 && (
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-[10px] font-bold rounded shadow-sm">{t("sale")}</div>
+                    {product.stock <= 0 && !product.tags?.includes('COMING_SOON') && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-gray-500 text-white text-[10px] font-bold rounded shadow-sm z-10">
+                        {t("soldOut")}
+                      </div>
+                    )}
+                    {product.tags?.includes('SALE') && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded shadow-sm z-10">
+                        SALE
+                      </div>
                     )}
                   </div>
                   <div className="p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="text-sm font-bold text-gray-900 line-clamp-2 min-h-[2.5em]">
+                    <div className="flex justify-between items-start">
+                      <h4 className="text-sm font-bold text-gray-900 line-clamp-2 min-h-[1.5em]">
                         {getLocalizedContent(product.name, product.nameEn)}
                       </h4>
                     </div>
+
+                    {product.tags?.includes('COMING_SOON') && (
+                      <div className="mb-2">
+                        <span className="inline-block px-3 py-1 bg-red-600 text-white text-[10px] uppercase font-bold rounded-sm">
+                          {lang === 'vi' ? 'Sắp ra mắt' : 'Coming Soon'}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1 mb-3">
                       {product.stock > 0 ? (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">{t("binaryXP")}</span>
@@ -490,7 +506,7 @@ export default function HomePage() {
                       </div>
                       <button
                         onClick={(e) => handleAddToCart(e, product)}
-                        disabled={product.stock <= 0}
+                        disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
                         className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0
                           ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
                           : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"

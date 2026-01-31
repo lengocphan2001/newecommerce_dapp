@@ -29,6 +29,7 @@ export class Order {
     productName: string;
     quantity: number;
     price: number;
+    properties?: { [key: string]: string }; // Selected properties (e.g., { "Color": "Red", "Size": "M" })
   }>;
 
   @Column({

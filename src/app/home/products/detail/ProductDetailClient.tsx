@@ -36,6 +36,8 @@ interface Product {
   originEn?: string;
   clothingType?: string;
   clothingTypeEn?: string;
+  tags?: string[];
+  properties?: { name: string; values: string[] }[];
 }
 
 export default function ProductDetailClient() {
@@ -46,6 +48,7 @@ export default function ProductDetailClient() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedProperties, setSelectedProperties] = useState<Record<string, string>>({});
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -143,6 +146,16 @@ export default function ProductDetailClient() {
       setLoading(true);
       const data = await api.getProduct(productId);
       setProduct(data);
+      // Initialize selected properties
+      if (data?.properties) {
+        const initialProps: Record<string, string> = {};
+        data.properties.forEach((p: { name: string; values: string[] }) => {
+          if (p.values.length > 0) {
+            initialProps[p.name] = p.values[0];
+          }
+        });
+        setSelectedProperties(initialProps);
+      }
 
       // Fetch related products
       try {
@@ -170,18 +183,19 @@ export default function ProductDetailClient() {
   };
 
   const handleAddToCart = (e?: React.MouseEvent) => {
-    if (!product || product.stock === 0) return;
+    if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
     const buttonElement = e?.currentTarget as HTMLElement;
     addItem({
       productId: product.id,
       productName: getLocalizedContent(product.name, product.nameEn),
       price: product.price,
       thumbnailUrl: product.thumbnailUrl,
+      properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
     }, buttonElement);
   };
 
   const handleBuyNow = () => {
-    if (!product || product.stock === 0) return;
+    if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
     handleAddToCart();
     router.push('/home/cart');
   };
@@ -285,6 +299,16 @@ export default function ProductDetailClient() {
             📦
           </div>
         )}
+        {product.stock <= 0 && !product.tags?.includes('COMING_SOON') && (
+          <div className="absolute top-4 left-4 px-3 py-1.5 bg-gray-500 text-white text-xs font-bold rounded shadow-sm z-20">
+            {t("soldOut")}
+          </div>
+        )}
+        {product.tags?.includes('SALE') && (
+          <div className="absolute top-4 left-4 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded shadow-sm z-20">
+            SALE
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
@@ -299,6 +323,13 @@ export default function ProductDetailClient() {
 
           {getLocalizedContent(product.name, product.nameEn)}
         </h1>
+        {product.tags?.includes('COMING_SOON') && (
+          <div className="mt-2">
+            <span className="inline-block px-3 py-1 bg-red-600 text-white text-xs uppercase font-bold rounded-sm">
+              {lang === 'vi' ? 'Sắp ra mắt' : 'Coming Soon'}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between mt-1">
           <div className="flex items-center gap-1">
             <div className="flex text-yellow-500 gap-0.5">
@@ -310,6 +341,34 @@ export default function ProductDetailClient() {
             <span className="text-sm text-text-sub border-l border-gray-300 pl-1.5 ml-1.5">{t("sold")} {soldCount > 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount}</span>
           </div>
         </div>
+
+        {/* Dynamic Properties Selection */}
+        {product.properties && product.properties.length > 0 && (
+          <div className="mt-4 flex flex-col gap-4 border-t border-gray-100 pt-4">
+            {product.properties.map((prop) => (
+              <div key={prop.name} className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-text-main">{prop.name}</span>
+                <div className="flex flex-wrap gap-2">
+                  {prop.values.map((value) => {
+                    const isSelected = selectedProperties[prop.name] === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setSelectedProperties(prev => ({ ...prev, [prop.name]: value }))}
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${isSelected
+                          ? "bg-violet-600 text-white shadow-md transform scale-105"
+                          : "bg-gray-100 text-text-main hover:bg-gray-200"
+                          }`}
+                      >
+                        {value}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Product Details – only show attributes that have values */}
@@ -380,7 +439,7 @@ export default function ProductDetailClient() {
         <div className="max-w-md mx-auto flex gap-2">
           <button
             onClick={handleAddToCart}
-            disabled={product.stock === 0}
+            disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
             className="flex-1 flex items-center justify-center gap-2 bg-violet-50 text-violet-600 font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-violet-100 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
@@ -388,7 +447,7 @@ export default function ProductDetailClient() {
           </button>
           <button
             onClick={handleBuyNow}
-            disabled={product.stock === 0}
+            disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
             className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-violet-700 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">shopping_bag</span>
@@ -398,32 +457,34 @@ export default function ProductDetailClient() {
       </div>
 
       {/* Related Products */}
-      {relatedProducts.length > 0 && (
-        <div className="mt-2 bg-white p-4 pb-24">
-          <h3 className="text-base font-medium mb-3">{t("relatedProducts")}</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {relatedProducts.map((relatedProduct) => (
-              <button
-                key={relatedProduct.id}
-                onClick={() => router.push(`/home/products/detail?id=${relatedProduct.id}`)}
-                className="bg-white border border-gray-100 flex flex-col text-left"
-              >
-                <div className="aspect-square w-full bg-cover bg-center" style={{
-                  backgroundImage: relatedProduct.thumbnailUrl ? `url('${relatedProduct.thumbnailUrl}')` : 'none',
-                  backgroundColor: '#f5f5f5'
-                }}></div>
-                <div className="p-2 flex flex-col gap-1">
-                  <span className="text-xs text-text-main line-clamp-2">{getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}</span>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-violet-600">${formatPrice(relatedProduct.price)}</span>
-                    <span className="text-[10px] text-text-sub">{t("sold")} {relatedProduct.soldCount || 0}</span>
+      {
+        relatedProducts.length > 0 && (
+          <div className="mt-2 bg-white p-4 pb-24">
+            <h3 className="text-base font-medium mb-3">{t("relatedProducts")}</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {relatedProducts.map((relatedProduct) => (
+                <button
+                  key={relatedProduct.id}
+                  onClick={() => router.push(`/home/products/detail?id=${relatedProduct.id}`)}
+                  className="bg-white border border-gray-100 flex flex-col text-left"
+                >
+                  <div className="aspect-square w-full bg-cover bg-center" style={{
+                    backgroundImage: relatedProduct.thumbnailUrl ? `url('${relatedProduct.thumbnailUrl}')` : 'none',
+                    backgroundColor: '#f5f5f5'
+                  }}></div>
+                  <div className="p-2 flex flex-col gap-1">
+                    <span className="text-xs text-text-main line-clamp-2">{getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-violet-600">${formatPrice(relatedProduct.price)}</span>
+                      <span className="text-[10px] text-text-sub">{t("sold")} {relatedProduct.soldCount || 0}</span>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Bottom Fixed Bar - Chat only */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex h-[60px]">
@@ -439,6 +500,6 @@ export default function ProductDetailClient() {
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 }

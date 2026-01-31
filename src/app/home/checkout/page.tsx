@@ -453,11 +453,11 @@ export default function CheckoutPage() {
       if (!token) {
         throw new Error("Vui lòng đăng nhập");
       }
-
       const orderData = await api.createOrder(
         items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          properties: item.properties,
         })),
         transactionHash,
         shippingAddress

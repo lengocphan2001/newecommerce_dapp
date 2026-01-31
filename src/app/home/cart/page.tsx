@@ -45,7 +45,7 @@ export default function CartPage() {
     return (
       <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
         <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-          <button 
+          <button
             onClick={() => router.back()}
             className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
           >
@@ -79,14 +79,14 @@ export default function CartPage() {
     <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+        <button
           onClick={() => router.back()}
           className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("cartTitle")} ({totalItems})</h1>
-        <button 
+        <button
           onClick={clearCart}
           className="text-red-500 text-sm font-medium hover:text-red-700 transition-colors"
         >
@@ -111,7 +111,7 @@ export default function CartPage() {
                     {t("affiliateLevel")} <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType)}</span>
                   </p>
                 </div>
-                <a 
+                <a
                   onClick={() => router.push("/home/affiliate")}
                   className="inline-flex items-center gap-1 text-sm font-bold text-primary-content hover:text-primary transition-colors cursor-pointer"
                 >
@@ -130,7 +130,7 @@ export default function CartPage() {
               <div className="flex gap-4">
                 <div className="relative shrink-0">
                   {item.thumbnailUrl ? (
-                    <div 
+                    <div
                       className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-[80px]"
                       style={{ backgroundImage: `url("${item.thumbnailUrl}")` }}
                     ></div>
@@ -147,9 +147,18 @@ export default function CartPage() {
                   <div className="flex justify-between items-start gap-2">
                     <div>
                       <h3 className="text-base font-bold text-slate-900 leading-tight line-clamp-2">{item.productName}</h3>
+                      {item.properties && Object.keys(item.properties).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Object.entries(item.properties).map(([key, value]) => (
+                            <span key={key} className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full font-medium">
+                              {key}: {value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-slate-500 text-xs mt-1 font-medium">{t("unit")}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => removeItem(item.productId)}
                       className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1 rounded-full transition-colors"
                     >
@@ -168,10 +177,10 @@ export default function CartPage() {
                       >
                         <span className="material-symbols-outlined text-sm">remove</span>
                       </button>
-                      <input 
-                        className="w-8 text-center bg-transparent border-none p-0 text-sm font-bold text-slate-900 focus:ring-0" 
-                        readOnly 
-                        type="text" 
+                      <input
+                        className="w-8 text-center bg-transparent border-none p-0 text-sm font-bold text-slate-900 focus:ring-0"
+                        readOnly
+                        type="text"
                         value={item.quantity}
                       />
                       <button
@@ -200,17 +209,17 @@ export default function CartPage() {
 
       {/* Footer - Checkout Button */}
       <footer className="fixed bottom-0 w-full max-w-md bg-white backdrop-blur-xl border-t border-gray-100 pt-4 px-4 z-[60] shadow-float" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px) + 80px)' }}>
-          <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-end">
-              <div className="flex flex-col">
-                <span className="text-xs text-slate-500 font-medium mb-1">{t("totalPayment")}</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
-                  <span className="text-base font-bold text-emerald-600">USDT</span>
-                </div>
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-end">
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-500 font-medium mb-1">{t("totalPayment")}</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
+                <span className="text-base font-bold text-emerald-600">USDT</span>
               </div>
             </div>
-          <button 
+          </div>
+          <button
             onClick={() => router.push("/home/checkout")}
             className="group w-full bg-primary hover:bg-[#0fd650] active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(19,236,91,0.25)] hover:shadow-[0_12px_24px_rgba(19,236,91,0.35)]"
           >

@@ -8,6 +8,9 @@ export class OrderItemDto {
 
   @IsNotEmpty()
   quantity: number;
+
+  @IsOptional()
+  properties?: { [key: string]: string };
 }
 
 export class CreateOrderDto {
