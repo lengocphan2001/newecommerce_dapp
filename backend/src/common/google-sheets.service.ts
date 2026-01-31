@@ -41,8 +41,8 @@ export class GoogleSheetsService {
 
     try {
       const headers = [
-        'Order ID', 'User ID', 'Username', 'Full Name', 'Total Amount', 
-        'Status', 'Items', 'Shipping Address', 'Transaction Hash', 
+        'Order ID', 'User ID', 'Username', 'Full Name', 'Phone Number', 'Total Amount',
+        'Status', 'Items', 'Shipping Address', 'Transaction Hash',
         'Created At', 'Updated At'
       ];
 
@@ -64,7 +64,7 @@ export class GoogleSheetsService {
       }
 
       const rows = response?.data?.values || [];
-      
+
       // Add headers if empty
       if (rows.length === 0) {
         await this.request('POST', '/values/Orders!A1:append?valueInputOption=RAW', {
@@ -72,13 +72,25 @@ export class GoogleSheetsService {
         });
       }
 
-      // Prepare data row
-      const itemsString = order.items.map(item => `${item.productName} (x${item.quantity})`).join(', ');
+      // Prepare data row with properties
+      const itemsString = order.items.map(item => {
+        let itemStr = `${item.productName} (x${item.quantity})`;
+        // Add properties if they exist
+        if (item.properties && Object.keys(item.properties).length > 0) {
+          const propsStr = Object.entries(item.properties)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+          itemStr += ` [${propsStr}]`;
+        }
+        return itemStr;
+      }).join(', ');
+
       const row = [
         order.id,
         order.userId,
         user?.username || '',
         user?.fullName || '',
+        user?.phone || '',
         order.totalAmount.toString(),
         order.status,
         itemsString,
@@ -91,13 +103,13 @@ export class GoogleSheetsService {
       const rowIndex = rows.findIndex((r: any) => r[0] === order.id);
 
       if (rowIndex !== -1) {
-        const range = `Orders!A${rowIndex + 1}:K${rowIndex + 1}`;
+        const range = `Orders!A${rowIndex + 1}:L${rowIndex + 1}`;
         await this.request('PUT', `/values/${range}?valueInputOption=RAW`, {
           values: [row],
         });
         this.logger.log(`Order ${order.id} updated in Google Sheets`);
       } else {
-        await this.request('POST', '/values/Orders!A:K:append?valueInputOption=RAW', {
+        await this.request('POST', '/values/Orders!A:L:append?valueInputOption=RAW', {
           values: [row],
         });
         this.logger.log(`Order ${order.id} appended to Google Sheets`);

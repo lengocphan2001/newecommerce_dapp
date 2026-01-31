@@ -38,6 +38,7 @@ interface Product {
   clothingTypeEn?: string;
   tags?: string[];
   properties?: { name: string; values: string[] }[];
+  fakeSold?: number;
 }
 
 export default function ProductDetailClient() {

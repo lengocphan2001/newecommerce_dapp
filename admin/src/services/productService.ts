@@ -22,6 +22,7 @@ export interface Product {
   brand?: string;
   origin?: string;
   clothingType?: string;
+  fakeSold?: number;
   createdAt?: string;
 }
 

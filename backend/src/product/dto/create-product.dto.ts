@@ -97,5 +97,10 @@ export class CreateProductDto {
   @IsString()
   @IsOptional()
   clothingTypeEn?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  fakeSold?: number;
 }
 

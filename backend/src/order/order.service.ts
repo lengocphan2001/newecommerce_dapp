@@ -60,6 +60,7 @@ export class OrderService {
       productName: string;
       quantity: number;
       price: number;
+      properties?: { [key: string]: string };
     }> = [];
     let totalAmount = 0;
 
@@ -94,6 +95,7 @@ export class OrderService {
         productName: product.name,
         quantity: item.quantity,
         price: product.price,
+        properties: item.properties, // Include selected properties
       });
 
       // Kiểm tra stock nhưng không trừ ngay (sẽ trừ khi admin duyệt)

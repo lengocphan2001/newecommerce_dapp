@@ -104,6 +104,10 @@ export class Product {
   @Column({ nullable: true })
   clothingTypeEn?: string;
 
+  /** Fake sold count - displayed instead of real sold count when set */
+  @Column({ type: 'int', nullable: true, default: 0 })
+  fakeSold?: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

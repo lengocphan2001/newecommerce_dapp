@@ -96,5 +96,10 @@ export class UpdateProductDto {
   @IsString()
   @IsOptional()
   clothingTypeEn?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  fakeSold?: number;
 }
 

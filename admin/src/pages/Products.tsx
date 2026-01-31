@@ -504,6 +504,14 @@ const Products: React.FC = () => {
               <InputNumber style={{ width: '100%' }} min={0} step={0.000001} precision={6} />
             </Form.Item>
             <Form.Item
+              name="fakeSold"
+              label="Fake Sold Count"
+              rules={[{ type: 'number', min: 0 }]}
+              tooltip="Display this sold count instead of real sold count (leave empty to show real count)"
+            >
+              <InputNumber style={{ width: '100%' }} min={0} placeholder="Optional" />
+            </Form.Item>
+            <Form.Item
               name="categoryId"
               label="Category"
               rules={[]}

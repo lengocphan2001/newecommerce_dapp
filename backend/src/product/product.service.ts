@@ -69,7 +69,7 @@ export class ProductService {
         const soldCount = await this.calculateSoldCount(product.id);
         return {
           ...product,
-          soldCount,
+          soldCount: product.fakeSold ?? soldCount, // Use fakeSold if set, otherwise real soldCount
         };
       })
     );
@@ -98,7 +98,7 @@ export class ProductService {
 
     return {
       ...product,
-      soldCount,
+      soldCount: product.fakeSold ?? soldCount, // Use fakeSold if set, otherwise real soldCount
       categoryBreadcrumb,
     };
   }

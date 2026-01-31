@@ -12,6 +12,7 @@ interface OrderItem {
   quantity: number;
   price: number;
   thumbnailUrl?: string;
+  properties?: { [key: string]: string };
 }
 
 interface Order {
@@ -39,7 +40,7 @@ function OrdersPageContent() {
 
   useEffect(() => {
     fetchOrders();
-    
+
     // Check for success message from checkout
     const success = searchParams.get("success");
     const orderId = searchParams.get("orderId");
@@ -199,12 +200,12 @@ function OrdersPageContent() {
     activeTab === "all"
       ? orders
       : activeTab === "processing"
-      ? orders.filter((order) => ["pending", "confirmed", "processing", "shipped"].includes(order.status))
-      : activeTab === "delivered"
-      ? orders.filter((order) => order.status === "delivered")
-      : orders.filter((order) => order.status === "cancelled");
+        ? orders.filter((order) => ["pending", "confirmed", "processing", "shipped"].includes(order.status))
+        : activeTab === "delivered"
+          ? orders.filter((order) => order.status === "delivered")
+          : orders.filter((order) => order.status === "cancelled");
 
-  const processingCount = orders.filter((o) => 
+  const processingCount = orders.filter((o) =>
     ["pending", "confirmed", "processing", "shipped"].includes(o.status)
   ).length;
   const deliveredCount = orders.filter((o) => o.status === "delivered").length;
@@ -214,7 +215,7 @@ function OrdersPageContent() {
     <div className="flex flex-col bg-background-light min-h-screen">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+        <button
           onClick={() => router.back()}
           className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
         >
@@ -249,13 +250,11 @@ function OrdersPageContent() {
         <div className="flex px-4 justify-between gap-4 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("all")}
-            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${
-              activeTab === "all" ? "" : ""
-            }`}
+            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${activeTab === "all" ? "" : ""
+              }`}
           >
-            <p className={`text-sm font-bold leading-normal tracking-[0.015em] ${
-              activeTab === "all" ? "text-blue-800" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>{t("allOrders")}</p>
+            <p className={`text-sm font-bold leading-normal tracking-[0.015em] ${activeTab === "all" ? "text-blue-800" : "text-slate-500 group-hover:text-blue-800 transition-colors"
+              }`}>{t("allOrders")}</p>
             {activeTab === "all" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -265,13 +264,11 @@ function OrdersPageContent() {
           </button>
           <button
             onClick={() => setActiveTab("processing")}
-            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${
-              activeTab === "processing" ? "" : ""
-            }`}
+            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${activeTab === "processing" ? "" : ""
+              }`}
           >
-            <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${
-              activeTab === "processing" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>{t("processingOrders")}</p>
+            <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${activeTab === "processing" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
+              }`}>{t("processingOrders")}</p>
             {activeTab === "processing" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -281,13 +278,11 @@ function OrdersPageContent() {
           </button>
           <button
             onClick={() => setActiveTab("delivered")}
-            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${
-              activeTab === "delivered" ? "" : ""
-            }`}
+            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${activeTab === "delivered" ? "" : ""
+              }`}
           >
-            <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${
-              activeTab === "delivered" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>{t("deliveredOrders")}</p>
+            <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${activeTab === "delivered" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
+              }`}>{t("deliveredOrders")}</p>
             {activeTab === "delivered" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -297,13 +292,11 @@ function OrdersPageContent() {
           </button>
           <button
             onClick={() => setActiveTab("cancelled")}
-            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${
-              activeTab === "cancelled" ? "" : ""
-            }`}
+            className={`group flex flex-col items-center justify-center min-w-[70px] pb-3 pt-2 relative ${activeTab === "cancelled" ? "" : ""
+              }`}
           >
-            <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${
-              activeTab === "cancelled" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
-            }`}>{t("cancelledOrders")}</p>
+            <p className={`text-sm font-medium leading-normal tracking-[0.015em] ${activeTab === "cancelled" ? "text-blue-800 font-bold" : "text-slate-500 group-hover:text-blue-800 transition-colors"
+              }`}>{t("cancelledOrders")}</p>
             {activeTab === "cancelled" && (
               <div className="absolute bottom-0 w-full h-[3px] bg-blue-600 rounded-t-sm"></div>
             )}
@@ -350,41 +343,37 @@ function OrdersPageContent() {
                 <div
                   key={order.id}
                   onClick={() => router.push(`/home/orders/detail?id=${order.id}`)}
-                  className={`flex flex-col gap-3 rounded-2xl p-4 shadow-[0_2px_12px_rgba(37,99,235,0.06)] border ${
-                    isCancelled 
-                      ? "bg-slate-50 border-slate-200 opacity-75" 
+                  className={`flex flex-col gap-3 rounded-2xl p-4 shadow-[0_2px_12px_rgba(37,99,235,0.06)] border ${isCancelled
+                      ? "bg-slate-50 border-slate-200 opacity-75"
                       : "bg-white border-blue-100"
-                  } active:scale-[0.99] transition-all duration-200 cursor-pointer`}
+                    } active:scale-[0.99] transition-all duration-200 cursor-pointer`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex items-start gap-3">
-                      <div className={`shrink-0 rounded-xl overflow-hidden h-[72px] w-[72px] border relative shadow-inner ${
-                        isCancelled 
-                          ? "bg-slate-200 border-slate-300 grayscale" 
+                      <div className={`shrink-0 rounded-xl overflow-hidden h-[72px] w-[72px] border relative shadow-inner ${isCancelled
+                          ? "bg-slate-200 border-slate-300 grayscale"
                           : "bg-blue-50 border-blue-100"
-                      }`}>
-                        <div 
+                        }`}>
+                        <div
                           className="absolute inset-0 bg-cover bg-center"
                           style={{ backgroundImage: `url("${orderImage}")` }}
                         ></div>
                       </div>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-bold ${
-                            isCancelled ? "text-slate-500 line-through" : "text-slate-900"
-                          }`}>
+                          <span className={`text-sm font-bold ${isCancelled ? "text-slate-500 line-through" : "text-slate-900"
+                            }`}>
                             #{order.id.slice(0, 8).toUpperCase()}
                           </span>
                           {isProcessing && (
                             <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 ring-2 ring-white"></span>
                           )}
                         </div>
-                        <p className={`text-xs font-medium ${
-                          isCancelled ? "text-slate-400" : "text-slate-500"
-                        }`}>
+                        <p className={`text-xs font-medium ${isCancelled ? "text-slate-400" : "text-slate-500"
+                          }`}>
                           {formatDateTime(order.createdAt)}
                         </p>
-                        
+
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
@@ -392,9 +381,8 @@ function OrdersPageContent() {
                         {getStatusText(order.status)}
                       </span>
                       <div className="text-right mt-1">
-                        <p className={`text-lg font-bold tracking-tight ${
-                          isCancelled ? "text-slate-600" : "text-blue-800"
-                        }`}>
+                        <p className={`text-lg font-bold tracking-tight ${isCancelled ? "text-slate-600" : "text-blue-800"
+                          }`}>
                           {formatPrice(order.totalAmount)} USDT
                         </p>
                       </div>
@@ -404,7 +392,7 @@ function OrdersPageContent() {
                   {/* Progress Bar for Processing Orders */}
                   {isProcessing && (
                     <div className="w-full bg-blue-50 rounded-full h-1.5 mt-1 overflow-hidden">
-                      <div 
+                      <div
                         className="bg-yellow-500 h-1.5 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.6)] transition-all duration-300"
                         style={{ width: `${progressPercentage}%` }}
                       ></div>
@@ -414,7 +402,7 @@ function OrdersPageContent() {
                   {/* Rebuy Button for Delivered Orders */}
                   {isDelivered && (
                     <div className="pt-2 border-t border-blue-50 flex justify-end">
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           // Navigate to products page or add to cart
