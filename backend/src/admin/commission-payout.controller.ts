@@ -15,7 +15,7 @@ import { BatchPayoutDto, BatchPayoutResponseDto } from './dto/batch-payout.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { AuditLogEntityType } from '../audit-log/entities/audit-log.entity';
+import { AuditLogEntityType, AuditLogAction } from '../audit-log/entities/audit-log.entity';
 
 @Controller('admin/commission-payout')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -24,7 +24,7 @@ export class CommissionPayoutController {
   constructor(
     private readonly commissionPayoutService: CommissionPayoutService,
     private readonly auditLogService: AuditLogService,
-  ) {}
+  ) { }
 
   /**
    * Get payout statistics
@@ -115,5 +115,71 @@ export class CommissionPayoutController {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
+  }
+  /**
+   * Withdraw funds from contract to specific wallet
+   */
+  @Post('withdraw')
+  @HttpCode(HttpStatus.OK)
+  async withdrawToWallet(
+    @Body() body: { recipient: string; amount: string },
+    @Request() req: any,
+  ) {
+    const userId = req.user?.id;
+    const username = req.user?.username || req.user?.email;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    try {
+      const result = await this.commissionPayoutService.withdrawToWallet(
+        body.recipient,
+        body.amount,
+      );
+
+      // Log withdrawal
+      await this.auditLogService.create(
+        {
+          action: AuditLogAction.PAYOUT_EXECUTED,
+          entityType: AuditLogEntityType.COMMISSION_PAYOUT,
+          entityId: result.txHash,
+          description: `Emergency withdrawal of ${body.amount} to ${body.recipient}`,
+          metadata: {
+            recipient: body.recipient,
+            amount: body.amount,
+            txHash: result.txHash,
+            blockNumber: result.blockNumber,
+            type: 'emergency_withdraw'
+          },
+        },
+        userId,
+        username,
+        ipAddress,
+        userAgent,
+      );
+
+      return {
+        success: true,
+        txHash: result.txHash,
+      };
+    } catch (error: any) {
+      await this.auditLogService.create(
+        {
+          action: AuditLogAction.PAYOUT_FAILED,
+          entityType: AuditLogEntityType.COMMISSION_PAYOUT,
+          entityId: 'withdraw_failed',
+          description: `Emergency withdrawal failed: ${error.message}`,
+          metadata: {
+            recipient: body.recipient,
+            amount: body.amount,
+            error: error.message
+          },
+        },
+        userId,
+        username,
+        ipAddress,
+        userAgent,
+      );
+      throw error;
+    }
   }
 }

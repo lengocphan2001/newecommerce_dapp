@@ -8,6 +8,7 @@ import { Product } from '../product/entities/product.entity';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
+import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 
 @Injectable()
 export class AdminService {
@@ -25,7 +26,8 @@ export class AdminService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => AffiliateService))
     private affiliateService: AffiliateService,
-  ) {}
+    private commissionPayoutService: CommissionPayoutService,
+  ) { }
 
   async getDashboard() {
     // Get total counts
@@ -62,12 +64,18 @@ export class AdminService {
       updatedAt: order.updatedAt,
     }));
 
+    // Get payout stats to include contract balance
+    const payoutStats = await this.commissionPayoutService.getPayoutStats();
+
     return {
       totalUsers,
       totalProducts,
       totalOrders,
       totalRevenue,
       recentOrders: formattedRecentOrders,
+      contractBalance: payoutStats.contractBalance,
+      contractAddress: payoutStats.contractAddress,
+      tokenAddress: payoutStats.tokenAddress,
     };
   }
 

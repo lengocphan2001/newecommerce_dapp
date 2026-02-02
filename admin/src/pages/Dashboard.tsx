@@ -1,13 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, message } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, message, Button, Modal, Input, Space } from 'antd';
+import { ethers } from 'ethers';
 import {
   UserOutlined,
   ShoppingOutlined,
   DollarOutlined,
   FileTextOutlined,
+  BankOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
 import type { ColumnsType } from 'antd/es/table';
+
+declare global {
+  interface Window {
+    ethereum: any;
+  }
+}
+
 
 interface RecentOrder {
   id: string;
@@ -32,7 +42,13 @@ const Dashboard: React.FC = () => {
     totalOrders: 0,
     totalRevenue: 0,
   });
+  const [contractBalance, setContractBalance] = useState(0);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [contractAddress, setContractAddress] = useState('');
+  const [tokenAddress, setTokenAddress] = useState('');
+  const [isAddFundsModalOpen, setIsAddFundsModalOpen] = useState(false);
+  const [addFundAmount, setAddFundAmount] = useState('');
+  const [addFundLoading, setAddFundLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -48,12 +64,94 @@ const Dashboard: React.FC = () => {
         totalOrders: data.totalOrders || 0,
         totalRevenue: data.totalRevenue || 0,
       });
+      setContractBalance(data.contractBalance || 0);
+      setContractAddress(data.contractAddress || '');
+      setTokenAddress(data.tokenAddress || '');
       setRecentOrders(data.recentOrders || []);
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);
       message.error(error.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleWithdraw = () => {
+    // Try to get wallet from env, fallback to hardcoded
+    const paymentWallet = process.env.REACT_APP_PAYMENT_WALLET || process.env.NEXT_PUBLIC_PAYMENT_WALLET || '0x65c03707C17EA9F7Dc1C1Eb2c0C12D3AfC3e7fe1';
+
+    // Prevent withdrawing dust
+    if (contractBalance < 0.0001) {
+      message.warning('Balance is too low to withdraw');
+      return;
+    }
+
+    // Format amount to decimal string (avoid scientific notation)
+    const formattedAmount = contractBalance.toFixed(18);
+
+    Modal.confirm({
+      title: 'Withdraw from Contract',
+      content: (
+        <div>
+          <p>Are you sure you want to withdraw all funds?</p>
+          <p><strong>Balance:</strong> {contractBalance < 0.0001 ? '0.0000' : contractBalance.toFixed(4)} USDT</p>
+          <p><strong>To Wallet:</strong> {paymentWallet}</p>
+        </div>
+      ),
+      onOk: async () => {
+        try {
+          await adminService.withdrawFromContract(paymentWallet, formattedAmount);
+          message.success('Withdrawal initiated successfully');
+          fetchDashboardData();
+        } catch (error: any) {
+          console.error(error);
+          message.error(error.response?.data?.message || 'Withdrawal failed');
+        }
+      },
+    });
+  };
+
+  const handleAddFunds = async () => {
+    if (!addFundAmount || parseFloat(addFundAmount) <= 0) {
+      message.error('Please enter a valid amount');
+      return;
+    }
+
+    if (!window.ethereum) {
+      message.error('Please install MetaMask to add funds');
+      return;
+    }
+
+    setAddFundLoading(true);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      // Token ABI (minimal for transfer)
+      const tokenAbi = [
+        "function transfer(address to, uint256 amount) returns (bool)",
+        "function decimals() view returns (uint8)"
+      ];
+
+      const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
+      const decimals = await tokenContract.decimals();
+      const amountWei = ethers.parseUnits(addFundAmount, decimals);
+
+      // Send transfer
+      const tx = await tokenContract.transfer(contractAddress, amountWei);
+      message.loading({ content: 'Transaction submitted. Waiting for confirmation...', key: 'addFund' });
+
+      await tx.wait();
+
+      message.success({ content: 'Funds added successfully!', key: 'addFund' });
+      setIsAddFundsModalOpen(false);
+      setAddFundAmount('');
+      fetchDashboardData(); // Refresh balance
+    } catch (error: any) {
+      console.error(error);
+      message.error({ content: error.reason || error.message || 'Transaction failed', key: 'addFund' });
+    } finally {
+      setAddFundLoading(false);
     }
   };
 
@@ -158,6 +256,35 @@ const Dashboard: React.FC = () => {
             />
           </Card>
         </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Contract Balance"
+              value={contractBalance < 0.0001 ? 0 : contractBalance}
+              prefix={<BankOutlined />}
+              precision={4}
+              loading={loading}
+              suffix="USDT"
+            />
+            <Button
+              type="primary"
+              size="small"
+              style={{ marginTop: 8 }}
+              onClick={handleWithdraw}
+              disabled={contractBalance < 0.0001}
+            >
+              Withdraw
+            </Button>
+            <Button
+              size="small"
+              style={{ marginTop: 8, marginLeft: 8 }}
+              onClick={() => setIsAddFundsModalOpen(true)}
+              icon={<WalletOutlined />}
+            >
+              Add Fund
+            </Button>
+          </Card>
+        </Col>
       </Row>
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col xs={24} lg={24}>
@@ -183,6 +310,48 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        title="Add Fund to Contract"
+        open={isAddFundsModalOpen}
+        onCancel={() => setIsAddFundsModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsAddFundsModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={addFundLoading}
+            onClick={handleAddFunds}
+          >
+            Add Funds
+          </Button>,
+        ]}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <p>Send USDT to Contract Address:</p>
+          <code style={{ background: '#f5f5f5', padding: '4px 8px', borderRadius: 4, display: 'block', wordBreak: 'break-all' }}>
+            {contractAddress || 'Loading...'}
+          </code>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <p>Token Address (USDT):</p>
+          <code style={{ background: '#f5f5f5', padding: '4px 8px', borderRadius: 4, display: 'block', wordBreak: 'break-all' }}>
+            {tokenAddress || 'Loading...'}
+          </code>
+        </div>
+        <div>
+          <p>Amount to Add:</p>
+          <Input
+            placeholder="Amount"
+            suffix="USDT"
+            value={addFundAmount}
+            onChange={(e) => setAddFundAmount(e.target.value)}
+            type="number"
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

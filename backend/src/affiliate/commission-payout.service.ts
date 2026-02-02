@@ -20,7 +20,7 @@ export class CommissionPayoutService {
     private blockchainPayoutService: BlockchainPayoutService,
     private dataSource: DataSource,
     private auditLogService: AuditLogService,
-  ) {}
+  ) { }
 
   /**
    * Get pending commissions ready for payout
@@ -122,7 +122,7 @@ export class CommissionPayoutService {
     try {
       // Get specific commission IDs from recipients if available
       const specificCommissionIds = dto.recipients.flatMap(r => r.commissionIds || []);
-      
+
       let commissions: Commission[];
       if (specificCommissionIds.length > 0) {
         commissions = await this.commissionRepository.find({
@@ -352,28 +352,28 @@ export class CommissionPayoutService {
 
     // Log auto payout execution
     try {
-    // Prepare batch
-    const { recipients, commissionIds } = await this.preparePayoutBatch(
-      pendingCommissions,
-    );
+      // Prepare batch
+      const { recipients, commissionIds } = await this.preparePayoutBatch(
+        pendingCommissions,
+      );
 
-    if (recipients.length === 0) {
-      this.logger.warn('No valid recipients found');
-      return { batchId: '', txHash: '', count: 0 };
-    }
+      if (recipients.length === 0) {
+        this.logger.warn('No valid recipients found');
+        return { batchId: '', txHash: '', count: 0 };
+      }
 
-    // Execute payout
-    const dto: BatchPayoutDto = {
-      recipients,
-    };
+      // Execute payout
+      const dto: BatchPayoutDto = {
+        recipients,
+      };
 
-    const result = await this.executeBatchPayout(dto, 'system', 'system', undefined, undefined);
+      const result = await this.executeBatchPayout(dto, 'system', 'system', undefined, undefined);
 
-    return {
-      batchId: result.batchId,
-      txHash: result.txHash,
-      count: commissionIds.length,
-    };
+      return {
+        batchId: result.batchId,
+        txHash: result.txHash,
+        count: commissionIds.length,
+      };
     } catch (error: any) {
       // Log auto payout failure
       await this.auditLogService.create(
@@ -559,6 +559,21 @@ export class CommissionPayoutService {
         count: totalBlocked,
       },
       contractBalance: parseFloat(contractBalance),
+      contractAddress: (await this.blockchainPayoutService.getContractInfo()).contractAddress,
+      tokenAddress: (await this.blockchainPayoutService.getContractInfo()).tokenAddress,
     };
+  }
+
+  /**
+   * Withdraw funds from contract to specific wallet
+   */
+  async withdrawToWallet(
+    recipientAddress: string,
+    amount: string,
+  ): Promise<{ txHash: string; blockNumber: number }> {
+    return this.blockchainPayoutService.emergencyWithdraw(
+      recipientAddress,
+      amount,
+    );
   }
 }

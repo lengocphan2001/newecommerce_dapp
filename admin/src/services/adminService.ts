@@ -7,5 +7,6 @@ export const adminService = {
   getOrders: (params?: any) => api.get('/admin/orders', { params }),
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
   getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
+  withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
 };
 

@@ -43,16 +43,16 @@ function formatAmountForParseUnits(amount: string | number): string {
   } else {
     amountNum = amount;
   }
-  
+
   // Format to string with exactly 18 decimal places
   const amountStr = amountNum.toFixed(18);
-  
+
   // Validate and truncate if needed (shouldn't happen with toFixed, but just in case)
   const parts = amountStr.split('.');
   if (parts.length === 2 && parts[1].length > 18) {
     return parts[0] + '.' + parts[1].substring(0, 18);
   }
-  
+
   return amountStr;
 }
 
@@ -268,5 +268,50 @@ export class CommissionPayoutService {
     });
 
     this.logger.log('Listening to payout events...');
+  }
+
+  /**
+   * Emergency withdraw funds from contract
+   */
+  async emergencyWithdraw(
+    recipientAddress: string,
+    amountStr: string,
+  ): Promise<{ txHash: string; blockNumber: number }> {
+    const contract = this.getContract();
+    const address = this.web3Service.formatAddress(recipientAddress);
+
+    // Parse amount using 18 decimals (USDT/Token standard)
+    const amount = ethers.parseUnits(amountStr, 18);
+
+    // Get gas price
+    const gasPrice = await this.web3Service.getGasPrice();
+    const gasPriceWithBuffer = (gasPrice * BigInt(120)) / BigInt(100);
+
+    // Execute transaction
+    this.logger.log(`Executing emergency withdraw to ${address}, amount: ${amountStr}`);
+
+    try {
+      const tx = await contract.emergencyWithdraw(address, amount, {
+        gasLimit: 300000,
+        gasPrice: gasPriceWithBuffer,
+      });
+
+      this.logger.log(`Withdraw transaction sent: ${tx.hash}`);
+
+      // Wait for confirmation
+      const receipt = await this.web3Service.waitForTransaction(tx.hash, 1);
+
+      if (!receipt || !receipt.status) {
+        throw new Error('Withdraw transaction failed');
+      }
+
+      return {
+        txHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+      };
+    } catch (error: any) {
+      this.logger.error('Emergency withdraw failed', error);
+      throw new Error(`Withdraw failed: ${error.message}`);
+    }
   }
 }
