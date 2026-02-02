@@ -71,6 +71,7 @@ export type I18nKey =
   | "orderStatusDelivered"
   | "orderStatusCancelled"
   | "outOfStock"
+  | "soldOut"
   | "stockAvailable"
   | "items"
   | "total"
@@ -448,6 +449,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     orderStatusDelivered: "Đã giao",
     orderStatusCancelled: "Đã hủy",
     outOfStock: "Hết hàng",
+    soldOut: "Hết hàng",
     stockAvailable: "Còn {count} sản phẩm",
     items: "Sản phẩm",
     total: "Tổng cộng",
@@ -818,6 +820,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     orderStatusDelivered: "Delivered",
     orderStatusCancelled: "Cancelled",
     outOfStock: "Out of Stock",
+    soldOut: "Sold Out",
     stockAvailable: "{count} items available",
     items: "Items",
     total: "Total",
@@ -1188,6 +1191,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     orderStatusDelivered: "배송 완료",
     orderStatusCancelled: "취소됨",
     outOfStock: "품절",
+    soldOut: "품절",
     stockAvailable: "{count}개 남음",
     items: "상품",
     total: "총계",
