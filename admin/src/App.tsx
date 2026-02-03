@@ -15,7 +15,7 @@ import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
 import CommissionPayout from './pages/CommissionPayout';
-import CommissionConfig from './pages/CommissionConfig';
+
 import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
 import TreeView from './pages/TreeView';
@@ -178,16 +178,7 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route
-              path="/commission-config"
-              element={
-                <PrivateRoute>
-                  <AdminLayout>
-                    <CommissionConfig />
-                  </AdminLayout>
-                </PrivateRoute>
-              }
-            />
+
             <Route
               path="/milestone-reward"
               element={

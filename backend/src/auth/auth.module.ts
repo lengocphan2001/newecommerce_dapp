@@ -9,11 +9,13 @@ import { UserModule } from '../user/user.module';
 import { StaffModule } from '../staff/staff.module';
 import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AdminModule } from '../admin/admin.module';
+import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
     UserModule,
     StaffModule,
+    PackagesModule,
     forwardRef(() => AffiliateModule),
     forwardRef(() => AdminModule),
     PassportModule,
@@ -35,4 +37,4 @@ import { AdminModule } from '../admin/admin.module';
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

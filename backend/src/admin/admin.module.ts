@@ -3,12 +3,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { CommissionPayoutController } from './commission-payout.controller';
-import { CommissionConfigController } from './commission-config.controller';
-import { CommissionConfigService } from './commission-config.service';
 import { MilestoneRewardService } from './milestone-reward.service';
 import { MilestoneRewardController } from './milestone-reward.controller';
 import { User } from '../user/entities/user.entity';
-import { CommissionConfig } from './entities/commission-config.entity';
 import { MilestoneRewardConfig } from './entities/milestone-reward-config.entity';
 import { UserMilestone } from './entities/user-milestone.entity';
 import { AffiliateModule } from '../affiliate/affiliate.module';
@@ -21,7 +18,7 @@ import { Product } from '../product/entities/product.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, CommissionConfig, MilestoneRewardConfig, UserMilestone, Address, Order, Product]),
+    TypeOrmModule.forFeature([User, MilestoneRewardConfig, UserMilestone, Address, Order, Product]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),
@@ -30,11 +27,10 @@ import { Product } from '../product/entities/product.entity';
   controllers: [
     AdminController,
     CommissionPayoutController,
-    CommissionConfigController,
     MilestoneRewardController,
   ],
-  providers: [AdminService, CommissionConfigService, MilestoneRewardService],
-  exports: [AdminService, CommissionConfigService, MilestoneRewardService],
+  providers: [AdminService, MilestoneRewardService],
+  exports: [AdminService, MilestoneRewardService],
 })
-export class AdminModule {}
+export class AdminModule { }
 

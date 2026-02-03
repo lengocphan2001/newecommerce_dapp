@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { StaffSeedService } from './common/seed/staff-seed.service';
-import { CommissionConfigService } from './admin/commission-config.service';
+
 import { PermissionService } from './permission/permission.service';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
@@ -27,22 +27,22 @@ async function bootstrap() {
   // IMPORTANT: don't use "/uploads" here because it conflicts with UploadController routes
   // (e.g. POST /uploads/image). Serve files under a different prefix.
   app.useStaticAssets(uploadDir, { prefix: '/files' });
-  
+
   // Enable CORS
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
     : [
-        'https://vinmall.org',
-        'https://www.vinmall.org',
-        'http://localhost:3000',
-        'http://localhost:3001',
-      ];
+      'https://vinmall.org',
+      'https://www.vinmall.org',
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ];
 
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
+
       // Check if origin is in allowed list
       if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
         callback(null, true);
@@ -76,13 +76,7 @@ async function bootstrap() {
   }
 
   // Initialize default commission configs
-  try {
-    const configService = app.get(CommissionConfigService);
-    await configService.initializeDefaults();
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to initialize commission configs:', error);
-  }
+
 
   // Seed permissions
   try {

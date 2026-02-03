@@ -19,13 +19,13 @@ import { Slider } from '../src/slider/entities/slider.entity';
 import { Order } from '../src/order/entities/order.entity';
 import { Commission } from '../src/affiliate/entities/commission.entity';
 import { AuditLog } from '../src/audit-log/entities/audit-log.entity';
-import { CommissionConfig } from '../src/admin/entities/commission-config.entity';
 import { MilestoneRewardConfig } from '../src/admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from '../src/admin/entities/user-milestone.entity';
 import { Staff } from '../src/staff/entities/staff.entity';
 import { StaffSession } from '../src/staff/entities/staff-session.entity';
 import { Role } from '../src/role/entities/role.entity';
 import { Permission } from '../src/permission/entities/permission.entity';
+import { Package } from '../src/packages/entities/package.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -36,7 +36,7 @@ async function initializeDatabase() {
 
   const dbType = (process.env.DB_TYPE || 'postgres') as any;
   const isMySQL = dbType === 'mysql';
-  
+
   const dbConfig = {
     type: dbType,
     host: process.env.DB_HOST || 'localhost',
@@ -54,10 +54,10 @@ async function initializeDatabase() {
   console.log(`  Username: ${dbConfig.username}`);
   console.log(`  Database: ${dbConfig.database}`);
   console.log(`  Password: ${dbConfig.password ? '***' : 'NOT SET'}`);
-  
+
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, CommissionConfig, MilestoneRewardConfig, UserMilestone, Staff, StaffSession, Role, Permission],
+    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, Staff, StaffSession, Role, Permission, Package],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
   });
@@ -66,11 +66,11 @@ async function initializeDatabase() {
     console.log('\nConnecting to database...');
     await dataSource.initialize();
     console.log('Database connected successfully!');
-    
+
     console.log('Synchronizing database schema...');
     await dataSource.synchronize();
     console.log('Database tables created successfully!');
-    
+
     await dataSource.destroy();
     console.log('Database connection closed.');
   } catch (error) {

@@ -5,12 +5,10 @@ import { StaffService } from '../staff/staff.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
-import { CommissionConfigService } from '../admin/commission-config.service';
-import { PackageType } from '../admin/entities/commission-config.entity';
+import { PackagesService } from '../packages/packages.service';
 import { MailService } from '../mail/mail.service';
-import * as bcrypt from 'bcryptjs';
-import * as crypto from 'crypto';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthService {
@@ -23,8 +21,7 @@ export class AuthService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => MilestoneRewardService))
     private milestoneRewardService: MilestoneRewardService,
-    @Inject(forwardRef(() => CommissionConfigService))
-    private commissionConfigService: CommissionConfigService,
+    private packagesService: PackagesService,
   ) { }
 
   async login(loginDto: LoginDto) {
@@ -439,9 +436,7 @@ export class AuthService {
     // Get commission config for max limit
     let maxCommission = '0.00';
     if (user.packageType !== 'NONE') {
-      const config = await this.commissionConfigService.findByPackageType(
-        user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
-      );
+      const config = await this.packagesService.findByCode(user.packageType);
       if (config) {
         maxCommission = formatDecimal(config.reconsumptionThreshold);
       }
@@ -489,22 +484,23 @@ export class AuthService {
 
     // Nếu user chưa có package hoặc packageType = NONE nhưng chưa đạt ngưỡng
     if (user.packageType === 'NONE') {
-      // Kiểm tra xem có đạt ngưỡng không
-      const ctvConfig = await this.commissionConfigService.findByPackageType(PackageType.CTV);
-      const nppConfig = await this.commissionConfigService.findByPackageType(PackageType.NPP);
+      const packages = await this.packagesService.findAll();
 
       let threshold = 0;
       let packageValue = 0;
 
-      if (ctvConfig && user.totalCommissionReceived >= parseFloat(ctvConfig.reconsumptionThreshold.toString())) {
-        threshold = parseFloat(ctvConfig.reconsumptionThreshold.toString());
-        packageValue = parseFloat(ctvConfig.packageValue.toString());
-      } else if (nppConfig && user.totalCommissionReceived >= parseFloat(nppConfig.reconsumptionThreshold.toString())) {
-        threshold = parseFloat(nppConfig.reconsumptionThreshold.toString());
-        packageValue = parseFloat(nppConfig.packageValue.toString());
+      // Tìm gói có cấp độ cao nhất mà user đã đạt ngưỡng hoa hồng
+      // Packages được sắp xếp theo level tăng dần từ service
+      let reachedPackage: any = null;
+      for (const pkg of packages) {
+        if (user.totalCommissionReceived >= pkg.reconsumptionThreshold) {
+          reachedPackage = pkg;
+        }
       }
 
-      if (threshold > 0) {
+      if (reachedPackage) {
+        threshold = reachedPackage.reconsumptionThreshold;
+        packageValue = reachedPackage.price;
         return {
           needsReconsumption: true,
           threshold,
@@ -520,10 +516,8 @@ export class AuthService {
       };
     }
 
-    // User có packageType (CTV hoặc NPP)
-    const config = await this.commissionConfigService.findByPackageType(
-      user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
-    );
+    // User có packageType
+    const config = await this.packagesService.findByCode(user.packageType);
 
     if (!config) {
       return {
@@ -532,8 +526,8 @@ export class AuthService {
       };
     }
 
-    const threshold = parseFloat(config.reconsumptionThreshold.toString());
-    const packageValue = parseFloat(config.packageValue.toString());
+    const threshold = config.reconsumptionThreshold;
+    const packageValue = config.price;
 
     // Nếu chưa đạt ngưỡng
     if (user.totalCommissionReceived < threshold) {

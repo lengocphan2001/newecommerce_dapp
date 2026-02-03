@@ -2,14 +2,13 @@ import { Controller, Post, Body, Get, Query, UseGuards, Request, Put, Param } fr
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
-import { CommissionConfigService } from '../admin/commission-config.service';
-import { PackageType } from '../admin/entities/commission-config.entity';
+import { PackagesService } from '../packages/packages.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly commissionConfigService: CommissionConfigService,
+    private readonly packagesService: PackagesService,
   ) { }
 
   @Put('profile')
@@ -101,19 +100,17 @@ export class AuthController {
 
   @Get('commission-config/:packageType')
   async getCommissionConfig(@Param('packageType') packageType: string) {
-    const config = await this.commissionConfigService.findByPackageType(
-      packageType.toUpperCase() as PackageType
-    );
+    const config = await this.packagesService.findByCode(packageType.toUpperCase());
+
     if (!config) {
       // Return defaults if not found
       return packageType.toUpperCase() === 'NPP'
         ? { packageValue: 0.001 }
         : { packageValue: 0.0001 };
     }
+
     return {
-      packageValue: typeof config.packageValue === 'string' 
-        ? parseFloat(config.packageValue) 
-        : config.packageValue,
+      packageValue: Number(config.price),
     };
   }
 

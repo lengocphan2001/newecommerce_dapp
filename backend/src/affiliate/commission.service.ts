@@ -153,22 +153,13 @@ export class CommissionService {
     // Get all packages sorted by price/level (assuming service returns them sorted by level)
     const packages = await this.packagesService.findAll();
 
-    // Check if user needs reconsumption restoration
-    // This logic is tricky with dynamic packages. 
-    // We assume if packageType is 'NONE', we check if they meet requirements for any package.
+    // Simplified Logic: 
+    // 1. If TOTAL PURCHASE meets package price -> Upgrade.
+    // 2. If User is NONE (due to reconsumption lock) AND single order meets package price -> Restore.
 
-    // Iterate packages from highest level to lowest to find the best match
-    // Sort packages by price desc first
     const sortedPackages = [...packages].sort((a, b) => b.price - a.price);
 
     for (const pkg of sortedPackages) {
-      // Logic: If user is NONE but has history (totalCommissionReceived > 0 potentially), 
-      // or simply check if current order satisfies reconsumption.
-
-      // Simplified Logic: 
-      // 1. If TOTAL PURCHASE meets package price -> Upgrade.
-      // 2. If User is NONE (due to reconsumption lock) AND single order meets package price -> Restore.
-
       if (user.packageType === 'NONE' && user.totalCommissionReceived > 0) {
         // Reconsumption Restore Check
         if (orderAmount >= pkg.price) {

@@ -7,8 +7,7 @@ import { User } from '../user/entities/user.entity';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
-import { CommissionConfigService } from '../admin/commission-config.service';
-import { PackageType } from '../admin/entities/commission-config.entity';
+import { PackagesService } from '../packages/packages.service';
 import { GoogleSheetsService } from '../common/google-sheets.service';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
 
@@ -25,7 +24,7 @@ export class OrderService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
-    private configService: CommissionConfigService,
+    private packagesService: PackagesService,
     private googleSheetsService: GoogleSheetsService,
     private milestoneRewardService: MilestoneRewardService,
   ) { }
@@ -289,43 +288,31 @@ export class OrderService {
       return false;
     }
 
-    // Nếu user đang có packageType = NONE, có thể là đã đạt ngưỡng và cần tái tiêu dùng
-    // Hoặc user chưa có package
+    // Nếu user chưa có package (NONE), kiểm tra tất cả gói xem có đủ điều kiện không
     if (user.packageType === 'NONE') {
-      // Kiểm tra xem user có đạt ngưỡng không
-      // Nếu đạt ngưỡng và orderAmount >= packageValue của CTV hoặc NPP → là tái tiêu dùng
-      const ctvConfig = await this.configService.findByPackageType(PackageType.CTV);
-      const nppConfig = await this.configService.findByPackageType(PackageType.NPP);
+      const packages = await this.packagesService.findAll();
 
-      if (ctvConfig && user.totalCommissionReceived >= parseFloat(ctvConfig.reconsumptionThreshold.toString())) {
-        const packageValue = parseFloat(ctvConfig.packageValue.toString());
-        if (orderAmount >= packageValue) {
-          return true;
-        }
-      }
-
-      if (nppConfig && user.totalCommissionReceived >= parseFloat(nppConfig.reconsumptionThreshold.toString())) {
-        const packageValue = parseFloat(nppConfig.packageValue.toString());
-        if (orderAmount >= packageValue) {
-          return true;
+      for (const pkg of packages) {
+        // Chỉ check nếu đã nhận đủ hoa hồng (dựa trên ngưỡng của gói đó)
+        if (user.totalCommissionReceived >= pkg.reconsumptionThreshold) {
+          // Nếu đơn hàng này đủ giá trị để "tái kích hoạt" hoặc "mua mới" gói này
+          if (orderAmount >= pkg.price) {
+            return true;
+          }
         }
       }
 
       return false;
     }
 
-    // User có packageType (CTV hoặc NPP)
-    const config = await this.configService.findByPackageType(
-      user.packageType === 'CTV' ? PackageType.CTV : PackageType.NPP
-    );
+    // User có packageType cụ thể
+    const pkg = await this.packagesService.findByCode(user.packageType);
 
-    if (!config) return false;
+    if (!pkg) return false;
 
-    const threshold = parseFloat(config.reconsumptionThreshold.toString());
-    const packageValue = parseFloat(config.packageValue.toString());
-
-    // Nếu đã đạt ngưỡng và orderAmount >= packageValue → là tái tiêu dùng
-    if (user.totalCommissionReceived >= threshold && orderAmount >= packageValue) {
+    // Nếu đã đạt ngưỡng và orderAmount >= price (hoặc reconsumptionRequired nếu logic khác) → là tái tiêu dùng
+    // Note: packageValue ~ price
+    if (user.totalCommissionReceived >= pkg.reconsumptionThreshold && orderAmount >= pkg.price) {
       return true;
     }
 
