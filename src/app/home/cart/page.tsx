@@ -10,7 +10,7 @@ export default function CartPage() {
   const { items, updateQuantity, removeItem, totalAmount, totalItems, clearCart } = useShoppingCart();
   const router = useRouter();
   const { t } = useI18n();
-  const [referralInfo, setReferralInfo] = useState<{ packageType?: 'NONE' | 'CTV' | 'NPP' } | null>(null);
+  const [referralInfo, setReferralInfo] = useState<{ packageType?: string } | null>(null);
   const [promoCode, setPromoCode] = useState("");
 
   useEffect(() => {
@@ -33,9 +33,7 @@ export default function CartPage() {
   };
 
   const getRankName = (packageType?: string) => {
-    if (packageType === 'NPP') return 'NPP';
-    if (packageType === 'CTV') return 'CTV';
-    return 'NONE';
+    return packageType || 'NONE';
   };
 
   // Final total

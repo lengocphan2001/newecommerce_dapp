@@ -355,17 +355,17 @@ export default function ActivityPage() {
   return (
     <div className="flex flex-col bg-background-light min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
         <div className="flex items-center justify-between px-4 py-3">
           <button
             onClick={() => router.back()}
-            className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+            className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
           >
             <span className="material-symbols-outlined text-slate-800">arrow_back</span>
           </button>
           <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("activityHistory")}</h1>
           <div className="flex items-center gap-2">
-            <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+            <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-yellow-50 transition-colors">
               <span className="material-symbols-outlined text-slate-800">filter_list</span>
             </button>
           </div>
@@ -377,8 +377,8 @@ export default function ActivityPage() {
             <button
               onClick={() => setActiveTab('all')}
               className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'all'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-[#4c669a]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-[#4c669a]'
                 }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("all")}</p>
@@ -386,8 +386,8 @@ export default function ActivityPage() {
             <button
               onClick={() => setActiveTab('shopping')}
               className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'shopping'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-[#4c669a]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-[#4c669a]'
                 }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("shopping")}</p>
@@ -395,8 +395,8 @@ export default function ActivityPage() {
             <button
               onClick={() => setActiveTab('commission')}
               className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'commission'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-[#4c669a]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-[#4c669a]'
                 }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("commission")}</p>
@@ -404,8 +404,8 @@ export default function ActivityPage() {
             <button
               onClick={() => setActiveTab('system')}
               className={`flex flex-col items-center justify-center border-b-[3px] pb-[10px] pt-2 shrink-0 ${activeTab === 'system'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-[#4c669a]'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-[#4c669a]'
                 }`}
             >
               <p className="text-sm font-bold leading-normal tracking-[0.015em]">{t("system")}</p>
@@ -431,8 +431,8 @@ export default function ActivityPage() {
                   <div
                     key={activity.id}
                     className={`flex items-center gap-4 px-4 min-h-[72px] py-3 justify-between ${index < groupedActivities[dateKey].length - 1
-                        ? 'border-b border-[#f0f2f5]'
-                        : ''
+                      ? 'border-b border-[#f0f2f5]'
+                      : ''
                       }`}
                   >
                     <div className="flex items-center gap-4">

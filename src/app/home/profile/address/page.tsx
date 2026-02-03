@@ -31,7 +31,7 @@ export default function ShippingAddressPage() {
     isDefault: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Delete Confirmation Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export default function ShippingAddressPage() {
   const loadAddresses = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -116,7 +116,7 @@ export default function ShippingAddressPage() {
 
   const handleDeleteConfirm = async () => {
     if (!addressToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       await api.deleteAddress(addressToDelete);
@@ -163,7 +163,7 @@ export default function ShippingAddressPage() {
         // CREATE
         await api.addAddress(newAddressData);
       }
-      
+
       // Reload addresses from backend after add/update
       await loadAddresses();
       resetForm();
@@ -193,19 +193,19 @@ export default function ShippingAddressPage() {
   };
 
   return (
-    <div className="bg-[#f6f6f8] text-[#0d121b] min-h-screen flex flex-col font-display selection:bg-blue-100 selection:text-blue-900">
+    <div className="bg-[#f6f6f8] text-[#0d121b] min-h-screen flex flex-col font-display selection:bg-yellow-100 selection:text-yellow-900">
       {/* Header Section */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+        <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("addressTitle")}</h1>
-        <button 
+        <button
           onClick={handleConfirm}
-          className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors"
+          className="text-primary-dark font-medium text-sm hover:text-yellow-700 transition-colors"
         >
           {t("confirm")}
         </button>
@@ -238,7 +238,7 @@ export default function ShippingAddressPage() {
               <p className="mt-2">{t("loading") || "Loading..."}</p>
             </div>
           )}
-          
+
           {!loading && error && (
             <div className="text-center py-10">
               <p className="text-red-500 mb-4">{error}</p>
@@ -250,7 +250,7 @@ export default function ShippingAddressPage() {
               </button>
             </div>
           )}
-          
+
           {!loading && !error && addresses.length === 0 && (
             <div className="text-center py-10">
               <span className="material-symbols-outlined text-4xl text-gray-300 mb-2">location_off</span>
@@ -263,7 +263,7 @@ export default function ShippingAddressPage() {
               </button>
             </div>
           )}
-          
+
           {!loading && !error && addresses.map((addr) => {
             const isSelected = selectedId === addr.id;
             return (
@@ -323,7 +323,7 @@ export default function ShippingAddressPage() {
         <div className="flex p-4 mt-10">
           <button
             onClick={handleConfirm}
-            className="w-full bg-[#135bec] text-white py-4 rounded-xl font-bold text-base shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full bg-primary text-white py-4 rounded-xl font-bold text-base shadow-lg shadow-yellow-500/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
           >
             {t("confirmAddress")}
             <span className="material-symbols-outlined">chevron_right</span>
@@ -335,9 +335,9 @@ export default function ShippingAddressPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
-          style={{ 
+          style={{
             WebkitOverflowScrolling: 'touch',
             willChange: 'opacity',
           }}
@@ -347,7 +347,7 @@ export default function ShippingAddressPage() {
             }
           }}
         >
-          <div 
+          <div
             className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm shadow-2xl"
             style={{
               transform: 'translateZ(0)',
@@ -363,7 +363,7 @@ export default function ShippingAddressPage() {
                   <span className="material-symbols-outlined text-4xl text-red-600">warning</span>
                 </div>
               </div>
-              
+
               {/* Title & Message */}
               <div className="text-center mb-6">
                 <h3 className="font-bold text-lg text-slate-900 mb-2">{t("confirmDeleteAddress")}</h3>
@@ -397,9 +397,9 @@ export default function ShippingAddressPage() {
 
       {/* Add/Edit Address Modal */}
       {showAddModal && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
-          style={{ 
+          style={{
             WebkitOverflowScrolling: 'touch',
             willChange: 'opacity',
           }}
@@ -409,7 +409,7 @@ export default function ShippingAddressPage() {
             }
           }}
         >
-          <div 
+          <div
             className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl"
             style={{
               transform: 'translateZ(0)',
@@ -435,7 +435,7 @@ export default function ShippingAddressPage() {
                   required
                   autoComplete="name"
                   className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none text-base"
-                  style={{ 
+                  style={{
                     WebkitAppearance: 'none',
                     WebkitTapHighlightColor: 'transparent',
                   }}
@@ -453,7 +453,7 @@ export default function ShippingAddressPage() {
                   autoComplete="tel"
                   inputMode="tel"
                   className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none text-base"
-                  style={{ 
+                  style={{
                     WebkitAppearance: 'none',
                     WebkitTapHighlightColor: 'transparent',
                   }}
@@ -470,7 +470,7 @@ export default function ShippingAddressPage() {
                   required
                   autoComplete="street-address"
                   className="w-full p-4 rounded-xl border border-gray-200 bg-white focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none resize-none text-base"
-                  style={{ 
+                  style={{
                     WebkitAppearance: 'none',
                     WebkitTapHighlightColor: 'transparent',
                   }}

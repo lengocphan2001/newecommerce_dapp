@@ -11,7 +11,7 @@ interface TreeNode {
   username: string;
   fullName: string;
   avatar?: string;
-  packageType: 'NONE' | 'CTV' | 'NPP';
+  packageType: string;
   position?: 'left' | 'right';
   leftBranchTotal?: number;
   rightBranchTotal?: number;
@@ -41,7 +41,7 @@ export default function BinaryTreeView() {
       setLoading(true);
       const info = await api.getReferralInfo();
       setMyReferralCode(info.referralCode || "");
-      
+
       // Format members data
       const leftMembers = (info.treeStats?.left?.members || []).map((member: any) => ({
         id: member.id || '',
@@ -160,7 +160,7 @@ export default function BinaryTreeView() {
     <div className="flex flex-col bg-background-gray min-h-screen overflow-x-hidden">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+        <button
           onClick={() => router.back()}
           className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
         >
@@ -231,7 +231,7 @@ export default function BinaryTreeView() {
                 <div
                   key={member.id}
                   className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 relative overflow-hidden"
-                  style={{ 
+                  style={{
                     marginLeft: `${(member.depth || 1) > 1 ? (member.depth! - 1) * 8 : 0}px`,
                     borderColor: (member.depth || 1) > 1 ? '#e2e8f0' : '#135bec20'
                   }}
@@ -241,7 +241,7 @@ export default function BinaryTreeView() {
                   )}
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-primary text-sm">
-                      {member.packageType === 'NPP' ? 'workspace_premium' : member.packageType === 'CTV' ? 'stars' : 'person'}
+                      {member.packageType === 'NONE' ? 'person' : 'workspace_premium'}
                     </span>
                   </div>
                   <div className="min-w-0 overflow-hidden flex-1">
@@ -250,12 +250,9 @@ export default function BinaryTreeView() {
                     </p>
                     <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[8px] px-1 rounded font-bold ${
-                        member.packageType === 'NPP' ? 'bg-purple-100 text-purple-700' : 
-                        member.packageType === 'CTV' ? 'bg-blue-100 text-blue-700' : 
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {member.packageType === 'NONE' ? 'USER' : member.packageType}
+                      <span className={`text-[8px] px-1 rounded font-bold ${member.packageType === 'NONE' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                        {member.packageType}
                       </span>
                       {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
                         <p className="text-[9px] text-emerald-600 font-bold">
@@ -266,9 +263,9 @@ export default function BinaryTreeView() {
                   </div>
                 </div>
               ))}
-              
+
               {/* Add Member Button */}
-              <button 
+              <button
                 onClick={() => router.push(`/register?ref=${myReferralCode}&leg=left`)}
                 className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
               >
@@ -301,7 +298,7 @@ export default function BinaryTreeView() {
                 <div
                   key={member.id}
                   className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 relative overflow-hidden"
-                  style={{ 
+                  style={{
                     marginLeft: `${(member.depth || 1) > 1 ? (member.depth! - 1) * 8 : 0}px`,
                     borderColor: (member.depth || 1) > 1 ? '#e2e8f0' : '#135bec20'
                   }}
@@ -311,7 +308,7 @@ export default function BinaryTreeView() {
                   )}
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-primary text-sm">
-                      {member.packageType === 'NPP' ? 'workspace_premium' : member.packageType === 'CTV' ? 'stars' : 'person'}
+                      {member.packageType === 'NONE' ? 'person' : 'workspace_premium'}
                     </span>
                   </div>
                   <div className="min-w-0 overflow-hidden flex-1">
@@ -320,12 +317,9 @@ export default function BinaryTreeView() {
                     </p>
                     <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[8px] px-1 rounded font-bold ${
-                        member.packageType === 'NPP' ? 'bg-purple-100 text-purple-700' : 
-                        member.packageType === 'CTV' ? 'bg-blue-100 text-blue-700' : 
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {member.packageType === 'NONE' ? 'USER' : member.packageType}
+                      <span className={`text-[8px] px-1 rounded font-bold ${member.packageType === 'NONE' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'
+                        }`}>
+                        {member.packageType}
                       </span>
                       {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
                         <p className="text-[9px] text-emerald-600 font-bold">
@@ -336,9 +330,9 @@ export default function BinaryTreeView() {
                   </div>
                 </div>
               ))}
-              
+
               {/* Add Member Button */}
-              <button 
+              <button
                 onClick={() => router.push(`/register?ref=${myReferralCode}&leg=right`)}
                 className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
               >

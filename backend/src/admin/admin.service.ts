@@ -135,7 +135,7 @@ export class AdminService {
       username: string | null;
       fullName: string;
       email: string;
-      packageType: 'NONE' | 'CTV' | 'NPP';
+      packageType: string;
     } | null = null;
     if (user.parentId) {
       const parent = await this.userRepository.findOne({
@@ -159,7 +159,7 @@ export class AdminService {
       username: string | null;
       fullName: string;
       email: string;
-      packageType: 'NONE' | 'CTV' | 'NPP';
+      packageType: string;
     } | null = null;
     if (user.referralUserId) {
       const referrer = await this.userRepository.findOne({

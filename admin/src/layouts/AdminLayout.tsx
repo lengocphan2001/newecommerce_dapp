@@ -19,6 +19,7 @@ import {
   PictureOutlined,
   UsergroupAddOutlined,
   SafetyCertificateOutlined,
+  GiftOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -54,6 +55,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <ShoppingOutlined />,
       label: 'Products',
       permission: 'products.view',
+    },
+    {
+      key: '/packages',
+      icon: <GiftOutlined />,
+      label: 'Packages',
+      permission: 'packages.view', // Assuming you will add this permission later, or use null for now if no auth check
     },
     {
       key: '/categories',
@@ -230,4 +237,3 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 };
 
 export default AdminLayout;
-

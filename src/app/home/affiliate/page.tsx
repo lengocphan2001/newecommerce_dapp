@@ -25,7 +25,7 @@ export default function AffiliatePage() {
     };
     accumulatedPurchases?: string;
     bonusCommission?: string;
-    packageType?: "NONE" | "CTV" | "NPP";
+    packageType?: string;
     totalReconsumptionAmount?: string;
     walletAddress?: string;
     pendingRewards?: string;
@@ -47,6 +47,7 @@ export default function AffiliatePage() {
     CTV?: { packageValue: number };
     NPP?: { packageValue: number };
   }>({});
+  const [currentPackageConfig, setCurrentPackageConfig] = useState<any>(null);
 
   useEffect(() => {
     fetchReferralInfo();
@@ -66,6 +67,31 @@ export default function AffiliatePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      if (referralInfo?.packageType && referralInfo.packageType !== 'NONE') {
+        try {
+          const config = await api.getCommissionConfig(referralInfo.packageType);
+          setCurrentPackageConfig(config);
+        } catch (e) {
+          console.error("Failed to load package config", e);
+        }
+      }
+    };
+    loadConfig();
+  }, [referralInfo?.packageType]);
+
+  const getMaxCommission = () => {
+    if (!currentPackageConfig) return 0;
+    // Use dynamic reconsumption threshold from package config
+    // Fallback logic if needed, but ideally backend provides this
+    return currentPackageConfig.reconsumptionThreshold || 0;
+  };
+  const shortAddress = (address?: string) => {
+    if (!address) return t("notConnected");
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const copyToClipboard = async (
@@ -115,40 +141,24 @@ export default function AffiliatePage() {
     }).format(num);
   };
 
-  const getMaxCommission = (packageType?: string) => {
-    // Based on reconsumption threshold
-    if (packageType === "NPP") return 0.01; // $1600 in production
-    if (packageType === "CTV") return 0.001; // $160 in production
-    return 0; // NONE package cannot receive commission
-  };
-
-  const shortAddress = (address?: string) => {
-    if (!address) return t("notConnected");
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
   const getRank = (packageType?: string) => {
-    if (packageType === "NPP") return "NPP";
-    if (packageType === "CTV") return "CTV";
-    return "NONE";
+    return packageType || "NONE";
   };
 
   const getNextRank = (packageType?: string) => {
-    if (packageType === "CTV") return "NPP";
-    if (packageType === "NONE") return "CTV";
-    return "NPP"; // NPP is highest, so no next rank
+    // This is hard to determine dynamically without knowing the full hierarchy order on frontend
+    // For now, if we are not at the top level, show "Next Level" or similar
+    // Or we could fetch all packages and find the next one by level
+    return "Next Level";
   };
 
   const getRankProgress = (packageType?: string, purchases?: string) => {
-    if (packageType === "NPP") return 100;
+    // Simplified progress logic or rely on backend providing progress
     const amount = parseFloat(purchases || "0");
-    if (packageType === "CTV") {
-      const nppPackageValue = commissionConfigs.NPP?.packageValue || 0.001;
-      return Math.min(100, (amount / nppPackageValue) * 100);
+    if (currentPackageConfig && currentPackageConfig.price > 0) {
+      return Math.min(100, (amount / currentPackageConfig.price) * 100);
     }
-    // NONE -> CTV
-    const ctvPackageValue = commissionConfigs.CTV?.packageValue || 0.0001;
-    return Math.min(100, (amount / ctvPackageValue) * 100);
+    return 0;
   };
 
   // Calculate new users today - must be before early returns to follow Rules of Hooks
@@ -206,7 +216,7 @@ export default function AffiliatePage() {
     typeof referralInfo.treeStats.right.volume === "number"
       ? referralInfo.treeStats.right.volume
       : parseFloat(referralInfo.treeStats.right.volume || "0") || 0;
-  const maxCommission = getMaxCommission(referralInfo.packageType);
+  const maxCommission = getMaxCommission();
   const receivedCommission =
     typeof referralInfo.bonusCommission === "string"
       ? parseFloat(referralInfo.bonusCommission || "0")
@@ -632,7 +642,7 @@ export default function AffiliatePage() {
 
             <div className="space-y-3">
               {referralInfo.recentActivity &&
-              referralInfo.recentActivity.length > 0 ? (
+                referralInfo.recentActivity.length > 0 ? (
                 referralInfo.recentActivity.map((activity) => {
                   const getActivityIcon = (type: string) => {
                     switch (type) {
@@ -677,10 +687,10 @@ export default function AffiliatePage() {
                   };
 
                   const getActivitySubtitle = (activity: any) => {
-                    const fromInfo = activity.fromUsername 
-                      ? `${t("fromMember")}: ${activity.fromUsername}` 
+                    const fromInfo = activity.fromUsername
+                      ? `${t("fromMember")}: ${activity.fromUsername}`
                       : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
-                    
+
                     return fromInfo;
                   };
 
@@ -735,9 +745,8 @@ export default function AffiliatePage() {
                       </div>
                       <div className="text-right">
                         <p
-                          className={`text-sm font-bold ${
-                            isBlocked ? "text-orange-600" : (isPending ? "text-yellow-600" : "text-primary-dark")
-                          }`}
+                          className={`text-sm font-bold ${isBlocked ? "text-orange-600" : (isPending ? "text-yellow-600" : "text-primary-dark")
+                            }`}
                         >
                           {isBlocked ? "" : (isPending ? t("pending") : "+")} $
                           {formatPrice(activity.amount)}

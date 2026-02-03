@@ -143,17 +143,17 @@ export default function OrderDetailClient() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-blue-50">
-                <span className="material-symbols-outlined animate-spin text-blue-600 text-3xl">refresh</span>
+            <div className="min-h-screen flex items-center justify-center bg-yellow-50">
+                <span className="material-symbols-outlined animate-spin text-primary-dark text-3xl">refresh</span>
             </div>
         );
     }
 
     if (!order) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50 p-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-yellow-50 p-4">
                 <p className="text-slate-600 font-medium mb-4">{t("noOrders")}</p>
-                <button onClick={() => router.back()} className="text-blue-600 font-bold">{t("back")}</button>
+                <button onClick={() => router.back()} className="text-primary-dark font-bold">{t("back")}</button>
             </div>
         );
     }
@@ -163,12 +163,12 @@ export default function OrderDetailClient() {
     const pvEarned = Math.round(order.totalAmount); // Simulated PV
 
     return (
-        <div className="bg-[#eff6ff] font-display text-slate-900 antialiased min-h-screen flex flex-col pb-24">
+        <div className="bg-gray-50 font-display text-slate-900 antialiased min-h-screen flex flex-col pb-24">
             {/* Header */}
-            <div className="sticky top-0 z-50 flex items-center bg-white/90 backdrop-blur-md p-4 pb-2 justify-between border-b border-blue-100">
+            <div className="sticky top-0 z-50 flex items-center bg-white/90 backdrop-blur-md p-4 pb-2 justify-between border-b border-gray-100">
                 <button
                     onClick={() => router.back()}
-                    className="text-slate-900 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-blue-50 transition-colors"
+                    className="text-slate-900 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                 >
                     <span className="material-symbols-outlined">arrow_back</span>
                 </button>
@@ -180,7 +180,7 @@ export default function OrderDetailClient() {
             <div className="flex-1 px-4 pt-4 flex flex-col gap-5">
 
                 {/* Status Card */}
-                <div className="rounded-2xl overflow-hidden shadow-[0_4px_20px_-2px_rgba(37,99,235,0.08)] bg-white relative group border border-blue-100">
+                <div className="rounded-2xl overflow-hidden shadow-[0_4px_20px_-2px_rgba(240,185,11,0.15)] bg-white relative group border border-yellow-100">
                     {/* Background Image Overlay */}
                     <div className="absolute inset-0 opacity-10 bg-center bg-cover grayscale" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDAH9U60gKAgxWRKdFBYLD-BwpafTxxP6cTE3FPgJ_avx6WK-jGQwhYtkwW1GGQq2ljz4VF50AxQB12uwKbxq7fIfLP4-Npdo2kiFrYDV0EeYgGBTIU5zWjRfqOnJqhb92Piq_1O3j1Et6Kl6LENcT6SLtnl9OJtyQ0mWWW-J5GpojX7_zqETwLBy4m8y1JqFVpujsjxOQXKuO0926RjddxvM3cThQUB1oGS9bKEbvgUlGpek7QKHMnRqQcEZgnIpJXozsOiQ0W0sE")' }}></div>
                     <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-white/80 to-white"></div>
@@ -188,7 +188,7 @@ export default function OrderDetailClient() {
                     <div className="relative p-5 z-10">
                         <div className="flex justify-between items-start mb-8">
                             <div>
-                                <p className="text-[#2563eb] font-bold text-xs uppercase tracking-wider mb-1">{t("orderStatus")}</p>
+                                <p className="text-primary-dark font-bold text-xs uppercase tracking-wider mb-1">{t("orderStatus")}</p>
                                 <h3 className={`text-slate-900 text-2xl font-bold ${isCancelled ? "text-red-500" : ""}`}>
                                     {getStatusText(order.status)}
                                 </h3>
@@ -199,7 +199,7 @@ export default function OrderDetailClient() {
                                     </p>
                                 )}
                             </div>
-                            <div className={`p-3 rounded-xl shadow-sm border ${isCancelled ? "bg-red-50 text-red-500 border-red-100" : "bg-blue-50 text-[#2563eb] border-blue-100"}`}>
+                            <div className={`p-3 rounded-xl shadow-sm border ${isCancelled ? "bg-red-50 text-red-500 border-red-100" : "bg-yellow-50 text-primary-dark border-yellow-100"}`}>
                                 <span className="material-symbols-outlined text-2xl">
                                     {isCancelled ? "cancel" : order.status === 'delivered' ? "check_circle" : "local_shipping"}
                                 </span>
@@ -209,10 +209,10 @@ export default function OrderDetailClient() {
                         {!isCancelled && (
                             <div className="flex items-center justify-between w-full relative px-2">
                                 {/* Background Line */}
-                                <div className="absolute top-1/2 left-0 w-full h-1 bg-blue-50 -translate-y-1/2 z-0 rounded-full"></div>
+                                <div className="absolute top-1/2 left-0 w-full h-1 bg-yellow-50 -translate-y-1/2 z-0 rounded-full"></div>
                                 {/* Active Line */}
                                 <div
-                                    className="absolute top-1/2 left-0 h-1 bg-[#2563eb] -translate-y-1/2 z-0 shadow-sm rounded-full transition-all duration-500"
+                                    className="absolute top-1/2 left-0 h-1 bg-primary -translate-y-1/2 z-0 shadow-sm rounded-full transition-all duration-500"
                                     style={{ width: `${(currentStep / 3) * 100}%` }}
                                 ></div>
 
@@ -228,9 +228,9 @@ export default function OrderDetailClient() {
 
                                     return (
                                         <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
-                                            <div className={`rounded-full ring-4 ring-white shadow-sm flex items-center justify-center transition-all duration-300 ${isCurrent ? "size-8 bg-[#2563eb] shadow-blue-200 shadow-md" :
-                                                    isActive ? "size-4 bg-[#2563eb]" :
-                                                        "size-4 bg-slate-200"
+                                            <div className={`rounded-full ring-4 ring-white shadow-sm flex items-center justify-center transition-all duration-300 ${isCurrent ? "size-8 bg-primary shadow-yellow-200 shadow-md" :
+                                                isActive ? "size-4 bg-primary" :
+                                                    "size-4 bg-slate-200"
                                                 }`}>
                                                 {isCurrent && (
                                                     <span className="material-symbols-outlined text-[16px] text-white font-bold">
@@ -238,8 +238,8 @@ export default function OrderDetailClient() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className={`text-[11px] font-semibold absolute -bottom-7 w-max ${isCurrent ? "text-[#1d4ed8] bg-blue-50/90 px-2 py-0.5 rounded-full backdrop-blur-sm shadow-sm border border-blue-100" :
-                                                    isActive ? "text-slate-900" : "text-slate-400 font-medium"
+                                            <span className={`text-[11px] font-semibold absolute -bottom-7 w-max ${isCurrent ? "text-primary-dark bg-yellow-50/90 px-2 py-0.5 rounded-full backdrop-blur-sm shadow-sm border border-yellow-100" :
+                                                isActive ? "text-slate-900" : "text-slate-400 font-medium"
                                                 }`}>
                                                 {s.label}
                                             </span>
@@ -257,7 +257,7 @@ export default function OrderDetailClient() {
                     <h3 className="text-slate-800 text-lg font-bold mb-3 px-1">{t("productList")}</h3>
                     <div className="flex flex-col gap-3">
                         {itemsWithImages.map((item, idx) => (
-                            <div key={idx} className="flex gap-4 bg-white p-3 rounded-2xl items-center shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 hover:border-[#2563eb] transition-colors">
+                            <div key={idx} className="flex gap-4 bg-white p-3 rounded-2xl items-center shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 hover:border-primary transition-colors">
                                 <div
                                     className="bg-center bg-no-repeat bg-cover rounded-xl size-[80px] shrink-0 bg-slate-50 border border-slate-100"
                                     style={{ backgroundImage: `url("${item.thumbnailUrl || 'https://placehold.co/80x80/F3F4F6/6B7280.png?text=Product'}")` }}
@@ -267,17 +267,17 @@ export default function OrderDetailClient() {
                                     {item.properties && Object.keys(item.properties).length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-1">
                                             {Object.entries(item.properties).map(([key, value]) => (
-                                                <span key={key} className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full font-medium">
+                                                <span key={key} className="text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
                                                     {key}: {value}
                                                 </span>
                                             ))}
                                         </div>
                                     )}
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-[#1d4ed8] text-sm font-bold">{formatPrice(item.price)} USDT</span>
+                                        <span className="text-primary-dark text-sm font-bold">{formatPrice(item.price)} USDT</span>
                                     </div>
                                 </div>
-                                <div className="shrink-0 size-9 flex items-center justify-center bg-blue-50 rounded-lg border border-blue-100 text-[#2563eb]">
+                                <div className="shrink-0 size-9 flex items-center justify-center bg-yellow-50 rounded-lg border border-yellow-100 text-primary-dark">
                                     <p className="text-sm font-bold">x{item.quantity}</p>
                                 </div>
                             </div>
@@ -286,11 +286,11 @@ export default function OrderDetailClient() {
                 </div>
 
                 {/* Shipping & Payment Info */}
-                <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 space-y-5">
+                <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 space-y-5">
                     <h3 className="text-slate-900 font-bold text-base border-b border-slate-100 pb-2">{t("shippingPaymentInfo")}</h3>
 
                     <div className="flex items-start gap-4">
-                        <div className="mt-0.5 size-10 rounded-full bg-blue-50 text-[#2563eb] flex items-center justify-center shrink-0 border border-blue-100">
+                        <div className="mt-0.5 size-10 rounded-full bg-yellow-50 text-primary-dark flex items-center justify-center shrink-0 border border-yellow-100">
                             <span className="material-symbols-outlined text-xl">location_on</span>
                         </div>
                         <div className="flex-1">
@@ -302,24 +302,24 @@ export default function OrderDetailClient() {
                     <div className="h-px bg-slate-50 w-full"></div>
 
                     <div className="flex items-start gap-4">
-                        <div className="mt-0.5 size-10 rounded-full bg-blue-50 text-[#2563eb] flex items-center justify-center shrink-0 border border-blue-100">
+                        <div className="mt-0.5 size-10 rounded-full bg-yellow-50 text-primary-dark flex items-center justify-center shrink-0 border border-yellow-100">
                             <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
                         </div>
                         <div className="flex-1">
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("paymentMethodSafePal")}</p>
                             <div className="flex items-center gap-2 mb-1.5">
-                                <span className="text-slate-900 text-sm font-bold">SafePalMall Wallet (USDT)</span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-bold">BEP20</span>
+                                <span className="text-slate-900 text-sm font-bold">BinanMall Wallet (USDT)</span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>
                             </div>
                             {order.transactionHash && (
                                 <div
                                     onClick={(e) => copyToClipboard(order.transactionHash!, e)}
-                                    className="flex items-center gap-2 cursor-pointer group/hash w-fit bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 hover:border-blue-300 transition-colors"
+                                    className="flex items-center gap-2 cursor-pointer group/hash w-fit bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 hover:border-yellow-300 transition-colors"
                                 >
-                                    <p className="text-slate-500 text-[11px] font-mono group-hover/hash:text-[#2563eb] transition-colors truncate max-w-[200px] font-medium">
+                                    <p className="text-slate-500 text-[11px] font-mono group-hover/hash:text-primary-dark transition-colors truncate max-w-[200px] font-medium">
                                         {order.transactionHash.slice(0, 6) + "..." + order.transactionHash.slice(-4)}
                                     </p>
-                                    <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover/hash:text-[#2563eb]">
+                                    <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover/hash:text-primary-dark">
                                         {copied ? "check" : "content_copy"}
                                     </span>
                                 </div>
@@ -330,7 +330,7 @@ export default function OrderDetailClient() {
                     <div className="h-px bg-slate-50 w-full"></div>
 
                     <div className="flex items-start gap-4">
-                        <div className="mt-0.5 size-10 rounded-full bg-blue-50 text-[#2563eb] flex items-center justify-center shrink-0 border border-blue-100">
+                        <div className="mt-0.5 size-10 rounded-full bg-yellow-50 text-primary-dark flex items-center justify-center shrink-0 border border-yellow-100">
                             <span className="material-symbols-outlined text-xl">receipt_long</span>
                         </div>
                         <div className="flex-1">
@@ -344,7 +344,7 @@ export default function OrderDetailClient() {
                 </div>
 
                 {/* Summary */}
-                <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-blue-100 space-y-3 mb-4">
+                <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 space-y-3 mb-4">
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-slate-500">{t("subtotal")}</span>
                         <span className="text-slate-900 font-medium">{formatPrice(order.totalAmount - (order.shippingFee || 0))} USDT</span>
@@ -361,7 +361,7 @@ export default function OrderDetailClient() {
                     <div className="flex justify-between items-center">
                         <span className="text-slate-900 font-bold text-base">{t("total")}</span>
                         <div className="text-right">
-                            <span className="text-[#1d4ed8] font-bold text-xl block">{formatPrice(order.totalAmount)} USDT</span>
+                            <span className="text-primary-dark font-bold text-xl block">{formatPrice(order.totalAmount)} USDT</span>
                         </div>
                     </div>
                 </div>
@@ -374,7 +374,7 @@ export default function OrderDetailClient() {
                     </button>
                     <button
                         onClick={() => router.push('/home/products')}
-                        className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#2563eb] py-3.5 px-4 text-white hover:bg-[#1d4ed8] transition-colors font-bold shadow-lg shadow-blue-200"
+                        className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-white hover:bg-primary-dark transition-colors font-bold shadow-lg shadow-yellow-200"
                     >
                         <span className="material-symbols-outlined text-[20px]">refresh</span>
                         {t("rebuyOrder")}

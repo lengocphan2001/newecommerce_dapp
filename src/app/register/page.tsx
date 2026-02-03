@@ -22,7 +22,9 @@ function RegisterForm() {
     address: "",
     phoneNumber: "",
     email: "",
+
     referralUser: "",
+    leg: "",
   });
 
   const [walletAddress, setWalletAddress] = useState("");
@@ -47,16 +49,14 @@ function RegisterForm() {
       const refCode = urlParams.get("ref");
       const leg = urlParams.get("leg"); // left or right
       if (refCode) {
-        setFormData((prev) => ({ ...prev, referralUser: refCode }));
-        // Store leg in localStorage to send with registration
-        if (leg === "left" || leg === "right") {
-          localStorage.setItem("referralLeg", leg);
-        } else {
-          // Clear any existing leg if not specified
-          localStorage.removeItem("referralLeg");
-        }
+        setFormData((prev) => ({
+          ...prev,
+          referralUser: refCode,
+          leg: (leg === "left" || leg === "right") ? leg : prev.leg
+        }));
       }
     }
+
 
     // Check if user is already registered and if this is first user
     let countdownTimer: NodeJS.Timeout | null = null;
@@ -172,6 +172,11 @@ function RegisterForm() {
       return;
     }
 
+    if (!isFirstUser && !formData.leg) {
+      setError(t("selectSide"));
+      return;
+    }
+
     if (!walletAddress || !chainId) {
       setError("Thông tin ví không hợp lệ");
       return;
@@ -180,9 +185,6 @@ function RegisterForm() {
     setIsLoading(true);
 
     try {
-      // Get leg from localStorage if exists
-      const leg = localStorage.getItem("referralLeg") as 'left' | 'right' | null;
-
       const result = await api.walletRegister({
         walletAddress,
         chainId,
@@ -193,13 +195,8 @@ function RegisterForm() {
         phoneNumber: formData.phoneNumber.trim(),
         email: formData.email.trim(),
         referralUser: formData.referralUser.trim() || undefined,
-        leg: leg || undefined,
+        leg: (formData.leg as 'left' | 'right') || undefined,
       });
-
-      // Clear leg from localStorage after registration
-      if (leg) {
-        localStorage.removeItem("referralLeg");
-      }
 
       // Store token
       if (result.token) {
@@ -426,6 +423,26 @@ function RegisterForm() {
               placeholder={isFirstUser ? t("enterReferralCode") + " (Tùy chọn)" : t("enterReferralCode")}
             />
           </div>
+
+          {/* Leg Selection */}
+          {(!isFirstUser || formData.referralUser) && (
+            <div>
+              <label htmlFor="leg" className="mb-1 block text-sm font-medium text-zinc-700">
+                {t("selectSide")} <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="leg"
+                value={formData.leg}
+                onChange={(e) => setFormData({ ...formData, leg: e.target.value })}
+                className="w-full appearance-none rounded-lg border border-zinc-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%209L1%204h10z%22/%3E%3C/svg%3E')] bg-[length:12px_12px] bg-[right_12px_center] bg-no-repeat px-4 py-2.5 pr-10 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                required={!isFirstUser}
+              >
+                <option value="" className="text-zinc-400">{t("selectSide")}</option>
+                <option value="left" className="text-zinc-900">{t("affiliateLeftBranchLabel")}</option>
+                <option value="right" className="text-zinc-900">{t("affiliateRightBranchLabel")}</option>
+              </select>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (

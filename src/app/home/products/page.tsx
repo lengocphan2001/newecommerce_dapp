@@ -161,6 +161,11 @@ export default function ProductsPage() {
     });
   };
 
+  const getFakeSold = (id: string) => {
+    const count = Math.floor((Math.abs(id.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 1950) + 50);
+    return count > 1000 ? `${(count / 1000).toFixed(1)}k` : count;
+  };
+
   return (
     <div className="flex flex-col bg-background-gray">
       <AppHeader titleKey="productsTitle" />
@@ -365,7 +370,7 @@ export default function ProductsPage() {
                         </span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 mb-3">
+                    <div className="flex items-center justify-between mb-3">
                       {product.stock > 0 ? (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">
                           {t("binaryXP")}
@@ -373,6 +378,10 @@ export default function ProductsPage() {
                       ) : (
                         <span className="text-[10px] py-0.5 opacity-0">Spacer</span>
                       )}
+
+                      <span className="text-[10px] text-gray-500 font-medium ml-auto">
+                        {t("sold")} {getFakeSold(product.id)}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div>

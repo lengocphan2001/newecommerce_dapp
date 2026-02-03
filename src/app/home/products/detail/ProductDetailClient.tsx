@@ -41,6 +41,11 @@ interface Product {
   fakeSold?: number;
 }
 
+// Helper to generate consistent fake sold count
+const getFakeSold = (id: string) => {
+  return Math.floor((Math.abs(id.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0)) % 1950) + 50);
+};
+
 export default function ProductDetailClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -204,7 +209,7 @@ export default function ProductDetailClient() {
   // Calculate commission percentage (example: 12.5%)
   const commissionPercentage = 12.5;
   const tokenAmount = (product?.price || 0) * 0.125;
-  const soldCount = product?.soldCount || 0;
+  const soldCount = product ? getFakeSold(product.id) : 0;
   const rating = 5;
 
   if (loading) {
@@ -316,7 +321,7 @@ export default function ProductDetailClient() {
       <div className="bg-white p-4 flex flex-col gap-2">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <span className="text-3xl font-bold text-violet-600">${formatPrice(product.price)}</span>
+            <span className="text-3xl font-bold text-primary-dark">${formatPrice(product.price)}</span>
           </div>
 
         </div>
@@ -357,7 +362,7 @@ export default function ProductDetailClient() {
                         key={value}
                         onClick={() => setSelectedProperties(prev => ({ ...prev, [prop.name]: value }))}
                         className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${isSelected
-                          ? "bg-violet-600 text-white shadow-md transform scale-105"
+                          ? "bg-primary text-white shadow-md transform scale-105"
                           : "bg-gray-100 text-text-main hover:bg-gray-200"
                           }`}
                       >
@@ -379,7 +384,7 @@ export default function ProductDetailClient() {
           {((product.categoryBreadcrumb && product.categoryBreadcrumb.length > 0) || (product.category != null && product.category.name != null && product.category.name !== "")) && (
             <div className="flex text-sm">
               <span className="w-28 text-text-sub">{t("category")}</span>
-              <span className="text-violet-600">
+              <span className="text-primary-dark">
                 {product.categoryBreadcrumb && product.categoryBreadcrumb.length > 0
                   ? product.categoryBreadcrumb.join(" › ")
                   : product.category?.name}
@@ -419,7 +424,7 @@ export default function ProductDetailClient() {
               {(getLocalizedContent(product.description, product.descriptionEn)?.length || 0) > 500 && (
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="relative z-20 w-full mt-4 flex items-center justify-center gap-1 text-violet-600 text-sm font-medium py-2 border-t border-gray-50 bg-white"
+                  className="relative z-20 w-full mt-4 flex items-center justify-center gap-1 text-primary-dark text-sm font-medium py-2 border-t border-gray-50 bg-white"
                 >
                   {isDescriptionExpanded ? t("collapse") : t("viewMore")}{" "}
                   <span
@@ -441,7 +446,7 @@ export default function ProductDetailClient() {
           <button
             onClick={handleAddToCart}
             disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
-            className="flex-1 flex items-center justify-center gap-2 bg-violet-50 text-violet-600 font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-violet-100 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-yellow-50 text-primary-dark font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-yellow-100 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
             <span className="text-sm">{t("addToCartButton")}</span>
@@ -449,7 +454,7 @@ export default function ProductDetailClient() {
           <button
             onClick={handleBuyNow}
             disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
-            className="flex-1 flex items-center justify-center gap-2 bg-violet-600 text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-violet-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-primary-dark transition-colors"
           >
             <span className="material-symbols-outlined text-xl">shopping_bag</span>
             <span className="text-sm">{t("buyNowButton")}</span>
@@ -476,8 +481,8 @@ export default function ProductDetailClient() {
                   <div className="p-2 flex flex-col gap-1">
                     <span className="text-xs text-text-main line-clamp-2">{getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}</span>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-violet-600">${formatPrice(relatedProduct.price)}</span>
-                      <span className="text-[10px] text-text-sub">{t("sold")} {relatedProduct.soldCount || 0}</span>
+                      <span className="text-sm font-bold text-primary-dark">${formatPrice(relatedProduct.price)}</span>
+                      <span className="text-[10px] text-text-sub">{t("sold")} {getFakeSold(relatedProduct.id)}</span>
                     </div>
                   </div>
                 </button>
@@ -490,7 +495,7 @@ export default function ProductDetailClient() {
       {/* Bottom Fixed Bar - Chat only */}
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex h-[60px]">
         <button className="flex flex-1 flex-col items-center justify-center border-r border-gray-50 hover:bg-gray-50 transition-colors">
-          <span className="material-symbols-outlined text-violet-600 text-2xl">chat_bubble_outline</span>
+          <span className="material-symbols-outlined text-primary-dark text-2xl">chat_bubble_outline</span>
           <span className="text-[10px] text-text-main mt-0.5">{t("chatNow")}</span>
         </button>
         <div className="flex-[2] flex items-center justify-center text-text-sub text-xs">

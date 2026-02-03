@@ -113,8 +113,9 @@ Sau khi build, thư mục `admin/build/` sẽ chứa các file static cần depl
 
 ### Bước 6: Truy cập Admin
 
-Sau khi deploy xong, truy cập:
-- **URL**: `https://yourdomain.com/admin`
+Sau khi deploy, link mở trong BinanMall:
+
+- `https://<your-vercel-domain>/safepal`
 - **Login page**: `https://yourdomain.com/admin/login`
 
 ## Troubleshooting

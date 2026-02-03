@@ -60,8 +60,8 @@ export class User {
   @Column({ type: 'enum', enum: ['left', 'right'], nullable: true })
   position: 'left' | 'right'; // Position in binary tree
 
-  @Column({ type: 'enum', enum: ['NONE', 'CTV', 'NPP'], default: 'NONE' })
-  packageType: 'NONE' | 'CTV' | 'NPP'; // Loại gói user
+  @Column({ default: 'NONE' })
+  packageType: string; // Loại gói user (dynamic code)
 
   @Column({
     type: 'decimal',

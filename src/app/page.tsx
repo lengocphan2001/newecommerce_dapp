@@ -156,7 +156,7 @@ export default function HomePage() {
           router.push("/register");
           return;
         }
-        
+
         // User exists, authenticate them to get a token
         try {
           const loginResult = await api.walletLogin(addr);
@@ -223,9 +223,9 @@ export default function HomePage() {
           {/* Logo section */}
           <div className="flex flex-col items-center justify-center mb-12">
             <div className="relative group">
-              <img 
-                src="/images/unnamed.png" 
-                alt="SafePalMall Logo" 
+              <img
+                src="/images/unnamed.png"
+                alt="BinanMall Logo"
                 className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
               />
             </div>
@@ -234,7 +234,7 @@ export default function HomePage() {
           {/* Title and description */}
           <div className="flex flex-col items-center text-center space-y-6">
             <h1 className="text-text-main tracking-tight text-3xl md:text-4xl font-bold leading-[1.15]">
-              {t("loginTitle")} <br/>
+              {t("loginTitle")} <br />
               <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">
                 {t("loginSubtitle")}
               </span>

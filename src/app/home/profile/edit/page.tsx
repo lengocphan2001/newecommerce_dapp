@@ -16,7 +16,7 @@ export default function EditProfilePage() {
     phone: "",
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBQffTSr_qe4oi_yS3HAoWFsf7w2w9llbONDMakuC8IPT53Ok7EgJpO0AFzkCfQ8Qi-Pro4LeASHD0AKWxRxR9iKB800muBJQec9x0cpVtXJsiSxDwDgDCdlIgKgmnAa7zpO_pqpJ-lFyibXcZSqlN1bzNXFKL1BLwFs150ViBLuT3TnlRgfX36lGbdbPSSg70FlD67_WFrzkdlgxPomFer9947GUO4nkQRlsaV6N-Ncsp1W5XK8vvv1GYh0_kK6jm0ObYKE3Fh7ak"
   });
-  
+
   const [walletAddress, setWalletAddress] = useState("0x71C...8e92");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -42,27 +42,27 @@ export default function EditProfilePage() {
 
       // Try API if available
       if (typeof api !== 'undefined') {
-          try {
-             const info = await api.getReferralInfo();
-             setFormData(prev => ({
-                 ...prev,
-                 displayName: info.fullName || storedName || "Nguyễn Văn A",
-                 phone: info.phoneNumber || info.phone || storedPhone || "",
-                 email: info.email || storedEmail || "vana.nguyen@safepal.io",
-                 avatar: info.avatar || storedAvatar || prev.avatar
-             }));
-             return;
-          } catch(e) {
-          }
+        try {
+          const info = await api.getReferralInfo();
+          setFormData(prev => ({
+            ...prev,
+            displayName: info.fullName || storedName || "Nguyễn Văn A",
+            phone: info.phoneNumber || info.phone || storedPhone || "",
+            email: info.email || storedEmail || "vana.nguyen@safepal.io",
+            avatar: info.avatar || storedAvatar || prev.avatar
+          }));
+          return;
+        } catch (e) {
+        }
       }
 
       // Fallback
       setFormData(prev => ({
-          ...prev,
-          displayName: storedName || "Nguyễn Văn A",
-          phone: storedPhone || "",
-          email: storedEmail || "vana.nguyen@safepal.io",
-          avatar: storedAvatar || prev.avatar
+        ...prev,
+        displayName: storedName || "Nguyễn Văn A",
+        phone: storedPhone || "",
+        email: storedEmail || "vana.nguyen@safepal.io",
+        avatar: storedAvatar || prev.avatar
       }));
 
     } catch (error) {
@@ -70,8 +70,8 @@ export default function EditProfilePage() {
   };
 
   const shortAddress = (addr: string) => {
-      if (!addr) return t("notConnected");
-      return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    if (!addr) return t("notConnected");
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,20 +146,20 @@ export default function EditProfilePage() {
         setMessage({ type: 'error', text: t("imageTooLarge") || "Image size must be less than 10MB" });
         return;
       }
-      
+
       try {
         setUploadingAvatar(true);
-        
+
         // Compress image before upload
         const compressedFile = await compressImage(file, 800, 800, 0.8);
-        
+
         // Show preview immediately
         const reader = new FileReader();
         reader.onloadend = () => {
           setFormData(prev => ({ ...prev, avatar: reader.result as string }));
         };
         reader.readAsDataURL(compressedFile);
-        
+
         // Upload compressed file
         const avatarUrl = await api.uploadAvatar(compressedFile);
         setFormData(prev => ({ ...prev, avatar: avatarUrl }));
@@ -181,7 +181,7 @@ export default function EditProfilePage() {
 
     try {
       let avatarUrl = formData.avatar;
-      
+
       // If there's a selected file that hasn't been uploaded yet, upload it first
       if (selectedFile) {
         try {
@@ -194,13 +194,13 @@ export default function EditProfilePage() {
           return;
         }
       }
-      
+
       // Call API to update profile
       await api.updateProfile({
-          fullName: formData.displayName,
-          email: formData.email,
-          phoneNumber: formData.phone,
-          avatar: avatarUrl // Use URL instead of base64
+        fullName: formData.displayName,
+        email: formData.email,
+        phoneNumber: formData.phone,
+        avatar: avatarUrl // Use URL instead of base64
       });
 
       // Update localStorage for consistency
@@ -208,9 +208,9 @@ export default function EditProfilePage() {
       localStorage.setItem("userName", formData.displayName);
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userAvatar", avatarUrl);
-      
+
       setMessage({ type: 'success', text: t("profileUpdated") });
-      
+
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || t("updateFailed") });
     } finally {
@@ -219,19 +219,19 @@ export default function EditProfilePage() {
   };
 
   return (
-    <div className="bg-[#f6f6f8] text-[#0d121b] min-h-screen flex flex-col font-display selection:bg-blue-100 selection:text-blue-900">
-      
+    <div className="bg-[#f6f6f8] text-[#0d121b] min-h-screen flex flex-col font-display selection:bg-yellow-100 selection:text-yellow-900">
+
       {/* TopAppBar */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+        <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("editProfileTitle")}</h1>
         <div className="flex items-center gap-2">
-          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-yellow-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
         </div>
@@ -244,9 +244,9 @@ export default function EditProfilePage() {
           <div className="flex w-full flex-col gap-4 items-center">
             <div className="relative flex gap-4 flex-col items-center group cursor-pointer" onClick={handleAvatarClick}>
               <div className="relative">
-                <div 
-                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-full min-h-32 w-32 border-4 border-white shadow-sm transition-transform group-active:scale-95 duration-200" 
-                    style={{backgroundImage: `url("${formData.avatar}")`}}
+                <div
+                  className="bg-center bg-no-repeat aspect-square bg-cover rounded-full min-h-32 w-32 border-4 border-white shadow-sm transition-transform group-active:scale-95 duration-200"
+                  style={{ backgroundImage: `url("${formData.avatar}")` }}
                 >
                   {uploadingAvatar && (
                     <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
@@ -260,16 +260,16 @@ export default function EditProfilePage() {
                     {uploadingAvatar ? 'hourglass_empty' : 'photo_camera'}
                   </span>
                 </div>
-                <input 
-                    type="file" 
-                    ref={fileInputRef}
-                    className="hidden" 
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    onChange={handleFileChange}
-                    disabled={uploadingAvatar}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={handleFileChange}
+                  disabled={uploadingAvatar}
                 />
               </div>
-              <button 
+              <button
                 className={`text-[#135bec] text-sm font-medium leading-normal text-center hover:opacity-80 transition-opacity ${uploadingAvatar ? 'opacity-50 cursor-wait' : ''}`}
                 disabled={uploadingAvatar}
               >
@@ -281,18 +281,18 @@ export default function EditProfilePage() {
 
         {/* Form Section */}
         <div className="px-4 space-y-2">
-          
+
           {/* Display Name Field */}
           <div className="flex flex-col w-full py-3">
             <label className="flex flex-col w-full">
               <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">{t("displayName")}</p>
-              <input 
+              <input
                 name="displayName"
                 value={formData.displayName}
                 onChange={handleInputChange}
-                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all" 
-                placeholder={t("enterYourName")} 
-                type="text" 
+                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all"
+                placeholder={t("enterYourName")}
+                type="text"
               />
             </label>
           </div>
@@ -301,13 +301,13 @@ export default function EditProfilePage() {
           <div className="flex flex-col w-full py-3">
             <label className="flex flex-col w-full">
               <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">{t("email")}</p>
-              <input 
+              <input
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all" 
-                placeholder="example@gmail.com" 
-                type="email" 
+                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all"
+                placeholder="example@gmail.com"
+                type="email"
               />
             </label>
           </div>
@@ -316,13 +316,13 @@ export default function EditProfilePage() {
           <div className="flex flex-col w-full py-3">
             <label className="flex flex-col w-full">
               <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">{t("phoneNumber")}</p>
-              <input 
+              <input
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all" 
-                placeholder={t("enterPhone")} 
-                type="tel" 
+                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-normal leading-normal transition-all"
+                placeholder={t("enterPhone")}
+                type="tel"
               />
             </label>
           </div>
@@ -338,27 +338,27 @@ export default function EditProfilePage() {
                   <p className="text-[10px] uppercase tracking-wider font-bold text-[#135bec] opacity-70">{t("safePalWalletLinked")}</p>
                   <p className="text-xs font-mono text-[#4c669a] truncate">{walletAddress}</p>
                 </div>
-                <span className="material-symbols-outlined text-green-500 text-xl filled" style={{fontVariationSettings: "'FILL' 1"}}>verified</span>
+                <span className="material-symbols-outlined text-green-500 text-xl filled" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
               </div>
             </div>
           </div>
 
           {/* Message Toast */}
           {message && (
-             <div className={`p-4 rounded-xl text-sm font-semibold text-center mb-2 animate-pulse ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                {message.text}
-             </div>
+            <div className={`p-4 rounded-xl text-sm font-semibold text-center mb-2 animate-pulse ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              {message.text}
+            </div>
           )}
 
           {/* Save Button */}
           <div className="py-6">
-            <button 
-                onClick={handleSave}
-                disabled={loading}
-                className="w-full bg-[#135bec] hover:bg-[#135bec]/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-yellow-500/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-                {loading && <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>}
-                {loading ? t("saving") : t("saveChanges")}
+              {loading && <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>}
+              {loading ? t("saving") : t("saveChanges")}
             </button>
           </div>
         </div>

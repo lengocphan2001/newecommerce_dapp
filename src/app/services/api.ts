@@ -72,7 +72,7 @@ export const api = {
     if (categoryId) {
       params.append('categoryId', categoryId);
     }
-    const url = params.toString() 
+    const url = params.toString()
       ? `${API_BASE_URL}/products?${params.toString()}`
       : `${API_BASE_URL}/products`;
     const response = await fetch(url);
@@ -245,10 +245,10 @@ export const api = {
     if (!token) {
       throw new Error('Not authenticated');
     }
-    
+
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await fetch(`${API_BASE_URL}/uploads/avatar`, {
       method: 'POST',
       headers: {
@@ -256,7 +256,7 @@ export const api = {
       },
       body: formData,
     });
-    
+
     if (!response.ok) {
       const text = await response.text();
       let message = 'Failed to upload avatar';
@@ -268,7 +268,7 @@ export const api = {
       }
       throw new Error(message);
     }
-    
+
     const result = await response.json();
     return result.url;
   },
@@ -367,11 +367,19 @@ export const api = {
     return text ? JSON.parse(text) : {};
   },
 
-  async getCommissionConfig(packageType: 'CTV' | 'NPP') {
+  async getCommissionConfig(packageType: string) {
     const response = await fetch(`${API_BASE_URL}/auth/commission-config/${packageType}`);
     if (!response.ok) {
       // Fallback to defaults
-      return packageType === 'NPP' ? { packageValue: 0.001 } : { packageValue: 0.0001 };
+      return { packageValue: 0 };
+    }
+    return response.json();
+  },
+
+  async getPackages() {
+    const response = await fetch(`${API_BASE_URL}/packages`);
+    if (!response.ok) {
+      return [];
     }
     return response.json();
   },

@@ -373,19 +373,20 @@ export type I18nKey =
   | "resendCode"
   | "enter6DigitCode"
   | "usernameInvalidNoSpecial"
+  | "selectSide"
   | "milestoneReward";
 
 export const DEFAULT_LANG: Lang = "en";
 
 export const DICT: Record<Lang, Record<I18nKey, string>> = {
   vi: {
-    appName: "SafepalMall",
+    appName: "BinanMall",
     login: "Đăng nhập",
     reload: "Tải lại",
     nextToLogin: "Vào trang chủ",
     connectWallet: "Kết nối ví",
     walletAddress: "Địa chỉ ví",
-    homeTitle: "SafepalMall",
+    homeTitle: "BinanMall",
     productsTitle: "Sản phẩm",
     ordersTitle: "Đơn hàng của tôi",
     profileTitle: "Cá nhân",
@@ -523,7 +524,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     subtotal: "Tạm tính",
     totalPayment: "Tổng thanh toán",
     proceedToPayment: "Tiến hành thanh toán",
-    securePayment: "Thanh toán an toàn qua ví SafePalMall",
+    securePayment: "Thanh toán an toàn qua ví BinanMall",
     shippingInfo: "Thông tin giao hàng",
     connected: "Đã kết nối",
     connect: "Kết nối",
@@ -564,7 +565,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     email: "Email",
     phoneNumber: "Số điện thoại",
     enterPhone: "09xx xxx xxx",
-    safePalWalletLinked: "Ví SafePalMall đã liên kết",
+    safePalWalletLinked: "Ví BinanMall đã liên kết",
     saving: "Đang lưu...",
     profileUpdated: "Cập nhật hồ sơ thành công!",
     updateFailed: "Cập nhật thất bại. Vui lòng thử lại.",
@@ -602,7 +603,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     daysAgo: "ngày trước",
     noRecentActivity: "Không có hoạt động gần đây",
     totalNetWorth: "Tổng tài sản",
-    connectedToSafePal: "Đã kết nối ví SafePalMall",
+    connectedToSafePal: "Đã kết nối ví BinanMall",
     shopping: "Giỏ hàng",
     affiliate: "Liên kết",
     assets: "Tài sản",
@@ -644,7 +645,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     orderNumber: "Đơn hàng",
     added: "Đã cộng",
     fromMember: "Từ thành viên",
-    walletConnect: "Kết nối ví SafePalMall",
+    walletConnect: "Kết nối ví BinanMall",
     verified: "Xác thực",
     profileUpdate: "Cập nhật hồ sơ",
     passwordChanged: "Đã đổi mật khẩu cấp 2",
@@ -680,7 +681,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     fastDelivery: "Giao nhanh 2h",
     fastDeliveryDesc: "Miễn phí ship từ ${amount}",
     freeShippingFrom: "Miễn phí ship từ ${amount}",
-    linkSafePal: "Liên kết SafePalMall",
+    linkSafePal: "Liên kết BinanMall",
     cashback5Percent: "Hoàn tiền 5% + Miễn phí gas fee trọn đời",
     freeGasFeeLifetime: "Miễn phí gas fee trọn đời",
     viewDetails: "Xem chi tiết",
@@ -714,10 +715,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     loginTitle: "Tương lai của",
     loginSubtitle: "Ví Tiêu Dùng Thông Minh Toàn Cầu",
     loginDescription: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung.",
-    connectSafePalWallet: "Kết nối Ví SafePalMall",
-    whatIsSafePal: "SafePalMall    là gì?",
+    connectSafePalWallet: "Kết nối Ví BinanMall",
+    whatIsSafePal: "BinanMall    là gì?",
     securedByWeb3: "Bảo mật bởi Công nghệ Web3",
-    walletNotFound: "Không tìm thấy ví. Vui lòng cài đặt SafePalMall Wallet.",
+    walletNotFound: "Không tìm thấy ví. Vui lòng cài đặt BinanMall Wallet.",
     cannotConnectWallet: "Không thể kết nối ví",
     favorite: "Yêu Thích",
     sold: "Đã bán",
@@ -747,16 +748,17 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     enterVerificationCode: "Nhập mã 6 số đã gửi đến email của bạn:",
     verifyCode: "Xác thực",
     resendCode: "Gửi lại mã",
-    enter6DigitCode: "Vui lòng nhập đủ 6 số."
+    enter6DigitCode: "Vui lòng nhập đủ 6 số.",
+    selectSide: "Chọn nhánh"
   },
   en: {
-    appName: "SafepalMall",
+    appName: "BinanMall",
     login: "Login",
     reload: "Reload",
     nextToLogin: "Go to Home",
     connectWallet: "Connect Wallet",
     walletAddress: "Wallet Address",
-    homeTitle: "SafepalMall",
+    homeTitle: "BinanMall",
     productsTitle: "Products",
     ordersTitle: "My Orders",
     profileTitle: "Profile",
@@ -1118,7 +1120,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     enterVerificationCode: "Enter the 6-digit code sent to your email:",
     verifyCode: "Verify",
     resendCode: "Resend code",
-    enter6DigitCode: "Please enter 6 digits."
+    enter6DigitCode: "Please enter 6 digits.",
+    selectSide: "Select Side"
   },
   ko: {
     appName: "SafepalMall",
@@ -1489,6 +1492,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     enterVerificationCode: "이메일로 받은 6자리 코드를 입력하세요:",
     verifyCode: "인증",
     resendCode: "코드 다시 받기",
-    enter6DigitCode: "6자리를 입력하세요."
+    enter6DigitCode: "6자리를 입력하세요.",
+    selectSide: "지점 선택"
   },
 };

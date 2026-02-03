@@ -11,6 +11,7 @@ import { Order } from '../order/entities/order.entity';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AdminModule } from '../admin/admin.module';
+import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AdminModule } from '../admin/admin.module';
     BlockchainModule,
     AuditLogModule,
     forwardRef(() => AdminModule),
+    PackagesModule,
   ],
   controllers: [AffiliateController],
   providers: [
@@ -28,5 +30,5 @@ import { AdminModule } from '../admin/admin.module';
   ],
   exports: [AffiliateService, CommissionService, CommissionPayoutService],
 })
-export class AffiliateModule {}
+export class AffiliateModule { }
 

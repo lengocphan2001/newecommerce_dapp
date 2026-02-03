@@ -9,9 +9,9 @@ import { handleAuthError } from "@/app/utils/auth";
 export default function ProfilePage() {
   const router = useRouter();
   const { t } = useI18n();
-  const [userInfo, setUserInfo] = useState<{ 
-    fullName?: string; 
-    username?: string; 
+  const [userInfo, setUserInfo] = useState<{
+    fullName?: string;
+    username?: string;
     avatar?: string;
     packageType?: string;
     accumulatedPurchases?: string;
@@ -57,49 +57,49 @@ export default function ProfilePage() {
     try {
       // Try to get info from API
       if (typeof api !== 'undefined') {
-          try {
-            const info = await api.getReferralInfo();
-            // Get local avatar as fallback
-            const localAvatar = localStorage.getItem("userAvatar");
-            setUserInfo({
-                ...info,
-                avatar: info.avatar || localAvatar
-            });
-          } catch(e: any) {
-             // Check if it's an authentication error and redirect
-             if (handleAuthError(e, router)) {
-               return; // Redirect is happening
-             }
-             // Fallback to local storage or defaults
-             const savedPhone = localStorage.getItem("userPhone");
-             const savedName = localStorage.getItem("userName");
-             const savedAvatar = localStorage.getItem("userAvatar");
-             setUserInfo({
-                fullName: savedName || "Nguyễn Văn A",
-                username: savedPhone || "99887722",
-                avatar: savedAvatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA"
-             });
+        try {
+          const info = await api.getReferralInfo();
+          // Get local avatar as fallback
+          const localAvatar = localStorage.getItem("userAvatar");
+          setUserInfo({
+            ...info,
+            avatar: info.avatar || localAvatar
+          });
+        } catch (e: any) {
+          // Check if it's an authentication error and redirect
+          if (handleAuthError(e, router)) {
+            return; // Redirect is happening
           }
+          // Fallback to local storage or defaults
+          const savedPhone = localStorage.getItem("userPhone");
+          const savedName = localStorage.getItem("userName");
+          const savedAvatar = localStorage.getItem("userAvatar");
+          setUserInfo({
+            fullName: savedName || "Nguyễn Văn A",
+            username: savedPhone || "99887722",
+            avatar: savedAvatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA"
+          });
+        }
       }
     } catch (err) {
     }
   };
 
   const loadWalletStatus = () => {
-      // Check localStorage first
-      const storedAddr = localStorage.getItem("walletAddress");
-      if (storedAddr) {
-          setWalletAddress(storedAddr);
-          return;
+    // Check localStorage first
+    const storedAddr = localStorage.getItem("walletAddress");
+    if (storedAddr) {
+      setWalletAddress(storedAddr);
+      return;
+    }
+
+    // Check window.ethereum
+    if (typeof window !== "undefined" && (window as any).ethereum) {
+      const eth = (window as any).ethereum;
+      if (eth.selectedAddress) {
+        setWalletAddress(eth.selectedAddress);
       }
-      
-      // Check window.ethereum
-      if (typeof window !== "undefined" && (window as any).ethereum) {
-           const eth = (window as any).ethereum;
-           if (eth.selectedAddress) {
-               setWalletAddress(eth.selectedAddress);
-           }
-      }
+    }
   };
 
   const handleLogout = () => {
@@ -154,13 +154,13 @@ export default function ProfilePage() {
     setUploadingAvatar(true);
     try {
       const avatarUrl = await api.uploadAvatar(file);
-      
+
       // Update local state
       setUserInfo(prev => prev ? { ...prev, avatar: avatarUrl } : null);
       localStorage.setItem("userAvatar", avatarUrl);
-      
+
       alert(t("avatarUploaded"));
-      
+
       // Reload profile to get updated info
       await loadUserProfile();
     } catch (error: any) {
@@ -183,40 +183,40 @@ export default function ProfilePage() {
 
   return (
     <div className="bg-white text-slate-900 min-h-screen flex flex-col font-display">
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+        <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("profileTitle")}</h1>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePalMall</span>
+            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">BinanMall</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
         </div>
       </header>
-      
+
       <main className="flex-1 w-full max-w-md mx-auto pb-32">
         <section className="flex flex-col items-center py-8 px-4">
           <div className="relative">
             <div className="w-32 h-32 rounded-full border-4 border-white p-0.5 bg-white overflow-hidden shadow-lg ring-1 ring-slate-100">
-              <div 
-                className="w-full h-full rounded-full bg-center bg-cover" 
-                style={{backgroundImage: `url("${userInfo?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA"}")`}}
+              <div
+                className="w-full h-full rounded-full bg-center bg-cover"
+                style={{ backgroundImage: `url("${userInfo?.avatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA"}")` }}
               >
               </div>
             </div>
             <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm"></div>
-            <label 
+            <label
               htmlFor="avatar-upload"
               className="absolute bottom-0 right-0 flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-primary-dark text-white shadow-lg cursor-pointer transition-all active:scale-95"
             >
@@ -240,7 +240,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-2 mt-1">
               <div className="flex items-center gap-2">
                 <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
-                <span className="bg-blue-50 text-[#135bec] text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                <span className="bg-yellow-50 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   {userInfo?.packageType === 'NONE' ? 'User' : userInfo?.packageType}
                 </span>
               </div>
@@ -248,8 +248,8 @@ export default function ProfilePage() {
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-3 gap-3 mt-6 w-full max-w-sm mx-auto">
-              <div className="bg-blue-50/50 rounded-2xl p-3 border border-blue-100/50">
-                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight mb-1">{t("affiliateAccumulatedPurchases")}</p>
+              <div className="bg-yellow-50/50 rounded-2xl p-3 border border-yellow-100/50">
+                <p className="text-[10px] font-bold text-primary-dark uppercase tracking-tight mb-1">{t("affiliateAccumulatedPurchases")}</p>
                 <p className="text-sm font-black text-slate-900 truncate">${userInfo?.accumulatedPurchases || "0.00"}</p>
               </div>
               <div className="bg-emerald-50/50 rounded-2xl p-3 border border-emerald-100/50">
@@ -272,7 +272,7 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <div className="h-2 bg-purple-100 rounded-full overflow-hidden mb-3">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full transition-all duration-500"
                     style={{ width: `${calculateCommissionProgress()}%` }}
                   ></div>
@@ -313,24 +313,24 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-            
+
             {walletAddress ? (
-                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="material-symbols-outlined text-[#135bec] text-xl">account_balance_wallet</span>
-                  <span className="text-xs font-semibold text-slate-600">{t("connectedToSafePal")}</span>
-                  <div className="w-2 h-2 rounded-full bg-[#135bec] animate-pulse"></div>
-                </div>
+              <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
+                <span className="material-symbols-outlined text-[#135bec] text-xl">account_balance_wallet</span>
+                <span className="text-xs font-semibold text-slate-600">{t("connectedToSafePal")}</span>
+                <div className="w-2 h-2 rounded-full bg-[#135bec] animate-pulse"></div>
+              </div>
             ) : (
-                <button 
-                    onClick={() => {
-                        // Logic to connect wallet could be triggered here or navigating to wallet page
-                        router.push('/home/wallets');
-                    }}
-                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100"
-                >
-                  <span className="material-symbols-outlined text-slate-400 text-xl">account_balance_wallet</span>
-                  <span className="text-xs font-semibold text-slate-600">{t("connectWallet")}</span>
-                </button>
+              <button
+                onClick={() => {
+                  // Logic to connect wallet could be triggered here or navigating to wallet page
+                  router.push('/home/wallets');
+                }}
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100"
+              >
+                <span className="material-symbols-outlined text-slate-400 text-xl">account_balance_wallet</span>
+                <span className="text-xs font-semibold text-slate-600">{t("connectWallet")}</span>
+              </button>
             )}
           </div>
         </section>
@@ -396,9 +396,9 @@ export default function ProfilePage() {
           </div>
 
           <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
-            <button 
-                onClick={() => router.push('/home/profile/edit')}
-                className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            <button
+              onClick={() => router.push('/home/profile/edit')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#135bec]/10 text-[#135bec]">
                 <span className="material-symbols-outlined text-xl font-medium">person</span>
@@ -407,20 +407,20 @@ export default function ProfilePage() {
               <span className="material-symbols-outlined text-slate-300">chevron_right</span>
             </button>
             <div className="mx-4 border-t border-slate-50"></div>
-            <button 
-                onClick={() => router.push('/home/profile/address')}
-                className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            <button
+              onClick={() => router.push('/home/profile/address')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
             >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-yellow-50 text-primary-dark">
                 <span className="material-symbols-outlined text-xl font-medium">location_on</span>
               </div>
               <span className="flex-1 font-medium text-slate-800 text-left">{t("shippingAddress")}</span>
               <span className="material-symbols-outlined text-slate-300">chevron_right</span>
             </button>
             <div className="mx-4 border-t border-slate-50"></div>
-            <button 
-                onClick={() => router.push('/home/orders')}
-                className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            <button
+              onClick={() => router.push('/home/orders')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
                 <span className="material-symbols-outlined text-xl font-medium">history</span>
@@ -442,9 +442,9 @@ export default function ProfilePage() {
               <span className="material-symbols-outlined text-slate-300">chevron_right</span>
             </button>
             <div className="mx-4 border-t border-slate-50"></div>
-            <button 
-                onClick={handleLogout}
-                className="w-full flex items-center gap-4 px-4 py-4 active:bg-red-50 transition-colors text-red-500"
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-red-50 transition-colors text-red-500"
             >
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50">
                 <span className="material-symbols-outlined text-xl font-medium">logout</span>

@@ -21,32 +21,32 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SafepalMall",
-  description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví SafePalMall để bắt đầu mua sắm ngay hôm nay.",
-  keywords: ["SafepalMall", "SafepalMall DApp", "Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu", "SafePalMall", "Web3", "Blockchain", "Decentralized"],
-  authors: [{ name: "SafepalMall" }],
-  creator: "SafepalMall",
-  publisher: "SafepalMall",
+  title: "BinanMall",
+  description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
+  keywords: ["BinanMall", "BinanMall DApp", "Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu", "BinanMall", "Web3", "Blockchain", "Decentralized"],
+  authors: [{ name: "BinanMall" }],
+  creator: "BinanMall",
+  publisher: "BinanMall",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://safepalmall.org"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"), // Assuming URL change for consistency in metadata even if route is same
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "SafepalMall",
-    description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví SafePalMall để bắt đầu mua sắm ngay hôm nay.",
+    title: "BinanMall",
+    description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
     url: "/",
-    siteName: "SafepalMall",
+    siteName: "BinanMall",
     images: [
       {
         url: "/images/unnamed.png",
         width: 1200,
         height: 630,
-        alt: "SafepalMall",
+        alt: "BinanMall",
       },
     ],
     locale: "vi_VN",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SafepalMall",
+    title: "BinanMall",
     description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
     images: ["/images/unnamed.png"],
   },
@@ -92,18 +92,18 @@ export default function RootLayout({
           rel="stylesheet"
         />
         {/* Explicit Open Graph Meta Tags */}
-        <meta property="og:title" content="SafepalMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
-        <meta property="og:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví SafePalMall để bắt đầu mua sắm ngay hôm nay." />
-        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://safepalmall.org"}/images/unnamed.png`} />
-        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://safepalmall.org"}/`} />
+        <meta property="og:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
+        <meta property="og:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay." />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"}/images/unnamed.png`} />
+        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"}/`} />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="SafepalMall" />
+        <meta property="og:site_name" content="BinanMall" />
         <meta property="og:locale" content="vi_VN" />
         {/* Twitter Card Meta Tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SafepalMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
+        <meta name="twitter:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
         <meta name="twitter:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung" />
-        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://safepalmall.org"}/images/unnamed.png`} />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"}/images/unnamed.png`} />
         {/* Favicon and App Icons - Must be first to override defaults */}
         <link rel="icon" href="/images/unnamed.png" type="image/png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/images/unnamed.png" />
@@ -113,10 +113,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/images/unnamed.png" />
         <link rel="apple-touch-icon" href="/images/unnamed.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#9333ea" />
+        <meta name="theme-color" content="#F0B90B" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="SafepalMall" />
+        <meta name="apple-mobile-web-app-title" content="BinanMall" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${workSans.variable} antialiased font-display`}

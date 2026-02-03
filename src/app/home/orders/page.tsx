@@ -214,21 +214,21 @@ function OrdersPageContent() {
   return (
     <div className="flex flex-col bg-background-light min-h-screen">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("orderHistory")}</h1>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePalMall</span>
+            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">BinanMall</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
@@ -237,16 +237,16 @@ function OrdersPageContent() {
       </header>
 
       {/* SafePalMall Connection Banner (Mobile) */}
-      <div className="sm:hidden w-full bg-blue-50/50 border-b border-blue-100 py-1.5 flex justify-center items-center gap-2 shadow-sm relative z-40">
+      <div className="sm:hidden w-full bg-yellow-50/50 border-b border-yellow-100 py-1.5 flex justify-center items-center gap-2 shadow-sm relative z-40">
         <span className="relative flex h-1.5 w-1.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-600"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
         </span>
-        <span className="text-[11px] text-blue-800 font-semibold">{t("connectedToSafePal")}</span>
+        <span className="text-[11px] text-primary-dark font-semibold">{t("connectedToSafePal")}</span>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white pt-2 sticky top-[58px] z-30 shadow-sm border-b border-blue-50">
+      <div className="bg-white pt-2 sticky top-[58px] z-30 shadow-sm border-b border-yellow-50">
         <div className="flex px-4 justify-between gap-4 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("all")}
@@ -344,15 +344,15 @@ function OrdersPageContent() {
                   key={order.id}
                   onClick={() => router.push(`/home/orders/detail?id=${order.id}`)}
                   className={`flex flex-col gap-3 rounded-2xl p-4 shadow-[0_2px_12px_rgba(37,99,235,0.06)] border ${isCancelled
-                      ? "bg-slate-50 border-slate-200 opacity-75"
-                      : "bg-white border-blue-100"
+                    ? "bg-slate-50 border-slate-200 opacity-75"
+                    : "bg-white border-blue-100"
                     } active:scale-[0.99] transition-all duration-200 cursor-pointer`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex items-start gap-3">
                       <div className={`shrink-0 rounded-xl overflow-hidden h-[72px] w-[72px] border relative shadow-inner ${isCancelled
-                          ? "bg-slate-200 border-slate-300 grayscale"
-                          : "bg-blue-50 border-blue-100"
+                        ? "bg-slate-200 border-slate-300 grayscale"
+                        : "bg-blue-50 border-blue-100"
                         }`}>
                         <div
                           className="absolute inset-0 bg-cover bg-center"

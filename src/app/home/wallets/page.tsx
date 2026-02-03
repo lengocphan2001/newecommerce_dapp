@@ -86,7 +86,7 @@ export default function WalletsPage() {
           // Use SafePalMall provider
           const browserProvider = new BrowserProvider(ethereum);
           const network = await browserProvider.getNetwork();
-          
+
           // Ensure we're on BSC (chainId: 56 = 0x38)
           if (Number(network.chainId) !== 56) {
             // If not on BSC, fallback to RPC
@@ -94,7 +94,7 @@ export default function WalletsPage() {
           } else {
             provider = browserProvider;
           }
-          
+
           contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
         } catch (providerError) {
           // Fallback to RPC if SafePalMall provider fails
@@ -112,10 +112,10 @@ export default function WalletsPage() {
         contract.decimals(),
         contract.balanceOf(getAddress(address)),
       ]);
-      
+
       const formatted = formatUnits(balance as bigint, Number(decimals));
       setUsdtBalance(formatted);
-      
+
       // Cache the balance
       try {
         localStorage.setItem("usdtBep20Balance", formatted);
@@ -151,12 +151,12 @@ export default function WalletsPage() {
   const fetchWalletData = async () => {
     try {
       setLoading(true);
-      
+
       // Get wallet address from localStorage
       if (typeof window !== "undefined") {
         const storedAddr = localStorage.getItem("walletAddress") || "";
         setWalletAddress(storedAddr);
-        
+
         // Try to load cached USDT balance first
         try {
           const cached = localStorage.getItem("usdtBep20Balance");
@@ -164,7 +164,7 @@ export default function WalletsPage() {
         } catch {
           // ignore
         }
-        
+
         // Load USDT balance from blockchain
         if (storedAddr) {
           loadUsdtBep20Balance(storedAddr);
@@ -213,7 +213,7 @@ export default function WalletsPage() {
   const copyAddress = async (e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
-    
+
     if (walletAddress) {
       try {
         await navigator.clipboard.writeText(walletAddress);
@@ -248,7 +248,7 @@ export default function WalletsPage() {
   // Assets list
   const assets: Asset[] = [
     {
-      symbol: "SFPM",
+      symbol: "BNM",
       name: "USDT",
       balance: affiliateBalance,
       usdValue: affiliateBalance,
@@ -293,14 +293,14 @@ export default function WalletsPage() {
     ...(referralInfo?.recentActivity?.map((activity: any) => {
       // Normalize activity type to handle both uppercase and lowercase
       const activityType = String(activity.type || '').toUpperCase();
-      
+
       // Determine commission type label
-      const commissionTitle = activityType === 'DIRECT' 
+      const commissionTitle = activityType === 'DIRECT'
         ? t("directCommission")
-        : activityType === 'GROUP' 
-        ? t("groupCommission")
-        : t("managementCommission");
-      
+        : activityType === 'GROUP'
+          ? t("groupCommission")
+          : t("managementCommission");
+
       return {
         id: activity.id,
         type: 'commission' as const,
@@ -323,10 +323,10 @@ export default function WalletsPage() {
       date: formatDateSafe(order.createdAt),
       createdAt: createDateSafe(order.createdAt), // Keep original for sorting
       icon: 'shopping_cart',
-      iconColor: 'text-blue-600',
+      iconColor: 'text-primary-dark',
     })) || []),
   ];
-  
+
   // Sort by createdAt descending and take top 5
   const transactions: Transaction[] = allTransactions
     .filter((tx: any) => tx.date) // Filter out transactions with invalid dates
@@ -359,23 +359,23 @@ export default function WalletsPage() {
   return (
     <div className="flex flex-col bg-background-gray min-h-screen overflow-x-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
-        <button 
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+        <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("navWallets")}</h1>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">SafePalMall</span>
+            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">BinanMall</span>
           </div>
-          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-yellow-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
         </div>
@@ -412,11 +412,10 @@ export default function WalletsPage() {
                 <p className="text-sm font-mono text-gray-500 group-hover:text-primary-dark transition-colors">
                   {shortAddress(walletAddress)}
                 </p>
-                <span className={`material-symbols-outlined text-[16px] transition-colors ${
-                  copied 
-                    ? "text-primary-dark" 
-                    : "text-gray-400 group-hover:text-primary-dark"
-                }`}>
+                <span className={`material-symbols-outlined text-[16px] transition-colors ${copied
+                  ? "text-primary-dark"
+                  : "text-gray-400 group-hover:text-primary-dark"
+                  }`}>
                   {copied ? "check" : "content_copy"}
                 </span>
               </button>
@@ -473,7 +472,7 @@ export default function WalletsPage() {
                 </div>
                 <div className="flex flex-col items-end">
                   <p className="text-base font-bold text-text-dark">
-                    {balanceVisible 
+                    {balanceVisible
                       ? formatUSDT(asset.balance)
                       : '••••'}
                   </p>
@@ -490,7 +489,7 @@ export default function WalletsPage() {
         <div className="flex flex-col gap-4 pb-20">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-lg font-bold text-text-dark">{t("recentActivityTitle")}</h3>
-            <button 
+            <button
               onClick={() => router.push('/home/wallets/activity')}
               className="text-sm font-medium text-primary-dark hover:text-primary"
             >
@@ -502,9 +501,8 @@ export default function WalletsPage() {
               transactions.map((tx, index) => (
                 <div
                   key={tx.id}
-                  className={`flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                    index === 0 ? 'rounded-t-xl' : index === transactions.length - 1 ? 'rounded-b-xl' : ''
-                  }`}
+                  className={`flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer ${index === 0 ? 'rounded-t-xl' : index === transactions.length - 1 ? 'rounded-b-xl' : ''
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 ${tx.iconColor}`}>
