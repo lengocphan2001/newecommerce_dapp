@@ -32,6 +32,8 @@ const Products: React.FC = () => {
   const [form] = Form.useForm();
   const [thumbnailFileList, setThumbnailFileList] = useState<UploadFile[]>([]);
   const [detailFileList, setDetailFileList] = useState<UploadFile[]>([]);
+  const [currentDetailImageUrls, setCurrentDetailImageUrls] = useState<string[]>([]);
+  const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchProducts();
@@ -64,7 +66,10 @@ const Products: React.FC = () => {
     form.resetFields();
     form.setFieldsValue({ description: '', descriptionEn: '' });
     setThumbnailFileList([]);
+    setThumbnailFileList([]);
     setDetailFileList([]);
+    setCurrentDetailImageUrls([]);
+    setCurrentThumbnailUrl(undefined);
     setIsModalVisible(true);
   };
 
@@ -82,7 +87,17 @@ const Products: React.FC = () => {
     });
     setThumbnailFileList([]);
     setDetailFileList([]);
+    setCurrentDetailImageUrls(product.detailImageUrls || []);
+    setCurrentThumbnailUrl(product.thumbnailUrl);
     setIsModalVisible(true);
+  };
+
+  const handleRemoveThumbnail = () => {
+    setCurrentThumbnailUrl(undefined);
+  };
+
+  const handleRemoveDetailImage = (urlToRemove: string) => {
+    setCurrentDetailImageUrls((prev) => prev.filter((url) => url !== urlToRemove));
   };
 
   const handleDelete = async (id: string) => {
@@ -99,7 +114,7 @@ const Products: React.FC = () => {
     try {
       // Don't trust hidden/previous form values for these fields; always derive from current product + uploads.
       // Upload thumbnail (if user selected a file)
-      let thumbnailUrl: string | undefined = editingProduct?.thumbnailUrl;
+      let thumbnailUrl: string | undefined = currentThumbnailUrl;
       if (thumbnailFileList[0]?.originFileObj) {
         const fd = new FormData();
         fd.append('file', thumbnailFileList[0].originFileObj as File);
@@ -110,7 +125,7 @@ const Products: React.FC = () => {
       }
 
       // Upload detail images (if any selected)
-      let detailImageUrls: string[] = editingProduct?.detailImageUrls ? [...editingProduct.detailImageUrls] : [];
+      let detailImageUrls: string[] = [...currentDetailImageUrls];
       const newDetailFiles = detailFileList.filter((f) => f.originFileObj).map((f) => f.originFileObj as File);
       if (newDetailFiles.length) {
         const fd = new FormData();
@@ -133,13 +148,9 @@ const Products: React.FC = () => {
       // Only include image fields if they have valid values
       const payload: any = {
         ...values,
+        thumbnailUrl: thumbnailUrl || null, // Allow explicit removal in backend if null is handled, or just don't send if empty
+        detailImageUrls: detailImageUrls,
       };
-      if (thumbnailUrl && typeof thumbnailUrl === 'string' && thumbnailUrl.startsWith('http')) {
-        payload.thumbnailUrl = thumbnailUrl;
-      }
-      if (Array.isArray(detailImageUrls) && detailImageUrls.length > 0) {
-        payload.detailImageUrls = detailImageUrls;
-      }
 
       if (editingProduct) {
         await productService.update(editingProduct.id, payload);
@@ -457,11 +468,36 @@ const Products: React.FC = () => {
               >
                 <Button>Choose thumbnail</Button>
               </Upload>
-              {editingProduct?.thumbnailUrl ? (
-                <Typography.Text type="secondary">
-                  Current: {editingProduct.thumbnailUrl}
-                </Typography.Text>
-              ) : null}
+              {currentThumbnailUrl && (
+                <div style={{ marginTop: 16 }}>
+                  <Typography.Text strong>Current Thumbnail:</Typography.Text>
+                  <div style={{ position: 'relative', border: '1px solid #d9d9d9', borderRadius: 4, padding: 4, width: 'fit-content', marginTop: 8 }}>
+                    <Image
+                      src={currentThumbnailUrl}
+                      width={60}
+                      height={60}
+                      style={{ objectFit: 'cover' }}
+                    />
+                    <Button
+                      type="primary"
+                      danger
+                      shape="circle"
+                      icon={<DeleteOutlined />}
+                      size="small"
+                      style={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        fontSize: 10,
+                        width: 20,
+                        height: 20,
+                        minWidth: 20
+                      }}
+                      onClick={handleRemoveThumbnail}
+                    />
+                  </div>
+                </div>
+              )}
             </Form.Item>
 
             <Form.Item label="Detail Images">
@@ -475,11 +511,41 @@ const Products: React.FC = () => {
               >
                 <Button>Choose detail images</Button>
               </Upload>
-              {editingProduct?.detailImageUrls?.length ? (
-                <Typography.Text type="secondary">
-                  Current: {editingProduct.detailImageUrls.length} image(s)
-                </Typography.Text>
-              ) : null}
+
+              {currentDetailImageUrls.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <Typography.Text strong>Existing Detail Images:</Typography.Text>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    {currentDetailImageUrls.map((url, index) => (
+                      <div key={index} style={{ position: 'relative', border: '1px solid #d9d9d9', borderRadius: 4, padding: 4 }}>
+                        <Image
+                          src={url}
+                          width={60}
+                          height={60}
+                          style={{ objectFit: 'cover' }}
+                        />
+                        <Button
+                          type="primary"
+                          danger
+                          shape="circle"
+                          icon={<DeleteOutlined />}
+                          size="small"
+                          style={{
+                            position: 'absolute',
+                            top: -8,
+                            right: -8,
+                            fontSize: 10,
+                            width: 20,
+                            height: 20,
+                            minWidth: 20
+                          }}
+                          onClick={() => handleRemoveDetailImage(url)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Form.Item>
             <Form.Item
               name="price"
