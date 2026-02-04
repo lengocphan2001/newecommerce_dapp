@@ -207,7 +207,7 @@ export default function CheckoutPage() {
           setWalletAddress(storedAddr);
           await loadUsdtBep20Balance(storedAddr);
         } else {
-          setError("Vui lòng cài đặt ví SafePalMall hoặc ví tương thích");
+          setError("Vui lòng cài đặt ví Binanmall hoặc ví tương thích");
         }
         return;
       }
@@ -247,7 +247,7 @@ export default function CheckoutPage() {
           await loadUsdtBep20Balance(storedAddr);
         }
       } catch {
-        setError(err.message || "Không thể kết nối ví SafePalMall");
+        setError(err.message || "Không thể kết nối ví Binanmall");
       }
     }
   };
@@ -256,7 +256,7 @@ export default function CheckoutPage() {
     try {
       const eth = getEthereum();
       if (!eth) {
-        setError("Vui lòng cài đặt ví SafePalMall");
+        setError("Vui lòng cài đặt ví Binanmall");
         return;
       }
 
@@ -299,7 +299,7 @@ export default function CheckoutPage() {
 
       await loadWalletInfo();
     } catch (err: any) {
-      setError(err.message || "Không thể kết nối ví SafePalMall");
+      setError(err.message || "Không thể kết nối ví Binanmall");
     }
   };
 
