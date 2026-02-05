@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Work_Sans } from "next/font/google";
 import "./globals.css";
 import { I18nProvider } from "@/app/i18n/I18nProvider";
@@ -77,6 +77,13 @@ export const metadata: Metadata = {
     shortcut: "/images/14446125.png",
     apple: "/images/14446125.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
