@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"), // Assuming URL change for consistency in metadata even if route is same
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"), // Assuming URL change for consistency in metadata even if route is same
   alternates: {
     canonical: "/",
   },
@@ -94,8 +94,8 @@ export default function RootLayout({
         {/* Explicit Open Graph Meta Tags */}
         <meta property="og:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
         <meta property="og:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay." />
-        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"}/images/unnamed.png`} />
-        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"}/`} />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/unnamed.png`} />
+        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/`} />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="BinanMall" />
         <meta property="og:locale" content="vi_VN" />
@@ -103,7 +103,7 @@ export default function RootLayout({
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
         <meta name="twitter:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung" />
-        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.org"}/images/unnamed.png`} />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/unnamed.png`} />
         {/* Favicon and App Icons - Must be first to override defaults */}
         <link rel="icon" href="/images/unnamed.png" type="image/png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/images/unnamed.png" />
