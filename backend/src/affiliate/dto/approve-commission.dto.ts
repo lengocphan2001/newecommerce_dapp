@@ -8,10 +8,10 @@ export class ApproveCommissionDto {
 }
 
 export class ApproveSingleCommissionDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  commissionId: string;
-  
+  commissionId?: string;
+
   @IsOptional()
   @IsString()
   notes?: string; // Optional notes for approval

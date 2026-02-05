@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     siteName: "BinanMall",
     images: [
       {
-        url: "/images/unnamed.png",
+        url: "/images/14446125.png",
         width: 1200,
         height: 630,
         alt: "BinanMall",
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "BinanMall",
     description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
-    images: ["/images/unnamed.png"],
+    images: ["/images/14446125.png"],
   },
   robots: {
     index: true,
@@ -71,11 +71,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/images/unnamed.png", type: "image/png" },
+      { url: "/images/14446125.png", type: "image/png" },
       { url: "/icon.png", type: "image/png" },
     ],
-    shortcut: "/images/unnamed.png",
-    apple: "/images/unnamed.png",
+    shortcut: "/images/14446125.png",
+    apple: "/images/14446125.png",
   },
 };
 
@@ -94,7 +94,7 @@ export default function RootLayout({
         {/* Explicit Open Graph Meta Tags */}
         <meta property="og:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
         <meta property="og:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay." />
-        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/unnamed.png`} />
+        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/14446125.png`} />
         <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/`} />
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="BinanMall" />
@@ -103,15 +103,15 @@ export default function RootLayout({
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
         <meta name="twitter:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung" />
-        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/unnamed.png`} />
+        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/14446125.png`} />
         {/* Favicon and App Icons - Must be first to override defaults */}
-        <link rel="icon" href="/images/unnamed.png" type="image/png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/images/unnamed.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/images/unnamed.png" />
-        <link rel="icon" href="/images/unnamed.png" type="image/png" sizes="any" />
-        <link rel="shortcut icon" href="/images/unnamed.png" type="image/png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/images/unnamed.png" />
-        <link rel="apple-touch-icon" href="/images/unnamed.png" />
+        <link rel="icon" href="/images/14446125.png" type="image/png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/images/14446125.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/images/14446125.png" />
+        <link rel="icon" href="/images/14446125.png" type="image/png" sizes="any" />
+        <link rel="shortcut icon" href="/images/14446125.png" type="image/png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/images/14446125.png" />
+        <link rel="apple-touch-icon" href="/images/14446125.png" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#F0B90B" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

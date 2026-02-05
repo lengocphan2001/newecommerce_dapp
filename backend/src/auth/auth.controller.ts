@@ -104,9 +104,10 @@ export class AuthController {
 
     if (!config) {
       // Return defaults if not found
-      return packageType.toUpperCase() === 'NPP'
-        ? { packageValue: 0.001 }
-        : { packageValue: 0.0001 };
+      const pt = packageType.toUpperCase();
+      if (pt === 'TV') return { packageValue: 0.001 };
+      if (pt === 'NPP') return { packageValue: 0.01 };
+      return { packageValue: 0.0001 };
     }
 
     return {

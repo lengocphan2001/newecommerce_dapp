@@ -250,15 +250,27 @@ export default function ProfilePage() {
             <div className="grid grid-cols-3 gap-3 mt-6 w-full max-w-sm mx-auto">
               <div className="bg-yellow-50/50 rounded-2xl p-3 border border-yellow-100/50">
                 <p className="text-[10px] font-bold text-primary-dark uppercase tracking-tight mb-1">{t("affiliateAccumulatedPurchases")}</p>
-                <p className="text-sm font-black text-slate-900 truncate">${userInfo?.accumulatedPurchases || "0.00"}</p>
+                <p className="text-sm font-black text-slate-900 truncate">
+                  ${userInfo?.accumulatedPurchases
+                    ? parseFloat(userInfo.accumulatedPurchases).toLocaleString('en-US', { maximumFractionDigits: 4 })
+                    : "0.00"}
+                </p>
               </div>
               <div className="bg-emerald-50/50 rounded-2xl p-3 border border-emerald-100/50">
                 <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight mb-1">{t("commission")}</p>
-                <p className="text-sm font-black text-slate-900 truncate">${userInfo?.bonusCommission || "0.00"}</p>
+                <p className="text-sm font-black text-slate-900 truncate">
+                  ${userInfo?.bonusCommission
+                    ? parseFloat(userInfo.bonusCommission).toLocaleString('en-US', { maximumFractionDigits: 4 })
+                    : "0.00"}
+                </p>
               </div>
               <div className="bg-purple-50/50 rounded-2xl p-3 border border-purple-100/50">
                 <p className="text-[10px] font-bold text-purple-600 uppercase tracking-tight mb-1">{t("maximum")}</p>
-                <p className="text-sm font-black text-slate-900 truncate">${userInfo?.maxCommission || "0.00"}</p>
+                <p className="text-sm font-black text-slate-900 truncate">
+                  ${userInfo?.maxCommission
+                    ? parseFloat(userInfo.maxCommission).toLocaleString('en-US', { maximumFractionDigits: 4 })
+                    : "0.00"}
+                </p>
               </div>
             </div>
 
@@ -268,7 +280,7 @@ export default function ProfilePage() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs font-bold text-slate-700">{t("maxCommission")}</span>
                   <span className="text-xs font-semibold text-primary">
-                    ${reconsumptionStatus.currentCommission?.toFixed(5) || "0.00"} / ${reconsumptionStatus.threshold}
+                    ${reconsumptionStatus.currentCommission ? reconsumptionStatus.currentCommission.toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"} / ${reconsumptionStatus.threshold}
                   </span>
                 </div>
                 <div className="h-2 bg-purple-100 rounded-full overflow-hidden mb-3">
@@ -284,7 +296,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
                     <p className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">Đã tái tiêu dùng</p>
-                    <p className="text-sm font-black text-slate-900">${userInfo?.totalReconsumptionAmount || "0.00"}</p>
+                    <p className="text-sm font-black text-slate-900">${userInfo?.totalReconsumptionAmount ? parseFloat(userInfo.totalReconsumptionAmount).toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"}</p>
                   </div>
                 </div>
               </div>

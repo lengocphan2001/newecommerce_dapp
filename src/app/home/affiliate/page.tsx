@@ -38,6 +38,7 @@ export default function AffiliatePage() {
       fromUserId?: string;
       fromUsername?: string;
     }>;
+    maxCommission?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -84,6 +85,9 @@ export default function AffiliatePage() {
   }, [referralInfo?.packageType]);
 
   const getMaxCommission = () => {
+    if (referralInfo?.maxCommission) {
+      return parseFloat(referralInfo.maxCommission);
+    }
     if (!currentPackageConfig) return 0;
     // Use dynamic reconsumption threshold from package config
     // Fallback logic if needed, but ideally backend provides this
@@ -129,7 +133,7 @@ export default function AffiliatePage() {
     const num = typeof price === "string" ? parseFloat(price) : price;
     return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
+      maximumFractionDigits: 4,
     }).format(num);
   };
 
@@ -216,6 +220,7 @@ export default function AffiliatePage() {
     typeof referralInfo.treeStats.right.volume === "number"
       ? referralInfo.treeStats.right.volume
       : parseFloat(referralInfo.treeStats.right.volume || "0") || 0;
+
   const maxCommission = getMaxCommission();
   const receivedCommission =
     typeof referralInfo.bonusCommission === "string"

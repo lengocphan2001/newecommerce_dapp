@@ -106,13 +106,25 @@ export class OrderService {
     // Add shipping fee to total amount
     const finalTotal = totalAmount + shippingFee;
 
-    // Tạo đơn hàng với status PENDING (chờ admin duyệt)
+    // Determine initial status: If transactionHash is present (Crypto payment), CONFIRM immediately.
+    // Otherwise (COD/Banking pending), set to PENDING.
+    const initialStatus = createOrderDto.transactionHash ? OrderStatus.CONFIRMED : OrderStatus.PENDING;
+
+    // If auto-confirming, check/deduct stock immediately
+    if (initialStatus === OrderStatus.CONFIRMED) {
+      for (const item of items) {
+        // Optimistic stock check was done above, but we can double check or just save.
+        // We will deduct stock after saving the order to ensure atomicity or just do it here.
+        // Let's deduct here for simplicity, or better: do it after save to keep flow similar to updateStatus.
+      }
+    }
+
     const order = this.orderRepository.create({
       userId,
       items,
       totalAmount: finalTotal,
       shippingFee: shippingFee > 0 ? shippingFee : undefined,
-      status: OrderStatus.PENDING, // Chờ admin duyệt
+      status: initialStatus,
       transactionHash: createOrderDto.transactionHash,
       shippingAddress: createOrderDto.shippingAddress,
     });
@@ -127,8 +139,64 @@ export class OrderService {
       console.error('Failed to sync to Google Sheets after creation:', error);
     }
 
-    // Emit notification event (will be handled by order controller)
-    // This allows the controller to inject NotificationsGateway
+    // If Auto-Confirmed (Crypto), perform post-processing (Stock deduction, Commission, Payout)
+    if (initialStatus === OrderStatus.CONFIRMED) {
+      // 1. Deduct Stock
+      for (const item of items) {
+        const product = await this.productRepository.findOne({ where: { id: item.productId } });
+        if (product) {
+          await this.productRepository.update(product.id, {
+            stock: product.stock - item.quantity,
+          });
+        }
+      }
+
+      // 2. Check Reconsumption & Update User Totals
+      if (userId) { // Should always be true
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (user) {
+          const isReconsumption = await this.checkIfReconsumption(user, finalTotal);
+
+          // Update Order flag
+          if (isReconsumption) {
+            await this.orderRepository.update(savedOrder.id, { isReconsumption: true });
+          }
+
+          // Update User Total Purchase & Reconsumption
+          // Note: totalPurchaseAmount is updated by CommissionService.updateUserPackage, so we don't update it here to avoid double-counting.
+          // We ONLY update totalReconsumptionAmount if applicable.
+
+          if (isReconsumption) {
+            await this.userRepository.update(userId, {
+              totalReconsumptionAmount: Number(user.totalReconsumptionAmount) + Number(finalTotal)
+            });
+          }
+        }
+      }
+
+      // 3. Trigger Commission Calculation & Payout
+      this.commissionService
+        .calculateCommissions(savedOrder.id)
+        .then(async () => {
+          // Wait for DB commit
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Payout
+          const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
+
+          // Check Milestones
+          const user = await this.userRepository.findOne({ where: { id: userId } });
+          if (user && user.referralUserId) {
+            this.milestoneRewardService.checkAndProcessMilestones(user.referralUserId)
+              .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
+          }
+
+          console.log(`[AUTO-CONFIRM] Processed commissions for order ${savedOrder.id}`);
+        })
+        .catch(err => {
+          console.error(`[AUTO-CONFIRM] Error processing commissions for order ${savedOrder.id}:`, err);
+        });
+    }
 
     return savedOrder;
   }

@@ -183,8 +183,9 @@ export class CommissionService {
       await this.userRepository.update(user.id, {
         packageType: newPackageType,
         totalPurchaseAmount: newTotalPurchase,
+        totalCommissionReceived: 0, // Reset commission counter on upgrade/restore
       });
-      this.logger.log(`User ${user.id} packageType updated from ${user.packageType} to ${newPackageType}`);
+      this.logger.log(`User ${user.id} packageType updated from ${user.packageType} to ${newPackageType}. Commission cycle reset.`);
     } else {
       await this.userRepository.update(user.id, {
         totalPurchaseAmount: newTotalPurchase,
@@ -613,25 +614,8 @@ export class CommissionService {
       return true;
     }
 
-    // Đã đạt ngưỡng
-    const hasReconsumed = user.totalReconsumptionAmount >= packageValue;
-
-    // Note: Reconsumption logic might need clarification. 
-    // Usually if they hit threshold, they become NONE. 
-    // If they are NONE, they are blocked. 
-    // They only become active again if they buy a package.
-    // So if checkReconsumption is called on a user with valid packageType, 
-    // likely they are NOT NONE, so checks if they are ABOUT to be blocked?
-    // Or if this check is applied even if they are 'CTV' but passed threshold previously?
-    // Current logic: specific PackageType users are active until they hit threshold.
-    // So if they are here with PackageType, they are seemingly active.
-
-    // However, the original logic had `user.totalCommissionReceived < threshold`. 
-    // If they have accumulated more than threshold but still have PackageType, 
-    // maybe we allow them if they reconsumed?
-
-    if (hasReconsumed) return true;
-
+    // Đã đạt ngưỡng -> BLOCKED (Strict enforcement)
+    // Người dùng phải mua gói mới để updateUserPackage kích hoạt logic reset totalCommissionReceived
     return false;
   }
 
@@ -709,9 +693,32 @@ export class CommissionService {
       status: CommissionStatus.PENDING,
     });
 
+    const direct = await this.commissionRepository.sum('amount', {
+      userId,
+      type: CommissionType.DIRECT,
+      status: CommissionStatus.PAID,
+    });
+
+    const group = await this.commissionRepository.sum('amount', {
+      userId,
+      type: CommissionType.GROUP,
+      status: CommissionStatus.PAID,
+    });
+
+    const management = await this.commissionRepository.sum('amount', {
+      userId,
+      type: CommissionType.MANAGEMENT,
+      status: CommissionStatus.PAID,
+    });
+
     return {
       totalCommission: totalCommission || 0,
       pendingCommission: pendingCommission || 0,
+      commissions: {
+        direct: direct || 0,
+        group: group || 0,
+        management: management || 0,
+      }
     };
   }
 

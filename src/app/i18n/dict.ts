@@ -374,7 +374,12 @@ export type I18nKey =
   | "enter6DigitCode"
   | "usernameInvalidNoSpecial"
   | "selectSide"
-  | "milestoneReward";
+  | "milestoneReward"
+  | "reconsumptionRequiredDesc"
+  | "maxCommissionReached"
+  | "whyLocked"
+  | "reconsumptionExplanation"
+  | "buyPackageNow";
 
 export const DEFAULT_LANG: Lang = "en";
 
@@ -749,7 +754,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     verifyCode: "Xác thực",
     resendCode: "Gửi lại mã",
     enter6DigitCode: "Vui lòng nhập đủ 6 số.",
-    selectSide: "Chọn nhánh"
+    selectSide: "Chọn nhánh",
+    reconsumptionRequiredDesc: "Bạn đã đạt ngưỡng hoa hồng tối đa. Vui lòng mua thêm gói để tiếp tục nhận thưởng.",
+    maxCommissionReached: "Giới Hạn Hoa Hồng",
+    whyLocked: "Tại sao bị khóa?",
+    reconsumptionExplanation: "Để đảm bảo tính bền vững của hệ thống, bạn cần tái tiêu dùng (mua sản phẩm) để mở khóa hoa hồng mới.",
+    buyPackageNow: "Mua Gói Ngay"
   },
   en: {
     appName: "BinanMall",
@@ -775,7 +785,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliateLoading: "Loading...",
     affiliateError: "Failed to load referral information",
     affiliateNotFound: "Referral information not found",
-    affiliateAccumulatedPurchases: "Accumulated Purchases",
+    affiliateAccumulatedPurchases: "Accumulated",
     affiliateBonusCommission: "Bonus Commission",
     affiliateReferralCodeTitle: "Your Referral Code",
     affiliateReferralCodeLabel: "Referral Code (Username)",
@@ -1121,7 +1131,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     verifyCode: "Verify",
     resendCode: "Resend code",
     enter6DigitCode: "Please enter 6 digits.",
-    selectSide: "Select Side"
+    selectSide: "Select Side",
+    reconsumptionRequiredDesc: "You have reached the maximum commission threshold. Please purchase more packages to continue receiving rewards.",
+    maxCommissionReached: "Maximum Commission Reached",
+    whyLocked: "Why is it locked?",
+    reconsumptionExplanation: "To ensure system sustainability, you need to reconsume (buy products) to unlock new commissions.",
+    buyPackageNow: "Buy Package Now"
   },
   ko: {
     appName: "Binanmall",
@@ -1493,6 +1508,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     verifyCode: "인증",
     resendCode: "코드 다시 받기",
     enter6DigitCode: "6자리를 입력하세요.",
-    selectSide: "지점 선택"
+    selectSide: "지점 선택",
+    reconsumptionRequiredDesc: "최대 커미션 기준에 도달했습니다. 보상을 계속 받으려면 패키지를 추가로 구매하십시오.",
+    maxCommissionReached: "최대 커미션 도달",
+    whyLocked: "왜 잠겼나요?",
+    reconsumptionExplanation: "시스템 지속 가능성을 보장하기 위해, 새로운 커미션을 잠금 해제하려면 재소비(상품 구매)가 필요합니다.",
+    buyPackageNow: "지금 패키지 구매"
   },
 };

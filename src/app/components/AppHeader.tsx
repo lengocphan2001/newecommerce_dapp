@@ -44,7 +44,7 @@ export default function AppHeader({
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      
+
       const status = await api.checkReconsumption();
       setNeedsReconsumption(status.needsReconsumption || false);
     } catch (error) {
@@ -69,7 +69,7 @@ export default function AppHeader({
         {/* Left Section */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {showBack && (
-            <button 
+            <button
               onClick={handleBack}
               className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700 shrink-0"
             >
@@ -123,7 +123,10 @@ export default function AppHeader({
           {right}
         </div>
       </div>
-    </header>
+
+
+
+    </header >
   );
 }
 

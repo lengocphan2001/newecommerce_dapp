@@ -7,6 +7,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
+import { Order } from '../../order/entities/order.entity';
 
 export enum CommissionType {
   DIRECT = 'direct', // Hoa hồng trực tiếp
@@ -35,6 +36,10 @@ export class Commission {
 
   @Column()
   orderId: string; // Đơn hàng phát sinh hoa hồng
+
+  @ManyToOne(() => Order, (order) => order.commissions)
+  @JoinColumn({ name: 'orderId' })
+  order: Order;
 
   @Column({ nullable: true })
   fromUserId: string; // User tạo ra đơn hàng (cho hoa hồng trực tiếp/quản lý)

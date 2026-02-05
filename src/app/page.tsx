@@ -224,7 +224,7 @@ export default function HomePage() {
           <div className="flex flex-col items-center justify-center mb-12">
             <div className="relative group">
               <img
-                src="/images/unnamed.png"
+                src="/images/14446125.png"
                 alt="BinanMall Logo"
                 className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
               />

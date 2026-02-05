@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { Commission } from '../../affiliate/entities/commission.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -78,4 +80,7 @@ export class Order {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => Commission, (commission) => commission.order)
+  commissions: Commission[];
 }

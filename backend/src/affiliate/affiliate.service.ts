@@ -11,7 +11,7 @@ export class AffiliateService {
     private readonly commissionService: CommissionService,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async register(registerDto: any) {
     // Đăng ký affiliate được xử lý khi user đăng ký với referral code
@@ -70,7 +70,15 @@ export class AffiliateService {
         referralUser: user.referralUser,
         parentId: user.parentId,
         position: user.position,
+        packageType: user.packageType,
+        totalPurchaseAmount: user.totalPurchaseAmount,
+        totalCommissionReceived: user.totalCommissionReceived,
+        totalReconsumptionAmount: user.totalReconsumptionAmount,
+        leftBranchTotal: user.leftBranchTotal,
+        rightBranchTotal: user.rightBranchTotal,
         ...stats,
+        pending: stats.pendingCommission,
+        paid: stats.totalCommission,
         createdAt: user.createdAt,
       };
     });

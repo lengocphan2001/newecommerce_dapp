@@ -390,7 +390,9 @@ export default function CheckoutPage() {
       const finalTotal = totalAmount + shippingFee;
 
       // Ensure we have a valid decimal string and valid decimals
-      const formattedTotal = finalTotal.toFixed(Math.min(decimals, 18));
+      // Ensure we have a valid decimal string and valid decimals.
+      // Fix: Round to 4 decimals to avoid floating point precision issues (e.g. 0.6000000000000001)
+      const formattedTotal = parseFloat(finalTotal.toFixed(4)).toString();
       const amount = parseUnits(formattedTotal, decimals);
 
       // Use a fallback address if env is missing to prevent sending to 0x0
@@ -489,8 +491,8 @@ export default function CheckoutPage() {
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 5,
-      maximumFractionDigits: 18,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
     }).format(price);
   };
 
