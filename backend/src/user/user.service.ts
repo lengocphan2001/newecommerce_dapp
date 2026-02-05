@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -239,7 +239,7 @@ export class UserService {
     const query = this.userRepository.createQueryBuilder('user')
       .select(['user.id', 'user.username', 'user.fullName', 'user.avatar', 'user.packageType', 'user.position', 'user.leftBranchTotal', 'user.rightBranchTotal', 'user.totalPurchaseAmount', 'user.createdAt'])
       .where('user.parentId = :parentId', { parentId });
-    
+
     if (position) {
       query.andWhere('user.position = :position', { position });
     }
@@ -250,7 +250,7 @@ export class UserService {
     for (const child of children) {
       const member = { ...child, depth: currentDepth };
       descendants.push(member);
-      
+
       const subDescendants = await this.getAllDescendants(child.id, undefined, currentDepth + 1);
       descendants = [...descendants, ...subDescendants];
     }
@@ -264,7 +264,7 @@ export class UserService {
   private async countAllDescendants(parentId: string, position?: 'left' | 'right'): Promise<number> {
     const query = this.userRepository.createQueryBuilder('user')
       .where('user.parentId = :parentId', { parentId });
-    
+
     if (position) {
       query.andWhere('user.position = :position', { position });
     }
@@ -297,11 +297,29 @@ export class UserService {
   }
 
   async update(id: string, updateUserDto: any) {
-    if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    try {
+      // Handle isActive -> status mapping (legacy/frontend compatibility)
+      if ('isActive' in updateUserDto) {
+        if (updateUserDto.isActive !== undefined && !updateUserDto.status) {
+          updateUserDto.status = updateUserDto.isActive ? 'ACTIVE' : 'INACTIVE';
+        }
+        delete updateUserDto.isActive;
+      }
+
+      if (updateUserDto.password) {
+        updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+      }
+      await this.userRepository.update(id, updateUserDto);
+      return this.findOne(id);
+    } catch (error) {
+      // Check for unique constraint violation (MySQL: ER_DUP_ENTRY, Postgres: 23505)
+      if (error.code === 'ER_DUP_ENTRY' || error.code === '23505') {
+        throw new ConflictException('Email or username already exists');
+      }
+      // Log the actual error for debugging
+      Logger.error(`Failed to update user ${id}`, error.stack, 'UserService');
+      throw new InternalServerErrorException('Failed to update user');
     }
-    await this.userRepository.update(id, updateUserDto);
-    return this.findOne(id);
   }
 
   async remove(id: string) {

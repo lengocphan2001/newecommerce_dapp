@@ -279,7 +279,7 @@ const AffiliatePage: React.FC = () => {
     {
       title: 'Action',
       key: 'action',
-      fixed: 'right',
+      fixed: 'right' as const,
       width: 100,
       render: (_: any, record: Affiliate) => (
         <Button
