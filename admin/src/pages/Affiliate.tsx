@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Space, Input, Button, message } from 'antd';
-import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Table, Tag, Space, Input, Button, message, Modal, Form, Select } from 'antd';
+import { SearchOutlined, ReloadOutlined, EditOutlined } from '@ant-design/icons';
 import { affiliateService, Affiliate } from '../services/affiliateService';
 
 const AffiliatePage: React.FC = () => {
@@ -12,6 +12,11 @@ const AffiliatePage: React.FC = () => {
   useEffect(() => {
     fetchAllAffiliates();
   }, []);
+
+  // Edit Modal State
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingUser, setEditingUser] = useState<Affiliate | null>(null);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     if (searchText.trim()) {
@@ -27,6 +32,40 @@ const AffiliatePage: React.FC = () => {
       setFilteredAffiliates(affiliates);
     }
   }, [searchText, affiliates]);
+
+  const handleEdit = (record: Affiliate) => {
+    setEditingUser(record);
+    form.setFieldsValue({
+      email: record.email,
+      fullName: record.fullName,
+      // phone: record.phone, // Phone might not be in Affiliate interface yet, skipping for now or need to add to interface
+      packageType: record.packageType,
+      isActive: true, // Placeholder
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      const values = await form.validateFields();
+      setLoading(true);
+      if (editingUser) {
+        await affiliateService.updateUser(editingUser.userId, values);
+        message.success('User updated successfully');
+        setIsModalVisible(false);
+        fetchAllAffiliates(); // Refresh list
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to update user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
+    setEditingUser(null);
+  };
 
   const fetchAllAffiliates = async () => {
     setLoading(true);
@@ -47,19 +86,19 @@ const AffiliatePage: React.FC = () => {
     if (amount === 0 || amount === null || amount === undefined || amount === '0') {
       return '0.00';
     }
-    
+
     // Convert to number first to handle floating-point precision issues
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    
+
     // Handle NaN
     if (isNaN(num)) {
       return '0.00';
     }
-    
+
     // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
     // This fixes floating-point precision issues like 0.020000000000000004
     let amountStr = num.toFixed(8);
-    
+
     // Remove trailing zeros but keep at least 2 decimal places
     amountStr = amountStr.replace(/\.?0+$/, '');
     if (!amountStr.includes('.')) {
@@ -70,11 +109,11 @@ const AffiliatePage: React.FC = () => {
         amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
       }
     }
-    
+
     // Split into integer and decimal parts for formatting
     const [integerPart, decimalPart] = amountStr.split('.');
     const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    
+
     return `${formattedInteger}.${decimalPart}`;
   };
 
@@ -237,6 +276,21 @@ const AffiliatePage: React.FC = () => {
       width: 180,
       render: (date: string) => date ? new Date(date).toLocaleString() : '-',
     },
+    {
+      title: 'Action',
+      key: 'action',
+      fixed: 'right',
+      width: 100,
+      render: (_: any, record: Affiliate) => (
+        <Button
+          icon={<EditOutlined />}
+          onClick={() => handleEdit(record)}
+          size="small"
+        >
+          Edit
+        </Button>
+      ),
+    },
   ];
 
   return (
@@ -263,6 +317,45 @@ const AffiliatePage: React.FC = () => {
         pagination={{ pageSize: 20 }}
         scroll={{ x: 'max-content' }}
       />
+
+      <Modal
+        title={`Edit User: ${editingUser?.username}`}
+        open={isModalVisible}
+        onOk={handleSave}
+        onCancel={handleCancel}
+        confirmLoading={loading}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="email" label="Email" rules={[{ type: 'email' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="fullName" label="Full Name">
+            <Input />
+          </Form.Item>
+          {/* Phone not in interface yet, but backend supports it. Uncomment if added to interface.
+          <Form.Item name="phone" label="Phone">
+            <Input />
+          </Form.Item>
+          */}
+          <Form.Item name="packageType" label="Package Type">
+            <Select>
+              <Select.Option value="NONE">NONE</Select.Option>
+              <Select.Option value="TV">TV (Thành Viên)</Select.Option>
+              <Select.Option value="CTV">CTV (Cộng Tác Viên)</Select.Option>
+              <Select.Option value="NPP">NPP (Nhà Phân Phối)</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="isActive" label="Active Status" valuePropName="checked">
+            <Select>
+              <Select.Option value={true}>Active</Select.Option>
+              <Select.Option value={false}>Inactive</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="password" label="New Password (Optional)">
+            <Input.Password placeholder="Leave empty to keep current" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

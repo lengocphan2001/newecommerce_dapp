@@ -28,5 +28,6 @@ export const affiliateService = {
   getAllStats: () => api.get('/affiliate/all-stats'),
   getStats: (userId: string) => api.get(`/affiliate/stats/${userId}`),
   getCommissions: (userId: string, params?: any) => api.get(`/affiliate/commissions/${userId}`, { params }),
+  updateUser: (userId: string, data: any) => api.put(`/users/${userId}`, data),
 };
 

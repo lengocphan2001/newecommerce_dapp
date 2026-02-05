@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsBoolean } from 'class-validator';
 
 export class UpdateUserDto {
   @IsEmail()
@@ -12,5 +12,16 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   phone?: string;
+
+  @IsString()
+  @IsOptional()
+  packageType?: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @IsOptional()
+  isActive?: boolean;
 }
 
