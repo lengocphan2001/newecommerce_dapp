@@ -10,7 +10,7 @@ export interface User {
 }
 
 export const userService = {
-  getAll: () => api.get('/users'),
+  getAll: (search?: string) => api.get('/users', { params: { search } }),
   getById: (id: string) => api.get(`/users/${id}`),
   create: (data: Partial<User>) => api.post('/users', data),
   update: (id: string, data: Partial<User>) => api.put(`/users/${id}`, data),

@@ -32,21 +32,27 @@ const Users: React.FC = () => {
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [userDetail, setUserDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (search?: string) => {
     setLoading(true);
     try {
-      const response = await userService.getAll();
+      const response = await userService.getAll(search);
       setUsers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch users');
     } finally {
       setLoading(false);
     }
+  };
+
+  const onSearch = (value: string) => {
+    setSearchText(value);
+    fetchUsers(value);
   };
 
   const handleCreate = () => {
@@ -189,11 +195,21 @@ const Users: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h1>Users Management</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Add User
-        </Button>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+        <Title level={2}>Users Management</Title>
+        <Space>
+          <Input.Search
+            placeholder="Search by email, name or username"
+            onSearch={onSearch}
+            onChange={(e) => setSearchText(e.target.value)}
+            value={searchText}
+            style={{ width: 300 }}
+            allowClear
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            Add User
+          </Button>
+        </Space>
       </div>
       <Table
         columns={columns}
@@ -381,10 +397,10 @@ const Users: React.FC = () => {
                 pagination={{ pageSize: 10 }}
                 columns={[
                   { title: 'Type', dataIndex: 'type', key: 'type' },
-                  { 
-                    title: 'Amount', 
-                    dataIndex: 'amount', 
-                    key: 'amount', 
+                  {
+                    title: 'Amount',
+                    dataIndex: 'amount',
+                    key: 'amount',
                     render: (amount: any) => {
                       if (amount === 0 || amount === null || amount === undefined) return '$0.00';
                       const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -412,10 +428,10 @@ const Users: React.FC = () => {
                 pagination={{ pageSize: 10 }}
                 columns={[
                   { title: 'Order ID', dataIndex: 'id', key: 'id' },
-                  { 
-                    title: 'Total Amount', 
-                    dataIndex: 'totalAmount', 
-                    key: 'totalAmount', 
+                  {
+                    title: 'Total Amount',
+                    dataIndex: 'totalAmount',
+                    key: 'totalAmount',
                     render: (amount: number) => {
                       if (amount === 0 || amount === null || amount === undefined) return '$0.00 USDT';
                       if (isNaN(amount)) return '$0.00 USDT';
@@ -485,7 +501,7 @@ const Users: React.FC = () => {
           </Tabs>
         )}
       </Modal>
-    </div>
+    </div >
   );
 };
 
