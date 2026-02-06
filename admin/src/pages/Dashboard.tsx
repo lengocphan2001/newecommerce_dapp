@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, message, Button, Modal, Input, Space } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, message, Button, Modal, Input, Space, Typography } from 'antd';
 import { ethers } from 'ethers';
+
+const { Title, Text } = Typography;
 import {
   UserOutlined,
   ShoppingOutlined,
@@ -11,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
 import type { ColumnsType } from 'antd/es/table';
+import { useAuth } from '../contexts/AuthContext';
 
 declare global {
   interface Window {
@@ -35,6 +38,7 @@ interface RecentOrder {
 }
 
 const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -49,6 +53,10 @@ const Dashboard: React.FC = () => {
   const [isAddFundsModalOpen, setIsAddFundsModalOpen] = useState(false);
   const [addFundAmount, setAddFundAmount] = useState('');
   const [addFundLoading, setAddFundLoading] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawAddress, setWithdrawAddress] = useState('');
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -80,35 +88,39 @@ const Dashboard: React.FC = () => {
     // Try to get wallet from env, fallback to hardcoded
     const paymentWallet = process.env.REACT_APP_PAYMENT_WALLET || process.env.NEXT_PUBLIC_PAYMENT_WALLET || '0x65c03707C17EA9F7Dc1C1Eb2c0C12D3AfC3e7fe1';
 
-    // Prevent withdrawing dust
-    if (contractBalance < 0.0001) {
-      message.warning('Balance is too low to withdraw');
+    setWithdrawAddress(paymentWallet);
+    setWithdrawAmount(contractBalance.toFixed(18));
+    setIsWithdrawModalOpen(true);
+  };
+
+  const handleConfirmWithdrawal = async () => {
+    if (!withdrawAddress || !ethers.isAddress(withdrawAddress)) {
+      message.error('Please enter a valid wallet address');
       return;
     }
 
-    // Format amount to decimal string (avoid scientific notation)
-    const formattedAmount = contractBalance.toFixed(18);
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      message.error('Please enter a valid amount');
+      return;
+    }
 
-    Modal.confirm({
-      title: 'Withdraw from Contract',
-      content: (
-        <div>
-          <p>Are you sure you want to withdraw all funds?</p>
-          <p><strong>Balance:</strong> {contractBalance < 0.0001 ? '0.0000' : contractBalance.toFixed(4)} USDT</p>
-          <p><strong>To Wallet:</strong> {paymentWallet}</p>
-        </div>
-      ),
-      onOk: async () => {
-        try {
-          await adminService.withdrawFromContract(paymentWallet, formattedAmount);
-          message.success('Withdrawal initiated successfully');
-          fetchDashboardData();
-        } catch (error: any) {
-          console.error(error);
-          message.error(error.response?.data?.message || 'Withdrawal failed');
-        }
-      },
-    });
+    if (parseFloat(withdrawAmount) > contractBalance) {
+      message.error('Amount exceeds contract balance');
+      return;
+    }
+
+    setWithdrawLoading(true);
+    try {
+      await adminService.withdrawFromContract(withdrawAddress, withdrawAmount);
+      message.success('Withdrawal initiated successfully');
+      setIsWithdrawModalOpen(false);
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error(error);
+      message.error(error.response?.data?.message || 'Withdrawal failed');
+    } finally {
+      setWithdrawLoading(false);
+    }
   };
 
   const handleAddFunds = async () => {
@@ -266,23 +278,27 @@ const Dashboard: React.FC = () => {
               loading={loading}
               suffix="USDT"
             />
-            <Button
-              type="primary"
-              size="small"
-              style={{ marginTop: 8 }}
-              onClick={handleWithdraw}
-              disabled={contractBalance < 0.0001}
-            >
-              Withdraw
-            </Button>
-            <Button
-              size="small"
-              style={{ marginTop: 8, marginLeft: 8 }}
-              onClick={() => setIsAddFundsModalOpen(true)}
-              icon={<WalletOutlined />}
-            >
-              Add Fund
-            </Button>
+            {user?.isSuperAdmin && (
+              <>
+                <Button
+                  type="primary"
+                  size="small"
+                  style={{ marginTop: 8 }}
+                  onClick={handleWithdraw}
+                  disabled={contractBalance < 0.0001}
+                >
+                  Withdraw
+                </Button>
+                <Button
+                  size="small"
+                  style={{ marginTop: 8, marginLeft: 8 }}
+                  onClick={() => setIsAddFundsModalOpen(true)}
+                  icon={<WalletOutlined />}
+                >
+                  Add Fund
+                </Button>
+              </>
+            )}
           </Card>
         </Col>
       </Row>
@@ -350,6 +366,68 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setAddFundAmount(e.target.value)}
             type="number"
           />
+        </div>
+      </Modal>
+
+      <Modal
+        title="Withdraw from Contract"
+        open={isWithdrawModalOpen}
+        onCancel={() => setIsWithdrawModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsWithdrawModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger
+            loading={withdrawLoading}
+            onClick={handleConfirmWithdrawal}
+          >
+            Confirm Withdrawal
+          </Button>,
+        ]}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Contract Balance:</Text>
+          <div style={{ fontSize: '18px', color: '#1890ff', fontWeight: 'bold' }}>
+            {contractBalance.toFixed(4)} USDT
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Target Wallet Address:</Text>
+          <Input
+            placeholder="0x..."
+            value={withdrawAddress}
+            onChange={(e) => setWithdrawAddress(e.target.value)}
+            style={{ marginTop: 8 }}
+          />
+        </div>
+
+        <div>
+          <Text strong>Amount to Withdraw:</Text>
+          <div style={{ position: 'relative', marginTop: 8 }}>
+            <Input
+              placeholder="0.00"
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)}
+              type="number"
+              suffix="USDT"
+            />
+            <Button
+              size="small"
+              type="link"
+              onClick={() => setWithdrawAmount(contractBalance.toString())}
+              style={{ position: 'absolute', right: 60, top: 4, zIndex: 1 }}
+            >
+              Max
+            </Button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, color: '#ff4d4f', fontSize: '12px' }}>
+          ⚠️ Warning: This will execute a real blockchain transaction from the backend.
         </div>
       </Modal>
     </div>

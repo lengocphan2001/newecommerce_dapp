@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuditLogEntityType, AuditLogAction } from '../audit-log/entities/audit-log.entity';
+import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 
 @Controller('admin/commission-payout')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -120,6 +121,7 @@ export class CommissionPayoutController {
    * Withdraw funds from contract to specific wallet
    */
   @Post('withdraw')
+  @UseGuards(SuperAdminGuard)
   @HttpCode(HttpStatus.OK)
   async withdrawToWallet(
     @Body() body: { recipient: string; amount: string },
