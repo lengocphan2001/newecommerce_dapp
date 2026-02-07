@@ -21,9 +21,18 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "BinanMall",
-  description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
-  keywords: ["BinanMall", "BinanMall DApp", "Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu", "BinanMall", "Web3", "Blockchain", "Decentralized"],
+  title: "BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+  description:
+    "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
+  keywords: [
+    "BinanMall",
+    "BinanMall DApp",
+    "Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    "BinanMall",
+    "Web3",
+    "Blockchain",
+    "Decentralized",
+  ],
   authors: [{ name: "BinanMall" }],
   creator: "BinanMall",
   publisher: "BinanMall",
@@ -32,13 +41,16 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"), // Assuming URL change for consistency in metadata even if route is same
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"
+  ),
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "BinanMall",
-    description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
+    title: "BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    description:
+      "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
     url: "/",
     siteName: "BinanMall",
     images: [
@@ -54,8 +66,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "BinanMall",
-    description: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
+    title: "BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    description:
+      "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
     images: ["/images/14446125.png"],
   },
   robots: {
@@ -75,7 +88,16 @@ export const metadata: Metadata = {
       { url: "/icon.png", type: "image/png" },
     ],
     shortcut: "/images/14446125.png",
-    apple: "/images/14446125.png",
+    apple: [
+      { url: "/images/14446125.png", sizes: "180x180" },
+      { url: "/images/14446125.png" },
+    ],
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "BinanMall",
   },
 };
 
@@ -84,6 +106,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#F0B90B",
 };
 
 export default function RootLayout({
@@ -98,32 +121,6 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"
         />
-        {/* Explicit Open Graph Meta Tags */}
-        <meta property="og:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
-        <meta property="og:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay." />
-        <meta property="og:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/14446125.png`} />
-        <meta property="og:url" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/`} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="BinanMall" />
-        <meta property="og:locale" content="vi_VN" />
-        {/* Twitter Card Meta Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu" />
-        <meta name="twitter:description" content="Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung" />
-        <meta name="twitter:image" content={`${process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"}/images/14446125.png`} />
-        {/* Favicon and App Icons - Must be first to override defaults */}
-        <link rel="icon" href="/images/14446125.png" type="image/png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/images/14446125.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/images/14446125.png" />
-        <link rel="icon" href="/images/14446125.png" type="image/png" sizes="any" />
-        <link rel="shortcut icon" href="/images/14446125.png" type="image/png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/images/14446125.png" />
-        <link rel="apple-touch-icon" href="/images/14446125.png" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#F0B90B" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="BinanMall" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${workSans.variable} antialiased font-display`}
