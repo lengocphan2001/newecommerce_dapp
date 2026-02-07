@@ -38,6 +38,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MailModule } from './mail/mail.module';
 import { PackagesModule } from './packages/packages.module';
 import { Package } from './packages/entities/package.entity';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { Package } from './packages/entities/package.entity';
     PermissionModule,
     NotificationsModule,
     PackagesModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

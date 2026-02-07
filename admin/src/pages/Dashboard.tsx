@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, Table, Tag, message, Button, Modal, Input, Space, Typography } from 'antd';
 import { ethers } from 'ethers';
 
-const { Title, Text } = Typography;
 import {
   UserOutlined,
   ShoppingOutlined,
@@ -14,6 +13,8 @@ import {
 import { adminService } from '../services/adminService';
 import type { ColumnsType } from 'antd/es/table';
 import { useAuth } from '../contexts/AuthContext';
+
+const { Title, Text } = Typography;
 
 declare global {
   interface Window {

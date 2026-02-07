@@ -8,5 +8,12 @@ export const adminService = {
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
   getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
   withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
+
+  // Analytics
+  getAnalyticsOverview: () => api.get('/analytics/overview'),
+  getRevenueChart: (days?: number) => api.get('/analytics/revenue-chart', { params: { days } }),
+  getOrderChart: (days?: number) => api.get('/analytics/order-chart', { params: { days } }),
+  getUserGrowth: (days?: number) => api.get('/analytics/user-growth', { params: { days } }),
+  getTopProducts: (limit?: number) => api.get('/analytics/top-products', { params: { limit } }),
 };
 

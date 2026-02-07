@@ -15,6 +15,7 @@ import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
 import CommissionPayout from './pages/CommissionPayout';
+import Analytics from './pages/Analytics';
 
 import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
@@ -174,6 +175,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <CommissionPayout />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <Analytics />
                   </AdminLayout>
                 </PrivateRoute>
               }

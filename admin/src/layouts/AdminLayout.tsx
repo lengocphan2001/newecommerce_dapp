@@ -20,6 +20,7 @@ import {
   UsergroupAddOutlined,
   SafetyCertificateOutlined,
   GiftOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -43,6 +44,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <DashboardOutlined />,
       label: 'Dashboard',
       permission: null, // Dashboard is always accessible
+    },
+    {
+      key: '/analytics',
+      icon: <RiseOutlined />,
+      label: 'Analytics',
+      permission: null, // Analytics is accessible to admins (or add permission if needed)
     },
     {
       key: '/users',
