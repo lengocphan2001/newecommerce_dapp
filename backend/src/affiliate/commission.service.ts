@@ -227,8 +227,9 @@ export class CommissionService {
       return; // Người giới thiệu chưa có gói hợp lệ
     }
 
-    const commissionAmount = order.totalAmount * config.directCommissionRate;
     const canReceiveCommission = await this.checkReconsumption(referrer, config);
+    const rawCommissionAmount = order.totalAmount * config.directCommissionRate;
+    const commissionAmount = this.roundToFirstSignificantDigit(rawCommissionAmount);
 
     this.logger.log(`Creating direct commission: referrer ${referrer.id}, buyer ${buyer.id}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`);
 
@@ -355,7 +356,8 @@ export class CommissionService {
     config: Package
   ): Promise<void> {
 
-    const commissionAmount = order.totalAmount * config.groupCommissionRate;
+    const rawCommissionAmount = order.totalAmount * config.groupCommissionRate;
+    const commissionAmount = this.roundToFirstSignificantDigit(rawCommissionAmount);
 
     this.logger.log(`Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`);
 
@@ -549,7 +551,8 @@ export class CommissionService {
     config: Package
   ): Promise<Commission> {
 
-    const commissionAmount = groupCommissionAmount * rate;
+    const rawCommissionAmount = groupCommissionAmount * rate;
+    const commissionAmount = this.roundToFirstSignificantDigit(rawCommissionAmount);
 
     const commission = this.commissionRepository.create({
       userId: manager.id,
@@ -617,6 +620,39 @@ export class CommissionService {
     // Đã đạt ngưỡng -> BLOCKED (Strict enforcement)
     // Người dùng phải mua gói mới để updateUserPackage kích hoạt logic reset totalCommissionReceived
     return false;
+  }
+
+  /**
+   * Helper function: Round down to the first significant digit.
+   * Example: 0.2456 -> 0.2, 0.00002323 -> 0.00002
+   */
+  private roundToFirstSignificantDigit(num: number): number {
+    if (num === 0) return 0;
+
+    // Handle negative numbers if necessary, though commissions should be positive
+    const sign = num < 0 ? -1 : 1;
+    num = Math.abs(num);
+
+    // Get the magnitude (power of 10) of the first significant digit
+    // e.g., 0.2456 -> log10(0.2456) ~ -0.6 -> floor(-0.6) = -1. Magnitude is 10^-1 = 0.1
+    // e.g., 0.000023 -> log10(0.000023) ~ -4.6 -> floor(-4.6) = -5. Magnitude is 10^-5 = 0.00001
+    const magnitude = Math.floor(Math.log10(num));
+    const factor = Math.pow(10, magnitude);
+
+    // Scale down to 1.x, floor it to get 1, then scale back up
+    // Actually, we want to keep one digit.
+    // 0.2456 -> magnitude -1. factor 0.1.
+    // num / factor = 2.456 -> floor -> 2.
+    // 2 * factor = 0.2
+
+    // Let's test 23.45 -> log10(23.45) ~ 1.37 -> floor 1. factor 10.
+    // 23.45 / 10 = 2.345 -> floor -> 2. result 20. 
+    // Wait, typical scientific notation rounding usually keeps more precision for larger numbers?
+    // User examples: 0.2456 -> 0.2, 0.00002323 -> 0.00002.
+    // It seems consistent: Keep only the first non-zero digit.
+
+    const firstDigit = Math.floor(num / factor);
+    return sign * firstDigit * factor;
   }
 
   // --- Helper methods for Tree Traversasl (unchanged logic, just ensuring availability) ---

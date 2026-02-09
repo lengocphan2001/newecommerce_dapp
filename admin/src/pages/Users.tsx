@@ -199,7 +199,7 @@ const Users: React.FC = () => {
         <Title level={2}>Users Management</Title>
         <Space>
           <Input.Search
-            placeholder="Search by email, name or username"
+            placeholder="Search by email, name, username, ID or address"
             onSearch={onSearch}
             onChange={(e) => setSearchText(e.target.value)}
             value={searchText}

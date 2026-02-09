@@ -39,6 +39,8 @@ export class UserService {
           { email: ILike(`%${search}%`) },
           { fullName: ILike(`%${search}%`) },
           { username: ILike(`%${search}%`) },
+          { id: ILike(`%${search}%`) },
+          { walletAddress: ILike(`%${search}%`) },
         ],
         select: ['id', 'email', 'fullName', 'phone', 'status', 'isAdmin', 'createdAt'],
       });

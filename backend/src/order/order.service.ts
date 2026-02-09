@@ -38,10 +38,25 @@ export class OrderService {
       where.status = query.status;
     }
 
-    return this.orderRepository.find({
-      where,
-      order: { createdAt: 'DESC' },
-    });
+    const queryBuilder = this.orderRepository.createQueryBuilder('order')
+      .leftJoinAndSelect('order.user', 'user')
+      .select([
+        'order',
+        'user.id',
+        'user.username',
+        'user.fullName',
+        'user.email',
+      ])
+      .orderBy('order.createdAt', 'DESC');
+
+    if (query.userId) {
+      queryBuilder.andWhere('order.userId = :userId', { userId: query.userId });
+    }
+    if (query.status) {
+      queryBuilder.andWhere('order.status = :status', { status: query.status });
+    }
+
+    return queryBuilder.getMany();
   }
 
   async findOne(id: string) {
@@ -110,15 +125,6 @@ export class OrderService {
     // Otherwise (COD/Banking pending), set to PENDING.
     const initialStatus = createOrderDto.transactionHash ? OrderStatus.CONFIRMED : OrderStatus.PENDING;
 
-    // If auto-confirming, check/deduct stock immediately
-    if (initialStatus === OrderStatus.CONFIRMED) {
-      for (const item of items) {
-        // Optimistic stock check was done above, but we can double check or just save.
-        // We will deduct stock after saving the order to ensure atomicity or just do it here.
-        // Let's deduct here for simplicity, or better: do it after save to keep flow similar to updateStatus.
-      }
-    }
-
     const order = this.orderRepository.create({
       userId,
       items,
@@ -141,64 +147,94 @@ export class OrderService {
 
     // If Auto-Confirmed (Crypto), perform post-processing (Stock deduction, Commission, Payout)
     if (initialStatus === OrderStatus.CONFIRMED) {
-      // 1. Deduct Stock
-      for (const item of items) {
-        const product = await this.productRepository.findOne({ where: { id: item.productId } });
-        if (product) {
-          await this.productRepository.update(product.id, {
-            stock: product.stock - item.quantity,
-          });
-        }
-      }
-
-      // 2. Check Reconsumption & Update User Totals
-      if (userId) { // Should always be true
-        const user = await this.userRepository.findOne({ where: { id: userId } });
-        if (user) {
-          const isReconsumption = await this.checkIfReconsumption(user, finalTotal);
-
-          // Update Order flag
-          if (isReconsumption) {
-            await this.orderRepository.update(savedOrder.id, { isReconsumption: true });
-          }
-
-          // Update User Total Purchase & Reconsumption
-          // Note: totalPurchaseAmount is updated by CommissionService.updateUserPackage, so we don't update it here to avoid double-counting.
-          // We ONLY update totalReconsumptionAmount if applicable.
-
-          if (isReconsumption) {
-            await this.userRepository.update(userId, {
-              totalReconsumptionAmount: Number(user.totalReconsumptionAmount) + Number(finalTotal)
-            });
-          }
-        }
-      }
-
-      // 3. Trigger Commission Calculation & Payout
-      this.commissionService
-        .calculateCommissions(savedOrder.id)
-        .then(async () => {
-          // Wait for DB commit
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          // Payout
-          const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
-
-          // Check Milestones
-          const user = await this.userRepository.findOne({ where: { id: userId } });
-          if (user && user.referralUserId) {
-            this.milestoneRewardService.checkAndProcessMilestones(user.referralUserId)
-              .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
-          }
-
-          console.log(`[AUTO-CONFIRM] Processed commissions for order ${savedOrder.id}`);
-        })
-        .catch(err => {
-          console.error(`[AUTO-CONFIRM] Error processing commissions for order ${savedOrder.id}:`, err);
-        });
+      await this.approveOrder(savedOrder);
     }
 
     return savedOrder;
+  }
+
+  async confirmPayment(id: string, transactionHash: string, userId: string) {
+    const order = await this.findOne(id);
+
+    if (order.userId !== userId) {
+      throw new Error('Unauthorized');
+    }
+
+    if (order.status !== OrderStatus.PENDING) {
+      throw new Error('Order is not pending');
+    }
+
+    if (order.transactionHash) {
+      throw new Error('Order already has a transaction hash');
+    }
+
+    order.transactionHash = transactionHash;
+    order.status = OrderStatus.CONFIRMED;
+
+    const savedOrder = await this.orderRepository.save(order);
+
+    // Process post-confirmation logic (stock, commissions, etc.)
+    await this.approveOrder(savedOrder);
+
+    return savedOrder;
+  }
+
+  /**
+   * Encapsulate order approval logic (Stock deduction, Commission, Payout, etc.)
+   */
+  private async approveOrder(order: Order) {
+    // 1. Deduct Stock
+    for (const item of order.items) {
+      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      if (product) {
+        await this.productRepository.update(product.id, {
+          stock: product.stock - item.quantity,
+        });
+      }
+    }
+
+    // 2. Check Reconsumption & Update User Totals
+    if (order.userId) {
+      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      if (user) {
+        const isReconsumption = await this.checkIfReconsumption(user, order.totalAmount);
+
+        // Update Order flag
+        if (isReconsumption) {
+          await this.orderRepository.update(order.id, { isReconsumption: true });
+        }
+
+        // Update User Total Purchase & Reconsumption
+        if (isReconsumption) {
+          await this.userRepository.update(order.userId, {
+            totalReconsumptionAmount: Number(user.totalReconsumptionAmount) + Number(order.totalAmount)
+          });
+        }
+      }
+    }
+
+    // 3. Trigger Commission Calculation & Payout
+    this.commissionService
+      .calculateCommissions(order.id)
+      .then(async () => {
+        // Wait for DB commit
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Payout
+        const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(order.id);
+
+        // Check Milestones
+        const user = await this.userRepository.findOne({ where: { id: order.userId } });
+        if (user && user.referralUserId) {
+          this.milestoneRewardService.checkAndProcessMilestones(user.referralUserId)
+            .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
+        }
+
+        console.log(`[AUTO-CONFIRM] Processed commissions for order ${order.id}`);
+      })
+      .catch(err => {
+        console.error(`[AUTO-CONFIRM] Error processing commissions for order ${order.id}:`, err);
+      });
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto) {
@@ -221,65 +257,15 @@ export class OrderService {
         }
       }
 
-      // Trừ stock khi duyệt đơn hàng
-      for (const item of order.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId },
-        });
-        if (product) {
-          await this.productRepository.update(product.id, {
-            stock: product.stock - item.quantity,
-          });
-        }
-      }
-
-      // Kiểm tra xem đây có phải đơn hàng tái tiêu dùng không
-      const user = await this.userRepository.findOne({ where: { id: order.userId } });
-      const isReconsumption = await this.checkIfReconsumption(user, order.totalAmount);
-
       order.status = newStatus;
-      order.isReconsumption = isReconsumption;
-
       const savedOrder = await this.orderRepository.save(order);
 
+      // Execute approval logic
+      await this.approveOrder(savedOrder);
+
       // Sync to Google Sheets
+      const user = await this.userRepository.findOne({ where: { id: order.userId } });
       this.googleSheetsService.syncOrder(savedOrder, user || undefined);
-
-      // Cập nhật tổng tái tiêu dùng nếu là đơn hàng tái tiêu dùng
-      if (isReconsumption && user) {
-        await this.userRepository.update(order.userId, {
-          totalReconsumptionAmount:
-            user.totalReconsumptionAmount + order.totalAmount,
-        });
-      }
-
-      // Tính toán hoa hồng tự động và payout ngay lập tức (chạy async để không block response)
-      this.commissionService
-        .calculateCommissions(savedOrder.id)
-        .then(async () => {
-          // Đợi một chút để đảm bảo tất cả commissions đã được commit vào DB
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          // Sau khi tính commission xong, payout ngay lập tức
-          const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(savedOrder.id);
-
-          // Check milestone rewards for the referrer
-          if (user && user.referralUserId) {
-            this.milestoneRewardService.checkAndProcessMilestones(user.referralUserId)
-              .catch(err => console.error('[ORDER APPROVAL] Error processing milestones:', err));
-          }
-
-          if (payoutResult) {
-            console.log(`[ORDER APPROVAL] Payout successful for order ${savedOrder.id}: ${payoutResult.count} commissions paid`);
-          } else {
-            console.warn(`[ORDER APPROVAL] Payout returned null for order ${savedOrder.id} - check logs for details`);
-          }
-          return payoutResult;
-        })
-        .catch((error) => {
-          // Log error nhưng không block order approval
-          console.error(`[ORDER APPROVAL] Error calculating commissions or payout for order ${savedOrder.id}:`, error);
-          console.error('Error stack:', error.stack);
-        });
 
       return savedOrder;
     }

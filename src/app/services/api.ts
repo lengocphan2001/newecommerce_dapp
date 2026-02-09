@@ -206,6 +206,26 @@ export const api = {
     return response.json();
   },
 
+  async confirmPayment(orderId: string, transactionHash: string) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/confirm-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ transactionHash }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to confirm payment');
+    }
+    return response.json();
+  },
+
   async getOrders(userId?: string) {
     const token = localStorage.getItem('token');
     if (!token) {

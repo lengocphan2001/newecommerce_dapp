@@ -55,11 +55,12 @@ const Orders: React.FC = () => {
       ellipsis: true,
     },
     {
-      title: 'User ID',
-      dataIndex: 'userId',
-      key: 'userId',
-      width: 100,
+      title: 'User',
+      dataIndex: 'user',
+      key: 'user',
+      width: 150,
       ellipsis: true,
+      render: (user: any, record: Order) => user?.username || user?.email || record.userId,
     },
     {
       title: 'Items',

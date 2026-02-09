@@ -5,8 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Commission } from '../../affiliate/entities/commission.entity';
+import { User } from '../../user/entities/user.entity';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -83,4 +86,8 @@ export class Order {
 
   @OneToMany(() => Commission, (commission) => commission.order)
   commissions: Commission[];
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'userId' })
+  user: User;
 }

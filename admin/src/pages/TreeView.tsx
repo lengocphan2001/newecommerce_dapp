@@ -43,10 +43,10 @@ interface CustomNodeData extends Record<string, unknown> {
 
 const CustomNode = ({ data }: { data: CustomNodeData }) => {
   const { node } = data;
-  const borderColor = 
-    node.position === 'left' ? '#1890ff' : 
-    node.position === 'right' ? '#52c41a' : 
-    '#722ed1';
+  const borderColor =
+    node.position === 'left' ? '#1890ff' :
+      node.position === 'right' ? '#52c41a' :
+        '#722ed1';
 
   const getPackageColor = (packageType: 'NONE' | 'CTV' | 'NPP') => {
     switch (packageType) {
@@ -148,9 +148,9 @@ const TreeView: React.FC = () => {
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [maxDepth, setMaxDepth] = useState<number>(5);
-  const [allUsers, setAllUsers] = useState<Array<{ id: string; username: string; fullName: string }>>([]);
+  const [allUsers, setAllUsers] = useState<Array<{ id: string; username: string; fullName: string; email: string }>>([]);
   const reactFlowContainerRef = React.useRef<HTMLDivElement>(null);
-  
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -162,7 +162,12 @@ const TreeView: React.FC = () => {
     try {
       const response = await userService.getAll();
       const users = Array.isArray(response.data) ? response.data : [];
-      setAllUsers(users.map((u: any) => ({ id: u.id, username: u.username, fullName: u.fullName || u.email })));
+      setAllUsers(users.map((u: any) => ({
+        id: u.id,
+        username: u.username,
+        fullName: u.fullName || u.email,
+        email: u.email
+      })));
     } catch (error) {
       console.error('Failed to fetch users:', error);
     }
@@ -229,7 +234,7 @@ const TreeView: React.FC = () => {
       parentId?: string
     ): void => {
       const nodeId = node.id;
-      
+
       // Create node
       nodes.push({
         id: nodeId,
@@ -265,11 +270,11 @@ const TreeView: React.FC = () => {
           // Both children: calculate positions based on subtree widths
           const leftWidth = getSubtreeWidth(leftChild);
           const rightWidth = getSubtreeWidth(rightChild);
-          
+
           // Center the parent above children
           const totalWidth = leftWidth + rightWidth + horizontalSpacing;
           const startX = posX - totalWidth / 2 + leftWidth / 2;
-          
+
           leftX = startX - leftWidth / 2;
           rightX = startX + leftWidth + horizontalSpacing + rightWidth / 2;
         } else if (leftChild) {
@@ -361,16 +366,24 @@ const TreeView: React.FC = () => {
           <Space wrap>
             <Select
               showSearch
-              placeholder="Select root user"
-              style={{ width: 300 }}
+              placeholder="Select root user by Name, Email or ID"
+              style={{ width: 400 }}
               value={rootUserId}
               onChange={setRootUserId}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={(input, option) => {
+                const text = input.toLowerCase();
+                const label = (option?.label ?? '').toString().toLowerCase();
+                const value = (option?.value ?? '').toString().toLowerCase();
+                const email = (option as any)?.email?.toLowerCase() ?? '';
+                const username = (option as any)?.username?.toLowerCase() ?? '';
+
+                return label.includes(text) || value.includes(text) || email.includes(text) || username.includes(text);
+              }}
               options={allUsers.map((user) => ({
                 value: user.id,
-                label: `${user.fullName || user.username} (${user.username || 'N/A'})`,
+                label: `${user.fullName || user.username} (${user.email})`,
+                email: user.email,
+                username: user.username,
               }))}
             />
             <Select
@@ -383,6 +396,14 @@ const TreeView: React.FC = () => {
                 { value: 5, label: 'Depth: 5' },
                 { value: 6, label: 'Depth: 6' },
                 { value: 7, label: 'Depth: 7' },
+                { value: 8, label: 'Depth: 8' },
+                { value: 9, label: 'Depth: 9' },
+                { value: 10, label: 'Depth: 10' },
+                { value: 11, label: 'Depth: 11' },
+                { value: 12, label: 'Depth: 12' },
+                { value: 13, label: 'Depth: 13' },
+                { value: 14, label: 'Depth: 14' },
+                { value: 15, label: 'Depth: 15' },
               ]}
             />
             <Button type="primary" icon={<SearchOutlined />} onClick={fetchTree} loading={loading}>
@@ -401,11 +422,11 @@ const TreeView: React.FC = () => {
       {!loading && (
         <Card bodyStyle={{ padding: 0 }}>
           <ReactFlowProvider>
-            <div 
+            <div
               ref={reactFlowContainerRef}
-              style={{ 
-                width: '100%', 
-                height: '75vh', 
+              style={{
+                width: '100%',
+                height: '75vh',
                 minHeight: '600px',
                 position: 'relative'
               }}
@@ -421,29 +442,29 @@ const TreeView: React.FC = () => {
                 onInit={onInit}
                 attributionPosition="bottom-left"
               >
-              <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-              <Controls />
-              <MiniMap
-                nodeColor={(node) => {
-                  const data = (node.data as CustomNodeData)?.node;
-                  if (data && 'position' in data) {
-                    if (data.position === 'left') return '#1890ff';
-                    if (data.position === 'right') return '#52c41a';
-                  }
-                  return '#722ed1';
-                }}
-                maskColor="rgba(0, 0, 0, 0.1)"
-              />
-              <Panel position="top-right">
-                <Space direction="vertical" size="small">
-                  <div style={{ background: 'white', padding: '8px', borderRadius: '4px', fontSize: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                    <div><strong>Controls:</strong></div>
-                    <div>• Drag to pan</div>
-                    <div>• Scroll to zoom</div>
-                    <div>• Drag nodes to reposition</div>
-                  </div>
-                </Space>
-              </Panel>
+                <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+                <Controls />
+                <MiniMap
+                  nodeColor={(node) => {
+                    const data = (node.data as CustomNodeData)?.node;
+                    if (data && 'position' in data) {
+                      if (data.position === 'left') return '#1890ff';
+                      if (data.position === 'right') return '#52c41a';
+                    }
+                    return '#722ed1';
+                  }}
+                  maskColor="rgba(0, 0, 0, 0.1)"
+                />
+                <Panel position="top-right">
+                  <Space direction="vertical" size="small">
+                    <div style={{ background: 'white', padding: '8px', borderRadius: '4px', fontSize: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                      <div><strong>Controls:</strong></div>
+                      <div>• Drag to pan</div>
+                      <div>• Scroll to zoom</div>
+                      <div>• Drag nodes to reposition</div>
+                    </div>
+                  </Space>
+                </Panel>
               </ReactFlow>
             </div>
           </ReactFlowProvider>

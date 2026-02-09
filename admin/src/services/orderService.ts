@@ -11,6 +11,11 @@ export interface Order {
   isReconsumption?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  user?: {
+    username: string;
+    email: string;
+    fullName: string;
+  };
 }
 
 export interface OrderItem {

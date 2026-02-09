@@ -402,13 +402,35 @@ export default function CheckoutPage() {
         throw new Error("Cửa hàng chưa thiết lập ví nhận thanh toán (NEXT_PUBLIC_PAYMENT_WALLET)");
       }
 
-      // 1. Send Transaction
+      // 1. Create Order (PENDING)
+      const orderStartTime = Date.now();
+      setProcessingStep("creating_order");
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Vui lòng đăng nhập");
+      }
+
+      // Create order WITHOUT transaction hash first
+      const orderData = await api.createOrder(
+        items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          properties: item.properties,
+        })),
+        undefined, // No transaction hash yet
+        shippingAddress
+      );
+
+      console.log("Order created pending:", orderData.id);
+
+      // 2. Send Transaction
       // Use standard contract method with explicit gas limit
       const transferTx = await usdtContract.transfer(recipientAddress, amount, { gasLimit: 150000 });
       const transactionHash = transferTx.hash;
       const txStartTime = Date.now();
 
-      // 2. Wait for confirmation
+      // 3. Wait for confirmation
       setProcessingStep("processing");
 
       // Artificial delay to ensure user sees the processing state
@@ -446,28 +468,14 @@ export default function CheckoutPage() {
         throw new Error("Giao dịch thất bại trên blockchain");
       }
 
+      // 4. Confirm Payment for the Order
+      setProcessingStep("creating_order"); // Reuse this step or add a new one like "confirming_payment"
 
-      // 3. Create Order
-      const orderStartTime = Date.now();
-      setProcessingStep("creating_order");
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Vui lòng đăng nhập");
-      }
-      const orderData = await api.createOrder(
-        items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          properties: item.properties,
-        })),
-        transactionHash,
-        shippingAddress
-      );
+      await api.confirmPayment(orderData.id, transactionHash);
 
       const orderDuration = Date.now() - orderStartTime;
 
-      // 4. Success
+      // 5. Success
       setProcessingStep("success");
       clearCart();
 

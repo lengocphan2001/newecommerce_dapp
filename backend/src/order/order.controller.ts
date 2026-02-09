@@ -9,7 +9,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly notificationsGateway: NotificationsGateway,
-  ) {}
+  ) { }
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -37,10 +37,10 @@ export class OrderController {
   async create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     const userId = req.user.userId || req.user.sub;
     const order = await this.orderService.create(createOrderDto, userId);
-    
+
     // Notify all connected staff about new order
     this.notificationsGateway.notifyNewOrder(order);
-    
+
     return order;
   }
 
@@ -57,6 +57,19 @@ export class OrderController {
   @Post(':id/cancel')
   async cancelOrder(@Param('id') id: string) {
     return this.orderService.cancelOrder(id);
+  }
+  @Post(':id/confirm-payment')
+  @UseGuards(JwtAuthGuard)
+  async confirmPayment(
+    @Param('id') id: string,
+    @Body('transactionHash') transactionHash: string,
+    @Request() req: any
+  ) {
+    if (!transactionHash) {
+      throw new Error('Transaction hash is required');
+    }
+    const userId = req.user.userId || req.user.sub;
+    return this.orderService.confirmPayment(id, transactionHash, userId);
   }
 }
 
