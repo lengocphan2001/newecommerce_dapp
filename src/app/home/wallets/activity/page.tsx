@@ -154,7 +154,7 @@ export default function ActivityPage() {
         title: t("successfulTransaction"),
         description: datetimeStr ? `${datetimeStr} • ${t("orderNumber")} #${order.id.slice(-8).toUpperCase()}` : `${t("orderNumber")} #${order.id.slice(-8).toUpperCase()}`,
         amount: -totalAmount,
-        amountLabel: totalAmount > 0 ? `-$${Number(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}` : '$0',
+        amountLabel: totalAmount > 0 ? `-$${Number(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : '$0',
         status: order.status === 'delivered' || order.status === 'confirmed' ? 'Hoàn tất' : t("pending"),
         statusColor: order.status === 'delivered' || order.status === 'confirmed' ? 'text-green-500' : 'text-gray-500',
         icon: 'shopping_bag',
@@ -212,7 +212,7 @@ export default function ActivityPage() {
           title: commissionType, // Use the calculated commissionType directly
           description: description,
           amount: parseFloat(activity.amount),
-          amountLabel: `+$${Number(activity.amount).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}`,
+          amountLabel: `+$${Number(activity.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
           status: 'Đã cộng',
           statusColor: 'text-primary',
           icon: activityType === 'GROUP' ? 'account_tree' : 'card_membership',
@@ -453,7 +453,7 @@ export default function ActivityPage() {
                         <>
                           <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'
                             }`}>
-                            {activity.amountLabel || `${activity.amount >= 0 ? '+' : '-'}$${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 5, maximumFractionDigits: 18 })}`}
+                            {activity.amountLabel || `${activity.amount >= 0 ? '+' : '-'}$${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
                           </p>
                           {activity.status && (
                             <span className={`text-[10px] font-bold uppercase ${activity.statusColor || 'text-green-500'}`}>

@@ -153,7 +153,7 @@ export default function HomePage() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
+      maximumFractionDigits: 4,
     }).format(price);
   };
 

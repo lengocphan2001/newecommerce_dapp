@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Address } from '../user/entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
@@ -177,6 +177,30 @@ export class AdminService {
       }
     }
 
+    // Get F1, F2, F3 Referrals
+    const f1Users = await this.userRepository.find({
+      where: { referralUserId: userId },
+      select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+    });
+
+    const f1Ids = f1Users.map(u => u.id);
+    let f2Users: any[] = [];
+    if (f1Ids.length > 0) {
+      f2Users = await this.userRepository.find({
+        where: { referralUserId: In(f1Ids) },
+        select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+      });
+    }
+
+    const f2Ids = f2Users.map(u => u.id);
+    let f3Users: any[] = [];
+    if (f2Ids.length > 0) {
+      f3Users = await this.userRepository.find({
+        where: { referralUserId: In(f2Ids) },
+        select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+      });
+    }
+
     // Format decimal numbers
     const formatDecimal = (value: number | string): string => {
       if (value === null || value === undefined || value === 0) return '0.00';
@@ -235,6 +259,9 @@ export class AdminService {
       },
       parentInfo,
       referrerInfo,
+      f1: f1Users,
+      f2: f2Users,
+      f3: f3Users,
     };
   }
 

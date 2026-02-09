@@ -198,10 +198,10 @@ export default function WalletsPage() {
 
   const formatUSDT = (balance: string | number) => {
     const num = typeof balance === 'string' ? parseFloat(balance) : balance;
-    if (isNaN(num) || num === 0) return "0.00000";
+    if (isNaN(num) || num === 0) return "0.00";
     return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 5,
-      maximumFractionDigits: 5,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
     }).format(num);
   };
 
@@ -243,7 +243,7 @@ export default function WalletsPage() {
   const shoppingBalance = parseFloat(referralInfo?.accumulatedPurchases || '0');
   const affiliateBalance = parseFloat(referralInfo?.bonusCommission || '0');
   const usdtBalanceNum = parseFloat(usdtBalance || '0');
-  const totalNetWorth = shoppingBalance + affiliateBalance + usdtBalanceNum;
+  const totalNetWorth = usdtBalanceNum;
 
   // Assets list
   const assets: Asset[] = [

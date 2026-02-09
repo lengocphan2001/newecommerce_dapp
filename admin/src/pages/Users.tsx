@@ -450,6 +450,52 @@ const Users: React.FC = () => {
               />
             </TabPane>
 
+            <TabPane tab="Referral Levels" key="referrals">
+              <Title level={5}>F1 Members (Direct) ({userDetail.f1?.length || 0})</Title>
+              <Table
+                dataSource={userDetail.f1 || []}
+                rowKey="id"
+                pagination={{ pageSize: 10 }}
+                columns={[
+                  { title: 'Username', dataIndex: 'username', key: 'username' },
+                  { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
+                  { title: 'Email', dataIndex: 'email', key: 'email' },
+                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                ]}
+                style={{ marginBottom: 24 }}
+              />
+
+              <Title level={5}>F2 Members ({userDetail.f2?.length || 0})</Title>
+              <Table
+                dataSource={userDetail.f2 || []}
+                rowKey="id"
+                pagination={{ pageSize: 10 }}
+                columns={[
+                  { title: 'Username', dataIndex: 'username', key: 'username' },
+                  { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
+                  { title: 'Email', dataIndex: 'email', key: 'email' },
+                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                ]}
+                style={{ marginBottom: 24 }}
+              />
+
+              <Title level={5}>F3 Members ({userDetail.f3?.length || 0})</Title>
+              <Table
+                dataSource={userDetail.f3 || []}
+                rowKey="id"
+                pagination={{ pageSize: 10 }}
+                columns={[
+                  { title: 'Username', dataIndex: 'username', key: 'username' },
+                  { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
+                  { title: 'Email', dataIndex: 'email', key: 'email' },
+                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                ]}
+              />
+            </TabPane>
+
             <TabPane tab="Binary Tree" key="tree">
               <Card title="Tree Statistics" style={{ marginBottom: 16 }}>
                 <Descriptions bordered column={2}>

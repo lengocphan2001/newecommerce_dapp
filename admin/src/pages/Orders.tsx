@@ -75,7 +75,7 @@ const Orders: React.FC = () => {
       width: 120,
       render: (total: number) => `$${total?.toLocaleString('en-US', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 6,
+        maximumFractionDigits: 4,
       })}`,
     },
     {
@@ -202,7 +202,7 @@ const Orders: React.FC = () => {
             <Descriptions.Item label="Total Amount">
               ${selectedOrder.totalAmount?.toLocaleString('en-US', {
                 minimumFractionDigits: 2,
-                maximumFractionDigits: 6,
+                maximumFractionDigits: 4,
               })}
             </Descriptions.Item>
             <Descriptions.Item label="Transaction Hash">
@@ -250,7 +250,7 @@ const Orders: React.FC = () => {
                     key: 'price',
                     render: (price: number) => `$${price.toLocaleString('en-US', {
                       minimumFractionDigits: 2,
-                      maximumFractionDigits: 6,
+                      maximumFractionDigits: 4,
                     })}`,
                   },
                   {
@@ -259,7 +259,7 @@ const Orders: React.FC = () => {
                     render: (_: any, record: any) =>
                       `$${(record.price * record.quantity).toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                        maximumFractionDigits: 6,
+                        maximumFractionDigits: 4,
                       })}`,
                   },
                 ]}
