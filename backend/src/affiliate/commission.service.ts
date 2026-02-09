@@ -748,12 +748,12 @@ export class CommissionService {
     });
 
     return {
-      totalCommission: totalCommission || 0,
-      pendingCommission: pendingCommission || 0,
+      totalCommission: this.roundToFirstSignificantDigit(totalCommission || 0),
+      pendingCommission: this.roundToFirstSignificantDigit(pendingCommission || 0),
       commissions: {
-        direct: direct || 0,
-        group: group || 0,
-        management: management || 0,
+        direct: this.roundToFirstSignificantDigit(direct || 0),
+        group: this.roundToFirstSignificantDigit(group || 0),
+        management: this.roundToFirstSignificantDigit(management || 0),
       }
     };
   }
@@ -766,11 +766,16 @@ export class CommissionService {
     if (query.type) where.type = query.type;
     if (query.status) where.status = query.status;
 
-    return this.commissionRepository.find({
+    const commissions = await this.commissionRepository.find({
       where,
       order: { createdAt: 'DESC' },
       relations: ['fromUser'],
     });
+
+    return commissions.map(c => ({
+      ...c,
+      amount: this.roundToFirstSignificantDigit(Number(c.amount)),
+    }));
   }
 
   async getAllCommissions(query: {
@@ -783,11 +788,16 @@ export class CommissionService {
     if (query.status) where.status = query.status;
     if (query.userId) where.userId = query.userId;
 
-    return this.commissionRepository.find({
+    const commissions = await this.commissionRepository.find({
       where,
       order: { createdAt: 'DESC' },
       relations: ['user', 'fromUser'],
     });
+
+    return commissions.map(c => ({
+      ...c,
+      amount: this.roundToFirstSignificantDigit(Number(c.amount)),
+    }));
   }
 
   async approveCommission(commissionId: string, notes?: string) {

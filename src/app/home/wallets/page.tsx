@@ -248,13 +248,6 @@ export default function WalletsPage() {
   // Assets list
   const assets: Asset[] = [
     {
-      symbol: "BNM",
-      name: "USDT",
-      balance: affiliateBalance,
-      usdValue: affiliateBalance,
-      color: "bg-[#13ec5b]",
-    },
-    {
       symbol: "USDT",
       name: t("tether"),
       balance: usdtBalanceNum,
