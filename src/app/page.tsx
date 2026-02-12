@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
 import { useI18n } from "@/app/i18n/I18nProvider";
@@ -222,13 +223,13 @@ export default function HomePage() {
         <div className="flex-1 flex flex-col justify-center pb-10">
           {/* Logo section */}
           <div className="flex flex-col items-center justify-center mb-12">
-            <div className="relative group">
+            <Link href="/register" className="relative group cursor-pointer block">
               <img
                 src="/images/14446125.png"
                 alt="BinanMall Logo"
                 className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
               />
-            </div>
+            </Link>
           </div>
 
           {/* Title and description */}
