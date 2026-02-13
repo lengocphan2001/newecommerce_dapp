@@ -16,6 +16,16 @@ export class ProductService {
     private readonly categoryService: CategoryService,
   ) { }
 
+  async togglePush(id: string) {
+    const product = await this.findOne(id);
+    if (product.pushedAt) {
+      product.pushedAt = null;
+    } else {
+      product.pushedAt = new Date();
+    }
+    return this.productRepository.save(product);
+  }
+
   /**
    * Calculate sold count for a product from orders
    */
@@ -46,7 +56,8 @@ export class ProductService {
     // Build query with relations
     const queryBuilder = this.productRepository.createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .orderBy('product.createdAt', 'DESC');
+      .orderBy('product.pushedAt', 'DESC')
+      .addOrderBy('product.createdAt', 'DESC');
 
     // Filter by category if provided
     if (query.categoryId) {

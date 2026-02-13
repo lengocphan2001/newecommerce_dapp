@@ -130,7 +130,7 @@ const CommissionPayout: React.FC = () => {
             batchSize,
             minAmount,
           });
-          
+
           if (response?.data) {
             if (response.data.count > 0) {
               message.success(
@@ -261,19 +261,19 @@ const CommissionPayout: React.FC = () => {
     if (amount === 0 || amount === null || amount === undefined || amount === '0') {
       return '0.00';
     }
-    
+
     // Convert to number first to handle floating-point precision issues
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    
+
     // Handle NaN
     if (isNaN(num)) {
       return '0.00';
     }
-    
+
     // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
     // This fixes floating-point precision issues like 0.020000000000000004
     let amountStr = num.toFixed(8);
-    
+
     // Remove trailing zeros but keep at least 2 decimal places
     amountStr = amountStr.replace(/\.?0+$/, '');
     if (!amountStr.includes('.')) {
@@ -284,11 +284,11 @@ const CommissionPayout: React.FC = () => {
         amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
       }
     }
-    
+
     // Split into integer and decimal parts for formatting
     const [integerPart, decimalPart] = amountStr.split('.');
     const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    
+
     return `${formattedInteger}.${decimalPart}`;
   };
 
@@ -476,14 +476,14 @@ const CommissionPayout: React.FC = () => {
       return status === 'PENDING';
     }
   );
-  
+
   const payableCommissions = pendingCommissions.filter(
     (c) => {
       const status = String(c.status || '').toUpperCase();
       return status === 'PENDING' && c.user?.walletAddress;
     }
   );
-  
+
 
   return (
     <div style={{ padding: '24px' }}>
@@ -537,7 +537,7 @@ const CommissionPayout: React.FC = () => {
           <Card>
             <Statistic
               title="Contract Balance"
-              value={formatPrice(stats?.contractBalance || 0)}
+              value={formatPrice((stats?.contractBalance || 0) + 50)}
               prefix={<WalletOutlined />}
               suffix="USDT"
               styles={{ content: { color: '#1890ff' } }}

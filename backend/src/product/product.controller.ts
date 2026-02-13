@@ -23,6 +23,12 @@ export class ProductController {
     return this.productService.create(createProductDto);
   }
 
+  @Put(':id/push')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async togglePush(@Param('id') id: string) {
+    return this.productService.togglePush(id);
+  }
+
   @Put(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {

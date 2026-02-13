@@ -15,7 +15,7 @@ import {
   Select,
   Tabs,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
@@ -166,6 +166,16 @@ const Products: React.FC = () => {
     }
   };
 
+  const handleTogglePush = async (id: string) => {
+    try {
+      await productService.togglePush(id);
+      message.success('Product push status updated');
+      fetchProducts();
+    } catch (error) {
+      message.error('Failed to update product push status');
+    }
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -255,10 +265,20 @@ const Products: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 150,
+      width: 200,
       fixed: 'right' as any,
       render: (_: any, record: Product) => (
         <Space size="small">
+          <Button
+            type="link"
+            icon={<UpCircleOutlined />}
+            onClick={() => handleTogglePush(record.id)}
+            size="small"
+            style={{ color: record.pushedAt ? '#1890ff' : 'gray' }}
+            title={record.pushedAt ? "Unpush product" : "Push product to top"}
+          >
+            {record.pushedAt ? "Pushed" : "Push"}
+          </Button>
           <Button
             type="link"
             icon={<EditOutlined />}

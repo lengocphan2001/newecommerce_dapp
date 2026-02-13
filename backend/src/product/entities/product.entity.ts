@@ -108,6 +108,9 @@ export class Product {
   @Column({ type: 'int', nullable: true, default: 0 })
   fakeSold?: number;
 
+  @Column({ type: 'timestamp', nullable: true })
+  pushedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

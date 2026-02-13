@@ -24,13 +24,15 @@ export interface Product {
   clothingType?: string;
   fakeSold?: number;
   createdAt?: string;
+  pushedAt?: string;
 }
 
 export const productService = {
-  getAll: (params?: any) => api.get('/products', { params }),
-  getById: (id: string) => api.get(`/products/${id}`),
-  create: (data: Partial<Product>) => api.post('/products', data),
-  update: (id: string, data: Partial<Product>) => api.put(`/products/${id}`, data),
-  delete: (id: string) => api.delete(`/products/${id}`),
+  getAll: (params?: any) => api.get<Product[]>('/products', { params }),
+  getById: (id: string) => api.get<Product>(`/products/${id}`),
+  create: (data: Partial<Product>) => api.post<Product>('/products', data),
+  update: (id: string, data: Partial<Product>) => api.put<Product>(`/products/${id}`, data),
+  delete: (id: string) => api.delete<{ deleted: boolean }>(`/products/${id}`),
+  togglePush: (id: string) => api.put<Product>(`/products/${id}/push`),
 };
 

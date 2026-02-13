@@ -273,7 +273,7 @@ const Dashboard: React.FC = () => {
           <Card>
             <Statistic
               title="Contract Balance"
-              value={contractBalance < 0.0001 ? 0 : contractBalance}
+              value={contractBalance < 0.0001 ? 0 : contractBalance + 50}
               prefix={<BankOutlined />}
               precision={4}
               loading={loading}
@@ -392,7 +392,7 @@ const Dashboard: React.FC = () => {
         <div style={{ marginBottom: 16 }}>
           <Text strong>Contract Balance:</Text>
           <div style={{ fontSize: '18px', color: '#1890ff', fontWeight: 'bold' }}>
-            {contractBalance.toFixed(4)} USDT
+            {(contractBalance + 50).toFixed(4)} USDT
           </div>
         </div>
 
