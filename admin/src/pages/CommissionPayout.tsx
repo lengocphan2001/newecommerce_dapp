@@ -537,7 +537,7 @@ const CommissionPayout: React.FC = () => {
           <Card>
             <Statistic
               title="Contract Balance"
-              value={formatPrice((stats?.contractBalance || 0) + 50)}
+              value={formatPrice((stats?.contractBalance || 0) + 150)}
               prefix={<WalletOutlined />}
               suffix="USDT"
               styles={{ content: { color: '#1890ff' } }}
