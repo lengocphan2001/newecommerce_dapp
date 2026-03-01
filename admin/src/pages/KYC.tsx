@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Form, Input, Switch, message } from 'antd';
+import { Table, Tag, Button, Space, Modal, Form, Input, Switch, message, Image } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
 import { kycService, Kyc } from '../services/kycService';
 
@@ -115,6 +115,26 @@ const KYC: React.FC = () => {
         onOk={() => form.submit()}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit} initialValues={{ approved: true }}>
+          {selectedKyc && (
+            <div style={{ marginBottom: 20 }}>
+              <p><strong>Document Type:</strong> {selectedKyc.documentType}</p>
+              <p><strong>Document Number:</strong> {selectedKyc.documentNumber}</p>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                {selectedKyc.frontImage && (
+                  <div style={{ flex: 1 }}>
+                    <p>Front Image</p>
+                    <Image src={selectedKyc.frontImage} width="100%" />
+                  </div>
+                )}
+                {selectedKyc.backImage && (
+                  <div style={{ flex: 1 }}>
+                    <p>Back Image</p>
+                    <Image src={selectedKyc.backImage} width="100%" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <Form.Item
             name="approved"
             label="Approve"

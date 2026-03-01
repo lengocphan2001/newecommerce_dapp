@@ -41,6 +41,7 @@ interface Product {
   category?: Category;
   createdAt: string;
   tags?: string[];
+  salePercentage?: number;
 }
 
 export default function HomePage() {
@@ -171,10 +172,15 @@ export default function HomePage() {
 
     // Pass button element for animation
     const buttonElement = e.currentTarget as HTMLElement;
+
+    const finalPrice = product.salePercentage && product.salePercentage > 0
+      ? product.price * (1 - product.salePercentage / 100)
+      : product.price;
+
     addItem({
       productId: product.id,
       productName: getLocalizedContent(product.name, product.nameEn),
-      price: product.price,
+      price: finalPrice,
       thumbnailUrl: product.thumbnailUrl,
     }, buttonElement);
   };
@@ -509,9 +515,25 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-lg font-bold text-primary-dark">
-                          {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">USDT</span>
-                        </p>
+                        {product.salePercentage && product.salePercentage > 0 ? (
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-xs text-gray-400 line-through">
+                                {formatPrice(product.price)}
+                              </span>
+                              <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
+                                -{product.salePercentage}%
+                              </span>
+                            </div>
+                            <p className="text-lg font-bold text-red-600 leading-none">
+                              {formatPrice(product.price * (1 - product.salePercentage / 100))} <span className="text-[10px] font-normal text-red-600">USDT</span>
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-lg font-bold text-primary-dark">
+                            {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">USDT</span>
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={(e) => handleAddToCart(e, product)}

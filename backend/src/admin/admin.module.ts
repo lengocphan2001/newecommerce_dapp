@@ -12,6 +12,7 @@ import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { UserModule } from '../user/user.module';
 import { OrderModule } from '../order/order.module';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 import { Address } from '../user/entities/address.entity';
 import { Order } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
@@ -23,6 +24,7 @@ import { Product } from '../product/entities/product.entity';
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),
     AuditLogModule,
+    BlockchainModule,
   ],
   controllers: [
     AdminController,

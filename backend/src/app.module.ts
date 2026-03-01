@@ -39,6 +39,7 @@ import { MailModule } from './mail/mail.module';
 import { PackagesModule } from './packages/packages.module';
 import { Package } from './packages/entities/package.entity';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { Kyc } from './kyc/entities/kyc.entity';
 
 @Module({
   imports: [
@@ -63,7 +64,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, Category, Slider, Staff, StaffSession, Role, Permission, Package],
+        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, Category, Slider, Staff, StaffSession, Role, Permission, Package, Kyc],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
           configService.get<string>('NODE_ENV') !== 'production',

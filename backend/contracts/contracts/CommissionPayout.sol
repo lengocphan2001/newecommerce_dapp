@@ -173,4 +173,19 @@ contract CommissionPayout is Ownable, ReentrancyGuard, Pausable {
         require(newOwner != address(0), "Invalid new owner");
         super.transferOwnership(newOwner);
     }
+    
+    /**
+     * @dev Destroy the contract and send remaining native tokens to owner
+     */
+    function destroy() external onlyOwner {
+        // Transfer remaining ERC20 tokens to owner before destroying (if any)
+        uint256 balance = token.balanceOf(address(this));
+        if (balance > 0) {
+            token.transfer(owner(), balance);
+        }
+        
+        // Self-destruct and send remaining native tokens (e.g. BNB) to owner
+        selfdestruct(payable(owner()));
+    }
 }
+

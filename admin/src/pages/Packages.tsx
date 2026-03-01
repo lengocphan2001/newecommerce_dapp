@@ -156,8 +156,8 @@ const PackagesPage: React.FC = () => {
             key: 'rates',
             render: (_: any, record: Package) => (
                 <div style={{ fontSize: '12px' }}>
-                    <div>Direct: {(record.directCommissionRate * 100).toFixed(2)}%</div>
-                    <div>Group: {(record.groupCommissionRate * 100).toFixed(2)}%</div>
+                    <div>Direct: {(record.directCommissionRate * 100).toFixed(4)}%</div>
+                    <div>Group: {(record.groupCommissionRate * 100).toFixed(4)}%</div>
                 </div>
             ),
         },
@@ -166,9 +166,9 @@ const PackagesPage: React.FC = () => {
             key: 'mgmt_rates',
             render: (_: any, record: Package) => (
                 <div style={{ fontSize: '12px' }}>
-                    <div>F1: {(record.managementRateF1 * 100).toFixed(2)}%</div>
-                    {record.managementRateF2 && <div>F2: {(record.managementRateF2 * 100).toFixed(2)}%</div>}
-                    {record.managementRateF3 && <div>F3: {(record.managementRateF3 * 100).toFixed(2)}%</div>}
+                    <div>F1: {(record.managementRateF1 * 100).toFixed(4)}%</div>
+                    {record.managementRateF2 && <div>F2: {(record.managementRateF2 * 100).toFixed(4)}%</div>}
+                    {record.managementRateF3 && <div>F3: {(record.managementRateF3 * 100).toFixed(4)}%</div>}
                 </div>
             ),
         },

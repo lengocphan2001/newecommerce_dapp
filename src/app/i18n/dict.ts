@@ -379,9 +379,38 @@ export type I18nKey =
   | "maxCommissionReached"
   | "whyLocked"
   | "reconsumptionExplanation"
-  | "buyPackageNow";
+  | "buyPackageNow"
+  | "kycTitle"
+  | "kycDesc"
+  | "kycStatusUnverified"
+  | "kycStatusPending"
+  | "kycStatusPendingDesc"
+  | "kycStatusApproved"
+  | "kycStatusApprovedDesc"
+  | "kycStatusRejected"
+  | "kycStatusRejectedDesc"
+  | "kycAdminNote"
+  | "kycPleaseResubmit"
+  | "kycDocumentType"
+  | "kycIdCard"
+  | "kycPassport"
+  | "kycDriversLicense"
+  | "kycDocumentNumber"
+  | "kycDocumentNumberPlaceholder"
+  | "kycFrontImage"
+  | "kycUploadFrontSide"
+  | "kycBackImage"
+  | "kycUploadBackSide"
+  | "kycSubmitRequest"
+  | "kycSubmitting"
+  | "kycPleaseEnterDocNumber"
+  | "kycPleaseUploadBothImages"
+  | "kycSubmittedSuccess"
+  | "kycImageTooLarge"
+  | "kycUploadFailed"
+  | "kycSubmissionFailed";
 
-export const DEFAULT_LANG: Lang = "en";
+export const DEFAULT_LANG: Lang = "vi";
 
 export const DICT: Record<Lang, Record<I18nKey, string>> = {
   vi: {
@@ -759,7 +788,36 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     maxCommissionReached: "Giới Hạn Hoa Hồng",
     whyLocked: "Tại sao bị khóa?",
     reconsumptionExplanation: "Để đảm bảo tính bền vững của hệ thống, bạn cần tái tiêu dùng (mua sản phẩm) để mở khóa hoa hồng mới.",
-    buyPackageNow: "Mua Gói Ngay"
+    buyPackageNow: "Mua Gói Ngay",
+    kycTitle: "Xác minh danh tính",
+    kycDesc: "Xác minh danh tính của bạn",
+    kycStatusUnverified: "Chưa xác minh",
+    kycStatusPending: "Đang chờ xác minh",
+    kycStatusPendingDesc: "Tài liệu của bạn đã được gửi và đang chờ xét duyệt. Vui lòng chờ quản trị viên xác minh.",
+    kycStatusApproved: "Đã xác minh danh tính",
+    kycStatusApprovedDesc: "Chúc mừng! Danh tính của bạn đã được xác minh thành công.",
+    kycStatusRejected: "Xác minh bị từ chối",
+    kycStatusRejectedDesc: "Yêu cầu trước đó của bạn đã bị từ chối.",
+    kycAdminNote: "Ghi chú của Admin:",
+    kycPleaseResubmit: "Vui lòng gửi lại tài liệu của bạn.",
+    kycDocumentType: "Loại giấy tờ",
+    kycIdCard: "Căn cước công dân (CMND)",
+    kycPassport: "Hộ chiếu",
+    kycDriversLicense: "Giấy phép lái xe",
+    kycDocumentNumber: "Số giấy tờ",
+    kycDocumentNumberPlaceholder: "VD: 0123456789",
+    kycFrontImage: "Ảnh mặt trước",
+    kycUploadFrontSide: "Tải lên mặt trước",
+    kycBackImage: "Ảnh mặt sau",
+    kycUploadBackSide: "Tải lên mặt sau",
+    kycSubmitRequest: "Gửi yêu cầu KYC",
+    kycSubmitting: "Đang gửi...",
+    kycPleaseEnterDocNumber: "Vui lòng nhập số giấy tờ",
+    kycPleaseUploadBothImages: "Vui lòng tải lên cả ảnh mặt trước và mặt sau",
+    kycSubmittedSuccess: "Gửi KYC thành công",
+    kycImageTooLarge: "Ảnh quá lớn (tối đa 5MB)",
+    kycUploadFailed: "Tải ảnh thất bại",
+    kycSubmissionFailed: "Gửi yêu cầu thất bại"
   },
   en: {
     appName: "BinanMall",
@@ -1136,7 +1194,36 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     maxCommissionReached: "Maximum Commission Reached",
     whyLocked: "Why is it locked?",
     reconsumptionExplanation: "To ensure system sustainability, you need to reconsume (buy products) to unlock new commissions.",
-    buyPackageNow: "Buy Package Now"
+    buyPackageNow: "Buy Package Now",
+    kycTitle: "Identity Verification",
+    kycDesc: "Verify your identity",
+    kycStatusUnverified: "Unverified",
+    kycStatusPending: "Verification Pending",
+    kycStatusPendingDesc: "Your documents have been submitted and are currently under review. Please wait for an admin to verify them.",
+    kycStatusApproved: "Identity Verified",
+    kycStatusApprovedDesc: "Congratulations! Your identity has been successfully verified.",
+    kycStatusRejected: "Verification Rejected",
+    kycStatusRejectedDesc: "Your previous submission was rejected.",
+    kycAdminNote: "Admin Note:",
+    kycPleaseResubmit: "Please submit your documents again.",
+    kycDocumentType: "Document Type",
+    kycIdCard: "ID Card (Citizen Identity Card)",
+    kycPassport: "Passport",
+    kycDriversLicense: "Driver's License",
+    kycDocumentNumber: "Document Number",
+    kycDocumentNumberPlaceholder: "e.g. 0123456789",
+    kycFrontImage: "Front Image",
+    kycUploadFrontSide: "Upload Front Side",
+    kycBackImage: "Back Image",
+    kycUploadBackSide: "Upload Back Side",
+    kycSubmitRequest: "Submit KYC Request",
+    kycSubmitting: "Submitting...",
+    kycPleaseEnterDocNumber: "Please enter document number",
+    kycPleaseUploadBothImages: "Please upload both front and back images",
+    kycSubmittedSuccess: "KYC Submitted successfully",
+    kycImageTooLarge: "Image too large (max 5MB)",
+    kycUploadFailed: "Failed to upload image",
+    kycSubmissionFailed: "Submission failed"
   },
   ko: {
     appName: "Binanmall",
@@ -1513,6 +1600,35 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     maxCommissionReached: "최대 커미션 도달",
     whyLocked: "왜 잠겼나요?",
     reconsumptionExplanation: "시스템 지속 가능성을 보장하기 위해, 새로운 커미션을 잠금 해제하려면 재소비(상품 구매)가 필요합니다.",
-    buyPackageNow: "지금 패키지 구매"
+    buyPackageNow: "지금 패키지 구매",
+    kycTitle: "본인 인증",
+    kycDesc: "본인 인증을 완료하세요",
+    kycStatusUnverified: "미인증",
+    kycStatusPending: "인증 대기 중",
+    kycStatusPendingDesc: "서류가 제출되었으며 현재 검토 중입니다. 관리자가 확인할 때까지 기다려 주세요.",
+    kycStatusApproved: "인증 완료",
+    kycStatusApprovedDesc: "축하합니다! 신원 확인이 성공적으로 완료되었습니다.",
+    kycStatusRejected: "인증 거절됨",
+    kycStatusRejectedDesc: "이전 인증 요청이 거절되었습니다.",
+    kycAdminNote: "관리자 메모:",
+    kycPleaseResubmit: "서류를 다시 제출해 주세요.",
+    kycDocumentType: "신분증 종류",
+    kycIdCard: "주민등록증",
+    kycPassport: "여권",
+    kycDriversLicense: "운전면허증",
+    kycDocumentNumber: "신분증 번호",
+    kycDocumentNumberPlaceholder: "예: 0123456789",
+    kycFrontImage: "앞면 사진",
+    kycUploadFrontSide: "앞면 업로드",
+    kycBackImage: "뒷면 사진",
+    kycUploadBackSide: "뒷면 업로드",
+    kycSubmitRequest: "KYC 요청 제출",
+    kycSubmitting: "제출 중...",
+    kycPleaseEnterDocNumber: "신분증 번호를 입력하세요",
+    kycPleaseUploadBothImages: "앞면과 뒷면 사진을 모두 업로드하세요",
+    kycSubmittedSuccess: "KYC 요청이 성공적으로 제출되었습니다",
+    kycImageTooLarge: "이미지가 너무 큽니다 (최대 5MB)",
+    kycUploadFailed: "이미지 업로드에 실패했습니다",
+    kycSubmissionFailed: "제출에 실패했습니다"
   },
 };

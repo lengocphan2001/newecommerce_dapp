@@ -16,7 +16,7 @@ import {
   Typography,
   Divider,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
 
@@ -100,6 +100,29 @@ const Users: React.FC = () => {
       fetchUsers();
     } catch (error) {
       message.error('Failed to save user');
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await adminService.exportUsers();
+
+      const blob = new Blob([response.data as any], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'users.csv');
+      document.body.appendChild(link);
+      link.click();
+
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      message.success('Users exported successfully');
+    } catch (error) {
+      console.error(error);
+      message.error('Failed to export users');
     }
   };
 
@@ -206,6 +229,9 @@ const Users: React.FC = () => {
             style={{ width: 300 }}
             allowClear
           />
+          <Button icon={<DownloadOutlined />} onClick={handleExport}>
+            Export Users
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             Add User
           </Button>

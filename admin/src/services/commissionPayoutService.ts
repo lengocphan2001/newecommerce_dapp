@@ -12,6 +12,9 @@ export interface PayoutStats {
     count: number;
   };
   contractBalance: number;
+  contractAddress: string;
+  tokenAddress: string;
+  paused?: boolean;
 }
 
 export interface PendingCommission {
@@ -108,5 +111,26 @@ export const commissionPayoutService = {
     limit?: number;
   }): Promise<{ data: AuditLog[]; total?: number; page?: number; limit?: number }> => {
     return api.get('/admin/commission-payout/audit-logs', { params });
+  },
+
+  // Contract Lifecycle Management
+  deployContract: (data: { tokenAddress?: string }): Promise<{ data: { success: boolean; contractAddress: string; txHash: string } }> => {
+    return api.post('/admin/commission-payout/deploy', data);
+  },
+
+  pauseContract: (): Promise<{ data: { success: boolean; txHash: string } }> => {
+    return api.post('/admin/commission-payout/pause');
+  },
+
+  unpauseContract: (): Promise<{ data: { success: boolean; txHash: string } }> => {
+    return api.post('/admin/commission-payout/unpause');
+  },
+
+  transferOwnership: (data: { newOwner: string }): Promise<{ data: { success: boolean; txHash: string } }> => {
+    return api.post('/admin/commission-payout/transfer-ownership', data);
+  },
+
+  destroyContract: (): Promise<{ data: { success: boolean; txHash: string } }> => {
+    return api.post('/admin/commission-payout/destroy');
   },
 };

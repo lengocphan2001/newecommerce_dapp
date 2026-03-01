@@ -111,6 +111,9 @@ export class Product {
   @Column({ type: 'timestamp', nullable: true })
   pushedAt: Date | null;
 
+  @Column({ type: 'int', nullable: true, default: 0 })
+  salePercentage?: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

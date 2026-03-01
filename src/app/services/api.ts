@@ -446,4 +446,35 @@ export const api = {
     }
     return response.json();
   },
+
+  async getKycStatus() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/kyc/status`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      if (response.status === 404) return { status: 'UNVERIFIED' };
+      throw new Error('Failed to fetch KYC status');
+    }
+    return response.json();
+  },
+
+  async submitKyc(data: { documentType: string; documentNumber: string; frontImage?: string; backImage?: string; }) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/kyc/submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to submit KYC');
+    }
+    return response.json();
+  }
 };

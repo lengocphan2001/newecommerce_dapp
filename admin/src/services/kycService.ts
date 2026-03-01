@@ -5,6 +5,8 @@ export interface Kyc {
   userId: string;
   documentType: string;
   documentNumber: string;
+  frontImage?: string;
+  backImage?: string;
   status: string;
   createdAt?: string;
 }

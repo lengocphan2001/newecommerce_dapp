@@ -1,10 +1,11 @@
-import { Controller, Get, Put, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { UpdateUserStatusDto } from './dto';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService) { }
 
   @Get('dashboard')
   async getDashboard() {
@@ -14,6 +15,54 @@ export class AdminController {
   @Get('users')
   async getUsers(@Query() query: any) {
     return this.adminService.getUsers(query);
+  }
+
+  @Get('users/export')
+  async exportUsers(@Res() res: Response) {
+    const users = await this.adminService.exportUsers();
+
+    const headers = [
+      'ID',
+      'Username',
+      'Email',
+      'Full Name',
+      'Phone',
+      'Country',
+      'Package Type',
+      'Status',
+      'Wallet Address',
+      'Total Purchase Amount',
+      'Total Commission Received',
+      'Left Branch Total',
+      'Right Branch Total',
+      'Created At'
+    ];
+
+    const rows = users.map(user => [
+      user.id,
+      user.username || '',
+      user.email,
+      `"${(user.fullName || '').replace(/"/g, '""')}"`,
+      user.phone || '',
+      user.country || '',
+      user.packageType || '',
+      user.status,
+      user.walletAddress || '',
+      user.totalPurchaseAmount || 0,
+      user.totalCommissionReceived || 0,
+      user.leftBranchTotal || 0,
+      user.rightBranchTotal || 0,
+      user.createdAt
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename="users.csv"');
+    return res.send(csvContent);
   }
 
   @Get('users/:id/detail')

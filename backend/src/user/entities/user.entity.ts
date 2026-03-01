@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Address } from './address.entity';
+import { Kyc } from '../../kyc/entities/kyc.entity';
 
 @Entity('users')
 export class User {
@@ -20,6 +21,9 @@ export class User {
 
   @OneToMany(() => Address, (address) => address.user)
   addresses: Address[];
+
+  @OneToMany(() => Kyc, (kyc) => kyc.user)
+  kycRequests: Kyc[];
 
   @Column({ unique: true })
   email: string;

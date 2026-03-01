@@ -123,7 +123,7 @@ const MilestoneRewardPage: React.FC = () => {
       key: 'rewardAmount',
       render: (amount: number | string) => {
         const numAmount = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
-        return `$${numAmount.toFixed(2)}`;
+        return `$${numAmount.toFixed(4)}`;
       },
     },
     {

@@ -9,8 +9,11 @@ import {
   FileTextOutlined,
   BankOutlined,
   WalletOutlined,
+  CheckCircleOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
+import { commissionPayoutService } from '../services/commissionPayoutService';
 import type { ColumnsType } from 'antd/es/table';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -54,10 +57,18 @@ const Dashboard: React.FC = () => {
   const [isAddFundsModalOpen, setIsAddFundsModalOpen] = useState(false);
   const [addFundAmount, setAddFundAmount] = useState('');
   const [addFundLoading, setAddFundLoading] = useState(false);
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [deployLoading, setDeployLoading] = useState(false);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [deployTokenAddress, setDeployTokenAddress] = useState('');
+
+  // Success Modal State
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [deployedContractDetails, setDeployedContractDetails] = useState<{ contractAddress: string; tokenAddress: string } | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -168,6 +179,30 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleDeployContract = async () => {
+    setDeployLoading(true);
+    try {
+      const response = await commissionPayoutService.deployContract(
+        deployTokenAddress ? { tokenAddress: deployTokenAddress } : {}
+      );
+      if (response?.data?.success) {
+        message.success(`Contract deployed successfully!`);
+        setDeployedContractDetails({
+          contractAddress: response.data.contractAddress,
+          tokenAddress: deployTokenAddress || tokenAddress || 'Check Backend .env', // Fallback, usually backend knows
+        });
+        setIsSuccessModalOpen(true);
+        setIsDeployModalOpen(false);
+        setDeployTokenAddress('');
+        fetchDashboardData();
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to deploy contract');
+    } finally {
+      setDeployLoading(false);
+    }
+  };
+
   const columns: ColumnsType<RecentOrder> = [
     {
       title: 'Order ID',
@@ -196,7 +231,7 @@ const Dashboard: React.FC = () => {
       title: 'Total Amount',
       dataIndex: 'totalAmount',
       key: 'totalAmount',
-      render: (amount: number) => `${amount.toFixed(2)} USDT`,
+      render: (amount: number) => `${amount.toFixed(4)} USDT`,
       align: 'right',
     },
     {
@@ -273,7 +308,7 @@ const Dashboard: React.FC = () => {
           <Card>
             <Statistic
               title="Contract Balance"
-              value={contractBalance < 0.0001 ? 0 : contractBalance + 150}
+              value={contractBalance < 0.0001 ? 0 : contractBalance}
               prefix={<BankOutlined />}
               precision={4}
               loading={loading}
@@ -286,7 +321,7 @@ const Dashboard: React.FC = () => {
                   size="small"
                   style={{ marginTop: 8 }}
                   onClick={handleWithdraw}
-                  disabled={contractBalance < 0.0001}
+                  disabled={contractBalance < 0.0001 || !contractAddress}
                 >
                   Withdraw
                 </Button>
@@ -295,8 +330,18 @@ const Dashboard: React.FC = () => {
                   style={{ marginTop: 8, marginLeft: 8 }}
                   onClick={() => setIsAddFundsModalOpen(true)}
                   icon={<WalletOutlined />}
+                  disabled={!contractAddress}
                 >
                   Add Fund
+                </Button>
+                <Button
+                  size="small"
+                  style={{ marginTop: 8, marginLeft: 8 }}
+                  onClick={() => setIsDeployModalOpen(true)}
+                  type="dashed"
+                  danger={!!contractAddress}
+                >
+                  {contractAddress ? 'Replace Contract' : 'Deploy Contract'}
                 </Button>
               </>
             )}
@@ -392,7 +437,7 @@ const Dashboard: React.FC = () => {
         <div style={{ marginBottom: 16 }}>
           <Text strong>Contract Balance:</Text>
           <div style={{ fontSize: '18px', color: '#1890ff', fontWeight: 'bold' }}>
-            {(contractBalance + 150).toFixed(4)} USDT
+            {(contractBalance).toFixed(4)} USDT
           </div>
         </div>
 
@@ -429,6 +474,104 @@ const Dashboard: React.FC = () => {
 
         <div style={{ marginTop: 16, color: '#ff4d4f', fontSize: '12px' }}>
           ⚠️ Warning: This will execute a real blockchain transaction from the backend.
+        </div>
+      </Modal>
+
+      <Modal
+        title={contractAddress ? "Replace Commission Payout Contract" : "Deploy Commission Payout Contract"}
+        open={isDeployModalOpen}
+        onCancel={() => setIsDeployModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setIsDeployModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger={!!contractAddress}
+            loading={deployLoading}
+            onClick={handleDeployContract}
+          >
+            {contractAddress ? "Replace" : "Deploy"}
+          </Button>,
+        ]}
+      >
+        <div style={{ marginBottom: 16 }}>
+          {contractAddress ? (
+            <Text type="danger">
+              Warning: You are about to deploy a NEW Commission Payout contract and REPLACE the current one.
+              The new contract will start with a 0 balance. This action costs BNB gas fees from the admin wallet.
+            </Text>
+          ) : (
+            <Text type="secondary">
+              Deploy a new Commission Payout smart contract. This action costs BNB gas fees from the admin wallet.
+            </Text>
+          )}
+        </div>
+        <div>
+          <Text strong>Token Contract Address (Optional):</Text>
+          <Input
+            placeholder="e.g. 0x... (leave empty to use default USDT from .env)"
+            value={deployTokenAddress}
+            onChange={(e) => setDeployTokenAddress(e.target.value)}
+            style={{ marginTop: 8 }}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <CheckCircleOutlined style={{ color: '#52c41a' }} />
+            Deployment Successful
+          </Space>
+        }
+        open={isSuccessModalOpen}
+        onCancel={() => setIsSuccessModalOpen(false)}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setIsSuccessModalOpen(false)}>
+            Close
+          </Button>
+        ]}
+      >
+        <div style={{ marginBottom: 24 }}>
+          <Text>The Commission Payout contract has been successfully deployed and the backend has been updated. Please save these details for your records.</Text>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Contract Address:</Text>
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+            <Input
+              value={deployedContractDetails?.contractAddress}
+              readOnly
+              style={{ marginRight: 8, flex: 1 }}
+            />
+            <Button
+              icon={<CopyOutlined />}
+              onClick={() => {
+                navigator.clipboard.writeText(deployedContractDetails?.contractAddress || '');
+                message.success('Contract address copied!');
+              }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <Text strong>Token Address (USDT):</Text>
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+            <Input
+              value={deployedContractDetails?.tokenAddress}
+              readOnly
+              style={{ marginRight: 8, flex: 1 }}
+            />
+            <Button
+              icon={<CopyOutlined />}
+              onClick={() => {
+                navigator.clipboard.writeText(deployedContractDetails?.tokenAddress || '');
+                message.success('Token address copied!');
+              }}
+            />
+          </div>
         </div>
       </Modal>
     </div>

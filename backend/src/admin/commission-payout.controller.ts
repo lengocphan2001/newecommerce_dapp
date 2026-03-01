@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { CommissionPayoutService as BlockchainPayoutService } from '../blockchain/commission-payout.service';
 import { BatchPayoutDto, BatchPayoutResponseDto } from './dto/batch-payout.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -24,6 +25,7 @@ import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 export class CommissionPayoutController {
   constructor(
     private readonly commissionPayoutService: CommissionPayoutService,
+    private readonly blockchainPayoutService: BlockchainPayoutService,
     private readonly auditLogService: AuditLogService,
   ) { }
 
@@ -181,6 +183,118 @@ export class CommissionPayoutController {
         ipAddress,
         userAgent,
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Deploy new Commission Payout Contract
+   */
+  @Post('deploy')
+  @UseGuards(SuperAdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async deployContract(
+    @Body() body: { tokenAddress?: string },
+    @Request() req: any,
+  ) {
+    const userId = req.user?.id;
+    const username = req.user?.username || req.user?.email;
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    try {
+      const result = await this.blockchainPayoutService.deployContract(body.tokenAddress);
+
+      await this.auditLogService.create(
+        {
+          action: AuditLogAction.PAYOUT_EXECUTED, // Repurposing since no CONTRACT_DEPLOYED action exists
+          entityType: AuditLogEntityType.COMMISSION_PAYOUT,
+          entityId: result.contractAddress,
+          description: `Deployed new Commission Payout Contract at ${result.contractAddress}`,
+          metadata: {
+            contractAddress: result.contractAddress,
+            txHash: result.txHash,
+            type: 'contract_deploy'
+          },
+        },
+        userId,
+        username,
+        ipAddress,
+        userAgent,
+      );
+
+      return {
+        success: true,
+        contractAddress: result.contractAddress,
+        txHash: result.txHash,
+      };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Pause the current contract
+   */
+  @Post('pause')
+  @UseGuards(SuperAdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async pauseContract(@Request() req: any) {
+    const userId = req.user?.id;
+    const username = req.user?.username || req.user?.email;
+
+    try {
+      const result = await this.blockchainPayoutService.pauseContract();
+      return { success: true, txHash: result.txHash };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Unpause the current contract
+   */
+  @Post('unpause')
+  @UseGuards(SuperAdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async unpauseContract(@Request() req: any) {
+    try {
+      const result = await this.blockchainPayoutService.unpauseContract();
+      return { success: true, txHash: result.txHash };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Transfer contract ownership
+   */
+  @Post('transfer-ownership')
+  @UseGuards(SuperAdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async transferOwnership(
+    @Body() body: { newOwner: string },
+    @Request() req: any,
+  ) {
+    try {
+      const result = await this.blockchainPayoutService.transferOwnership(body.newOwner);
+      return { success: true, txHash: result.txHash };
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * Destroy the current contract
+   */
+  @Post('destroy')
+  @UseGuards(SuperAdminGuard)
+  @HttpCode(HttpStatus.OK)
+  async destroyContract(@Request() req: any) {
+    try {
+      const result = await this.blockchainPayoutService.destroyContract();
+      return { success: true, txHash: result.txHash };
+    } catch (error: any) {
       throw error;
     }
   }

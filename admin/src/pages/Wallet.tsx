@@ -35,7 +35,7 @@ const Wallet: React.FC = () => {
       title: 'Amount',
       dataIndex: 'amount',
       key: 'amount',
-      render: (amount: number) => `$${amount?.toFixed(2)}`,
+      render: (amount: number) => `$${amount?.toFixed(4)}`,
     },
     {
       title: 'Status',

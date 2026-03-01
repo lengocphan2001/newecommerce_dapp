@@ -455,6 +455,20 @@ export default function ProfilePage() {
             </button>
             <div className="mx-4 border-t border-slate-50"></div>
             <button
+              onClick={() => router.push('/home/profile/kyc')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600">
+                <span className="material-symbols-outlined text-xl font-medium">badge</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-slate-800">{t("kycTitle")}</p>
+                <p className="text-xs text-slate-400">{t("kycDesc")}</p>
+              </div>
+              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            </button>
+            <div className="mx-4 border-t border-slate-50"></div>
+            <button
               onClick={handleLogout}
               className="w-full flex items-center gap-4 px-4 py-4 active:bg-red-50 transition-colors text-red-500"
             >

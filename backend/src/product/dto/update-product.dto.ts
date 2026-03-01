@@ -7,6 +7,7 @@ import {
   ArrayUnique,
   Matches,
   IsUUID,
+  Max,
 } from 'class-validator';
 
 export class UpdateProductDto {
@@ -101,5 +102,11 @@ export class UpdateProductDto {
   @IsOptional()
   @Min(0)
   fakeSold?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  salePercentage?: number;
 }
 

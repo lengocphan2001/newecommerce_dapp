@@ -84,6 +84,14 @@ export class AdminService {
     return { message: 'Get users' };
   }
 
+  async exportUsers() {
+    const users = await this.userRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+
+    return users;
+  }
+
   async getOrders(query: any) {
     // TODO: Implement get orders logic
     return { message: 'Get orders' };

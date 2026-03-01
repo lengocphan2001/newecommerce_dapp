@@ -39,6 +39,7 @@ interface Product {
   tags?: string[];
   properties?: { name: string; values: string[] }[];
   fakeSold?: number;
+  salePercentage?: number;
 }
 
 // Helper to generate consistent fake sold count
@@ -191,10 +192,15 @@ export default function ProductDetailClient() {
   const handleAddToCart = (e?: React.MouseEvent) => {
     if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
     const buttonElement = e?.currentTarget as HTMLElement;
+
+    const finalPrice = product.salePercentage && product.salePercentage > 0
+      ? product.price * (1 - product.salePercentage / 100)
+      : product.price;
+
     addItem({
       productId: product.id,
       productName: getLocalizedContent(product.name, product.nameEn),
-      price: product.price,
+      price: finalPrice,
       thumbnailUrl: product.thumbnailUrl,
       properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
     }, buttonElement);
@@ -321,9 +327,24 @@ export default function ProductDetailClient() {
       <div className="bg-white p-4 flex flex-col gap-2">
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <span className="text-3xl font-bold text-primary-dark">${formatPrice(product.price)}</span>
+            {product.salePercentage && product.salePercentage > 0 ? (
+              <div className="flex flex-col">
+                <span className="text-sm text-gray-400 line-through">
+                  ${formatPrice(product.price)}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl font-bold text-red-600">
+                    ${formatPrice(product.price * (1 - product.salePercentage / 100))}
+                  </span>
+                  <span className="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded">
+                    -{product.salePercentage}%
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span className="text-3xl font-bold text-primary-dark">${formatPrice(product.price)}</span>
+            )}
           </div>
-
         </div>
         <h1 className="text-xl font-semibold leading-tight text-text-main line-clamp-2">
 
@@ -481,7 +502,16 @@ export default function ProductDetailClient() {
                   <div className="p-2 flex flex-col gap-1">
                     <span className="text-xs text-text-main line-clamp-2">{getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}</span>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-primary-dark">${formatPrice(relatedProduct.price)}</span>
+                      {relatedProduct.salePercentage && relatedProduct.salePercentage > 0 ? (
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-gray-400 line-through">${formatPrice(relatedProduct.price)}</span>
+                          <span className="text-sm font-bold text-red-600">
+                            ${formatPrice(relatedProduct.price * (1 - relatedProduct.salePercentage / 100))}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-bold text-primary-dark">${formatPrice(relatedProduct.price)}</span>
+                      )}
                       <span className="text-[10px] text-text-sub">{t("sold")} {getFakeSold(relatedProduct.id)}</span>
                     </div>
                   </div>

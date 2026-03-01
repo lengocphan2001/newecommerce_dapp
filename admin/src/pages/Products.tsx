@@ -15,7 +15,7 @@ import {
   Select,
   Tabs,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
@@ -58,6 +58,32 @@ const Products: React.FC = () => {
       message.error('Failed to fetch products');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await productService.export();
+
+      // Create a blob from the response data
+      const blob = new Blob([response.data as any], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'products.csv');
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      message.success('Products exported successfully');
+    } catch (error) {
+      console.error(error);
+      message.error('Failed to export products');
     }
   };
 
@@ -237,7 +263,7 @@ const Products: React.FC = () => {
       dataIndex: 'price',
       key: 'price',
       width: 120,
-      render: (price: number) => `$${price?.toFixed(2)}`,
+      render: (price: number) => `$${price?.toFixed(4)}`,
     },
     {
       title: 'Stock',
@@ -251,7 +277,7 @@ const Products: React.FC = () => {
       dataIndex: 'shippingFee',
       key: 'shippingFee',
       width: 120,
-      render: (fee: number) => fee ? `$${fee?.toFixed(2)}` : '-',
+      render: (fee: number) => fee ? `$${fee?.toFixed(4)}` : '-',
       responsive: ['lg'] as any, // Hide on mobile/tablet
     },
     {
@@ -313,9 +339,14 @@ const Products: React.FC = () => {
         }}
       >
         <h1 style={{ margin: 0, fontSize: 'clamp(20px, 4vw, 24px)' }}>Products Management</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Add Product
-        </Button>
+        <Space>
+          <Button icon={<DownloadOutlined />} onClick={handleExport}>
+            Export Products
+          </Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+            Add Product
+          </Button>
+        </Space>
       </div>
       <div style={{ overflowX: 'auto', width: '100%' }}>
         <Table
@@ -596,6 +627,14 @@ const Products: React.FC = () => {
               tooltip="Display this sold count instead of real sold count (leave empty to show real count)"
             >
               <InputNumber style={{ width: '100%' }} min={0} placeholder="Optional" />
+            </Form.Item>
+            <Form.Item
+              name="salePercentage"
+              label="Sale Percentage (%)"
+              rules={[{ type: 'number', min: 0, max: 100 }]}
+              tooltip="Optional discount percentage (0-100) to apply. E.g., 20 means 20% off."
+            >
+              <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="e.g. 20" />
             </Form.Item>
             <Form.Item
               name="categoryId"

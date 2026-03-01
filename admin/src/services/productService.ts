@@ -25,6 +25,7 @@ export interface Product {
   fakeSold?: number;
   createdAt?: string;
   pushedAt?: string;
+  salePercentage?: number;
 }
 
 export const productService = {
@@ -34,5 +35,6 @@ export const productService = {
   update: (id: string, data: Partial<Product>) => api.put<Product>(`/products/${id}`, data),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/products/${id}`),
   togglePush: (id: string) => api.put<Product>(`/products/${id}/push`),
+  export: () => api.get('/products/export', { responseType: 'blob' }),
 };
 
