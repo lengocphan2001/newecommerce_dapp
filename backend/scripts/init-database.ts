@@ -26,6 +26,7 @@ import { StaffSession } from '../src/staff/entities/staff-session.entity';
 import { Role } from '../src/role/entities/role.entity';
 import { Permission } from '../src/permission/entities/permission.entity';
 import { Package } from '../src/packages/entities/package.entity';
+import { Kyc } from '../src/kyc/entities/kyc.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -57,7 +58,7 @@ async function initializeDatabase() {
 
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, Staff, StaffSession, Role, Permission, Package],
+    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, Staff, StaffSession, Role, Permission, Package, Kyc],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
   });
