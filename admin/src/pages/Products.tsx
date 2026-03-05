@@ -109,6 +109,7 @@ const Products: React.FC = () => {
       detailImageUrls: product.detailImageUrls || [],
       tags: product.tags || [],
       properties: product.properties || [],
+      combos: product.combos || [],
       categoryId: product.categoryId || undefined,
     });
     setThumbnailFileList([]);
@@ -712,6 +713,53 @@ const Products: React.FC = () => {
                   <Form.Item>
                     <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
                       Add Property
+                    </Button>
+                  </Form.Item>
+                </>
+              )}
+            </Form.List>
+
+            <Typography.Title level={5} style={{ marginTop: 16 }}>Product Combos</Typography.Title>
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+              Define bundle options users can choose (e.g. buy 3 for $25). Leave empty if not applicable.
+            </Typography.Text>
+            <Form.List name="combos">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} style={{ display: 'flex', marginBottom: 8, flexWrap: 'wrap' }} align="baseline">
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'quantity']}
+                        label="Qty"
+                        rules={[{ required: true, message: 'Required' }]}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <InputNumber min={2} placeholder="e.g. 3" style={{ width: 80 }} />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'price']}
+                        label="Combo Price"
+                        rules={[{ required: true, message: 'Required' }]}
+                        style={{ marginBottom: 0 }}
+                      >
+                        <InputNumber min={0} step={0.01} precision={4} placeholder="e.g. 25.00" style={{ width: 130 }} />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'label']}
+                        label="Label (optional)"
+                        style={{ marginBottom: 0 }}
+                      >
+                        <Input placeholder="e.g. Mua 3 giảm còn $25" style={{ width: 220 }} />
+                      </Form.Item>
+                      <MinusCircleOutlined onClick={() => remove(name)} style={{ color: 'red' }} />
+                    </Space>
+                  ))}
+                  <Form.Item>
+                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                      Add Combo
                     </Button>
                   </Form.Item>
                 </>

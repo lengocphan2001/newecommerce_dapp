@@ -97,6 +97,20 @@ const Orders: React.FC = () => {
       ) : '-',
     },
     {
+      title: 'Payment',
+      dataIndex: 'paymentMethod',
+      key: 'paymentMethod',
+      width: 100,
+      render: (method: string) => {
+        const isBanking = method === 'banking';
+        return (
+          <Tag color={isBanking ? 'blue' : 'purple'}>
+            {isBanking ? '🏦 Banking' : '💎 Wallet'}
+          </Tag>
+        );
+      },
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -119,6 +133,7 @@ const Orders: React.FC = () => {
               <Button
                 type="primary"
                 size="small"
+                style={record.paymentMethod === 'banking' ? { background: '#e85d04', borderColor: '#e85d04' } : undefined}
                 onClick={() => handleApprove(record.id)}
               >
                 Duyệt
@@ -205,6 +220,11 @@ const Orders: React.FC = () => {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 4,
               })}
+            </Descriptions.Item>
+            <Descriptions.Item label="Payment Method">
+              <Tag color={selectedOrder.paymentMethod === 'banking' ? 'blue' : 'purple'}>
+                {selectedOrder.paymentMethod === 'banking' ? '🏦 Bank Transfer' : '💎 Crypto Wallet'}
+              </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Transaction Hash">
               {selectedOrder.transactionHash ? (

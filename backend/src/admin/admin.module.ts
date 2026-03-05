@@ -16,10 +16,11 @@ import { BlockchainModule } from '../blockchain/blockchain.module';
 import { Address } from '../user/entities/address.entity';
 import { Order } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
+import { BankingConfig } from './entities/banking-config.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, MilestoneRewardConfig, UserMilestone, Address, Order, Product]),
+    TypeOrmModule.forFeature([User, MilestoneRewardConfig, UserMilestone, Address, Order, Product, BankingConfig]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),

@@ -5,6 +5,7 @@ import { User } from '../user/entities/user.entity';
 import { Address } from '../user/entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
+import { BankingConfig } from './entities/banking-config.entity';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
@@ -21,6 +22,8 @@ export class AdminService {
     private orderRepository: Repository<Order>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(BankingConfig)
+    private bankingConfigRepository: Repository<BankingConfig>,
     private userService: UserService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
@@ -343,5 +346,35 @@ export class AdminService {
 
     return buildTree(userId, 0);
   }
-}
 
+  /**
+   * Get (or create default) banking config
+   */
+  async getBankingConfig(): Promise<BankingConfig> {
+    let config = await this.bankingConfigRepository.findOne({ where: { id: 1 } });
+    if (!config) {
+      config = this.bankingConfigRepository.create({
+        id: 1,
+        bankName: '',
+        accountNumber: '',
+        accountName: '',
+        isEnabled: false,
+      });
+      config = await this.bankingConfigRepository.save(config);
+    }
+    return config;
+  }
+
+  /**
+   * Upsert banking config (admin only)
+   */
+  async upsertBankingConfig(dto: Partial<BankingConfig>): Promise<BankingConfig> {
+    let config = await this.bankingConfigRepository.findOne({ where: { id: 1 } });
+    if (!config) {
+      config = this.bankingConfigRepository.create({ id: 1, ...dto });
+    } else {
+      Object.assign(config, dto);
+    }
+    return this.bankingConfigRepository.save(config);
+  }
+}

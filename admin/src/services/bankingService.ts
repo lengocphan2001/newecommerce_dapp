@@ -1,0 +1,18 @@
+import api from './api';
+
+export interface BankingConfig {
+    id?: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    qrImageUrl?: string;
+    isEnabled: boolean;
+    updatedAt?: string;
+}
+
+const ADMIN_API = process.env.REACT_APP_API_URL || 'http://localhost:3002';
+
+export const bankingService = {
+    getConfig: () => api.get<BankingConfig>('/admin/banking-config'),
+    updateConfig: (data: Partial<BankingConfig>) => api.put<BankingConfig>('/admin/banking-config', data),
+};

@@ -233,7 +233,8 @@ export class CommissionPayoutService {
       };
     } catch (error: any) {
       await queryRunner.rollbackTransaction();
-      this.logger.error('Batch payout failed', error);
+      const errMsg = error?.message || String(error);
+      this.logger.error(`Batch payout failed: ${errMsg}`, error?.stack);
 
       // Log failed payout
       const batchId = dto.batchId || 'unknown';
@@ -242,11 +243,11 @@ export class CommissionPayoutService {
           action: AuditLogAction.PAYOUT_FAILED,
           entityType: AuditLogEntityType.COMMISSION_PAYOUT,
           entityId: batchId,
-          description: `Batch payout failed: ${error.message}`,
+          description: `Batch payout failed: ${errMsg}`,
           metadata: {
             batchId,
-            error: error.message,
-            stack: error.stack,
+            error: errMsg,
+            stack: error?.stack,
             recipientCount: dto.recipients.length,
           },
         },

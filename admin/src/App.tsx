@@ -24,6 +24,7 @@ import Staffs from './pages/Staffs';
 import Roles from './pages/Roles';
 import Login from './pages/Login';
 import Packages from './pages/Packages';
+import BankingSettings from './pages/BankingSettings';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -246,6 +247,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <Packages />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/banking-settings"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <BankingSettings />
                   </AdminLayout>
                 </PrivateRoute>
               }

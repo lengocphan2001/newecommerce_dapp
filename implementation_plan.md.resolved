@@ -1,0 +1,110 @@
+# Banking QR Payment Method
+
+## Background
+
+The checkout currently only supports wallet (USDT BEP20) payment where orders are auto-confirmed on-chain. We need to add a second option: **bank transfer via QR code**. Admin sets up the bank details once; users see the QR + bank info at checkout, then place their order as PENDING. Admin manually approves it.
+
+The backend already creates **PENDING** orders for non-crypto payments and has an **admin PENDING→CONFIRMED** approval flow in [Orders.tsx](file:///c:/Users/Admin/Documents/newecommerce_dapp/admin/src/pages/Orders.tsx). We just need to wire it all together.
+
+## Proposed Changes
+
+---
+
+### Backend — New `banking-config` module
+
+#### [NEW] `backend/src/common/entities/banking-config.entity.ts`
+A singleton config table (one row) storing:
+```typescript
+@Entity('banking_config')
+export class BankingConfig {
+  @PrimaryGeneratedColumn()  id: number;
+  @Column() bankName: string;           // e.g. "Vietcombank"
+  @Column() accountNumber: string;      // e.g. "1234567890"
+  @Column() accountName: string;        // e.g. "NGUYEN VAN A"
+  @Column({ nullable: true }) qrImageUrl?: string;  // URL to uploaded QR image
+  @Column({ default: true }) isEnabled: boolean;
+  @UpdateDateColumn() updatedAt: Date;
+}
+```
+
+#### [MODIFY] [backend/src/order/entities/order.entity.ts](file:///c:/Users/Admin/Documents/newecommerce_dapp/backend/src/order/entities/order.entity.ts)
+Add `paymentMethod` column:
+```typescript
+@Column({ nullable: true, default: 'wallet' })
+paymentMethod: string; // 'wallet' | 'banking'
+```
+
+#### [MODIFY] [backend/src/order/dto/create-order.dto.ts](file:///c:/Users/Admin/Documents/newecommerce_dapp/backend/src/order/dto/create-order.dto.ts)
+Add optional `paymentMethod` field:
+```typescript
+@IsString() @IsOptional()
+paymentMethod?: string; // 'wallet' | 'banking'
+```
+
+#### [MODIFY] [backend/src/order/order.service.ts](file:///c:/Users/Admin/Documents/newecommerce_dapp/backend/src/order/order.service.ts)
+Pass `paymentMethod` from DTO when creating the order.
+
+#### [NEW] Routes on existing admin controller or new controller:
+- `GET  /banking-config` — public, returns banking config for checkout display
+- `PUT  /banking-config` — admin, update config (bank name, number, name, QR url)
+
+The `BankingConfig` entity + endpoints can live inside `backend/src/admin/` to avoid creating a new module.
+
+---
+
+### Admin Panel
+
+#### [MODIFY] `admin/src/App.tsx` (or router file)
+Add a **Banking Settings** route/menu item.
+
+#### [NEW] `admin/src/pages/BankingSettings.tsx`
+A simple settings page with:
+- Bank Name field (Input)
+- Account Number (Input)
+- Account Name (Input)
+- QR Image upload + preview
+- Enable/Disable toggle
+- Save button
+
+#### [MODIFY] `admin/src/pages/Orders.tsx`
+- Add a **Payment Method** column (shows badge `BANKING` or `WALLET`)
+- For PENDING + BANKING orders: show an orange **"Duyệt"** button (already exists but now more prominent)
+- In order detail modal: show payment method
+
+---
+
+### Frontend (Next.js) — Checkout
+
+#### [MODIFY] `src/app/home/checkout/page.tsx`
+- Fetch banking config on mount (`GET /banking-config`)
+- Add a **payment method selector** under Section 2:
+  - Tab/radio: **💳 Ví (USDT)** | **🏦 Chuyển khoản**
+- When **banking** is selected:
+  - Show bank name, account number, account name
+  - Show QR image (if set by admin)
+  - Show note: "Nội dung chuyển khoản: [Tên người dùng] - ORDER ID sẽ được cung cấp sau khi đặt hàng"
+  - The **pay button** just creates a PENDING order with `paymentMethod: 'banking'` (no blockchain transaction)
+  - After order created: show success with order ID + instructions to transfer and wait for approval
+- Existing wallet flow remains 100% unchanged
+
+---
+
+## Notes
+
+> [!IMPORTANT]
+> The admin Order approval flow (`PENDING → CONFIRMED`) already exists in the backend and `Orders.tsx`. No changes needed there — admin clicks "Duyệt" as they already do.
+
+> [!NOTE]
+> The `paymentMethod` column is nullable with default `'wallet'` so existing orders are unaffected.
+
+## Verification Plan
+
+### Admin
+1. Go to new **Banking Settings** page → fill in bank details + upload QR → save
+2. Open **Orders** → see "Payment Method" column
+
+### Frontend
+1. Add item to cart → checkout → select **Chuyển khoản** tab
+2. See bank info + QR display
+3. Click "Đặt hàng" → order created as PENDING → see order ID + thank-you message
+4. Admin sees order in PENDING state → clicks "Duyệt" → CONFIRMED

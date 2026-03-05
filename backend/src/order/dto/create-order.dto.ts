@@ -27,5 +27,9 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   shippingAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  paymentMethod?: string; // 'wallet' | 'banking'
 }
 

@@ -133,6 +133,7 @@ export class OrderService {
       status: initialStatus,
       transactionHash: createOrderDto.transactionHash,
       shippingAddress: createOrderDto.shippingAddress,
+      paymentMethod: createOrderDto.paymentMethod || 'wallet',
     });
 
     const savedOrder = await this.orderRepository.save(order);

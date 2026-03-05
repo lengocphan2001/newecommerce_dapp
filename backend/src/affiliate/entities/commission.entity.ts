@@ -48,11 +48,8 @@ export class Commission {
   @JoinColumn({ name: 'fromUserId' })
   fromUser: User;
 
-  @Column({
-    type: 'enum',
-    enum: CommissionType,
-  })
-  type: CommissionType;
+  @Column({ type: 'varchar', length: 32 })
+  type: CommissionType; // Stored as string to avoid ALTER enum truncating existing rows (e.g. legacy 'binary' etc.)
 
   @Column({
     type: 'enum',

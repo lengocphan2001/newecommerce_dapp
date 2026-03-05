@@ -70,6 +70,10 @@ export class UpdateProductDto {
   @IsOptional()
   properties?: { name: string; values: string[] }[];
 
+  @IsArray()
+  @IsOptional()
+  combos?: { quantity: number; price: number; label?: string }[];
+
   @IsUUID()
   @IsOptional()
   categoryId?: string;

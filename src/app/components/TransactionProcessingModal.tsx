@@ -1,13 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 export type ProcessingStep = "idle" | "confirming" | "processing" | "creating_order" | "success" | "error";
+
+export interface BankingSuccessInfo {
+  orderId: string;
+  transferContent: string;
+}
 
 interface TransactionProcessingModalProps {
   isOpen: boolean;
   step: ProcessingStep;
   error?: string;
   onClose?: () => void;
+  bankingSuccess?: BankingSuccessInfo;
 }
 
 export default function TransactionProcessingModal({
@@ -15,8 +21,17 @@ export default function TransactionProcessingModal({
   step,
   error,
   onClose,
+  bankingSuccess,
 }: TransactionProcessingModalProps) {
   const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (!bankingSuccess) return;
+    navigator.clipboard.writeText(bankingSuccess.transferContent).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
   if (!isOpen) return null;
 
   return (
@@ -74,8 +89,37 @@ export default function TransactionProcessingModal({
           )}
           {step === "success" && (
             <>
-              <h3 className="text-xl font-bold text-slate-800">{t("paymentSuccessTitle")}</h3>
-              <p className="text-slate-500 text-sm">{t("paymentSuccessMessage")}</p>
+              <h3 className="text-xl font-bold text-slate-800">
+                {bankingSuccess ? "Đặt hàng thành công" : t("paymentSuccessTitle")}
+              </h3>
+              <p className="text-slate-500 text-sm">
+                {bankingSuccess
+                  ? "Vui lòng chuyển khoản đúng số tiền và nội dung bên dưới, sau đó chờ admin xác nhận."
+                  : t("paymentSuccessMessage")}
+              </p>
+              {bankingSuccess && (
+                <div className="text-left space-y-2 pt-2">
+                  <p className="text-xs text-slate-500 font-medium">Mã đơn hàng</p>
+                  <p className="font-mono font-bold text-slate-800 break-all">{bankingSuccess.orderId}</p>
+                  {bankingSuccess.transferContent && (
+                    <>
+                      <p className="text-xs text-slate-500 font-medium mt-2">Nội dung chuyển khoản (địa chỉ ví — copy vào app ngân hàng)</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="flex-1 min-w-0 break-all text-sm bg-slate-100 px-2 py-1.5 rounded border border-slate-200">
+                          {bankingSuccess.transferContent}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={handleCopy}
+                          className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:opacity-90 transition"
+                        >
+                          {copied ? "Đã copy!" : "Copy"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </>
           )}
           {step === "error" && (

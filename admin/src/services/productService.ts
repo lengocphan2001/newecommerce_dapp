@@ -26,6 +26,7 @@ export interface Product {
   createdAt?: string;
   pushedAt?: string;
   salePercentage?: number;
+  combos?: { quantity: number; price: number; label?: string }[];
 }
 
 export const productService = {

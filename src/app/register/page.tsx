@@ -16,16 +16,21 @@ function RegisterForm() {
   const [isFirstUser, setIsFirstUser] = useState(false);
 
   const [formData, setFormData] = useState({
-    username: "",
-    fullName: "",
-    country: "",
-    address: "",
     phoneNumber: "",
     email: "",
-
     referralUser: "",
     leg: "",
   });
+  const [username, setUsername] = useState("");
+
+  const generateUsername = () => {
+    const letters = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    let s = "";
+    for (let i = 0; i < 3; i++) s += letters[Math.floor(Math.random() * letters.length)];
+    for (let i = 0; i < 3; i++) s += numbers[Math.floor(Math.random() * numbers.length)];
+    return s;
+  };
 
   const [walletAddress, setWalletAddress] = useState("");
   const [chainId, setChainId] = useState("");
@@ -42,6 +47,7 @@ function RegisterForm() {
 
     setWalletAddress(address);
     setChainId(chainIdParam);
+    setUsername(generateUsername());
 
     // Get referral code and leg from URL parameter
     if (typeof window !== "undefined") {
@@ -113,47 +119,10 @@ function RegisterForm() {
     };
   }, [router]);
 
-  const countries = [
-    { code: "US", name: "United States", dialCode: "+1" },
-    { code: "GB", name: "United Kingdom", dialCode: "+44" },
-    { code: "SG", name: "Singapore", dialCode: "+65" },
-    { code: "TH", name: "Thailand", dialCode: "+66" },
-    { code: "KR", name: "South Korea", dialCode: "+82" },
-    { code: "VN", name: "Vietnam", dialCode: "+84" },
-    { code: "CN", name: "China", dialCode: "+86" },
-    { code: "JP", name: "Japan", dialCode: "+81" },
-  ];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // Validation
-    if (!formData.username.trim()) {
-      setError("Vui lòng nhập tên người dùng");
-      return;
-    }
-    // Username validation: only letters and numbers
-    if (!/^[a-zA-Z0-9]+$/.test(formData.username)) {
-      setError(t("usernameInvalidNoSpecial"));
-      return;
-    }
-    if (formData.username.length < 3) {
-      setError(t("usernameTooShort"));
-      return;
-    }
-    if (formData.username.length > 20) {
-      setError(t("usernameTooLong"));
-      return;
-    }
-    if (!formData.fullName.trim()) {
-      setError("Vui lòng nhập họ tên");
-      return;
-    }
-    if (!formData.country) {
-      setError("Vui lòng chọn quốc gia");
-      return;
-    }
     if (!formData.phoneNumber.trim()) {
       setError("Vui lòng nhập số điện thoại");
       return;
@@ -166,19 +135,20 @@ function RegisterForm() {
       setError("Email không hợp lệ");
       return;
     }
-    // Referral code is required unless this is the first user
     if (!isFirstUser && (!formData.referralUser || !formData.referralUser.trim())) {
       setError("Vui lòng nhập mã giới thiệu");
       return;
     }
-
     if (!isFirstUser && !formData.leg) {
       setError(t("selectSide"));
       return;
     }
-
     if (!walletAddress || !chainId) {
       setError("Thông tin ví không hợp lệ");
+      return;
+    }
+    if (!username || username.length < 6) {
+      setError("Tên đăng nhập chưa được tạo. Vui lòng tải lại trang.");
       return;
     }
 
@@ -188,14 +158,14 @@ function RegisterForm() {
       const result = await api.walletRegister({
         walletAddress,
         chainId,
-        username: formData.username.trim(),
-        fullName: formData.fullName.trim(),
-        country: formData.country,
-        address: formData.address.trim() || undefined,
+        username,
+        fullName: username,
+        country: "VN",
+        address: "",
         phoneNumber: formData.phoneNumber.trim(),
         email: formData.email.trim(),
         referralUser: formData.referralUser.trim() || undefined,
-        leg: (formData.leg as 'left' | 'right') || undefined,
+        leg: (formData.leg as "left" | "right") || undefined,
       });
 
       // Store token
@@ -207,7 +177,15 @@ function RegisterForm() {
       // Redirect to home
       router.push("/home");
     } catch (err: any) {
-      setError(err.message || "Đăng ký thất bại. Vui lòng thử lại.");
+      const msg = typeof err.message === "string" ? err.message : "";
+      const isUsernameTaken =
+        /username\s+already\s+exists/i.test(msg) || msg === "Username already exists";
+      if (isUsernameTaken) {
+        setUsername(generateUsername());
+        setError("Tên đăng nhập đã tồn tại. Đã tạo mã mới, vui lòng thử lại.");
+      } else {
+        setError(msg || "Đăng ký thất bại. Vui lòng thử lại.");
+      }
       setIsLoading(false);
     }
   };
@@ -300,63 +278,26 @@ function RegisterForm() {
             </p>
           </div>
 
-          {/* Username */}
+          {/* Username (auto-generated, read-only) */}
           <div>
-            <label htmlFor="username" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("username")} <span className="text-red-500">*</span>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">
+              {t("username")}
             </label>
-            <input
-              type="text"
-              id="username"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder={t("enterUsername")}
-              pattern="[a-zA-Z0-9]+"
-              minLength={3}
-              maxLength={20}
-              required
-            />
+            <div className="flex items-center gap-2">
+              <span className="flex-1 rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-2.5 font-mono text-base text-zinc-900">
+                {username || "—"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setUsername(generateUsername())}
+                className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
+              >
+                Tạo mới
+              </button>
+            </div>
             <p className="mt-1 text-xs text-zinc-500">
-              {t("usernameHelper")}
+              Tự động tạo (3 chữ + 3 số). Bấm &quot;Tạo mới&quot; để đổi.
             </p>
-          </div>
-
-          {/* Full Name */}
-          <div>
-            <label htmlFor="fullName" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("fullName")} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="fullName"
-              value={formData.fullName}
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder={t("enterFullName")}
-              required
-            />
-          </div>
-
-          {/* Country */}
-          <div>
-            <label htmlFor="country" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("country")} <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="country"
-              value={formData.country}
-              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-              className="w-full appearance-none rounded-lg border border-zinc-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%209L1%204h10z%22/%3E%3C/svg%3E')] bg-[length:12px_12px] bg-[right_12px_center] bg-no-repeat px-4 py-2.5 pr-10 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            >
-              <option value="" className="text-zinc-400">{t("selectCountry")}</option>
-              {countries.map((country) => (
-                <option key={country.code} value={country.code} className="text-zinc-900">
-                  {country.name} ({country.dialCode})
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Phone Number */}
@@ -374,23 +315,6 @@ function RegisterForm() {
               required
             />
           </div>
-
-          {/* Address */}
-          <div>
-            <label htmlFor="address" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("address")}
-            </label>
-            <input
-              type="text"
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder={t("enterAddress")}
-            />
-          </div>
-
-
 
           {/* Email */}
           <div>

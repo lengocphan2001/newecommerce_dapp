@@ -9,6 +9,7 @@ export interface Order {
   transactionHash?: string;
   shippingAddress?: string;
   isReconsumption?: boolean;
+  paymentMethod?: string; // 'wallet' | 'banking'
   createdAt?: string;
   updatedAt?: string;
   user?: {

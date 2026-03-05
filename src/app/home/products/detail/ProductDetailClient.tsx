@@ -38,6 +38,7 @@ interface Product {
   clothingTypeEn?: string;
   tags?: string[];
   properties?: { name: string; values: string[] }[];
+  combos?: { quantity: number; price: number; label?: string }[];
   fakeSold?: number;
   salePercentage?: number;
 }
@@ -56,6 +57,7 @@ export default function ProductDetailClient() {
   const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedProperties, setSelectedProperties] = useState<Record<string, string>>({});
+  const [selectedCombo, setSelectedCombo] = useState<{ quantity: number; price: number; label?: string } | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -192,6 +194,21 @@ export default function ProductDetailClient() {
   const handleAddToCart = (e?: React.MouseEvent) => {
     if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
     const buttonElement = e?.currentTarget as HTMLElement;
+
+    if (selectedCombo) {
+      // Add combo: add item once per quantity in the combo
+      for (let i = 0; i < selectedCombo.quantity; i++) {
+        addItem({
+          productId: product.id,
+          productName: getLocalizedContent(product.name, product.nameEn),
+          // Distribute combo price evenly across units
+          price: parseFloat((selectedCombo.price / selectedCombo.quantity).toFixed(6)),
+          thumbnailUrl: product.thumbnailUrl,
+          properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
+        }, buttonElement);
+      }
+      return;
+    }
 
     const finalPrice = product.salePercentage && product.salePercentage > 0
       ? product.price * (1 - product.salePercentage / 100)
@@ -394,6 +411,66 @@ export default function ProductDetailClient() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Combo Selection */}
+        {product.combos && product.combos.length > 0 && (
+          <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4">
+            <span className="text-sm font-medium text-text-main">
+              {lang === 'vi' ? 'Chọn số lượng mua' : 'Purchase Option'}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {/* Single item option */}
+              <button
+                onClick={() => setSelectedCombo(null)}
+                className={`flex flex-col items-center px-3 py-2 rounded-lg border text-sm transition-all ${selectedCombo === null
+                    ? 'border-primary bg-primary/5 text-primary font-semibold shadow-sm'
+                    : 'border-gray-200 bg-gray-50 text-text-sub hover:border-primary/40'
+                  }`}
+              >
+                <span className="font-medium">{lang === 'vi' ? 'Đơn lẻ' : 'Single'}</span>
+                <span className="text-xs mt-0.5">
+                  ${formatPrice(
+                    product.salePercentage && product.salePercentage > 0
+                      ? product.price * (1 - product.salePercentage / 100)
+                      : product.price
+                  )}
+                </span>
+              </button>
+
+              {/* Combo options */}
+              {product.combos.map((combo, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedCombo(combo)}
+                  className={`flex flex-col items-center px-3 py-2 rounded-lg border text-sm transition-all ${selectedCombo === combo
+                      ? 'border-primary bg-primary/5 text-primary font-semibold shadow-sm'
+                      : 'border-gray-200 bg-gray-50 text-text-sub hover:border-primary/40'
+                    }`}
+                >
+                  <span className="font-medium">
+                    {combo.label ||
+                      (lang === 'vi'
+                        ? `Mua ${combo.quantity} sản phẩm`
+                        : `Buy ${combo.quantity} items`)}
+                  </span>
+                  <span className="text-xs mt-0.5">${formatPrice(combo.price)}</span>
+                  {/* Savings badge */}
+                  {(() => {
+                    const basePrice = product.salePercentage && product.salePercentage > 0
+                      ? product.price * (1 - product.salePercentage / 100)
+                      : product.price;
+                    const saved = basePrice * combo.quantity - combo.price;
+                    return saved > 0 ? (
+                      <span className="text-[10px] mt-0.5 text-green-600 font-medium">
+                        {lang === 'vi' ? 'Tiết kiệm' : 'Save'} ${formatPrice(saved)}
+                      </span>
+                    ) : null;
+                  })()}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -182,10 +182,28 @@ export const api = {
     return response.json();
   },
 
+  /** Public: get banking config for checkout (no auth). */
+  async getBankingConfig(): Promise<{
+    id?: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    qrImageUrl?: string;
+    isEnabled: boolean;
+    updatedAt?: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/admin/banking-config`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch banking config');
+    }
+    return response.json();
+  },
+
   async createOrder(
-    items: Array<{ productId: string; quantity: number }>,
+    items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
-    shippingAddress?: string
+    shippingAddress?: string,
+    paymentMethod?: 'wallet' | 'banking'
   ) {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -197,7 +215,7 @@ export const api = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ items, transactionHash, shippingAddress }),
+      body: JSON.stringify({ items, transactionHash, shippingAddress, paymentMethod }),
     });
     if (!response.ok) {
       const error = await response.json();

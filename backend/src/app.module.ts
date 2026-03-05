@@ -23,6 +23,7 @@ import { Commission } from './affiliate/entities/commission.entity';
 import { AuditLog } from './audit-log/entities/audit-log.entity';
 import { MilestoneRewardConfig } from './admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from './admin/entities/user-milestone.entity';
+import { BankingConfig } from './admin/entities/banking-config.entity';
 import { Category } from './category/entities/category.entity';
 import { Slider } from './slider/entities/slider.entity';
 import { SliderModule } from './slider/slider.module';
@@ -64,7 +65,7 @@ import { Kyc } from './kyc/entities/kyc.entity';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, Category, Slider, Staff, StaffSession, Role, Permission, Package, Kyc],
+        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, Category, Slider, Staff, StaffSession, Role, Permission, Package, Kyc],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
           configService.get<string>('NODE_ENV') !== 'production',

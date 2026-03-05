@@ -78,11 +78,67 @@ export default function CheckoutPage() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [checkoutUser, setCheckoutUser] = useState<{ fullName?: string; phone?: string; address?: string } | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "banking">("wallet");
+  const [bankingConfig, setBankingConfig] = useState<{
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    qrImageUrl?: string;
+    isEnabled: boolean;
+  } | null>(null);
+  const [bankingOrderId, setBankingOrderId] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | null>(null);
+  const [usdtToVnd, setUsdtToVnd] = useState<number | null>(null);
+
+  const userWalletAddress = walletAddress || (typeof window !== "undefined" ? localStorage.getItem("walletAddress") : null);
+
+  // Fetch latest USDT/VND rate when user selects banking payment
+  useEffect(() => {
+    if (paymentMethod !== "banking") return;
+    let cancelled = false;
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+      .then((res) => res.json())
+      .then((data: { tether?: { vnd?: number } }) => {
+        if (cancelled) return;
+        const rate = data?.tether?.vnd;
+        if (typeof rate === "number" && rate > 0) setUsdtToVnd(rate);
+      })
+      .catch(() => { if (!cancelled) setUsdtToVnd(null); });
+    return () => { cancelled = true; };
+  }, [paymentMethod]);
+
+  const copyToClipboard = async (text: string, field: "bankName" | "accountNumber" | "accountName" | "content") => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  const downloadQrImage = async () => {
+    if (!bankingConfig?.qrImageUrl) return;
+    try {
+      const res = await fetch(bankingConfig.qrImageUrl, { mode: "cors" });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "qr-chuyen-khoan.png";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(bankingConfig.qrImageUrl, "_blank");
+    }
+  };
 
   useEffect(() => {
     loadWalletInfo();
     loadCheckoutUser();
     calculateShippingFee();
+    api.getBankingConfig().then((c) => setBankingConfig(c)).catch(() => setBankingConfig(null));
 
     // Listen for address changes when returning from address page
     const handleStorageChange = () => {
@@ -303,13 +359,45 @@ export default function CheckoutPage() {
     }
   };
 
-  // ... (handlePayment and remaining functions)
-
-  // ... inside render:
-  // <p className="font-bold text-slate-900 text-lg">{checkoutUser?.fullName || "Nguyễn Văn A"}</p>
-  // {checkoutUser?.phone || "+84 912 345 678"}
+  const handleBankingOrder = async () => {
+    if (!shippingAddress.trim()) {
+      setError("Vui lòng nhập địa chỉ giao hàng");
+      return;
+    }
+    setProcessingStep("creating_order");
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Vui lòng đăng nhập");
+      }
+      const orderData = await api.createOrder(
+        items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          properties: item.properties,
+        })),
+        undefined,
+        shippingAddress,
+        "banking"
+      );
+      setBankingOrderId(orderData.id);
+      setProcessingStep("success");
+      clearCart();
+      setTimeout(() => {
+        router.push(`/home/orders?success=true&orderId=${orderData.id}&banking=1`);
+      }, 4000); // longer so user can copy transfer content
+    } catch (err: any) {
+      setError(err.message || "Đặt hàng thất bại");
+      setProcessingStep("error");
+    }
+  };
 
   const handlePayment = async () => {
+    if (paymentMethod === "banking") {
+      await handleBankingOrder();
+      return;
+    }
     if (!walletAddress) {
       setError("Vui lòng kết nối ví");
       return;
@@ -504,6 +592,14 @@ export default function CheckoutPage() {
     }).format(price);
   };
 
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   const formatBalance = (balance: string) => {
     const num = parseFloat(balance || "0");
     return new Intl.NumberFormat("en-US", {
@@ -577,55 +673,179 @@ export default function CheckoutPage() {
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">2</span>
             <h2 className="text-base font-bold text-slate-700">{t("paymentMethod")}</h2>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="size-10 rounded-full bg-gray-100 bg-cover bg-center border border-slate-200" style={{
-                  backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDtLWBC8wB037R9cWqWUH1eRY-ZY0HW_ddkkNGLjliyJNCZr49lS45qsJjELi5cirrppCzmZgrDIhI8aORjjiyBrBVAqJRd2s7jFzu5mOXYZKpmTCn5O4mdZiZWzcv4YdMcNWHXcBdlf_34FZwIIrT9ET0rhg8kZ8bOXhDfIUMxCSC2PyvuUo82k9c4lHqNsSNXhp7q5P_YE71hUiSZHvzfNw0S7I8eYnG0nLp9FZYUMUr7pOSpjkIx-rBa831cVmWsY4iYHfEdU4c')"
-                }}></div>
-                <div className="absolute -bottom-1 -right-1 bg-green-500 border-2 border-white rounded-full p-[2px] shadow-sm">
-                  <span className="material-symbols-outlined text-white text-[10px] font-bold block">link</span>
+          {/* Tabs: Ví (USDT) | Chuyển khoản */}
+          <div className="flex rounded-xl border-2 border-purple-100 bg-white p-1 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setPaymentMethod("wallet")}
+              className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg transition ${paymentMethod === "wallet" ? "bg-primary text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"}`}
+            >
+              💳 Ví (USDT)
+            </button>
+            <button
+              type="button"
+              onClick={() => bankingConfig?.isEnabled && setPaymentMethod("banking")}
+              className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg transition ${paymentMethod === "banking" ? "bg-primary text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"} ${!bankingConfig?.isEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              🏦 Chuyển khoản
+            </button>
+          </div>
+
+          {paymentMethod === "wallet" && (
+            <>
+              <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="size-10 rounded-full bg-gray-100 bg-cover bg-center border border-slate-200" style={{
+                      backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDtLWBC8wB037R9cWqWUH1eRY-ZY0HW_ddkkNGLjliyJNCZr49lS45qsJjELi5cirrppCzmZgrDIhI8aORjjiyBrBVAqJRd2s7jFzu5mOXYZKpmTCn5O4mdZiZWzcv4YdMcNWHXcBdlf_34FZwIIrT9ET0rhg8kZ8bOXhDfIUMxCSC2PyvuUo82k9c4lHqNsSNXhp7q5P_YE71hUiSZHvzfNw0S7I8eYnG0nLp9FZYUMUr7pOSpjkIx-rBa831cVmWsY4iYHfEdU4c')"
+                    }}></div>
+                    <div className="absolute -bottom-1 -right-1 bg-green-500 border-2 border-white rounded-full p-[2px] shadow-sm">
+                      <span className="material-symbols-outlined text-white text-[10px] font-bold block">link</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">{t("paymentMethodSafePal")}</p>
+                    <p className="text-xs text-text-sub font-medium font-mono bg-slate-100 px-1 rounded inline-block mt-0.5">
+                      {shortAddress(walletAddress)}
+                    </p>
+                  </div>
+                </div>
+                {walletAddress ? (
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100">
+                    <div className="size-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                    {t("connected")}
+                  </div>
+                ) : (
+                  <button
+                    onClick={connectWallet}
+                    className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary-dark transition"
+                  >
+                    {t("connect")}
+                  </button>
+                )}
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-text-sub px-1 uppercase tracking-wider">{t("paymentAsset")}</p>
+                <div className="flex items-center p-3.5 rounded-xl border-2 border-primary bg-purple-50">
+                  <div className="size-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100">
+                    <span className="material-symbols-outlined text-[22px]">attach_money</span>
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-slate-900 text-base">USDT</p>
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">BEP20</span>
+                    </div>
+                    <p className="text-xs text-text-sub mt-0.5">Số dư: <span className="font-semibold text-slate-700">{formatBalance(usdtBalance)}</span></p>
+                  </div>
+                  <div className="size-5 rounded-full border-[1.5px] border-primary bg-primary flex items-center justify-center">
+                    <div className="size-2 bg-white rounded-full"></div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">{t("paymentMethodSafePal")}</p>
-                <p className="text-xs text-text-sub font-medium font-mono bg-slate-100 px-1 rounded inline-block mt-0.5">
-                  {shortAddress(walletAddress)}
+            </>
+          )}
+
+          {paymentMethod === "banking" && !bankingConfig?.isEnabled && (
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 text-center text-slate-500 text-sm">
+              Phương thức chuyển khoản tạm thời không khả dụng. Vui lòng chọn thanh toán bằng Ví (USDT).
+            </div>
+          )}
+          {paymentMethod === "banking" && bankingConfig && bankingConfig.isEnabled && (
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 space-y-4">
+              <p className="text-sm text-slate-600">Chuyển khoản đến tài khoản sau. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận đã nhận tiền.</p>
+              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền chuyển khoản</p>
+                <p className="font-bold text-slate-900 text-lg">{formatPrice(finalTotal)} USDT</p>
+                {usdtToVnd != null && (
+                  <p className="text-sm text-slate-600 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)} (tỷ giá mới nhất)</p>
+                )}
+                {usdtToVnd == null && paymentMethod === "banking" && (
+                  <p className="text-xs text-slate-400 mt-0.5">Đang lấy tỷ giá USDT/VND...</p>
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-text-sub font-medium shrink-0">Ngân hàng</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-slate-900 truncate">{bankingConfig.bankName || "—"}</span>
+                    {bankingConfig.bankName && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(bankingConfig.bankName, "bankName")}
+                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                      >
+                        {copiedField === "bankName" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-text-sub font-medium shrink-0">Số tài khoản</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold font-mono text-slate-900 truncate">{bankingConfig.accountNumber || "—"}</span>
+                    {bankingConfig.accountNumber && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(bankingConfig.accountNumber, "accountNumber")}
+                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                      >
+                        {copiedField === "accountNumber" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-text-sub font-medium shrink-0">Chủ tài khoản</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-slate-900 uppercase truncate">{bankingConfig.accountName || "—"}</span>
+                    {bankingConfig.accountName && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(bankingConfig.accountName, "accountName")}
+                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                      >
+                        {copiedField === "accountName" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {bankingConfig.qrImageUrl && (
+                <div className="flex flex-col items-center pt-2">
+                  <span className="text-xs text-text-sub font-medium mb-2">Quét mã QR để chuyển khoản</span>
+                  <img src={bankingConfig.qrImageUrl} alt="QR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
+                  <button
+                    type="button"
+                    onClick={downloadQrImage}
+                    className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">download</span>
+                    Tải ảnh QR
+                  </button>
+                </div>
+              )}
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-2">
+                <strong>Nội dung chuyển khoản (địa chỉ ví của bạn):</strong>
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <code className="flex-1 min-w-0 break-all font-mono bg-amber-100/80 px-2 py-1.5 rounded text-slate-800">
+                    {userWalletAddress || "Chưa có địa chỉ ví — đăng nhập bằng ví để hiện"}
+                  </code>
+                  {userWalletAddress && (
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(userWalletAddress, "content")}
+                      className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-200/80 text-amber-900 text-xs font-semibold hover:bg-amber-300/80 transition"
+                    >
+                      {copiedField === "content" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                    </button>
+                  )}
+                </div>
+                <p className="text-amber-700 mt-1.5">
+                  Ghi địa chỉ ví của bạn vào nội dung chuyển khoản để admin xác nhận đơn hàng.
                 </p>
               </div>
             </div>
-            {walletAddress ? (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100">
-                <div className="size-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                {t("connected")}
-              </div>
-            ) : (
-              <button
-                onClick={connectWallet}
-                className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary-dark transition"
-              >
-                {t("connect")}
-              </button>
-            )}
-          </div>
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-text-sub px-1 uppercase tracking-wider">{t("paymentAsset")}</p>
-            <div className="flex items-center p-3.5 rounded-xl border-2 border-primary bg-purple-50">
-              <div className="size-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100">
-                <span className="material-symbols-outlined text-[22px]">attach_money</span>
-              </div>
-              <div className="ml-3 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-slate-900 text-base">USDT</p>
-                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">BEP20</span>
-                </div>
-                <p className="text-xs text-text-sub mt-0.5">Số dư: <span className="font-semibold text-slate-700">{formatBalance(usdtBalance)}</span></p>
-              </div>
-              <div className="size-5 rounded-full border-[1.5px] border-primary bg-primary flex items-center justify-center">
-                <div className="size-2 bg-white rounded-full"></div>
-              </div>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* Section 3: Payment Details */}
@@ -645,6 +865,17 @@ export default function CheckoutPage() {
                 <span className="font-bold text-slate-900">{formatPrice(shippingFee)} USDT</span>
               </div>
             )}
+            {paymentMethod === "banking" && usdtToVnd != null && (
+              <>
+                <div className="border-t border-slate-100 pt-3 mt-1">
+                  <div className="flex justify-between text-sm items-center">
+                    <span className="text-text-sub font-medium">Tổng thanh toán (VND)</span>
+                    <span className="font-bold text-slate-900">{formatVnd(finalTotal * usdtToVnd)}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Tỷ giá USDT cập nhật tại thời điểm thanh toán</p>
+                </div>
+              </>
+            )}
           </div>
         </section>
       </div>
@@ -658,13 +889,25 @@ export default function CheckoutPage() {
               <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
               <span className="text-sm font-bold text-slate-500">USDT</span>
             </div>
+            {paymentMethod === "banking" && usdtToVnd != null && (
+              <span className="text-xs text-slate-500 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)}</span>
+            )}
           </div>
           <button
             onClick={handlePayment}
-            disabled={processingStep !== "idle" || !walletAddress || parseFloat(usdtBalance || "0") < finalTotal}
+            disabled={
+              processingStep !== "idle"
+              || (paymentMethod === "wallet" && (!walletAddress || parseFloat(usdtBalance || "0") < finalTotal))
+            }
             className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>{processingStep !== "idle" ? t("processingPayment") : t("confirmPurchase")}</span>
+            <span>
+              {processingStep !== "idle"
+                ? t("processingPayment")
+                : paymentMethod === "banking"
+                  ? "Đặt hàng"
+                  : t("confirmPurchase")}
+            </span>
             {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
           </button>
         </div>
@@ -677,6 +920,16 @@ export default function CheckoutPage() {
         step={processingStep}
         error={error}
         onClose={() => setProcessingStep("idle")}
+        bankingSuccess={
+          processingStep === "success" && bankingOrderId && userWalletAddress
+            ? {
+                orderId: bankingOrderId,
+                transferContent: userWalletAddress,
+              }
+            : processingStep === "success" && bankingOrderId
+              ? { orderId: bankingOrderId, transferContent: "" }
+              : undefined
+        }
       />
 
       {/* Error Message (for non-modal errors or if modal is closed) */}

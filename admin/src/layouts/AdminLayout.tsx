@@ -21,6 +21,7 @@ import {
   SafetyCertificateOutlined,
   GiftOutlined,
   RiseOutlined,
+  BankOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -147,6 +148,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <SafetyCertificateOutlined />,
       label: 'Roles',
       permission: 'roles.view',
+    },
+    {
+      key: '/banking-settings',
+      icon: <BankOutlined />,
+      label: 'Banking Settings',
+      permission: null, // accessible to all admins
     },
   ];
 

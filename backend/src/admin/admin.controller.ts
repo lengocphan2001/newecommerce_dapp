@@ -1,7 +1,8 @@
-import { Controller, Get, Put, Body, Param, Query, Res } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { UpdateUserStatusDto } from './dto';
+import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('admin')
 export class AdminController {
@@ -83,6 +84,19 @@ export class AdminController {
   @Get('tree/:userId')
   async getFullTree(@Param('userId') userId: string, @Query('maxDepth') maxDepth?: number) {
     return this.adminService.getFullTree(userId, maxDepth ? parseInt(maxDepth.toString(), 10) : 5);
+  }
+
+  /** Public endpoint — used by checkout to display QR banking info */
+  @Get('banking-config')
+  async getBankingConfig() {
+    return this.adminService.getBankingConfig();
+  }
+
+  /** Admin-only — update banking config */
+  @Put('banking-config')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async upsertBankingConfig(@Body() dto: any) {
+    return this.adminService.upsertBankingConfig(dto);
   }
 }
 
