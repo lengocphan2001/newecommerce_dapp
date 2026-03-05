@@ -264,6 +264,46 @@ export class CommissionPayoutService {
   }
 
   /**
+   * Payout specific commissions by ID (e.g. when admin approves on Commissions page).
+   * Loads PENDING commissions, groups by wallet, executes blockchain payout, marks PAID.
+   */
+  async payoutCommissionsByIds(
+    commissionIds: string[],
+    userId?: string,
+    username?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ batchId: string; txHash: string; success: boolean; count: number }> {
+    if (commissionIds.length === 0) {
+      throw new Error('No commission IDs provided');
+    }
+
+    const commissions = await this.commissionRepository.find({
+      where: { id: In(commissionIds), status: CommissionStatus.PENDING },
+      relations: ['user'],
+    });
+
+    if (commissions.length === 0) {
+      throw new Error('No pending commissions found for the given IDs');
+    }
+
+    const validCommissions = commissions.filter((c) => c.user?.walletAddress);
+    if (validCommissions.length === 0) {
+      throw new Error('None of the selected commissions have a wallet address. Cannot payout.');
+    }
+
+    const { recipients } = await this.preparePayoutBatch(validCommissions);
+    const result = await this.executeBatchPayout(
+      { recipients },
+      userId,
+      username,
+      ipAddress,
+      userAgent,
+    );
+    return { ...result, count: validCommissions.length };
+  }
+
+  /**
    * Single payout for one user (used for milestone rewards)
    * Finds the specific commission by orderId (milestone-{milestoneId}) and pays it
    */

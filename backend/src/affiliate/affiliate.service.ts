@@ -2,13 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommissionService } from './commission.service';
+import { CommissionPayoutService } from './commission-payout.service';
 import { CommissionType, CommissionStatus } from './entities/commission.entity';
 import { User } from '../user/entities/user.entity';
+
+export interface ApproveCommissionContext {
+  userId?: string;
+  username?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class AffiliateService {
   constructor(
     private readonly commissionService: CommissionService,
+    private readonly commissionPayoutService: CommissionPayoutService,
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) { }
@@ -97,17 +106,40 @@ export class AffiliateService {
   }
 
   /**
-   * Duyệt commission (chỉ admin)
+   * Duyệt commission (chỉ admin) = thực hiện payout on-chain rồi mới đánh dấu PAID.
+   * Trả về batchId, txHash để admin xem trên BSCScan.
    */
-  async approveCommission(commissionId: string, notes?: string) {
-    return this.commissionService.approveCommission(commissionId, notes);
+  async approveCommission(commissionId: string, notes?: string, ctx?: ApproveCommissionContext) {
+    const result = await this.commissionPayoutService.payoutCommissionsByIds(
+      [commissionId],
+      ctx?.userId,
+      ctx?.username,
+      ctx?.ipAddress,
+      ctx?.userAgent,
+    );
+    return { ...result, message: 'Commission approved and paid on-chain successfully' };
   }
 
   /**
-   * Duyệt nhiều commissions (chỉ admin)
+   * Duyệt nhiều commissions (chỉ admin) = payout on-chain cho các commission đã chọn.
    */
-  async approveCommissions(commissionIds: string[]) {
-    return this.commissionService.approveCommissions(commissionIds);
+  async approveCommissions(commissionIds: string[], ctx?: ApproveCommissionContext) {
+    const result = await this.commissionPayoutService.payoutCommissionsByIds(
+      commissionIds,
+      ctx?.userId,
+      ctx?.username,
+      ctx?.ipAddress,
+      ctx?.userAgent,
+    );
+    return {
+      approved: result.count,
+      failed: commissionIds.length - result.count,
+      batchId: result.batchId,
+      txHash: result.txHash,
+      message: result.count > 0
+        ? `${result.count} commission(s) paid on-chain successfully`
+        : 'No commissions could be paid',
+    };
   }
 
   /**

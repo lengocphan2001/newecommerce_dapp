@@ -19,6 +19,9 @@ export interface Commission {
   side?: 'left' | 'right';
   notes?: string;
   createdAt: string;
+  payoutTxHash?: string;
+  payoutBatchId?: string;
+  payoutDate?: string;
 }
 
 export const commissionService = {

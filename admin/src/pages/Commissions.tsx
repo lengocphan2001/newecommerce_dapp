@@ -120,8 +120,23 @@ const CommissionsPage: React.FC = () => {
 
   const handleApprove = async (id: string, notes?: string) => {
     try {
-      await commissionService.approve(id, notes);
-      message.success('Commission approved successfully');
+      const result = await commissionService.approve(id, notes);
+      const txHash = result?.data?.txHash;
+      if (txHash) {
+        message.success({
+          content: (
+            <span>
+              Paid on-chain successfully.{' '}
+              <a href={`https://bscscan.com/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                View on BSCScan
+              </a>
+            </span>
+          ),
+          duration: 6,
+        });
+      } else {
+        message.success('Commission approved successfully');
+      }
       fetchCommissions();
       setSelectedRowKeys([]);
       setApproveNotes('');
@@ -138,9 +153,25 @@ const CommissionsPage: React.FC = () => {
 
     try {
       const result = await commissionService.approveBatch(selectedRowKeys as string[]);
-      message.success(`Approved ${result.data.approved} commission(s)`);
-      if (result.data.failed > 0) {
-        message.warning(`${result.data.failed} commission(s) failed to approve`);
+      const data = result?.data || {};
+      const txHash = data.txHash;
+      message.success(
+        txHash
+          ? {
+              content: (
+                <span>
+                  Paid {data.approved} commission(s) on-chain.{' '}
+                  <a href={`https://bscscan.com/tx/${txHash}`} target="_blank" rel="noopener noreferrer">
+                    View on BSCScan
+                  </a>
+                </span>
+              ),
+              duration: 6,
+            }
+          : `Approved ${data.approved} commission(s)`
+      );
+      if (data.failed > 0) {
+        message.warning(`${data.failed} commission(s) had no wallet or were skipped`);
       }
       fetchCommissions();
       setSelectedRowKeys([]);
@@ -425,6 +456,29 @@ const CommissionsPage: React.FC = () => {
               <Descriptions.Item label="Created At" span={2}>
                 {formatDate(selectedCommission.createdAt)}
               </Descriptions.Item>
+              {selectedCommission.status === 'paid' && (selectedCommission.payoutTxHash || selectedCommission.payoutDate) && (
+                <>
+                  {selectedCommission.payoutTxHash && (
+                    <Descriptions.Item label="Payout Transaction" span={2}>
+                      <a
+                        href={`https://bscscan.com/tx/${selectedCommission.payoutTxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                      >
+                        {selectedCommission.payoutTxHash.slice(0, 10)}...{selectedCommission.payoutTxHash.slice(-8)}
+                      </a>
+                      {' '}
+                      <span style={{ color: '#888', fontSize: '12px' }}>(View on BSCScan)</span>
+                    </Descriptions.Item>
+                  )}
+                  {selectedCommission.payoutDate && (
+                    <Descriptions.Item label="Paid At" span={2}>
+                      {formatDate(selectedCommission.payoutDate)}
+                    </Descriptions.Item>
+                  )}
+                </>
+              )}
               {selectedCommission.notes && (
                 <Descriptions.Item label="Notes" span={2}>
                   {selectedCommission.notes}

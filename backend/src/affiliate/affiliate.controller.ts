@@ -64,14 +64,30 @@ export class AffiliateController {
 
   @Put('admin/commissions/:id/approve')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async approveCommission(@Param('id') id: string, @Body() approveDto: ApproveSingleCommissionDto) {
-    return this.affiliateService.approveCommission(id, approveDto.notes);
+  async approveCommission(
+    @Param('id') id: string,
+    @Body() approveDto: ApproveSingleCommissionDto,
+    @Request() req: any,
+  ) {
+    const ctx = {
+      userId: req.user?.id ?? req.user?.userId ?? req.user?.sub,
+      username: req.user?.username ?? req.user?.email,
+      ipAddress: req.ip ?? req.headers?.['x-forwarded-for'] ?? req.connection?.remoteAddress,
+      userAgent: req.headers?.['user-agent'],
+    };
+    return this.affiliateService.approveCommission(id, approveDto.notes, ctx);
   }
 
   @Post('admin/commissions/approve-batch')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async approveCommissions(@Body() approveDto: ApproveCommissionDto) {
-    return this.affiliateService.approveCommissions(approveDto.commissionIds);
+  async approveCommissions(@Body() approveDto: ApproveCommissionDto, @Request() req: any) {
+    const ctx = {
+      userId: req.user?.id ?? req.user?.userId ?? req.user?.sub,
+      username: req.user?.username ?? req.user?.email,
+      ipAddress: req.ip ?? req.headers?.['x-forwarded-for'] ?? req.connection?.remoteAddress,
+      userAgent: req.headers?.['user-agent'],
+    };
+    return this.affiliateService.approveCommissions(approveDto.commissionIds, ctx);
   }
 }
 
