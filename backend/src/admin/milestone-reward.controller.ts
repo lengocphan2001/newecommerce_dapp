@@ -2,9 +2,10 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Body,
+  Param,
   UseGuards,
-  Request,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -44,6 +45,20 @@ export class MilestoneRewardController {
     } catch (error) {
       throw new HttpException(
         `Failed to fetch milestones: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /** Recheck and process milestone rewards for a user (referrer). Use when config was missing or referrer just became eligible. */
+  @Post('recheck/:userId')
+  async recheckMilestones(@Param('userId') userId: string) {
+    try {
+      await this.milestoneRewardService.checkAndProcessMilestones(userId);
+      return { success: true, message: 'Milestone check completed for user ' + userId };
+    } catch (error: any) {
+      throw new HttpException(
+        error?.message || 'Failed to recheck milestones',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

@@ -24,6 +24,7 @@ import Staffs from './pages/Staffs';
 import Roles from './pages/Roles';
 import Login from './pages/Login';
 import Packages from './pages/Packages';
+import PackagePurchases from './pages/PackagePurchases';
 import BankingSettings from './pages/BankingSettings';
 import './App.css';
 
@@ -247,6 +248,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <Packages />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/package-purchases"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <PackagePurchases />
                   </AdminLayout>
                 </PrivateRoute>
               }

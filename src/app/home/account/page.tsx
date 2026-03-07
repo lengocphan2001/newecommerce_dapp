@@ -93,6 +93,26 @@ export default function AccountPage() {
             </div>
           </button>
 
+          <button
+            onClick={() => router.push("/home/packages")}
+            className="w-full rounded-xl bg-white p-4 text-left shadow-sm transition-colors hover:bg-zinc-50"
+          >
+            <div className="flex items-center gap-4">
+              <div className="text-zinc-600">
+                <span className="material-symbols-outlined text-2xl">redeem</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-zinc-900">
+                  Packages (CTV, NPP, TV)
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Buy a package to activate your commission level
+                </p>
+              </div>
+              <div className="text-zinc-400">&gt;</div>
+            </div>
+          </button>
+
           <div className="w-full rounded-xl bg-white p-4 shadow-sm">
             <p className="text-sm font-medium text-zinc-900 mb-2">
               {t("emailVerification")}

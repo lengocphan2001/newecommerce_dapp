@@ -577,6 +577,14 @@ export default function CheckoutPage() {
       // Check for user rejection
       if (err.code === "ACTION_REJECTED" || err.code === 4001 || err?.info?.error?.code === 4001 || (err.message && err.message.includes("rejected"))) {
         setError("Bạn đã hủy giao dịch");
+      } else if (err.message === "CONFIRM_TIMEOUT") {
+        setError("Xác nhận thanh toán đang quá lâu. Vui lòng kiểm tra đơn hàng của bạn.");
+        setProcessingStep("error");
+        // Still redirect to orders so user can see the order (may be confirmed or pending)
+        setTimeout(() => {
+          router.push(`/home/orders?orderId=${orderData?.id}`);
+        }, 3000);
+        return;
       } else {
         setError(err.message || "Thanh toán thất bại");
       }

@@ -184,20 +184,31 @@ export class OrderService {
    * Encapsulate order approval logic (Stock deduction, Commission, Payout, etc.)
    */
   private async approveOrder(order: Order) {
-    // 1. Deduct Stock
-    for (const item of order.items) {
+    // 1. Deduct Stock (guard against missing items)
+    const items = Array.isArray(order.items) ? order.items : [];
+    for (const item of items) {
+      if (!item?.productId || typeof item.quantity !== 'number') continue;
       const product = await this.productRepository.findOne({ where: { id: item.productId } });
       if (product) {
         await this.productRepository.update(product.id, {
-          stock: product.stock - item.quantity,
+          stock: Math.max(0, product.stock - item.quantity),
         });
       }
     }
 
-    // 2. Check Reconsumption & Update User Totals
+    // 2. Update buyer's total purchase amount & check reconsumption
     if (order.userId) {
       const user = await this.userRepository.findOne({ where: { id: order.userId } });
       if (user) {
+        const amount = Number(order.totalAmount);
+        if (Number.isFinite(amount) && amount > 0) {
+          await this.userRepository.increment(
+            { id: order.userId },
+            'totalPurchaseAmount',
+            amount,
+          );
+        }
+
         const isReconsumption = await this.checkIfReconsumption(user, order.totalAmount);
 
         // Update Order flag
@@ -205,32 +216,28 @@ export class OrderService {
           await this.orderRepository.update(order.id, { isReconsumption: true });
         }
 
-        // Update User Total Purchase & Reconsumption
+        // Update User Reconsumption total
         if (isReconsumption) {
           await this.userRepository.update(order.userId, {
-            totalReconsumptionAmount: Number(user.totalReconsumptionAmount) + Number(order.totalAmount)
+            totalReconsumptionAmount: Number(user.totalReconsumptionAmount) + Number(order.totalAmount),
           });
         }
       }
     }
 
-    // 3. Trigger Commission Calculation & Payout
+    // 3. Check Milestones for referrer (run here so milestones run even if commission fails)
+    const buyer = await this.userRepository.findOne({ where: { id: order.userId } });
+    if (buyer?.referralUserId) {
+      this.milestoneRewardService.checkAndProcessMilestones(buyer.referralUserId)
+        .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
+    }
+
+    // 4. Trigger Commission Calculation & Payout (fire-and-forget)
     this.commissionService
       .calculateCommissions(order.id)
       .then(async () => {
-        // Wait for DB commit
         await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Payout
-        const payoutResult = await this.commissionPayoutService.payoutOrderCommissions(order.id);
-
-        // Check Milestones
-        const user = await this.userRepository.findOne({ where: { id: order.userId } });
-        if (user && user.referralUserId) {
-          this.milestoneRewardService.checkAndProcessMilestones(user.referralUserId)
-            .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
-        }
-
+        await this.commissionPayoutService.payoutOrderCommissions(order.id);
         console.log(`[AUTO-CONFIRM] Processed commissions for order ${order.id}`);
       })
       .catch(err => {

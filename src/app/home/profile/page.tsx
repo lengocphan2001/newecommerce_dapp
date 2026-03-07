@@ -37,12 +37,57 @@ export default function ProfilePage() {
     currentCommission?: number;
   } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [packages, setPackages] = useState<Array<{ id: string; name: string; code: string; price: number; description?: string; directCommissionRate: number; groupCommissionRate: number; managementRateF1: number }>>([]);
+  const [myPurchases, setMyPurchases] = useState<Array<{ id: string; packageId: string; amount: number; status: string; package?: { name: string; code: string } }>>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [purchaseError, setPurchaseError] = useState("");
 
   useEffect(() => {
     loadUserProfile();
     loadWalletStatus();
     loadReconsumptionStatus();
+    loadPackages();
   }, []);
+
+  const loadPackages = async () => {
+    try {
+      setPackagesLoading(true);
+      const [list, purchases] = await Promise.all([
+        api.getActivePackages(),
+        api.getMyPackagePurchases(),
+      ]);
+      setPackages(Array.isArray(list) ? list : []);
+      setMyPurchases(Array.isArray(purchases) ? purchases : []);
+    } catch (_) {
+      setPackages([]);
+      setMyPurchases([]);
+    } finally {
+      setPackagesLoading(false);
+    }
+  };
+
+  const handleBuyPackage = async (pkg: { id: string; name: string; code: string; price: number }) => {
+    try {
+      setPurchasingId(pkg.id);
+      setPurchaseError("");
+      const purchase = await api.purchasePackage(pkg.id);
+      const purchaseId = purchase?.id ?? (purchase as any)?.data?.id;
+      const amount = Number(pkg.price);
+      if (purchaseId && amount > 0) {
+        router.push(
+          `/home/package-checkout?purchaseId=${encodeURIComponent(purchaseId)}&amount=${amount}&packageName=${encodeURIComponent(pkg.name)}`
+        );
+      } else {
+        await loadPackages();
+      }
+    } catch (err: any) {
+      if (handleAuthError(err, router)) return;
+      setPurchaseError(err.message || "Failed to request purchase");
+    } finally {
+      setPurchasingId(null);
+    }
+  };
 
   const loadReconsumptionStatus = async () => {
     try {
@@ -246,32 +291,45 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-3 gap-3 mt-6 w-full max-w-sm mx-auto">
-              <div className="bg-yellow-50/50 rounded-2xl p-3 border border-yellow-100/50">
-                <p className="text-[10px] font-bold text-primary-dark uppercase tracking-tight mb-1">{t("affiliateAccumulatedPurchases")}</p>
-                <p className="text-sm font-black text-slate-900 truncate">
-                  ${userInfo?.accumulatedPurchases
-                    ? parseFloat(userInfo.accumulatedPurchases).toLocaleString('en-US', { maximumFractionDigits: 4 })
-                    : "0.00"}
-                </p>
-              </div>
-              <div className="bg-emerald-50/50 rounded-2xl p-3 border border-emerald-100/50">
-                <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-tight mb-1">{t("commission")}</p>
-                <p className="text-sm font-black text-slate-900 truncate">
-                  ${userInfo?.bonusCommission
-                    ? parseFloat(userInfo.bonusCommission).toLocaleString('en-US', { maximumFractionDigits: 4 })
-                    : "0.00"}
-                </p>
-              </div>
-              <div className="bg-purple-50/50 rounded-2xl p-3 border border-purple-100/50">
-                <p className="text-[10px] font-bold text-purple-600 uppercase tracking-tight mb-1">{t("maximum")}</p>
-                <p className="text-sm font-black text-slate-900 truncate">
-                  ${userInfo?.maxCommission
-                    ? parseFloat(userInfo.maxCommission).toLocaleString('en-US', { maximumFractionDigits: 4 })
-                    : "0.00"}
-                </p>
-              </div>
+            {/* Packages (CTV, NPP, TV) - 3 columns */}
+            <div className="mt-4 w-full max-w-sm mx-auto">
+              <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2 flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-base text-slate-500">redeem</span>
+                {t("packagesSectionTitle")}
+              </p>
+              {purchaseError && (
+                <p className="text-xs text-red-600 mb-2 text-center">{purchaseError}</p>
+              )}
+              {myPurchases.filter((p) => p.status === "pending").length > 0 && (
+                <div className="mb-2 p-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 text-center">
+                  {t("packagesPendingLabel")}: {myPurchases.filter((p) => p.status === "pending").map((p) => `${p.package?.name ?? "Package"} — $${Number(p.amount).toLocaleString()}`).join("; ")}. {t("packagesPendingWaitAdmin")}
+                </div>
+              )}
+              {packagesLoading ? (
+                <p className="text-sm text-slate-500 text-center">{t("packagesLoading")}</p>
+              ) : packages.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center">{t("packagesNoneAvailable")}</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {packages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm text-center"
+                    >
+                      <p className="font-semibold text-slate-900 text-xs leading-tight truncate" title={pkg.name}>{pkg.name}</p>
+                      <p className="text-[10px] text-slate-500">{pkg.code}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleBuyPackage(pkg)}
+                        disabled={!!purchasingId}
+                        className="w-full py-1 rounded-lg bg-primary text-white text-[10px] font-medium hover:bg-primary-dark disabled:opacity-50"
+                      >
+                        {purchasingId === pkg.id ? "..." : t("packagesBuy")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Commission Progress Bar */}
@@ -302,53 +360,87 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {/* Branch Members Stats */}
-            <div className="flex flex-col gap-3 mt-6 w-full max-w-sm mx-auto">
-              <div className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base text-slate-500">group</span>
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{t("affiliateLeftBranchLabel")}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-sm font-black text-[#135bec]">{userInfo?.treeStats?.left?.count || 0} người</span>
-                  <span className="text-[10px] font-semibold text-slate-500">${(userInfo?.treeStats?.left?.total || 0).toFixed(4)}</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base text-slate-500">group</span>
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{t("affiliateRightBranchLabel")}</span>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-sm font-black text-[#135bec]">{userInfo?.treeStats?.right?.count || 0} người</span>
-                  <span className="text-[10px] font-semibold text-slate-500">${(userInfo?.treeStats?.right?.total || 0).toFixed(4)}</span>
-                </div>
-              </div>
-            </div>
 
-            {walletAddress ? (
-              <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                <span className="material-symbols-outlined text-[#135bec] text-xl">account_balance_wallet</span>
-                <span className="text-xs font-semibold text-slate-600">{t("connectedToSafePal")}</span>
-                <div className="w-2 h-2 rounded-full bg-[#135bec] animate-pulse"></div>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  // Logic to connect wallet could be triggered here or navigating to wallet page
-                  router.push('/home/wallets');
-                }}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100"
-              >
-                <span className="material-symbols-outlined text-slate-400 text-xl">account_balance_wallet</span>
-                <span className="text-xs font-semibold text-slate-600">{t("connectWallet")}</span>
-              </button>
-            )}
+            
           </div>
         </section>
 
         <section className="px-4 space-y-4">
           {/* Email verification */}
+          
+
+          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+          <button
+              onClick={() => router.push('/home/profile/kyc')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600">
+                <span className="material-symbols-outlined text-xl font-medium">badge</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-slate-800">{t("kycTitle")}</p>
+                <p className="text-xs text-slate-400">{t("kycDesc")}</p>
+              </div>
+              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            </button>
+            <button
+              onClick={() => router.push('/home/profile/edit')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#135bec]/10 text-[#135bec]">
+                <span className="material-symbols-outlined text-xl font-medium">person</span>
+              </div>
+              <span className="flex-1 font-medium text-slate-800 text-left">{t("editProfile")}</span>
+              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            </button>
+            <div className="mx-4 border-t border-slate-50"></div>
+            <button
+              onClick={() => router.push('/home/profile/address')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-yellow-50 text-primary-dark">
+                <span className="material-symbols-outlined text-xl font-medium">location_on</span>
+              </div>
+              <span className="flex-1 font-medium text-slate-800 text-left">{t("shippingAddress")}</span>
+              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            </button>
+            <div className="mx-4 border-t border-slate-50"></div>
+            <button
+              onClick={() => router.push('/home/orders')}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
+                <span className="material-symbols-outlined text-xl font-medium">history</span>
+              </div>
+              <span className="flex-1 font-medium text-slate-800 text-left">{t("orderHistoryNav")}</span>
+              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+            <button className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-teal-50 text-teal-600">
+                <span className="material-symbols-outlined text-xl font-medium">shield</span>
+              </div>
+              <div className="flex-1 text-left">
+                <p className="font-medium text-slate-800">{t("security")}</p>
+                <p className="text-xs text-slate-400">{t("security2FA")}</p>
+              </div>
+              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+            </button>
+            <div className="mx-4 border-t border-slate-50"></div>
+            
+            <div className="mx-4 border-t border-slate-50"></div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-4 px-4 py-4 active:bg-red-50 transition-colors text-red-500"
+            >
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50">
+                <span className="material-symbols-outlined text-xl font-medium">logout</span>
+              </div>
+              <span className="flex-1 font-semibold text-left">{t("logout")}</span>
+            </button>
+          </div>
           <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] p-4">
             <p className="text-sm font-semibold text-slate-800 mb-3">{t("emailVerification")}</p>
             {userInfo?.emailVerified === true ? (
@@ -405,78 +497,6 @@ export default function ProfilePage() {
                 )}
               </>
             )}
-          </div>
-
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
-            <button
-              onClick={() => router.push('/home/profile/edit')}
-              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#135bec]/10 text-[#135bec]">
-                <span className="material-symbols-outlined text-xl font-medium">person</span>
-              </div>
-              <span className="flex-1 font-medium text-slate-800 text-left">{t("editProfile")}</span>
-              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-            </button>
-            <div className="mx-4 border-t border-slate-50"></div>
-            <button
-              onClick={() => router.push('/home/profile/address')}
-              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-yellow-50 text-primary-dark">
-                <span className="material-symbols-outlined text-xl font-medium">location_on</span>
-              </div>
-              <span className="flex-1 font-medium text-slate-800 text-left">{t("shippingAddress")}</span>
-              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-            </button>
-            <div className="mx-4 border-t border-slate-50"></div>
-            <button
-              onClick={() => router.push('/home/orders')}
-              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
-                <span className="material-symbols-outlined text-xl font-medium">history</span>
-              </div>
-              <span className="flex-1 font-medium text-slate-800 text-left">{t("orderHistoryNav")}</span>
-              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-            </button>
-          </div>
-
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
-            <button className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-teal-50 text-teal-600">
-                <span className="material-symbols-outlined text-xl font-medium">shield</span>
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-medium text-slate-800">{t("security")}</p>
-                <p className="text-xs text-slate-400">{t("security2FA")}</p>
-              </div>
-              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-            </button>
-            <div className="mx-4 border-t border-slate-50"></div>
-            <button
-              onClick={() => router.push('/home/profile/kyc')}
-              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600">
-                <span className="material-symbols-outlined text-xl font-medium">badge</span>
-              </div>
-              <div className="flex-1 text-left">
-                <p className="font-medium text-slate-800">{t("kycTitle")}</p>
-                <p className="text-xs text-slate-400">{t("kycDesc")}</p>
-              </div>
-              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-            </button>
-            <div className="mx-4 border-t border-slate-50"></div>
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-4 px-4 py-4 active:bg-red-50 transition-colors text-red-500"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-red-50">
-                <span className="material-symbols-outlined text-xl font-medium">logout</span>
-              </div>
-              <span className="flex-1 font-semibold text-left">{t("logout")}</span>
-            </button>
           </div>
         </section>
 

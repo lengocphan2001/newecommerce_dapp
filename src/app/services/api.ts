@@ -224,24 +224,37 @@ export const api = {
     return response.json();
   },
 
-  async confirmPayment(orderId: string, transactionHash: string) {
+  async confirmPayment(orderId: string, transactionHash: string, options?: { timeoutMs?: number }) {
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
     }
-    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/confirm-payment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ transactionHash }),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to confirm payment');
+    const timeoutMs = options?.timeoutMs ?? 25000; // 25s default so backend has time to finish
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transactionHash }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to confirm payment');
+      }
+      return response.json();
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error('CONFIRM_TIMEOUT');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return response.json();
   },
 
   async getOrders(userId?: string) {
@@ -418,6 +431,60 @@ export const api = {
     const response = await fetch(`${API_BASE_URL}/packages`);
     if (!response.ok) {
       return [];
+    }
+    return response.json();
+  },
+
+  async getActivePackages() {
+    const response = await fetch(`${API_BASE_URL}/packages/active`);
+    if (!response.ok) {
+      return [];
+    }
+    return response.json();
+  },
+
+  async purchasePackage(packageId: string) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/package-purchases`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ packageId }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to request package purchase');
+    }
+    return response.json();
+  },
+
+  async getMyPackagePurchases() {
+    const token = localStorage.getItem('token');
+    if (!token) return [];
+    const response = await fetch(`${API_BASE_URL}/package-purchases/my`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+    return response.json();
+  },
+
+  async confirmPackagePayment(purchaseId: string, transactionHash: string) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/package-purchases/${purchaseId}/confirm-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ transactionHash }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || 'Failed to confirm payment');
     }
     return response.json();
   },

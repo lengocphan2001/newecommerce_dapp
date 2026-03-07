@@ -506,7 +506,7 @@ export class AuthService {
           threshold,
           packageValue,
           currentCommission: user.totalCommissionReceived,
-          message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua hàng với giá trị tối thiểu ${packageValue} USDT để tiếp tục nhận hoa hồng.`,
+          message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua gói (${reachedPackage.name}) để tiếp tục nhận hoa hồng.`,
         };
       }
 
@@ -540,13 +540,13 @@ export class AuthService {
       };
     }
 
-    // Đã đạt ngưỡng → cần tái tiêu dùng
+    // Đã đạt ngưỡng → cần mua gói lại
     return {
       needsReconsumption: true,
       threshold,
       packageValue,
       currentCommission: user.totalCommissionReceived,
-      message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua hàng với giá trị tối thiểu ${packageValue} USDT để tiếp tục nhận hoa hồng.`,
+      message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua gói (${config.name}) để tiếp tục nhận hoa hồng.`,
     };
   }
 

@@ -68,7 +68,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       key: '/packages',
       icon: <GiftOutlined />,
       label: 'Packages',
-      permission: 'packages.view', // Assuming you will add this permission later, or use null for now if no auth check
+      permission: 'packages.view',
+    },
+    {
+      key: '/package-purchases',
+      icon: <DollarOutlined />,
+      label: 'Package Purchases',
+      permission: null,
     },
     {
       key: '/categories',

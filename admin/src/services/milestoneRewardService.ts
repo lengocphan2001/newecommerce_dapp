@@ -44,4 +44,10 @@ export const milestoneRewardService = {
     const response = await api.get('/admin/milestone-reward/milestones');
     return response.data;
   },
+
+  /** Trigger milestone check for a referrer (user id). Use after config save or when referrer just placed an order. */
+  async recheckMilestones(userId: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/admin/milestone-reward/recheck/${userId}`);
+    return response.data;
+  },
 };

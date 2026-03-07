@@ -2,15 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Form,
+  Input,
   InputNumber,
   Button,
   message,
   Typography,
-  Divider,
   Row,
   Col,
   Table,
   Tag,
+  Alert,
+  Space,
 } from 'antd';
 import {
   milestoneRewardService,
@@ -22,6 +24,8 @@ const { Title, Text } = Typography;
 
 const MilestoneRewardPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [recheckLoading, setRecheckLoading] = useState(false);
+  const [recheckUserId, setRecheckUserId] = useState('');
   const [config, setConfig] = useState<MilestoneRewardConfig | null>(null);
   const [milestones, setMilestones] = useState<UserMilestone[]>([]);
   const [form] = Form.useForm();
@@ -144,9 +148,35 @@ const MilestoneRewardPage: React.FC = () => {
     },
   ];
 
+  const handleRecheck = async () => {
+    const userId = recheckUserId?.trim();
+    if (!userId) {
+      message.warning('Please enter a user ID (the referrer who should receive milestones).');
+      return;
+    }
+    try {
+      setRecheckLoading(true);
+      await milestoneRewardService.recheckMilestones(userId);
+      message.success('Milestone check completed. Refresh the table to see new records.');
+      await loadMilestones();
+    } catch (error: any) {
+      message.error('Recheck failed: ' + (error.response?.data?.message || error.message || 'Unknown error'));
+    } finally {
+      setRecheckLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: '24px' }}>
       <Title level={2}>Milestone Reward Configuration</Title>
+
+      <Alert
+        type="info"
+        showIcon
+        message="Eligibility"
+        description="To see milestones: (1) Save config with X/Y/Z % &gt; 0. (2) The referrer (inviter) must have placed at least one order (total purchase &gt; 0). (3) Only referred users who have placed at least one order count. (4) After the 2nd qualifying referral places an order, the first milestone (2 referrals) is checked. Use Recheck with the referrer's user ID if you just saved config or the referrer just placed an order."
+        style={{ marginBottom: 16 }}
+      />
 
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={12}>
@@ -219,9 +249,21 @@ const MilestoneRewardPage: React.FC = () => {
         </Col>
 
         <Col xs={24} lg={12}>
-          <Card title="Milestone History" extra={
-            <Button onClick={loadMilestones}>Refresh</Button>
-          }>
+          <Card
+            title="Milestone History"
+            extra={<Button onClick={loadMilestones}>Refresh</Button>}
+          >
+            <Space style={{ marginBottom: 12 }}>
+              <Input
+                placeholder="Referrer user ID to recheck"
+                value={recheckUserId}
+                onChange={(e) => setRecheckUserId(e.target.value)}
+                style={{ width: 220 }}
+              />
+              <Button type="default" loading={recheckLoading} onClick={handleRecheck}>
+                Recheck milestones
+              </Button>
+            </Space>
             <Table
               dataSource={milestones}
               columns={milestoneColumns}

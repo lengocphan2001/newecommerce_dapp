@@ -408,7 +408,13 @@ export type I18nKey =
   | "kycSubmittedSuccess"
   | "kycImageTooLarge"
   | "kycUploadFailed"
-  | "kycSubmissionFailed";
+  | "kycSubmissionFailed"
+  | "packagesSectionTitle"
+  | "packagesPendingLabel"
+  | "packagesPendingWaitAdmin"
+  | "packagesLoading"
+  | "packagesNoneAvailable"
+  | "packagesBuy";
 
 export const DEFAULT_LANG: Lang = "vi";
 
@@ -789,6 +795,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     whyLocked: "Tại sao bị khóa?",
     reconsumptionExplanation: "Để đảm bảo tính bền vững của hệ thống, bạn cần tái tiêu dùng (mua sản phẩm) để mở khóa hoa hồng mới.",
     buyPackageNow: "Mua Gói Ngay",
+    packagesSectionTitle: "Gói (CTV, NPP, TV)",
+    packagesPendingLabel: "Đang chờ",
+    packagesPendingWaitAdmin: "Chờ admin xác nhận.",
+    packagesLoading: "Đang tải...",
+    packagesNoneAvailable: "Chưa có gói nào.",
+    packagesBuy: "Mua",
     kycTitle: "Xác minh danh tính",
     kycDesc: "Xác minh danh tính của bạn",
     kycStatusUnverified: "Chưa xác minh",
@@ -1195,6 +1207,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     whyLocked: "Why is it locked?",
     reconsumptionExplanation: "To ensure system sustainability, you need to reconsume (buy products) to unlock new commissions.",
     buyPackageNow: "Buy Package Now",
+    packagesSectionTitle: "Packages (CTV, NPP, TV)",
+    packagesPendingLabel: "Pending",
+    packagesPendingWaitAdmin: "Wait for admin confirmation.",
+    packagesLoading: "Loading...",
+    packagesNoneAvailable: "No packages available.",
+    packagesBuy: "Buy",
     kycTitle: "Identity Verification",
     kycDesc: "Verify your identity",
     kycStatusUnverified: "Unverified",
@@ -1601,6 +1619,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     whyLocked: "왜 잠겼나요?",
     reconsumptionExplanation: "시스템 지속 가능성을 보장하기 위해, 새로운 커미션을 잠금 해제하려면 재소비(상품 구매)가 필요합니다.",
     buyPackageNow: "지금 패키지 구매",
+    packagesSectionTitle: "패키지 (CTV, NPP, TV)",
+    packagesPendingLabel: "대기 중",
+    packagesPendingWaitAdmin: "관리자 확인을 기다려 주세요.",
+    packagesLoading: "로딩 중...",
+    packagesNoneAvailable: "이용 가능한 패키지가 없습니다.",
+    packagesBuy: "구매",
     kycTitle: "본인 인증",
     kycDesc: "본인 인증을 완료하세요",
     kycStatusUnverified: "미인증",

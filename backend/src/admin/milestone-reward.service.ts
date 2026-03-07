@@ -186,7 +186,9 @@ export class MilestoneRewardService {
     const referrerPurchaseAmount = Number(referralUser.totalPurchaseAmount) || 0;
 
     if (referrerPurchaseAmount <= 0) {
-      this.logger.warn(`[MILESTONE CHECK] Referrer ${referralUserId} has 0 purchase amount. Ineligible.`);
+      this.logger.warn(
+        `[MILESTONE CHECK] Referrer ${referralUserId} has 0 total purchase. Milestone requires referrer to have at least one order. Ineligible until they place an order.`,
+      );
       return;
     }
 

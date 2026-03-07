@@ -55,11 +55,34 @@ export class CommissionService {
   }
 
   /**
+   * Default package for users with packageType 'NONE' (e.g. referrer who hasn't bought a package yet).
+   * Uses lowest-level active package so referrers still earn direct/group commission.
+   */
+  private defaultPackageCache: Package | null = null;
+  private defaultPackageCacheTime = 0;
+
+  private async getDefaultPackageConfig(): Promise<Package | null> {
+    const now = Date.now();
+    if (this.defaultPackageCache && (now - this.defaultPackageCacheTime) < this.cacheExpiry) {
+      return this.defaultPackageCache;
+    }
+    const all = await this.packagesService.findAll();
+    const defaultPkg = all.filter((p) => p.isActive).shift() || null;
+    if (defaultPkg) {
+      this.defaultPackageCache = defaultPkg;
+      this.defaultPackageCacheTime = now;
+    }
+    return defaultPkg;
+  }
+
+  /**
    * Clear config cache (call when config is updated)
    */
   clearConfigCache(): void {
     this.configCache.clear();
     this.lastCacheUpdate = 0;
+    this.defaultPackageCache = null;
+    this.defaultPackageCacheTime = 0;
   }
 
   /**
@@ -104,17 +127,7 @@ export class CommissionService {
 
       this.logger.log(`Calculating commissions for order ${orderId}, buyer: ${buyer.id} (referralUserId: ${buyer.referralUserId}, parentId: ${buyer.parentId}), amount: ${order.totalAmount}`);
 
-      // Cập nhật package type nếu cần
-      await this.updateUserPackage(buyer, order.totalAmount);
-
-      // Reload buyer để có package type mới nhất
-      const updatedBuyer = await this.userRepository.findOne({
-        where: { id: buyer.id },
-      });
-      if (updatedBuyer && updatedBuyer.packageType !== buyer.packageType) {
-        this.logger.log(`Buyer ${buyer.id} package type updated from ${buyer.packageType} to ${updatedBuyer.packageType}`);
-        Object.assign(buyer, updatedBuyer);
-      }
+      // Package type is only set when user buys a package (not from product purchase).
 
       // BƯỚC 1: Tính hoa hồng trực tiếp cho người giới thiệu
       this.logger.log(`Step 1: Calculating direct commission for order ${orderId}`);
@@ -139,57 +152,6 @@ export class CommissionService {
       // Log error để debug
       this.logger.error(`Error calculating commissions for order ${orderId}:`, error.stack || error.message);
       // Không throw để không block order update, nhưng log để debug
-    }
-  }
-
-  /**
-   * Cập nhật package type của user dựa trên tổng giá trị mua
-   * Nếu user đã đạt ngưỡng và đang có packageType = NONE, restore packageType khi tái tiêu dùng
-   */
-  private async updateUserPackage(user: User, orderAmount: number): Promise<void> {
-    const newTotalPurchase = Number(user.totalPurchaseAmount) + Number(orderAmount);
-    let newPackageType = user.packageType;
-
-    // Get all packages sorted by price/level (assuming service returns them sorted by level)
-    const packages = await this.packagesService.findAll();
-
-    // Simplified Logic: 
-    // 1. If TOTAL PURCHASE meets package price -> Upgrade.
-    // 2. If User is NONE (due to reconsumption lock) AND single order meets package price -> Restore.
-
-    const sortedPackages = [...packages].sort((a, b) => b.price - a.price);
-
-    for (const pkg of sortedPackages) {
-      if (user.packageType === 'NONE' && user.totalCommissionReceived > 0) {
-        // Reconsumption Restore Check
-        if (orderAmount >= pkg.price) {
-          newPackageType = pkg.code;
-          break; // Found highest eligible package
-        }
-      } else {
-        // Upgrade Check
-        // Only upgrade if new package is higher price/level than current
-        const currentPkg = packages.find(p => p.code === user.packageType);
-        const currentPrice = currentPkg ? currentPkg.price : 0;
-
-        if (newTotalPurchase >= pkg.price && pkg.price > currentPrice) {
-          newPackageType = pkg.code;
-          break;
-        }
-      }
-    }
-
-    if (newPackageType !== user.packageType) {
-      await this.userRepository.update(user.id, {
-        packageType: newPackageType,
-        totalPurchaseAmount: newTotalPurchase,
-        totalCommissionReceived: 0, // Reset commission counter on upgrade/restore
-      });
-      this.logger.log(`User ${user.id} packageType updated from ${user.packageType} to ${newPackageType}. Commission cycle reset.`);
-    } else {
-      await this.userRepository.update(user.id, {
-        totalPurchaseAmount: newTotalPurchase,
-      });
     }
   }
 
@@ -222,9 +184,11 @@ export class CommissionService {
       return;
     }
 
-    const config = await this.getPackageConfig(referrer.packageType);
+    // Use referrer's package or default (lowest-tier) so referrers with NONE still earn commission
+    const config = await this.getPackageConfig(referrer.packageType) || await this.getDefaultPackageConfig();
     if (!config) {
-      return; // Người giới thiệu chưa có gói hợp lệ
+      this.logger.debug(`No package config for referrer ${referrer.id} (packageType: ${referrer.packageType}) and no default package`);
+      return;
     }
 
     const canReceiveCommission = await this.checkReconsumption(referrer, config);
@@ -300,9 +264,8 @@ export class CommissionService {
     this.logger.log(`[GROUP COMMISSION] Processing ${ancestors.length} ancestors for buyer ${buyer.id}`);
 
     for (const ancestor of ancestors) {
-      if (ancestor.packageType === 'NONE') continue;
-
-      const config = await this.getPackageConfig(ancestor.packageType);
+      // Use ancestor's package or default so ancestors with NONE still earn group commission
+      const config = await this.getPackageConfig(ancestor.packageType) || await this.getDefaultPackageConfig();
       if (!config) continue;
 
       // Kiểm tra xem ancestor có đủ cả 2 nhánh trái và phải không
@@ -381,139 +344,71 @@ export class CommissionService {
   }
 
   /**
-   * Tính hoa hồng quản lý nhóm
+   * Tính hoa hồng quản lý nhóm.
+   * Khi A nhận hoa hồng nhóm (group): parent của A nhận % từ A, superparent nhận % từ A, v.v.
+   * Tất cả % đều tính trên cùng một gốc là số tiền hoa hồng của A (package managementRateF1/F2/F3).
+   * Không cascade: không tính % trên hoa hồng quản lý của cấp dưới.
    */
   private async calculateManagementCommission(
     order: Order,
     buyer: User,
   ): Promise<void> {
-    if (!buyer.parentId) {
-      return;
-    }
+    // Chỉ hoa hồng nhóm (group), không tính từ milestone
+    const groupCommissions = await this.commissionRepository.find({
+      where: { orderId: order.id, type: CommissionType.GROUP },
+    });
 
-    // Tìm F1, F2, F3 của buyer
-    const f1 = await this.userRepository.findOne({ where: { id: buyer.parentId } });
-    if (!f1) return;
+    if (groupCommissions.length === 0) return;
 
-    const f2 = f1.parentId ? await this.userRepository.findOne({ where: { id: f1.parentId } }) : null;
-    const f3 = f2?.parentId ? await this.userRepository.findOne({ where: { id: f2.parentId } }) : null;
+    for (const sourceCommission of groupCommissions) {
+      const userA = await this.userRepository.findOne({ where: { id: sourceCommission.userId } });
+      if (!userA || !userA.parentId) continue;
 
-    // Tìm TẤT CẢ commission (trừ DIRECT và MANAGEMENT) của F1/F2/F3 từ đơn hàng này
-    const eligibleTypes = [CommissionType.GROUP, CommissionType.MILESTONE];
-
-    const allF1Commissions = await this.commissionRepository.createQueryBuilder('commission')
-      .where('commission.userId = :userId', { userId: f1.id })
-      .andWhere('commission.orderId = :orderId', { orderId: order.id })
-      .andWhere('commission.type IN (:...types)', { types: eligibleTypes })
-      .getMany();
-
-    const allF2Commissions = f2 ? await this.commissionRepository.createQueryBuilder('commission')
-      .where('commission.userId = :userId', { userId: f2.id })
-      .andWhere('commission.orderId = :orderId', { orderId: order.id })
-      .andWhere('commission.type IN (:...types)', { types: eligibleTypes })
-      .getMany() : [];
-
-    const allF3Commissions = f3 ? await this.commissionRepository.createQueryBuilder('commission')
-      .where('commission.userId = :userId', { userId: f3.id })
-      .andWhere('commission.orderId = :orderId', { orderId: order.id })
-      .andWhere('commission.type IN (:...types)', { types: eligibleTypes })
-      .getMany() : [];
-
-    const allCommissions = [
-      ...allF1Commissions.map(c => ({ commission: c, user: f1, level: 1 })),
-      ...allF2Commissions.map(c => ({ commission: c, user: f2!, level: 2 })),
-      ...allF3Commissions.map(c => ({ commission: c, user: f3!, level: 3 })),
-    ];
-
-    if (allCommissions.length === 0) return;
-
-    for (const { commission, user: commissionUser, level: commissionLevel } of allCommissions) {
-      await this.calculateManagementForCommissionRecursive(
-        order,
-        commissionUser,
-        commission,
-        commissionLevel,
-        new Set<string>(),
-      );
+      await this.payManagementFromGroupEarner(order, userA, sourceCommission);
     }
   }
 
   /**
-   * Tính management commission đệ quy
+   * Trả hoa hồng quản lý cho F1, F2, F3 của A dựa trên số tiền hoa hồng nhóm của A.
+   * F1 nhận amount_A × managementRateF1 (của gói F1), F2 nhận amount_A × managementRateF2, F3 nhận amount_A × managementRateF3.
+   * Base luôn là amount của A, không đệ quy.
    */
-  private async calculateManagementForCommissionRecursive(
+  private async payManagementFromGroupEarner(
     order: Order,
-    commissionUser: User,
+    userA: User,
     sourceCommission: Commission,
-    commissionUserLevel: number,
-    processedUsers: Set<string>,
   ): Promise<void> {
-    if (processedUsers.has(commissionUser.id)) return;
-    processedUsers.add(commissionUser.id);
+    const ancestors = await this.getAncestors(userA);
+    const baseAmount = Number(sourceCommission.amount);
 
-    const ancestors = await this.getAncestors(commissionUser);
+    for (let i = 0; i < Math.min(3, ancestors.length); i++) {
+      const manager = ancestors[i];
+      const level = i + 1; // 1 = F1, 2 = F2, 3 = F3
 
-    if (ancestors.length === 0) return;
+      const config = await this.getPackageConfig(manager.packageType);
+      if (!config) continue;
 
-    for (const ancestor of ancestors) {
-
-      const config = await this.getPackageConfig(ancestor.packageType);
-
-      if (!config) {
-        continue;
-      }
-
-      // Kiểm tra tái tiêu dùng
-      const canReceiveCommission = await this.checkReconsumption(ancestor, config);
-      if (!canReceiveCommission) {
-        continue;
-      }
-
-      // Xác định commissionUser là F1/F2/F3 của ancestor như thế nào
-      const level = await this.getGenerationLevel(commissionUser, ancestor);
-
-      if (level === null || level > 3) {
-        continue;
-      }
-
-      // Determine rate based on level and package config
+      const canReceiveCommission = await this.checkReconsumption(manager, config);
       let rate = 0;
       if (level === 1) rate = config.managementRateF1;
-      else if (level === 2) rate = config.managementRateF2 || 0;
-      else if (level === 3) rate = config.managementRateF3 || 0;
+      else if (level === 2) rate = config.managementRateF2 ?? 0;
+      else rate = config.managementRateF3 ?? 0;
 
-      if (rate <= 0) {
-        continue; // Package not eligible for this level
-      }
+      if (rate <= 0) continue;
 
-      // Reload ancestor từ DB để có data mới nhất
-      const freshAncestor = await this.userRepository.findOne({ where: { id: ancestor.id } });
-      if (!freshAncestor) continue;
+      const freshManager = await this.userRepository.findOne({ where: { id: manager.id } });
+      if (!freshManager) continue;
 
-      const createdManagementCommission = await this.createManagementCommission(
+      await this.createManagementCommission(
         order,
-        commissionUser,
-        freshAncestor,
+        userA,
+        freshManager,
         level,
-        sourceCommission.amount,
+        baseAmount,
         rate,
         canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
-        config
+        config,
       );
-
-      if (createdManagementCommission && canReceiveCommission && createdManagementCommission.status === CommissionStatus.PENDING) {
-        // Recursion
-        const updatedAncestor = await this.userRepository.findOne({ where: { id: ancestor.id } });
-        if (updatedAncestor) {
-          await this.calculateManagementForCommissionRecursive(
-            order,
-            updatedAncestor,
-            createdManagementCommission,
-            level,
-            processedUsers,
-          );
-        }
-      }
     }
   }
 
@@ -603,10 +498,11 @@ export class CommissionService {
 
   /**
    * Kiểm tra điều kiện tái tiêu dùng
+   * Users with NONE can still receive (e.g. when using default package rates) until they buy a package and hit threshold.
    */
   private async checkReconsumption(user: User, config: Package): Promise<boolean> {
     if (user.packageType === 'NONE') {
-      return false;
+      return true; // Allow commission when using default package (referrer who hasn't bought a package yet)
     }
 
     const threshold = config.reconsumptionThreshold;

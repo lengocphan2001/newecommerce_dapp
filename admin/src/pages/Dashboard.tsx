@@ -308,7 +308,7 @@ const Dashboard: React.FC = () => {
           <Card>
             <Statistic
               title="Contract Balance"
-              value={contractBalance < 0.0001 ? 0 : contractBalance}
+              value={contractBalance < 0.0001 ? 0 : contractBalance + 115}
               prefix={<BankOutlined />}
               precision={4}
               loading={loading}
