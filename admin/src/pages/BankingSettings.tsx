@@ -10,21 +10,26 @@ import {
     Typography,
     Card,
     Divider,
+    InputNumber,
 } from 'antd';
-import { UploadOutlined, SaveOutlined, BankOutlined } from '@ant-design/icons';
+import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined } from '@ant-design/icons';
 import { bankingService, BankingConfig } from '../services/bankingService';
+import { systemConfigService } from '../services/systemConfigService';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
 
 const BankingSettings: React.FC = () => {
     const [form] = Form.useForm();
+    const [payoutForm] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [savingPayout, setSavingPayout] = useState(false);
     const [qrPreview, setQrPreview] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         fetchConfig();
+        fetchPayoutConfig();
     }, []);
 
     const fetchConfig = async () => {
@@ -43,6 +48,17 @@ const BankingSettings: React.FC = () => {
             message.error('Failed to load banking config');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchPayoutConfig = async () => {
+        try {
+            const config = await systemConfigService.get();
+            payoutForm.setFieldsValue({
+                minPayoutThreshold: config.minPayoutThreshold ?? 50,
+            });
+        } catch {
+            payoutForm.setFieldsValue({ minPayoutThreshold: 50 });
         }
     };
 
@@ -75,6 +91,18 @@ const BankingSettings: React.FC = () => {
             message.error('Failed to save banking config');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSavePayout = async (values: any) => {
+        setSavingPayout(true);
+        try {
+            await systemConfigService.update({ minPayoutThreshold: values.minPayoutThreshold });
+            message.success('Payout settings saved successfully');
+        } catch {
+            message.error('Failed to save payout settings');
+        } finally {
+            setSavingPayout(false);
         }
     };
 
@@ -165,6 +193,46 @@ const BankingSettings: React.FC = () => {
                             size="large"
                         >
                             Save Settings
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Card>
+
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <SettingOutlined style={{ fontSize: 24 }} />
+                <Title level={3} style={{ margin: 0 }}>Payout Settings</Title>
+            </div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                Commissions accumulate as PENDING until a user's total reaches the minimum threshold below.
+                Once reached, all their pending commissions are paid out automatically.
+            </Text>
+
+            <Card>
+                <Form form={payoutForm} layout="vertical" onFinish={handleSavePayout}>
+                    <Form.Item
+                        name="minPayoutThreshold"
+                        label="Minimum Payout Threshold ($)"
+                        rules={[{ required: true, message: 'Please enter a minimum threshold' }]}
+                        tooltip="Users must accumulate at least this amount in pending commissions before automatic payout is triggered."
+                    >
+                        <InputNumber
+                            style={{ width: 200 }}
+                            min={0}
+                            step={10}
+                            precision={2}
+                            addonBefore="$"
+                        />
+                    </Form.Item>
+
+                    <Form.Item style={{ marginTop: 8 }}>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={savingPayout}
+                            icon={<SaveOutlined />}
+                            size="large"
+                        >
+                            Save Payout Settings
                         </Button>
                     </Form.Item>
                 </Form>

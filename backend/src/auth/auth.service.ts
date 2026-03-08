@@ -6,6 +6,7 @@ import { CommissionService } from '../affiliate/commission.service';
 import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { PackagesService } from '../packages/packages.service';
+import { AdminService } from '../admin/admin.service';
 import { MailService } from '../mail/mail.service';
 import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
 import * as bcrypt from 'bcryptjs';
@@ -22,6 +23,8 @@ export class AuthService {
     @Inject(forwardRef(() => MilestoneRewardService))
     private milestoneRewardService: MilestoneRewardService,
     private packagesService: PackagesService,
+    @Inject(forwardRef(() => AdminService))
+    private adminService: AdminService,
   ) { }
 
   async login(loginDto: LoginDto) {
@@ -442,6 +445,9 @@ export class AuthService {
       }
     }
 
+    // Get min payout threshold from system config
+    const minPayoutThreshold = await this.adminService.getMinPayoutThreshold();
+
     return {
       referralCode,
       referralLink,
@@ -464,6 +470,7 @@ export class AuthService {
         const amount = typeof c.amount === 'string' ? parseFloat(c.amount) : c.amount;
         return sum + amount;
       }, 0)),
+      minPayoutThreshold,
       recentActivity,
       avatar: user.avatar,
       createdAt: user.createdAt,

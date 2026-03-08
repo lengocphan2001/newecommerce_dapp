@@ -242,7 +242,7 @@ export default function ProfilePage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">BinanMall</span>
+            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shopii</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
@@ -292,37 +292,37 @@ export default function ProfilePage() {
             </div>
 
             {/* Packages (CTV, NPP, TV) - 3 columns */}
-            <div className="mt-4 w-full max-w-sm mx-auto">
-              <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-2 flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-base text-slate-500">redeem</span>
+            <div className="mt-5 w-full max-w-sm mx-auto">
+              <p className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-xl text-slate-600">redeem</span>
                 {t("packagesSectionTitle")}
               </p>
               {purchaseError && (
-                <p className="text-xs text-red-600 mb-2 text-center">{purchaseError}</p>
+                <p className="text-sm font-medium text-red-600 mb-3 text-center">{purchaseError}</p>
               )}
               {myPurchases.filter((p) => p.status === "pending").length > 0 && (
-                <div className="mb-2 p-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 text-center">
+                <div className="mb-3 p-3 rounded-xl bg-amber-50 border-2 border-amber-300 text-sm text-amber-900 text-center font-medium">
                   {t("packagesPendingLabel")}: {myPurchases.filter((p) => p.status === "pending").map((p) => `${p.package?.name ?? "Package"} — $${Number(p.amount).toLocaleString()}`).join("; ")}. {t("packagesPendingWaitAdmin")}
                 </div>
               )}
               {packagesLoading ? (
-                <p className="text-sm text-slate-500 text-center">{t("packagesLoading")}</p>
+                <p className="text-base text-slate-600 text-center font-medium">{t("packagesLoading")}</p>
               ) : packages.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center">{t("packagesNoneAvailable")}</p>
+                <p className="text-base text-slate-600 text-center font-medium">{t("packagesNoneAvailable")}</p>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-3">
                   {packages.map((pkg) => (
                     <div
                       key={pkg.id}
-                      className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm text-center"
+                      className="flex flex-col gap-2 p-4 rounded-xl bg-white border-2 border-slate-200 shadow-md text-center"
                     >
-                      <p className="font-semibold text-slate-900 text-xs leading-tight truncate" title={pkg.name}>{pkg.name}</p>
-                      <p className="text-[10px] text-slate-500">{pkg.code}</p>
+                      <p className="font-bold text-slate-900 text-sm leading-tight truncate" title={pkg.name}>{pkg.name}</p>
+                      <p className="text-xs font-medium text-slate-700">{pkg.code}</p>
                       <button
                         type="button"
                         onClick={() => handleBuyPackage(pkg)}
                         disabled={!!purchasingId}
-                        className="w-full py-1 rounded-lg bg-primary text-white text-[10px] font-medium hover:bg-primary-dark disabled:opacity-50"
+                        className="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark disabled:opacity-50"
                       >
                         {purchasingId === pkg.id ? "..." : t("packagesBuy")}
                       </button>
@@ -334,27 +334,27 @@ export default function ProfilePage() {
 
             {/* Commission Progress Bar */}
             {reconsumptionStatus && reconsumptionStatus.threshold && (
-              <div className="w-full max-w-sm mx-auto mt-6 bg-white rounded-2xl p-4 border border-purple-100 shadow-sm">
+              <div className="w-full max-w-sm mx-auto mt-6 bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-slate-700">{t("maxCommission")}</span>
-                  <span className="text-xs font-semibold text-primary">
+                  <span className="text-sm font-bold text-slate-800">{t("maxCommission")}</span>
+                  <span className="text-sm font-bold text-blue-700">
                     ${reconsumptionStatus.currentCommission ? reconsumptionStatus.currentCommission.toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"} / ${reconsumptionStatus.threshold}
                   </span>
                 </div>
-                <div className="h-2 bg-purple-100 rounded-full overflow-hidden mb-3">
+                <div className="h-3 bg-slate-200 rounded-full overflow-hidden mb-3">
                   <div
-                    className="h-full bg-gradient-to-r from-primary to-purple-600 rounded-full transition-all duration-500"
+                    className="h-full bg-blue-600 rounded-full transition-all duration-500"
                     style={{ width: `${calculateCommissionProgress()}%` }}
                   ></div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
-                    <p className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">Số lần tái tiêu dùng</p>
-                    <p className="text-sm font-black text-slate-900">{calculateReconsumptionCycles()} lần</p>
+                  <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
+                    <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Số lần tái tiêu dùng</p>
+                    <p className="text-base font-black text-slate-900">{calculateReconsumptionCycles()} lần</p>
                   </div>
-                  <div className="bg-purple-50 rounded-lg p-2 border border-purple-100">
-                    <p className="text-[10px] font-bold text-purple-600 uppercase mb-0.5">Đã tái tiêu dùng</p>
-                    <p className="text-sm font-black text-slate-900">${userInfo?.totalReconsumptionAmount ? parseFloat(userInfo.totalReconsumptionAmount).toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"}</p>
+                  <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
+                    <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Đã tái tiêu dùng</p>
+                    <p className="text-base font-black text-slate-900">${userInfo?.totalReconsumptionAmount ? parseFloat(userInfo.totalReconsumptionAmount).toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"}</p>
                   </div>
                 </div>
               </div>
@@ -501,7 +501,7 @@ export default function ProfilePage() {
         </section>
 
         <div className="mt-8 text-center px-4">
-          <p className="text-[11px] text-slate-400 font-medium tracking-wide">BINANMALL DAPP v2.1.0 • BINARY ECOSYSTEM</p>
+          <p className="text-[11px] text-slate-400 font-medium tracking-wide">Shopii DAPP v2.1.0 • BINARY ECOSYSTEM</p>
         </div>
       </main>
     </div>

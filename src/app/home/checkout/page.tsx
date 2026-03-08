@@ -263,7 +263,7 @@ export default function CheckoutPage() {
           setWalletAddress(storedAddr);
           await loadUsdtBep20Balance(storedAddr);
         } else {
-          setError("Vui lòng cài đặt ví Binanmall hoặc ví tương thích");
+          setError("Vui lòng cài đặt ví Shopii hoặc ví tương thích");
         }
         return;
       }
@@ -303,7 +303,7 @@ export default function CheckoutPage() {
           await loadUsdtBep20Balance(storedAddr);
         }
       } catch {
-        setError(err.message || "Không thể kết nối ví Binanmall");
+        setError(err.message || "Không thể kết nối ví Shopii");
       }
     }
   };
@@ -312,7 +312,7 @@ export default function CheckoutPage() {
     try {
       const eth = getEthereum();
       if (!eth) {
-        setError("Vui lòng cài đặt ví Binanmall");
+        setError("Vui lòng cài đặt ví Shopii");
         return;
       }
 
@@ -355,7 +355,7 @@ export default function CheckoutPage() {
 
       await loadWalletInfo();
     } catch (err: any) {
-      setError(err.message || "Không thể kết nối ví Binanmall");
+      setError(err.message || "Không thể kết nối ví Shopii");
     }
   };
 
@@ -417,6 +417,7 @@ export default function CheckoutPage() {
     setProcessingStep("confirming");
     setError("");
 
+    let orderIdForRedirect: string | undefined;
     try {
       const eth = getEthereum();
       if (!eth) throw new Error("Ví không khả dụng");
@@ -509,7 +510,7 @@ export default function CheckoutPage() {
         undefined, // No transaction hash yet
         shippingAddress
       );
-
+      orderIdForRedirect = orderData.id;
       console.log("Order created pending:", orderData.id);
 
       // 2. Send Transaction
@@ -581,8 +582,9 @@ export default function CheckoutPage() {
         setError("Xác nhận thanh toán đang quá lâu. Vui lòng kiểm tra đơn hàng của bạn.");
         setProcessingStep("error");
         // Still redirect to orders so user can see the order (may be confirmed or pending)
+        const id = orderIdForRedirect;
         setTimeout(() => {
-          router.push(`/home/orders?orderId=${orderData?.id}`);
+          router.push(id ? `/home/orders?orderId=${id}` : "/home/orders");
         }, 3000);
         return;
       } else {

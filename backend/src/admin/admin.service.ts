@@ -6,6 +6,7 @@ import { Address } from '../user/entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
+import { SystemConfig } from './entities/system-config.entity';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
@@ -24,11 +25,14 @@ export class AdminService {
     private productRepository: Repository<Product>,
     @InjectRepository(BankingConfig)
     private bankingConfigRepository: Repository<BankingConfig>,
+    @InjectRepository(SystemConfig)
+    private systemConfigRepository: Repository<SystemConfig>,
     private userService: UserService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
     @Inject(forwardRef(() => AffiliateService))
     private affiliateService: AffiliateService,
+    @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
   ) { }
 
@@ -376,5 +380,39 @@ export class AdminService {
       Object.assign(config, dto);
     }
     return this.bankingConfigRepository.save(config);
+  }
+
+  /**
+   * Get system config as a plain object { minPayoutThreshold: number }
+   */
+  async getSystemConfig(): Promise<{ minPayoutThreshold: number }> {
+    const row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
+    return {
+      minPayoutThreshold: row ? parseFloat(row.value) : 50,
+    };
+  }
+
+  /**
+   * Update system config values
+   */
+  async updateSystemConfig(dto: { minPayoutThreshold?: number }): Promise<{ minPayoutThreshold: number }> {
+    if (dto.minPayoutThreshold !== undefined) {
+      let row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
+      if (!row) {
+        row = this.systemConfigRepository.create({ key: 'minPayoutThreshold', value: String(dto.minPayoutThreshold) });
+      } else {
+        row.value = String(dto.minPayoutThreshold);
+      }
+      await this.systemConfigRepository.save(row);
+    }
+    return this.getSystemConfig();
+  }
+
+  /**
+   * Get minPayoutThreshold as a raw number (used internally by payout service)
+   */
+  async getMinPayoutThreshold(): Promise<number> {
+    const row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
+    return row ? parseFloat(row.value) : 50;
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommissionService } from './commission.service';
@@ -17,6 +17,7 @@ export interface ApproveCommissionContext {
 export class AffiliateService {
   constructor(
     private readonly commissionService: CommissionService,
+    @Inject(forwardRef(() => CommissionPayoutService))
     private readonly commissionPayoutService: CommissionPayoutService,
     @InjectRepository(User)
     private userRepository: Repository<User>,

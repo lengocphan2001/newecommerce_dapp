@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Post, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { UpdateUserStatusDto } from './dto';
@@ -97,6 +97,19 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async upsertBankingConfig(@Body() dto: any) {
     return this.adminService.upsertBankingConfig(dto);
+  }
+
+  /** Public — get system settings (minPayoutThreshold etc.) */
+  @Get('system-config')
+  async getSystemConfig() {
+    return this.adminService.getSystemConfig();
+  }
+
+  /** Admin-only — update system settings */
+  @Patch('system-config')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateSystemConfig(@Body() dto: any) {
+    return this.adminService.updateSystemConfig(dto);
   }
 }
 

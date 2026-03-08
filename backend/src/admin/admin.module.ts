@@ -17,10 +17,11 @@ import { Address } from '../user/entities/address.entity';
 import { Order } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
+import { SystemConfig } from './entities/system-config.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, MilestoneRewardConfig, UserMilestone, Address, Order, Product, BankingConfig]),
+    TypeOrmModule.forFeature([User, MilestoneRewardConfig, UserMilestone, Address, Order, Product, BankingConfig, SystemConfig]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),
@@ -33,7 +34,7 @@ import { BankingConfig } from './entities/banking-config.entity';
     MilestoneRewardController,
   ],
   providers: [AdminService, MilestoneRewardService],
-  exports: [AdminService, MilestoneRewardService],
+  exports: [AdminService, MilestoneRewardService, TypeOrmModule],
 })
 export class AdminModule { }
 

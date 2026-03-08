@@ -112,5 +112,23 @@ export class UpdateProductDto {
   @Min(0)
   @Max(100)
   salePercentage?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentTV?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentCTV?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentNPP?: number;
 }
 

@@ -8,6 +8,7 @@ export interface Package {
     price: number;
     directCommissionRate: number;
     groupCommissionRate: number;
+    groupCommissionMinSales: number;
     managementRateF1: number;
     managementRateF2: number | null;
     managementRateF3: number | null;
@@ -26,6 +27,7 @@ export interface CreatePackageDto {
     price: number;
     directCommissionRate: number;
     groupCommissionRate: number;
+    groupCommissionMinSales?: number;
     managementRateF1: number;
     managementRateF2?: number | null;
     managementRateF3?: number | null;
@@ -42,6 +44,7 @@ export interface UpdatePackageDto {
     price?: number;
     directCommissionRate?: number;
     groupCommissionRate?: number;
+    groupCommissionMinSales?: number;
     managementRateF1?: number;
     managementRateF2?: number | null;
     managementRateF3?: number | null;

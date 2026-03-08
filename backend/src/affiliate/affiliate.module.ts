@@ -8,6 +8,7 @@ import { CommissionPayoutScheduler } from './commission-payout.scheduler';
 import { Commission } from './entities/commission.entity';
 import { User } from '../user/entities/user.entity';
 import { Order } from '../order/entities/order.entity';
+import { Product } from '../product/entities/product.entity';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AdminModule } from '../admin/admin.module';
@@ -15,7 +16,7 @@ import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Commission, User, Order]),
+    TypeOrmModule.forFeature([Commission, User, Order, Product]),
     BlockchainModule,
     AuditLogModule,
     forwardRef(() => AdminModule),
@@ -23,10 +24,10 @@ import { PackagesModule } from '../packages/packages.module';
   ],
   controllers: [AffiliateController],
   providers: [
-    AffiliateService,
     CommissionService,
     CommissionPayoutService,
     CommissionPayoutScheduler,
+    AffiliateService,
   ],
   exports: [AffiliateService, CommissionService, CommissionPayoutService],
 })

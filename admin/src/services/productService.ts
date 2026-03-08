@@ -27,6 +27,12 @@ export interface Product {
   pushedAt?: string;
   salePercentage?: number;
   combos?: { quantity: number; price: number; label?: string }[];
+  /** Commission % for buyer package TV (0–100). Referrer gets this % of (price × qty). */
+  commissionPercentTV?: number;
+  /** Commission % for buyer package CTV (0–100). */
+  commissionPercentCTV?: number;
+  /** Commission % for buyer package NPP (0–100). */
+  commissionPercentNPP?: number;
 }
 
 export const productService = {

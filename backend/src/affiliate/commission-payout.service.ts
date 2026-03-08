@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
 import { Commission, CommissionStatus } from './entities/commission.entity';
@@ -7,6 +7,7 @@ import { CommissionPayoutService as BlockchainPayoutService } from '../blockchai
 import { BatchPayoutDto, PayoutRecipientDto } from './dto/batch-payout.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditLogAction, AuditLogEntityType } from '../audit-log/entities/audit-log.entity';
+import { AdminService } from '../admin/admin.service';
 
 @Injectable()
 export class CommissionPayoutService {
@@ -20,6 +21,8 @@ export class CommissionPayoutService {
     private blockchainPayoutService: BlockchainPayoutService,
     private dataSource: DataSource,
     private auditLogService: AuditLogService,
+    @Inject(forwardRef(() => AdminService))
+    private adminService: AdminService,
   ) { }
 
   /**
@@ -439,127 +442,90 @@ export class CommissionPayoutService {
   }
 
   /**
-   * Payout commissions for a specific order immediately
-   * Called when admin approves an order
+   * Check a single user's total PENDING commissions.
+   * If they meet or exceed the minPayoutThreshold → pay ALL their pending commissions immediately.
+   * Otherwise, leave them accumulating.
    */
-  async payoutOrderCommissions(orderId: string): Promise<{ batchId: string; txHash: string; count: number } | null> {
-    this.logger.log(`[PAYOUT] Starting payout for order: ${orderId}`);
-
-    // Get pending commissions for this order (chỉ payout PENDING, không payout BLOCKED)
-    const orderCommissions = await this.commissionRepository.find({
-      where: {
-        orderId,
-        status: CommissionStatus.PENDING,
-      },
+  async checkAndPayoutUser(
+    userId: string,
+    minThreshold: number,
+  ): Promise<void> {
+    // Sum all PENDING commissions for this user
+    const pendingCommissions = await this.commissionRepository.find({
+      where: { userId, status: CommissionStatus.PENDING },
       relations: ['user'],
     });
 
-    this.logger.log(`[PAYOUT] Found ${orderCommissions.length} PENDING commissions for order ${orderId}`);
+    if (pendingCommissions.length === 0) return;
 
-    if (orderCommissions.length === 0) {
-      this.logger.warn(`[PAYOUT] No pending commissions found for order ${orderId}. Checking all commissions...`);
-      // Debug: Check all commissions for this order
-      const allCommissions = await this.commissionRepository.find({
-        where: { orderId },
-        relations: ['user'],
-      });
-      this.logger.warn(`[PAYOUT] Total commissions for order ${orderId}: ${allCommissions.length}`);
-      allCommissions.forEach((c) => {
-        this.logger.warn(`[PAYOUT] Commission ${c.id}: type=${c.type}, status=${c.status}, amount=${c.amount}, userId=${c.userId}, walletAddress=${c.user?.walletAddress || 'N/A'}`);
-      });
-      return null;
+    const totalPending = pendingCommissions.reduce((sum, c) => sum + Number(c.amount), 0);
+
+    this.logger.log(`[THRESHOLD PAYOUT] User ${userId}: totalPending=${totalPending}, threshold=${minThreshold}`);
+
+    if (totalPending < minThreshold) {
+      this.logger.debug(`[THRESHOLD PAYOUT] User ${userId} has not reached threshold (${totalPending} < ${minThreshold}). Commissions will accumulate.`);
+      return;
     }
 
-    // Filter commissions with valid wallet addresses
-    const validCommissions = orderCommissions.filter(
-      (c) => c.user?.walletAddress,
-    );
-
-    this.logger.log(`[PAYOUT] Found ${validCommissions.length} commissions with wallet addresses out of ${orderCommissions.length} total`);
-
+    // Threshold reached → pay all pending commissions
+    const validCommissions = pendingCommissions.filter((c) => c.user?.walletAddress);
     if (validCommissions.length === 0) {
-      this.logger.warn(`[PAYOUT] No commissions with wallet addresses for order ${orderId}. Commissions without wallet:`);
-      orderCommissions.forEach((c) => {
-        if (!c.user?.walletAddress) {
-          this.logger.warn(`[PAYOUT] Commission ${c.id}: userId=${c.userId}, user=${c.user?.email || 'N/A'}, wallet=${c.user?.walletAddress || 'NONE'}`);
-        }
-      });
-      return null;
+      this.logger.warn(`[THRESHOLD PAYOUT] User ${userId} has reached threshold but has no wallet address. Skipping payout.`);
+      return;
     }
 
-    // Log immediate payout start
-    await this.auditLogService.create(
-      {
-        action: AuditLogAction.PAYOUT_CREATED,
-        entityType: AuditLogEntityType.COMMISSION_PAYOUT,
-        description: `Immediate payout for order ${orderId}. Count: ${validCommissions.length}`,
-        metadata: {
-          orderId,
-          commissionCount: validCommissions.length,
-          trigger: 'order_approved',
-        },
-      },
-      'system',
-      'system',
-      undefined,
-      undefined,
-    );
+    this.logger.log(`[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${validCommissions.length} commissions (total: ${totalPending})`);
 
     try {
-      // Prepare batch
-      const { recipients, commissionIds } = await this.preparePayoutBatch(
-        validCommissions,
-      );
+      const { recipients } = await this.preparePayoutBatch(validCommissions);
+      if (recipients.length === 0) return;
 
-      if (recipients.length === 0) {
-        this.logger.warn(`No valid recipients found for order ${orderId}`);
-        return null;
-      }
-
-      // Execute payout
-      const dto: BatchPayoutDto = {
-        recipients,
-      };
-
-      const result = await this.executeBatchPayout(
-        dto,
+      await this.executeBatchPayout(
+        { recipients },
         'system',
         'system',
         undefined,
         undefined,
       );
-
-      this.logger.log(
-        `Immediate payout completed for order ${orderId}. BatchId: ${result.batchId}, TxHash: ${result.txHash}, Count: ${commissionIds.length}`,
-      );
-
-      return {
-        batchId: result.batchId,
-        txHash: result.txHash,
-        count: commissionIds.length,
-      };
     } catch (error: any) {
-      // Log immediate payout failure
-      await this.auditLogService.create(
-        {
-          action: AuditLogAction.PAYOUT_FAILED,
-          entityType: AuditLogEntityType.COMMISSION_PAYOUT,
-          description: `Immediate payout failed for order ${orderId}: ${error.message}`,
-          metadata: {
-            orderId,
-            error: error.message,
-            trigger: 'order_approved',
-          },
-        },
-        'system',
-        'system',
-        undefined,
-        undefined,
-      );
-      this.logger.error(`Immediate payout failed for order ${orderId}`, error);
-      // Don't throw - let order approval succeed even if payout fails
+      this.logger.error(`[THRESHOLD PAYOUT] Payout failed for user ${userId}: ${error.message}`, error.stack);
+    }
+  }
+
+  /**
+   * Payout commissions for a specific order — now uses per-user threshold accumulation.
+   * Instead of paying immediately, checks each recipient's total pending balance.
+   * Pays only when they've accumulated >= minPayoutThreshold.
+   */
+  async payoutOrderCommissions(orderId: string): Promise<{ count: number } | null> {
+    this.logger.log(`[PAYOUT] Checking threshold payout after order: ${orderId}`);
+
+    // Get all PENDING commissions for this order to find affected users
+    const orderCommissions = await this.commissionRepository.find({
+      where: { orderId, status: CommissionStatus.PENDING },
+    });
+
+    if (orderCommissions.length === 0) {
+      this.logger.warn(`[PAYOUT] No pending commissions for order ${orderId}`);
       return null;
     }
+
+    // Get the configured minimum payout threshold
+    const minThreshold = await this.adminService.getMinPayoutThreshold();
+    this.logger.log(`[PAYOUT] Min payout threshold: $${minThreshold}`);
+
+    // Collect unique user IDs that received commission from this order
+    const affectedUserIds = [...new Set(orderCommissions.map((c) => c.userId))];
+    this.logger.log(`[PAYOUT] ${affectedUserIds.length} users affected by order ${orderId}`);
+
+    // For each user, check if they've accumulated enough to receive payout
+    let payoutCount = 0;
+    for (const userId of affectedUserIds) {
+      await this.checkAndPayoutUser(userId, minThreshold);
+      payoutCount++;
+    }
+
+    return { count: payoutCount };
   }
 
   /**

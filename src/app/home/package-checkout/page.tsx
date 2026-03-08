@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
 import TransactionProcessingModal, { ProcessingStep } from "@/app/components/TransactionProcessingModal";
@@ -45,7 +45,7 @@ async function pollTransactionReceipt(txHash: string, timeout: number = 120000):
   throw new Error("Transaction confirmation timeout");
 }
 
-export default function PackageCheckoutPage() {
+function PackageCheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useI18n();
@@ -450,5 +450,13 @@ export default function PackageCheckoutPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PackageCheckoutPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <PackageCheckoutContent />
+    </Suspense>
   );
 }

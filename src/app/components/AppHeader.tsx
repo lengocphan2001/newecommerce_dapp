@@ -16,6 +16,11 @@ interface AppHeaderProps {
   showQRScanner?: boolean;
   centerTitle?: boolean;
   onBack?: () => void;
+  /** When true, show search bar in header and hide title (title goes on page) */
+  showSearch?: boolean;
+  searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }
 
 export default function AppHeader({
@@ -28,6 +33,10 @@ export default function AppHeader({
   showQRScanner = false,
   centerTitle = false,
   onBack,
+  showSearch = false,
+  searchPlaceholder,
+  searchValue = "",
+  onSearchChange,
 }: AppHeaderProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -53,7 +62,7 @@ export default function AppHeader({
     }
   };
 
-  const displayTitle = title || (titleKey ? t(titleKey) : "");
+  const displayTitle = showSearch ? "" : (title || (titleKey ? t(titleKey) : ""));
 
   const handleBack = () => {
     if (onBack) {
@@ -65,32 +74,47 @@ export default function AppHeader({
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-3 max-w-md mx-auto">
-        {/* Left Section */}
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          {showBack && (
-            <button
-              onClick={handleBack}
-              className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700 shrink-0"
-            >
-              <span className="material-symbols-outlined text-xl">arrow_back_ios_new</span>
-            </button>
-          )}
-          {!centerTitle && displayTitle && (
-            <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate">
-              {displayTitle}
-            </h1>
-          )}
-        </div>
-
-        {/* Center Title */}
-        {centerTitle && displayTitle && (
-          <h1 className="text-lg font-bold tracking-tight text-slate-900 flex-1 text-center px-4">
-            {displayTitle}
-          </h1>
+      <div className="flex items-center gap-2 px-4 py-3 max-w-md mx-auto">
+        {/* Left: back button (if any) */}
+        {showBack && (
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center size-10 rounded-full hover:bg-gray-100 transition-colors text-slate-700 shrink-0"
+          >
+            <span className="material-symbols-outlined text-xl">arrow_back_ios_new</span>
+          </button>
         )}
 
-        {/* Right Section */}
+        {/* Center: search bar (when showSearch) or title */}
+        {showSearch ? (
+          <div className="relative flex-1 min-w-0 flex items-center">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <span className="material-symbols-outlined text-gray-400 text-lg">search</span>
+            </div>
+            <input
+              className="block w-full py-2.5 pl-10 pr-3 text-sm text-gray-900 border border-gray-200 rounded-xl bg-gray-50 focus:ring-primary focus:border-primary placeholder:text-gray-400 shadow-inner"
+              placeholder={searchPlaceholder}
+              type="text"
+              value={searchValue}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+            />
+          </div>
+        ) : (
+          <>
+            {!centerTitle && displayTitle && (
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate min-w-0 flex-1">
+                {displayTitle}
+              </h1>
+            )}
+            {centerTitle && displayTitle && (
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 flex-1 text-center px-4">
+                {displayTitle}
+              </h1>
+            )}
+          </>
+        )}
+
+        {/* Right: reconsumption, cart, custom right */}
         <div className="flex items-center gap-2 shrink-0">
           {mounted && needsReconsumption && (
             <div className="relative">
@@ -123,10 +147,7 @@ export default function AppHeader({
           {right}
         </div>
       </div>
-
-
-
-    </header >
+    </header>
   );
 }
 

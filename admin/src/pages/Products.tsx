@@ -105,12 +105,14 @@ const Products: React.FC = () => {
       ...product,
       description: product.description || '',
       descriptionEn: product['descriptionEn' as keyof Product] || '',
-      // Keep URLs in form values for submit; Upload UI is for new uploads only
       detailImageUrls: product.detailImageUrls || [],
       tags: product.tags || [],
       properties: product.properties || [],
       combos: product.combos || [],
       categoryId: product.categoryId || undefined,
+      commissionPercentTV: product.commissionPercentTV ?? undefined,
+      commissionPercentCTV: product.commissionPercentCTV ?? undefined,
+      commissionPercentNPP: product.commissionPercentNPP ?? undefined,
     });
     setThumbnailFileList([]);
     setDetailFileList([]);
@@ -429,7 +431,7 @@ const Products: React.FC = () => {
                         />
                       </Form.Item>
                       <Form.Item name="brand" label="Thương hiệu (Tùy chọn)">
-                        <Input placeholder="VD: BinanMall" />
+                        <Input placeholder="VD: Shopii" />
                       </Form.Item>
                       <Form.Item name="origin" label="Xuất xứ (Tùy chọn)">
                         <Input placeholder="VD: Việt Nam" />
@@ -495,7 +497,7 @@ const Products: React.FC = () => {
                         />
                       </Form.Item>
                       <Form.Item name="brandEn" label="Brand (Optional)">
-                        <Input placeholder="e.g. BinanMall" />
+                        <Input placeholder="e.g. Shopii" />
                       </Form.Item>
                       <Form.Item name="originEn" label="Origin (Optional)">
                         <Input placeholder="e.g. Vietnam" />
@@ -636,6 +638,34 @@ const Products: React.FC = () => {
               tooltip="Optional discount percentage (0-100) to apply. E.g., 20 means 20% off."
             >
               <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="e.g. 20" />
+            </Form.Item>
+            <Typography.Title level={5}>Hoa hồng theo sản phẩm (%)</Typography.Title>
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+              % hoa hồng cho người giới thiệu khi khách mua (theo gói của người mua: TV, CTV, NPP). Để 0 hoặc trống = không áp dụng.
+            </Typography.Text>
+            <Form.Item
+              name="commissionPercentTV"
+              label="TV (%)"
+              rules={[{ type: 'number', min: 0, max: 100 }]}
+              tooltip="Phần trăm hoa hồng khi người mua có gói TV"
+            >
+              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
+            </Form.Item>
+            <Form.Item
+              name="commissionPercentCTV"
+              label="CTV (%)"
+              rules={[{ type: 'number', min: 0, max: 100 }]}
+              tooltip="Phần trăm hoa hồng khi người mua có gói CTV"
+            >
+              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
+            </Form.Item>
+            <Form.Item
+              name="commissionPercentNPP"
+              label="NPP (%)"
+              rules={[{ type: 'number', min: 0, max: 100 }]}
+              tooltip="Phần trăm hoa hồng khi người mua có gói NPP"
+            >
+              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
             </Form.Item>
             <Form.Item
               name="categoryId"

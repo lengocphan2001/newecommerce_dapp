@@ -226,7 +226,7 @@ export default function HomePage() {
             <Link href="/register" className="relative group cursor-pointer block">
               <img
                 src="/images/14446125.png"
-                alt="BinanMall Logo"
+                alt="Shopii Logo"
                 className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
               />
             </Link>

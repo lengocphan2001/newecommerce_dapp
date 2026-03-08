@@ -60,6 +60,7 @@ const PackagesPage: React.FC = () => {
             price: 0,
             directCommissionRate: 0,
             groupCommissionRate: 0,
+            groupCommissionMinSales: 2000,
             managementRateF1: 0,
         });
         setIsModalVisible(true);
@@ -71,6 +72,7 @@ const PackagesPage: React.FC = () => {
             ...record,
             directCommissionRate: record.directCommissionRate * 100,
             groupCommissionRate: record.groupCommissionRate * 100,
+            groupCommissionMinSales: record.groupCommissionMinSales ?? 2000,
             managementRateF1: record.managementRateF1 * 100,
             managementRateF2: record.managementRateF2 ? record.managementRateF2 * 100 : null,
             managementRateF3: record.managementRateF3 ? record.managementRateF3 * 100 : null,
@@ -158,6 +160,7 @@ const PackagesPage: React.FC = () => {
                 <div style={{ fontSize: '12px' }}>
                     <div>Direct: {(record.directCommissionRate * 100).toFixed(4)}%</div>
                     <div>Group: {(record.groupCommissionRate * 100).toFixed(4)}%</div>
+                    <div>Min/Branch: ${(record.groupCommissionMinSales ?? 2000).toLocaleString()}</div>
                 </div>
             ),
         },
@@ -319,6 +322,15 @@ const PackagesPage: React.FC = () => {
                             style={{ flex: 1 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
+                        </Form.Item>
+                        <Form.Item
+                            name="groupCommissionMinSales"
+                            label="Min Branch Sales ($)"
+                            rules={[{ required: true }]}
+                            tooltip="Minimum cumulative sales required on EACH branch before group commission is paid"
+                            style={{ flex: 1 }}
+                        >
+                            <InputNumber style={{ width: '100%' }} min={0} step={100} precision={2} />
                         </Form.Item>
                     </div>
 

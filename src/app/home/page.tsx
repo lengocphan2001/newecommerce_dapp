@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
-import WalletStatusChip from "@/app/components/WalletStatusChip";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
@@ -69,6 +68,7 @@ export default function HomePage() {
     usa: false,
   });
   const [addToCartAnimating, setAddToCartAnimating] = useState<string | null>(null);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -213,31 +213,22 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col bg-background-gray">
-      {/* Header */}
+      {/* Header with search */}
       <AppHeader
-        titleKey="homeTitle"
         showMenu={true}
         showActions={true}
         right={<LanguageSelect variant="light" />}
+        showSearch={true}
+        searchPlaceholder={t("searchProductsPlaceholder")}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
-      {/* Wallet Status Chip */}
-      <WalletStatusChip walletAddress={walletAddress || undefined} walletName="BinanMall" />
-
-      {/* Search Bar */}
-      <div className="px-4 py-4 bg-white shadow-sm mb-2">
-        <div className="relative flex w-full items-center">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <span className="material-symbols-outlined text-gray-400">search</span>
-          </div>
-          <input
-            className="block w-full p-3.5 pl-10 text-base text-gray-900 border border-gray-200 rounded-xl bg-gray-50 focus:ring-primary focus:border-primary placeholder:text-gray-400 shadow-inner"
-            placeholder={t("searchProductsPlaceholder")}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      {/* Page title (moved from header) */}
+      <div className="px-4 py-3 bg-white border-b border-gray-100">
+        <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate max-w-md mx-auto">
+          {t("homeTitle")}
+        </h1>
       </div>
 
       {/* Scrollable Content */}
@@ -326,107 +317,121 @@ export default function HomePage() {
             </div>
           </div>
         )}
-        <div className="bg-white mb-2 pt-4">
-          <div className="flex justify-between items-center px-4 mb-4">
-            <h3 className="text-lg font-bold text-text-dark leading-none">{t("countries")}</h3>
-          </div>
-          <div className="flex gap-6 px-4 overflow-x-auto hide-scrollbar pb-2">
-            <button
-              onClick={() => toggleCountry('VIETNAM')}
-              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${selectedCountry === 'VIETNAM' ? '' : 'group'
-                }`}
-            >
-              <div className={`w-16 h-16 rounded-full bg-white ${selectedCountry === 'VIETNAM'
-                ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
-                : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
-                }`}>
-                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
-                  {flagImageError.vietnam ? (
-                    <span className="text-3xl">🇻🇳</span>
-                  ) : (
-                    <img
-                      src="https://flagcdn.com/w40/vn.png"
-                      alt="Vietnam"
-                      className="w-10 h-10 object-contain"
-                      onError={() => setFlagImageError(prev => ({ ...prev, vietnam: true }))}
-                    />
-                  )}
-                </div>
-              </div>
-              <span className={`text-xs ${selectedCountry === 'VIETNAM'
-                ? 'text-primary font-bold'
-                : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
-                }`}>
-                Vietnam
-              </span>
-            </button>
-            <button
-              onClick={() => toggleCountry('USA')}
-              className={`flex shrink-0 flex-col items-center gap-2 min-w-[72px] ${selectedCountry === 'USA' ? '' : 'group'
-                }`}
-            >
-              <div className={`w-16 h-16 rounded-full bg-white ${selectedCountry === 'USA'
-                ? 'border-2 border-primary p-0.5 flex items-center justify-center shadow-lg shadow-primary/20'
-                : 'border border-gray-200 p-0.5 flex items-center justify-center group-hover:border-gray-300 transition-all shadow-sm'
-                }`}>
-                <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
-                  {flagImageError.usa ? (
-                    <span className="text-3xl">🇺🇸</span>
-                  ) : (
-                    <img
-                      src="https://flagcdn.com/w40/us.png"
-                      alt="USA"
-                      className="w-10 h-10 object-contain"
-                      onError={() => setFlagImageError(prev => ({ ...prev, usa: true }))}
-                    />
-                  )}
-                </div>
-              </div>
-              <span className={`text-xs ${selectedCountry === 'USA'
-                ? 'text-primary font-bold'
-                : 'text-gray-600 font-medium group-hover:text-text-dark transition-colors'
-                }`}>
-                USA
-              </span>
-            </button>
-          </div>
+        {/* Filter bar - opens modal */}
+        <div className="bg-white mb-2 px-4 py-2 border-b border-gray-100">
+          <button
+            type="button"
+            onClick={() => setFilterModalOpen(true)}
+            className="flex items-center justify-between w-full max-w-md mx-auto py-2.5 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+              <span className="material-symbols-outlined text-slate-600 text-xl">tune</span>
+              {selectedCountry === "USA" ? "USA" : "Vietnam"}
+              <span className="text-slate-400">•</span>
+              {selectedCategoryId
+                ? categories.find((c) => c.id === selectedCategoryId)?.name ?? "Category"
+                : t("all")}
+            </span>
+            <span className="material-symbols-outlined text-slate-500 text-xl">expand_more</span>
+          </button>
         </div>
 
-        {/* Categories Filter */}
-        {categories.length > 0 && (
-          <div className="bg-white mb-2 pt-4">
-            <div className="flex justify-between items-center px-4 mb-4">
-              <h3 className="text-lg font-bold text-text-dark leading-none">Categories</h3>
-            </div>
-            <div className="flex gap-3 px-4 overflow-x-auto hide-scrollbar pb-4">
-              <button
-                onClick={() => setSelectedCategoryId(null)}
-                className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${selectedCategoryId === null
-                  ? 'bg-primary text-white border-primary shadow-md'
-                  : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
-                  }`}
-              >
-                <span className="text-sm font-medium">All</span>
-              </button>
-              {categories.map((category) => (
+        {/* Filter modal */}
+        {filterModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+            aria-modal="true"
+            role="dialog"
+          >
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setFilterModalOpen(false)}
+            />
+            <div className="relative w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+              <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                <h3 className="text-lg font-bold text-slate-900">{t("filter") || "Filter"}</h3>
                 <button
-                  key={category.id}
-                  onClick={() => setSelectedCategoryId(category.id)}
-                  className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-full border transition-all ${selectedCategoryId === category.id
-                    ? 'bg-primary text-white border-primary shadow-md'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary/50'
-                    }`}
+                  type="button"
+                  onClick={() => setFilterModalOpen(false)}
+                  className="p-2 rounded-full hover:bg-slate-100 text-slate-600"
+                  aria-label="Close"
                 >
-                  {category.imageUrl && (
-                    <img
-                      src={category.imageUrl}
-                      alt={category.name}
-                      className="w-5 h-5 rounded-full object-cover"
-                    />
-                  )}
-                  <span className="text-sm font-medium">{category.name}</span>
+                  <span className="material-symbols-outlined">close</span>
                 </button>
-              ))}
+              </div>
+              <div className="overflow-y-auto flex-1 p-4 space-y-6">
+                <div>
+                  <p className="text-sm font-bold text-slate-700 mb-3">{t("countries")}</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => toggleCountry("VIETNAM")}
+                      className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        selectedCountry === "VIETNAM"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      {flagImageError.vietnam ? (
+                        <span className="text-2xl">🇻🇳</span>
+                      ) : (
+                        <img src="https://flagcdn.com/w40/vn.png" alt="" className="w-8 h-8 object-contain rounded" onError={() => setFlagImageError((prev) => ({ ...prev, vietnam: true }))} />
+                      )}
+                      <span className="font-semibold text-sm">Vietnam</span>
+                    </button>
+                    <button
+                      onClick={() => toggleCountry("USA")}
+                      className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        selectedCountry === "USA"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      {flagImageError.usa ? (
+                        <span className="text-2xl">🇺🇸</span>
+                      ) : (
+                        <img src="https://flagcdn.com/w40/us.png" alt="" className="w-8 h-8 object-contain rounded" onError={() => setFlagImageError((prev) => ({ ...prev, usa: true }))} />
+                      )}
+                      <span className="font-semibold text-sm">USA</span>
+                    </button>
+                  </div>
+                </div>
+                {categories.length > 0 && (
+                  <div>
+                    <p className="text-sm font-bold text-slate-700 mb-3">Categories</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedCategoryId(null)}
+                        className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                          selectedCategoryId === null ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        }`}
+                      >
+                        {t("all")}
+                      </button>
+                      {categories.map((cat) => (
+                        <button
+                          key={cat.id}
+                          onClick={() => setSelectedCategoryId(cat.id)}
+                          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
+                            selectedCategoryId === cat.id ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                          }`}
+                        >
+                          {cat.imageUrl && <img src={cat.imageUrl} alt="" className="w-5 h-5 rounded-full object-cover" />}
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="p-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setFilterModalOpen(false)}
+                  className="w-full py-3 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary-dark transition-colors"
+                >
+                  {t("apply") || "Apply"}
+                </button>
+              </div>
             </div>
           </div>
         )}

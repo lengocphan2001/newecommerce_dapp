@@ -450,11 +450,19 @@ const CommissionPayout: React.FC = () => {
       width: 120,
       render: (type: string) => {
         const colors: Record<string, string> = {
+          direct: 'blue',
+          group: 'purple',
+          management: 'cyan',
+          product: 'green',
+          milestone: 'orange',
           DIRECT: 'blue',
           GROUP: 'purple',
           MANAGEMENT: 'cyan',
+          PRODUCT: 'green',
+          MILESTONE: 'orange',
         };
-        return <Tag color={colors[type] || 'default'}>{type}</Tag>;
+        const label = type === 'product' ? 'Product' : type === 'milestone' ? 'Milestone' : type;
+        return <Tag color={colors[type] || 'default'}>{label}</Tag>;
       },
     },
     {

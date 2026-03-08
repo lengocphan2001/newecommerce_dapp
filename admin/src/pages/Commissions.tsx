@@ -205,6 +205,8 @@ const CommissionsPage: React.FC = () => {
       direct: { color: 'blue', text: 'Direct' },
       group: { color: 'purple', text: 'Group' },
       management: { color: 'cyan', text: 'Management' },
+      product: { color: 'green', text: 'Product' },
+      milestone: { color: 'orange', text: 'Milestone' },
     };
     const config = typeConfig[type] || { color: 'default', text: type };
     return <Tag color={config.color}>{config.text}</Tag>;
@@ -367,6 +369,8 @@ const CommissionsPage: React.FC = () => {
           <Option value="direct">Direct</Option>
           <Option value="group">Group</Option>
           <Option value="management">Management</Option>
+          <Option value="product">Product</Option>
+          <Option value="milestone">Milestone</Option>
         </Select>
 
         <div style={{ marginLeft: 'auto' }}>

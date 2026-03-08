@@ -119,6 +119,48 @@ export class Product {
   @Column({ type: 'int', nullable: true, default: 0 })
   salePercentage?: number;
 
+  /** Commission % for buyer package TV (0–100). Referrer gets this % of (price × qty) when a TV user buys. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => (value != null ? parseFloat(value) : 0),
+    },
+  })
+  commissionPercentTV?: number;
+
+  /** Commission % for buyer package CTV (0–100). */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => (value != null ? parseFloat(value) : 0),
+    },
+  })
+  commissionPercentCTV?: number;
+
+  /** Commission % for buyer package NPP (0–100). */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => (value != null ? parseFloat(value) : 0),
+    },
+  })
+  commissionPercentNPP?: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

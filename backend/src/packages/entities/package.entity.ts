@@ -58,6 +58,18 @@ export class Package {
 
     @Column({
         type: 'decimal',
+        precision: 10,
+        scale: 2,
+        default: 2000,
+        transformer: {
+            to: (value: number) => value,
+            from: (value: string) => parseFloat(value),
+        },
+    })
+    groupCommissionMinSales: number; // Minimum cumulative sales per branch ($) required for group commission
+
+    @Column({
+        type: 'decimal',
         precision: 5,
         scale: 4,
         default: 0,

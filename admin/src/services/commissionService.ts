@@ -11,7 +11,7 @@ export interface Commission {
   };
   orderId: string;
   fromUserId?: string;
-  type: 'direct' | 'group' | 'management';
+  type: 'direct' | 'group' | 'management' | 'product' | 'milestone';
   status: 'pending' | 'paid' | 'blocked';
   amount: number | string;
   orderAmount: number | string;
@@ -27,7 +27,7 @@ export interface Commission {
 export const commissionService = {
   getAll: (params?: {
     status?: 'pending' | 'paid' | 'blocked';
-    type?: 'direct' | 'group' | 'management';
+    type?: 'direct' | 'group' | 'management' | 'product' | 'milestone';
     userId?: string;
   }) => api.get('/affiliate/admin/commissions', { params }),
   

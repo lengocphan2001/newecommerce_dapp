@@ -21,44 +21,44 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+  title: "Shopii - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
   description:
-    "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
+    "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví Shopii để bắt đầu mua sắm ngay hôm nay.",
   keywords: [
-    "BinanMall",
-    "BinanMall DApp",
+    "Shopii",
+    "Shopii DApp",
     "Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
-    "BinanMall",
+    "Shopii",
     "Web3",
     "Blockchain",
     "Decentralized",
   ],
-  authors: [{ name: "BinanMall" }],
-  creator: "BinanMall",
-  publisher: "BinanMall",
+  authors: [{ name: "Shopii" }],
+  creator: "Shopii",
+  publisher: "Shopii",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://binanmall.com"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://Shopii"
   ),
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    title: "Shopii - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
     description:
-      "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví BinanMall để bắt đầu mua sắm ngay hôm nay.",
+      "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví Shopii để bắt đầu mua sắm ngay hôm nay.",
     url: "/",
-    siteName: "BinanMall",
+    siteName: "Shopii",
     images: [
       {
         url: "/images/14446125.png",
         width: 1200,
         height: 630,
-        alt: "BinanMall",
+        alt: "Shopii",
       },
     ],
     locale: "vi_VN",
@@ -66,7 +66,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "BinanMall - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    title: "Shopii - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
     description:
       "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
     images: ["/images/14446125.png"],
@@ -97,7 +97,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "BinanMall",
+    title: "Shopii",
   },
 };
 
