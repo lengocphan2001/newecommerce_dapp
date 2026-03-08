@@ -545,7 +545,16 @@ export const api = {
     return response.json();
   },
 
-  async submitKyc(data: { documentType: string; documentNumber: string; frontImage?: string; backImage?: string; }) {
+  async submitKyc(data: {
+    documentType: string;
+    documentNumber: string;
+    frontImage?: string;
+    backImage?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
+    bankBranch?: string;
+  }) {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
     const response = await fetch(`${API_BASE_URL}/kyc/submit`, {

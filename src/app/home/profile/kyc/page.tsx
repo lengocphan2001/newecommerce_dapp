@@ -14,6 +14,10 @@ export default function KycPage() {
     const [documentNumber, setDocumentNumber] = useState("");
     const [frontImage, setFrontImage] = useState<string>("");
     const [backImage, setBackImage] = useState<string>("");
+    const [bankName, setBankName] = useState("");
+    const [bankAccountNumber, setBankAccountNumber] = useState("");
+    const [bankAccountHolder, setBankAccountHolder] = useState("");
+    const [bankBranch, setBankBranch] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadingFront, setUploadingFront] = useState(false);
     const [uploadingBack, setUploadingBack] = useState(false);
@@ -28,6 +32,10 @@ export default function KycPage() {
             if (kyc.status) {
                 setStatus(kyc.status);
                 if (kyc.notes) setNotes(kyc.notes);
+                if (kyc.bankName) setBankName(kyc.bankName);
+                if (kyc.bankAccountNumber) setBankAccountNumber(kyc.bankAccountNumber);
+                if (kyc.bankAccountHolder) setBankAccountHolder(kyc.bankAccountHolder);
+                if (kyc.bankBranch) setBankBranch(kyc.bankBranch);
             } else {
                 setStatus("UNVERIFIED");
             }
@@ -64,7 +72,16 @@ export default function KycPage() {
 
         setIsSubmitting(true);
         try {
-            await api.submitKyc({ documentType, documentNumber, frontImage, backImage });
+            await api.submitKyc({
+                documentType,
+                documentNumber,
+                frontImage,
+                backImage,
+                bankName: bankName.trim() || undefined,
+                bankAccountNumber: bankAccountNumber.trim() || undefined,
+                bankAccountHolder: bankAccountHolder.trim() || undefined,
+                bankBranch: bankBranch.trim() || undefined,
+            });
             alert(t("kycSubmittedSuccess"));
             loadKycStatus();
         } catch (e: any) {
@@ -197,6 +214,53 @@ export default function KycPage() {
                                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, 'back')} disabled={uploadingBack} />
                                         </label>
                                     )}
+                                </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100">
+                                <p className="text-sm font-semibold text-slate-700 mb-3">{t("kycBankingInfo")}</p>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{t("kycBankName")}</label>
+                                        <input
+                                            type="text"
+                                            value={bankName}
+                                            onChange={(e) => setBankName(e.target.value)}
+                                            placeholder="VD: Vietcombank"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{t("kycBankAccountNumber")}</label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={bankAccountNumber}
+                                            onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ""))}
+                                            placeholder="VD: 1234567890"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{t("kycBankAccountHolder")}</label>
+                                        <input
+                                            type="text"
+                                            value={bankAccountHolder}
+                                            onChange={(e) => setBankAccountHolder(e.target.value)}
+                                            placeholder="VD: NGUYEN VAN A"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{t("kycBankBranch")}</label>
+                                        <input
+                                            type="text"
+                                            value={bankBranch}
+                                            onChange={(e) => setBankBranch(e.target.value)}
+                                            placeholder="VD: Chi nhánh Hà Nội"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

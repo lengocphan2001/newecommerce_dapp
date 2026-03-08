@@ -16,5 +16,21 @@ export class SubmitKycDto {
   @IsString()
   @IsOptional()
   backImage?: string;
+
+  @IsString()
+  @IsOptional()
+  bankName?: string;
+
+  @IsString()
+  @IsOptional()
+  bankAccountNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  bankAccountHolder?: string;
+
+  @IsString()
+  @IsOptional()
+  bankBranch?: string;
 }
 

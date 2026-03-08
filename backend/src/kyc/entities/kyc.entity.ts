@@ -39,6 +39,18 @@ export class Kyc {
     @Column({ type: 'text', nullable: true })
     backImage: string;
 
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    bankName: string;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    bankAccountNumber: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    bankAccountHolder: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    bankBranch: string;
+
     @Column({
         type: 'enum',
         enum: KycStatus,

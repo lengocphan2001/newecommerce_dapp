@@ -236,14 +236,6 @@ function OrdersPageContent() {
         </div>
       </header>
 
-      {/* SafePalMall Connection Banner (Mobile) */}
-      <div className="sm:hidden w-full bg-yellow-50/50 border-b border-yellow-100 py-1.5 flex justify-center items-center gap-2 shadow-sm relative z-40">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
-        </span>
-        <span className="text-[11px] text-primary-dark font-semibold">{t("connectedToSafePal")}</span>
-      </div>
 
       {/* Tabs */}
       <div className="bg-white pt-2 sticky top-[58px] z-30 shadow-sm border-b border-yellow-50">

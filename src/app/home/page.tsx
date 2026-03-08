@@ -226,7 +226,15 @@ export default function HomePage() {
 
       {/* Page title (moved from header) */}
       <div className="px-4 py-3 bg-white border-b border-gray-100">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900 truncate max-w-md mx-auto">
+        <h1
+          className="text-lg font-bold tracking-tight truncate max-w-md mx-auto"
+          style={{
+            background: "linear-gradient(90deg, #2563eb 0%, #6366f1 25%, #9333ea 50%, #c026d3 75%, #ea580c 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}
+        >
           {t("homeTitle")}
         </h1>
       </div>

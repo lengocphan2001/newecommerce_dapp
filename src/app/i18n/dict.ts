@@ -375,6 +375,9 @@ export type I18nKey =
   | "enterVerificationCode"
   | "verifyCode"
   | "resendCode"
+  | "identityVerification"
+  | "identityVerificationDesc"
+  | "goToKyc"
   | "enter6DigitCode"
   | "usernameInvalidNoSpecial"
   | "selectSide"
@@ -413,6 +416,11 @@ export type I18nKey =
   | "kycImageTooLarge"
   | "kycUploadFailed"
   | "kycSubmissionFailed"
+  | "kycBankingInfo"
+  | "kycBankName"
+  | "kycBankAccountNumber"
+  | "kycBankAccountHolder"
+  | "kycBankBranch"
   | "packagesSectionTitle"
   | "packagesPendingLabel"
   | "packagesPendingWaitAdmin"
@@ -453,9 +461,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliateReferralCodeLabel: "Mã giới thiệu (Username)",
     affiliateCopy: "Sao chép",
     affiliateCopied: "Đã copy!",
-    affiliateBranchLinksTitle: "Link giới thiệu nhánh",
-    affiliateLeftBranch: "Link nhánh trái",
-    affiliateRightBranch: "Link nhánh phải",
+    affiliateBranchLinksTitle: "Link giới thiệu team",
+    affiliateLeftBranch: "Link team 1",
+    affiliateRightBranch: "Link team 2",
     affiliateGroupStatsTitle: "Thống kê nhóm",
     affiliateTotal: "Tổng cộng",
     affiliateMembersTitle: "Thành viên nhóm",
@@ -473,8 +481,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliatePendingPayout: "Đang chờ chi trả",
     affiliatePayoutReadyMessage: "Bạn đã tích lũy {{amount}} hoa hồng. Chi trả sẽ được xử lý tự động.",
     affiliatePayoutPendingMessage: "Tích lũy thêm {{remaining}} để đạt ngưỡng chi trả {{threshold}}.",
-    affiliateLeftBranchLabel: "Nhánh trái",
-    affiliateRightBranchLabel: "Nhánh phải",
+    affiliateLeftBranchLabel: "Team 1",
+    affiliateRightBranchLabel: "Team 2",
     loading: "Đang tải...",
     error: "Lỗi",
     retry: "Thử lại",
@@ -633,8 +641,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     claim: "Nhận",
     networkStructure: "Cấu trúc mạng lưới",
     viewFullTree: "Xem cây đầy đủ",
-    leftBranchLink: "Link nhánh trái",
-    rightBranchLink: "Link nhánh phải",
+    leftBranchLink: "Link team 1",
+    rightBranchLink: "Link team 2",
     shareOnSocial: "Chia sẻ trên mạng xã hội",
     recentActivity: "Hoạt động gần đây",
     directCommission: "Hoa hồng trực tiếp",
@@ -796,8 +804,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     enterVerificationCode: "Nhập mã 6 số đã gửi đến email của bạn:",
     verifyCode: "Xác thực",
     resendCode: "Gửi lại mã",
+    identityVerification: "Xác minh danh tính",
+    identityVerificationDesc: "Xác minh danh tính của bạn qua KYC để sử dụng đầy đủ tính năng.",
+    goToKyc: "Đến trang xác minh",
     enter6DigitCode: "Vui lòng nhập đủ 6 số.",
-    selectSide: "Chọn nhánh",
+    selectSide: "Chọn team",
     reconsumptionRequiredDesc: "Bạn đã đạt ngưỡng hoa hồng tối đa. Vui lòng mua thêm gói để tiếp tục nhận thưởng.",
     maxCommissionReached: "Giới Hạn Hoa Hồng",
     whyLocked: "Tại sao bị khóa?",
@@ -837,7 +848,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycSubmittedSuccess: "Gửi KYC thành công",
     kycImageTooLarge: "Ảnh quá lớn (tối đa 5MB)",
     kycUploadFailed: "Tải ảnh thất bại",
-    kycSubmissionFailed: "Gửi yêu cầu thất bại"
+    kycSubmissionFailed: "Gửi yêu cầu thất bại",
+    kycBankingInfo: "Thông tin ngân hàng",
+    kycBankName: "Tên ngân hàng",
+    kycBankAccountNumber: "Số tài khoản",
+    kycBankAccountHolder: "Chủ tài khoản",
+    kycBankBranch: "Chi nhánh"
   },
   en: {
     appName: "Shopii",
@@ -869,9 +885,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliateReferralCodeLabel: "Referral Code (Username)",
     affiliateCopy: "Copy",
     affiliateCopied: "Copied!",
-    affiliateBranchLinksTitle: "Branch Referral Links",
-    affiliateLeftBranch: "Left Branch",
-    affiliateRightBranch: "Right Branch",
+    affiliateBranchLinksTitle: "Team Referral Links",
+    affiliateLeftBranch: "Team 1 Link",
+    affiliateRightBranch: "Team 2 Link",
     affiliateGroupStatsTitle: "Group Statistics",
     affiliateTotal: "Total",
     affiliateMembersTitle: "Group Members",
@@ -889,8 +905,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliatePendingPayout: "Pending Payout",
     affiliatePayoutReadyMessage: "You have accumulated {{amount}} in commissions. Your payout will be processed automatically.",
     affiliatePayoutPendingMessage: "Accumulate {{remaining}} more to reach the {{threshold}} payout threshold.",
-    affiliateLeftBranchLabel: "Left Branch",
-    affiliateRightBranchLabel: "Right Branch",
+    affiliateLeftBranchLabel: "Team 1",
+    affiliateRightBranchLabel: "Team 2",
     loading: "Loading...",
     error: "Error",
     retry: "Retry",
@@ -1049,8 +1065,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     claim: "Claim",
     networkStructure: "Network Structure",
     viewFullTree: "View Full Tree",
-    leftBranchLink: "Left Branch Link",
-    rightBranchLink: "Right Branch Link",
+    leftBranchLink: "Team 1 Link",
+    rightBranchLink: "Team 2 Link",
     shareOnSocial: "Share on Social Media",
     recentActivity: "Recent Activity",
     directCommission: "Direct Commission",
@@ -1212,8 +1228,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     enterVerificationCode: "Enter the 6-digit code sent to your email:",
     verifyCode: "Verify",
     resendCode: "Resend code",
+    identityVerification: "Identity verification",
+    identityVerificationDesc: "Verify your identity via KYC to access all features.",
+    goToKyc: "Go to verification",
     enter6DigitCode: "Please enter 6 digits.",
-    selectSide: "Select Side",
+    selectSide: "Select Team",
     reconsumptionRequiredDesc: "You have reached the maximum commission threshold. Please purchase more packages to continue receiving rewards.",
     maxCommissionReached: "Maximum Commission Reached",
     whyLocked: "Why is it locked?",
@@ -1253,7 +1272,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycSubmittedSuccess: "KYC Submitted successfully",
     kycImageTooLarge: "Image too large (max 5MB)",
     kycUploadFailed: "Failed to upload image",
-    kycSubmissionFailed: "Submission failed"
+    kycSubmissionFailed: "Submission failed",
+    kycBankingInfo: "Banking information",
+    kycBankName: "Bank name",
+    kycBankAccountNumber: "Account number",
+    kycBankAccountHolder: "Account holder name",
+    kycBankBranch: "Branch"
   },
   ko: {
     appName: "Shopii",
@@ -1285,9 +1309,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliateReferralCodeLabel: "추천 코드 (사용자명)",
     affiliateCopy: "복사",
     affiliateCopied: "복사됨!",
-    affiliateBranchLinksTitle: "브랜치 추천 링크",
-    affiliateLeftBranch: "왼쪽 브랜치 링크",
-    affiliateRightBranch: "오른쪽 브랜치 링크",
+    affiliateBranchLinksTitle: "팀 추천 링크",
+    affiliateLeftBranch: "팀 1 링크",
+    affiliateRightBranch: "팀 2 링크",
     affiliateGroupStatsTitle: "그룹 통계",
     affiliateTotal: "전체",
     affiliateMembersTitle: "그룹 멤버",
@@ -1305,8 +1329,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     affiliatePendingPayout: "지급 대기 중",
     affiliatePayoutReadyMessage: "{{amount}} 커미션을 적립했습니다. 자동으로 지급 처리됩니다.",
     affiliatePayoutPendingMessage: "{{remaining}} 더 적립하면 {{threshold}} 지급 기준에 도달합니다.",
-    affiliateLeftBranchLabel: "왼쪽 브랜치",
-    affiliateRightBranchLabel: "오른쪽 브랜치",
+    affiliateLeftBranchLabel: "팀 1",
+    affiliateRightBranchLabel: "팀 2",
     loading: "로딩 중...",
     error: "오류",
     retry: "다시 시도",
@@ -1465,8 +1489,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     claim: "받기",
     networkStructure: "네트워크 구조",
     viewFullTree: "전체 트리 보기",
-    leftBranchLink: "왼쪽 브랜치 링크",
-    rightBranchLink: "오른쪽 브랜치 링크",
+    leftBranchLink: "팀 1 링크",
+    rightBranchLink: "팀 2 링크",
     shareOnSocial: "소셜 미디어에 공유",
     recentActivity: "최근 활동",
     directCommission: "직접 커미션",
@@ -1628,8 +1652,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     enterVerificationCode: "이메일로 받은 6자리 코드를 입력하세요:",
     verifyCode: "인증",
     resendCode: "코드 다시 받기",
+    identityVerification: "신원 확인",
+    identityVerificationDesc: "KYC를 통해 신원을 확인하고 모든 기능을 이용하세요.",
+    goToKyc: "인증 페이지로",
     enter6DigitCode: "6자리를 입력하세요.",
-    selectSide: "지점 선택",
+    selectSide: "팀 선택",
     reconsumptionRequiredDesc: "최대 커미션 기준에 도달했습니다. 보상을 계속 받으려면 패키지를 추가로 구매하십시오.",
     maxCommissionReached: "최대 커미션 도달",
     whyLocked: "왜 잠겼나요?",
@@ -1669,6 +1696,11 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycSubmittedSuccess: "KYC 요청이 성공적으로 제출되었습니다",
     kycImageTooLarge: "이미지가 너무 큽니다 (최대 5MB)",
     kycUploadFailed: "이미지 업로드에 실패했습니다",
-    kycSubmissionFailed: "제출에 실패했습니다"
+    kycSubmissionFailed: "제출에 실패했습니다",
+    kycBankingInfo: "계좌 정보",
+    kycBankName: "은행명",
+    kycBankAccountNumber: "계좌번호",
+    kycBankAccountHolder: "예금주",
+    kycBankBranch: "지점"
   },
 };

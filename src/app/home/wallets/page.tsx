@@ -374,15 +374,14 @@ export default function WalletsPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col gap-6 px-4 bg-white">
+      <main className="flex-1 flex flex-col gap-6 px-4 bg-white mt-4">
         {/* Main Balance Card */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-gray-100">
           <div className="relative z-10 flex flex-col gap-4">
+            
+            <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1">
-                <span className="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
-                <span className="text-xs font-medium text-primary-dark">{t("connectedToSafePal")}</span>
-              </div>
+            <p className="text-sm font-medium text-gray-600">{t("totalNetWorth")}</p>
               <button
                 onClick={() => setBalanceVisible(!balanceVisible)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -392,8 +391,7 @@ export default function WalletsPage() {
                 </span>
               </button>
             </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-gray-600">{t("totalNetWorth")}</p>
+              
               <h2 className="text-4xl font-bold tracking-tight text-text-dark">
                 {balanceVisible ? `$${formatUSDT(totalNetWorth)}` : '••••••'}
               </h2>
