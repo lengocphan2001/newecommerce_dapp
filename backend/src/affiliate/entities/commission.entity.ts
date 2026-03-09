@@ -35,12 +35,15 @@ export class Commission {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column()
-  orderId: string; // Đơn hàng phát sinh hoa hồng
+  @Column({ nullable: true })
+  orderId: string; // Đơn hàng phát sinh hoa hồng (null cho milestone)
 
-  @ManyToOne(() => Order, (order) => order.commissions)
+  @ManyToOne(() => Order, (order) => order.commissions, { nullable: true })
   @JoinColumn({ name: 'orderId' })
   order: Order;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  milestoneRef: string; // e.g. 'milestone-{id}' để singlePayout tìm commission milestone
 
   @Column({ nullable: true })
   fromUserId: string; // User tạo ra đơn hàng (cho hoa hồng trực tiếp/quản lý)

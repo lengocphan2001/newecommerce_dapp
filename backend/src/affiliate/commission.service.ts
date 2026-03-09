@@ -200,7 +200,7 @@ export class CommissionService {
 
     const canReceiveCommission = await this.checkReconsumption(referrer, config);
     const rawCommissionAmount = order.totalAmount * config.directCommissionRate;
-    const commissionAmount = this.roundToFirstSignificantDigit(rawCommissionAmount);
+    const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     this.logger.log(`Creating direct commission: referrer ${referrer.id}, buyer ${buyer.id}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`);
 
@@ -273,7 +273,7 @@ export class CommissionService {
 
       const itemAmount = Number(item.price) * item.quantity;
       const rawAmount = (itemAmount * percent) / 100;
-      const commissionAmount = this.roundToFirstSignificantDigit(rawAmount);
+      const commissionAmount = this.roundCommission(rawAmount);
       if (commissionAmount <= 0) continue;
 
       const status = canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
@@ -412,7 +412,7 @@ export class CommissionService {
   ): Promise<void> {
 
     const rawCommissionAmount = order.totalAmount * config.groupCommissionRate;
-    const commissionAmount = this.roundToFirstSignificantDigit(rawCommissionAmount);
+    const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     this.logger.log(`Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`);
 
@@ -539,7 +539,7 @@ export class CommissionService {
   ): Promise<Commission> {
 
     const rawCommissionAmount = groupCommissionAmount * rate;
-    const commissionAmount = this.roundToFirstSignificantDigit(rawCommissionAmount);
+    const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     const commission = this.commissionRepository.create({
       userId: manager.id,
@@ -611,36 +611,12 @@ export class CommissionService {
   }
 
   /**
-   * Helper function: Round down to the first significant digit.
-   * Example: 0.2456 -> 0.2, 0.00002323 -> 0.00002
+   * Round commission amount to 2 decimal places (standard for currency).
+   * e.g. 36.36 → 36.36, 9.09 → 9.09
    */
-  private roundToFirstSignificantDigit(num: number): number {
-    if (num === 0) return 0;
-
-    // Handle negative numbers if necessary, though commissions should be positive
-    const sign = num < 0 ? -1 : 1;
-    num = Math.abs(num);
-
-    // Get the magnitude (power of 10) of the first significant digit
-    // e.g., 0.2456 -> log10(0.2456) ~ -0.6 -> floor(-0.6) = -1. Magnitude is 10^-1 = 0.1
-    // e.g., 0.000023 -> log10(0.000023) ~ -4.6 -> floor(-4.6) = -5. Magnitude is 10^-5 = 0.00001
-    const magnitude = Math.floor(Math.log10(num));
-    const factor = Math.pow(10, magnitude);
-
-    // Scale down to 1.x, floor it to get 1, then scale back up
-    // Actually, we want to keep one digit.
-    // 0.2456 -> magnitude -1. factor 0.1.
-    // num / factor = 2.456 -> floor -> 2.
-    // 2 * factor = 0.2
-
-    // Let's test 23.45 -> log10(23.45) ~ 1.37 -> floor 1. factor 10.
-    // 23.45 / 10 = 2.345 -> floor -> 2. result 20. 
-    // Wait, typical scientific notation rounding usually keeps more precision for larger numbers?
-    // User examples: 0.2456 -> 0.2, 0.00002323 -> 0.00002.
-    // It seems consistent: Keep only the first non-zero digit.
-
-    const firstDigit = Math.floor(num / factor);
-    return sign * firstDigit * factor;
+  private roundCommission(num: number): number {
+    if (num === 0 || !Number.isFinite(num)) return 0;
+    return Math.round(num * 100) / 100;
   }
 
   // --- Helper methods for Tree Traversasl (unchanged logic, just ensuring availability) ---
@@ -685,7 +661,7 @@ export class CommissionService {
 
     // Now current should be a direct child of ancestor
     if (current.parentId === ancestor.id) {
-      return current.position;
+      return current.position ?? 'left'; // guard against null/undefined position
     }
 
     // Fallback (should not happen if ancestor is valid)
@@ -736,12 +712,12 @@ export class CommissionService {
     });
 
     return {
-      totalCommission: this.roundToFirstSignificantDigit(totalCommission || 0),
-      pendingCommission: this.roundToFirstSignificantDigit(pendingCommission || 0),
+      totalCommission: this.roundCommission(totalCommission || 0),
+      pendingCommission: this.roundCommission(pendingCommission || 0),
       commissions: {
-        direct: this.roundToFirstSignificantDigit(direct || 0),
-        group: this.roundToFirstSignificantDigit(group || 0),
-        management: this.roundToFirstSignificantDigit(management || 0),
+        direct: this.roundCommission(direct || 0),
+        group: this.roundCommission(group || 0),
+        management: this.roundCommission(management || 0),
       }
     };
   }
@@ -762,7 +738,7 @@ export class CommissionService {
 
     return commissions.map(c => ({
       ...c,
-      amount: this.roundToFirstSignificantDigit(Number(c.amount)),
+      amount: this.roundCommission(Number(c.amount)),
     }));
   }
 
@@ -784,7 +760,7 @@ export class CommissionService {
 
     return commissions.map(c => ({
       ...c,
-      amount: this.roundToFirstSignificantDigit(Number(c.amount)),
+      amount: this.roundCommission(Number(c.amount)),
     }));
   }
 
@@ -857,7 +833,9 @@ export class CommissionService {
       type: CommissionType.MILESTONE,
       status: canReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
       notes: notes || `Milestone Reward #${milestoneId}`,
-      orderAmount: 0, // No specific order associated directly like purchase
+      orderAmount: 0,
+      orderId: null,
+      milestoneRef: `milestone-${milestoneId}`,
     });
 
     await this.commissionRepository.save(commission);

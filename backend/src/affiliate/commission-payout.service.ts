@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
-import { Commission, CommissionStatus } from './entities/commission.entity';
+import { Commission, CommissionStatus, CommissionType } from './entities/commission.entity';
 import { User } from '../user/entities/user.entity';
 import { CommissionPayoutService as BlockchainPayoutService } from '../blockchain/commission-payout.service';
 import { BatchPayoutDto, PayoutRecipientDto } from './dto/batch-payout.dto';
@@ -318,19 +318,23 @@ export class CommissionPayoutService {
   ): Promise<{ batchId: string; txHash: string; success: boolean }> {
     let commissionIds: string[] = [];
 
-    // If orderId is provided, find the specific commission
+    // If orderId is provided, find the specific commission (or milestone by milestoneRef)
     if (orderId) {
+      const isMilestone = orderId.startsWith('milestone-');
+      const where: any = { userId, status: CommissionStatus.PENDING };
+      if (isMilestone) {
+        where.milestoneRef = orderId;
+        where.type = CommissionType.MILESTONE;
+      } else {
+        where.orderId = orderId;
+      }
       const commission = await this.commissionRepository.findOne({
-        where: {
-          userId,
-          orderId,
-          status: CommissionStatus.PENDING,
-        },
+        where,
         relations: ['user'],
       });
 
       if (!commission) {
-        throw new Error(`No pending commission found for orderId: ${orderId}`);
+        throw new Error(`No pending commission found for ${isMilestone ? 'milestoneRef' : 'orderId'}: ${orderId}`);
       }
 
       // Verify amount matches
@@ -442,15 +446,14 @@ export class CommissionPayoutService {
   }
 
   /**
-   * Check a single user's total PENDING commissions.
-   * If they meet or exceed the minPayoutThreshold → pay ALL their pending commissions immediately.
-   * Otherwise, leave them accumulating.
+   * Check a single user's PENDING commissions.
+   * - DIRECT: always pay immediately (no threshold).
+   * - GROUP and others: pay only when total non-direct pending >= minPayoutThreshold.
    */
   async checkAndPayoutUser(
     userId: string,
     minThreshold: number,
   ): Promise<void> {
-    // Sum all PENDING commissions for this user
     const pendingCommissions = await this.commissionRepository.find({
       where: { userId, status: CommissionStatus.PENDING },
       relations: ['user'],
@@ -458,28 +461,53 @@ export class CommissionPayoutService {
 
     if (pendingCommissions.length === 0) return;
 
-    const totalPending = pendingCommissions.reduce((sum, c) => sum + Number(c.amount), 0);
+    const directPending = pendingCommissions.filter((c) => c.type === CommissionType.DIRECT);
+    const nonDirectPending = pendingCommissions.filter((c) => c.type !== CommissionType.DIRECT);
 
-    this.logger.log(`[THRESHOLD PAYOUT] User ${userId}: totalPending=${totalPending}, threshold=${minThreshold}`);
+    // 1) Pay all DIRECT immediately (no threshold)
+    if (directPending.length > 0) {
+      const valid = directPending.filter((c) => c.user?.walletAddress);
+      if (valid.length > 0) {
+        const totalDirect = valid.reduce((sum, c) => sum + Number(c.amount), 0);
+        this.logger.log(`[THRESHOLD PAYOUT] User ${userId}: paying ${valid.length} direct commissions (total: ${totalDirect}) immediately`);
+        try {
+          const { recipients } = await this.preparePayoutBatch(valid);
+          if (recipients.length > 0) {
+            await this.executeBatchPayout(
+              { recipients },
+              'system',
+              'system',
+              undefined,
+              undefined,
+            );
+          }
+        } catch (error: any) {
+          this.logger.error(`[THRESHOLD PAYOUT] Direct payout failed for user ${userId}: ${error.message}`, error.stack);
+        }
+      }
+    }
 
-    if (totalPending < minThreshold) {
-      this.logger.debug(`[THRESHOLD PAYOUT] User ${userId} has not reached threshold (${totalPending} < ${minThreshold}). Commissions will accumulate.`);
+    // 2) Non-direct (group, product, management): pay only when total >= threshold
+    if (nonDirectPending.length === 0) return;
+
+    const totalNonDirect = nonDirectPending.reduce((sum, c) => sum + Number(c.amount), 0);
+    this.logger.log(`[THRESHOLD PAYOUT] User ${userId}: non-direct pending=${totalNonDirect}, threshold=${minThreshold}`);
+
+    if (totalNonDirect < minThreshold) {
+      this.logger.debug(`[THRESHOLD PAYOUT] User ${userId} has not reached threshold. Group/other will accumulate.`);
       return;
     }
 
-    // Threshold reached → pay all pending commissions
-    const validCommissions = pendingCommissions.filter((c) => c.user?.walletAddress);
-    if (validCommissions.length === 0) {
-      this.logger.warn(`[THRESHOLD PAYOUT] User ${userId} has reached threshold but has no wallet address. Skipping payout.`);
+    const validNonDirect = nonDirectPending.filter((c) => c.user?.walletAddress);
+    if (validNonDirect.length === 0) {
+      this.logger.warn(`[THRESHOLD PAYOUT] User ${userId} has no wallet. Skipping group payout.`);
       return;
     }
 
-    this.logger.log(`[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${validCommissions.length} commissions (total: ${totalPending})`);
-
+    this.logger.log(`[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${validNonDirect.length} non-direct commissions (total: ${totalNonDirect})`);
     try {
-      const { recipients } = await this.preparePayoutBatch(validCommissions);
+      const { recipients } = await this.preparePayoutBatch(validNonDirect);
       if (recipients.length === 0) return;
-
       await this.executeBatchPayout(
         { recipients },
         'system',
@@ -488,21 +516,21 @@ export class CommissionPayoutService {
         undefined,
       );
     } catch (error: any) {
-      this.logger.error(`[THRESHOLD PAYOUT] Payout failed for user ${userId}: ${error.message}`, error.stack);
+      this.logger.error(`[THRESHOLD PAYOUT] Group payout failed for user ${userId}: ${error.message}`, error.stack);
     }
   }
 
   /**
-   * Payout commissions for a specific order — now uses per-user threshold accumulation.
-   * Instead of paying immediately, checks each recipient's total pending balance.
-   * Pays only when they've accumulated >= minPayoutThreshold.
+   * Payout commissions for a specific order.
+   * - DIRECT commission: paid immediately (no threshold).
+   * - GROUP (and other types): accumulated; pay only when user's total pending >= minPayoutThreshold.
    */
   async payoutOrderCommissions(orderId: string): Promise<{ count: number } | null> {
-    this.logger.log(`[PAYOUT] Checking threshold payout after order: ${orderId}`);
+    this.logger.log(`[PAYOUT] Processing payout after order: ${orderId}`);
 
-    // Get all PENDING commissions for this order to find affected users
     const orderCommissions = await this.commissionRepository.find({
       where: { orderId, status: CommissionStatus.PENDING },
+      relations: ['user'],
     });
 
     if (orderCommissions.length === 0) {
@@ -510,15 +538,54 @@ export class CommissionPayoutService {
       return null;
     }
 
-    // Get the configured minimum payout threshold
     const minThreshold = await this.adminService.getMinPayoutThreshold();
-    this.logger.log(`[PAYOUT] Min payout threshold: $${minThreshold}`);
+    this.logger.log(`[PAYOUT] Min payout threshold (for group/other): $${minThreshold}`);
 
-    // Collect unique user IDs that received commission from this order
+    // 1) Pay DIRECT commissions from this order immediately (no accumulation)
+    const directCommissions = orderCommissions.filter((c) => c.type === CommissionType.DIRECT);
+    if (directCommissions.length > 0) {
+      const byUser = new Map<string, { user: User; commissions: Commission[]; totalAmount: number }>();
+      for (const c of directCommissions) {
+        if (!c.user?.walletAddress) {
+          this.logger.warn(`[PAYOUT] Direct commission ${c.id} has no wallet, skipping`);
+          continue;
+        }
+        const key = c.user.walletAddress.toLowerCase();
+        const existing = byUser.get(key);
+        if (existing) {
+          existing.commissions.push(c);
+          existing.totalAmount += c.amount;
+        } else {
+          byUser.set(key, { user: c.user, commissions: [c], totalAmount: c.amount });
+        }
+      }
+      if (byUser.size > 0) {
+        const recipients: PayoutRecipientDto[] = [];
+        for (const [, data] of byUser) {
+          recipients.push({
+            userId: data.user.id,
+            walletAddress: data.user.walletAddress!.toLowerCase(),
+            amount: data.totalAmount.toString(),
+            commissionIds: data.commissions.map((c) => c.id),
+          });
+        }
+        try {
+          await this.executeBatchPayout(
+            { recipients },
+            'system',
+            'system',
+            undefined,
+            undefined,
+          );
+          this.logger.log(`[PAYOUT] Paid direct commissions for order ${orderId}: ${recipients.length} users`);
+        } catch (err: any) {
+          this.logger.error(`[PAYOUT] Direct payout failed for order ${orderId}: ${err.message}`, err.stack);
+        }
+      }
+    }
+
+    // 2) For GROUP (and other non-direct): accumulate; pay when total pending >= threshold
     const affectedUserIds = [...new Set(orderCommissions.map((c) => c.userId))];
-    this.logger.log(`[PAYOUT] ${affectedUserIds.length} users affected by order ${orderId}`);
-
-    // For each user, check if they've accumulated enough to receive payout
     let payoutCount = 0;
     for (const userId of affectedUserIds) {
       await this.checkAndPayoutUser(userId, minThreshold);
