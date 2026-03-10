@@ -70,6 +70,12 @@ export class GoogleSheetsService {
         await this.request('POST', '/values/Orders!A1:append?valueInputOption=RAW', {
           values: [headers],
         });
+      } else if (rows[0].length < headers.length) {
+        // Existing sheet has fewer columns (e.g. missing Transaction Hash); ensure header row is complete
+        await this.request('PUT', '/values/Orders!A1:L1?valueInputOption=RAW', {
+          values: [headers],
+        });
+        this.logger.log('Orders sheet header updated to include all columns (e.g. Transaction Hash)');
       }
 
       // Prepare data row with properties

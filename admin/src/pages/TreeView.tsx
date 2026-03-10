@@ -371,16 +371,18 @@ const TreeView: React.FC = () => {
               value={rootUserId}
               onChange={setRootUserId}
               filterOption={(input, option) => {
-                const text = input.toLowerCase();
+                const text = input.toLowerCase().trim();
                 const label = (option?.label ?? '').toString().toLowerCase();
                 const value = (option?.value ?? '').toString().toLowerCase();
+                const id = (option as any)?.id?.toString().toLowerCase() ?? '';
                 const email = (option as any)?.email?.toLowerCase() ?? '';
                 const username = (option as any)?.username?.toLowerCase() ?? '';
 
-                return label.includes(text) || value.includes(text) || email.includes(text) || username.includes(text);
+                return label.includes(text) || value.includes(text) || id.includes(text) || email.includes(text) || username.includes(text);
               }}
               options={allUsers.map((user) => ({
                 value: user.id,
+                id: user.id,
                 label: `${user.fullName || user.username} (${user.email})`,
                 email: user.email,
                 username: user.username,

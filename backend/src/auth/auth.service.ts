@@ -350,9 +350,10 @@ export class AuthService {
       throw new UnauthorizedException('User not found or username not set');
     }
 
-    // Generate referral links for left and right legs
+    // Generate referral links for left and right legs (use shopii.biz in production)
     const referralCode = user.username;
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = process.env.FRONTEND_URL
+      || (process.env.NODE_ENV === 'production' ? 'https://shopii.biz' : 'http://localhost:3000');
     const referralLink = `${baseUrl}/register?ref=${referralCode}`;
     const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
     const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;

@@ -177,6 +177,14 @@ export class OrderService {
     // Process post-confirmation logic (stock, commissions, etc.)
     await this.approveOrder(savedOrder);
 
+    // Sync to Google Sheets so the sheet gets the transaction hash
+    try {
+      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      this.googleSheetsService.syncOrder(savedOrder, user || undefined);
+    } catch (error) {
+      console.error('Failed to sync to Google Sheets after confirmPayment:', error);
+    }
+
     return savedOrder;
   }
 

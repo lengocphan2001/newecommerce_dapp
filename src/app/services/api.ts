@@ -134,7 +134,16 @@ export const api = {
       const error = await response.json().catch(() => ({ message: 'Failed to get referral info' }));
       throw new Error(error.message || 'Failed to get referral info');
     }
-    return response.json();
+    const data = await response.json();
+    // Always show referral links for current domain (e.g. shopii.biz after moving from binanmall.com)
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      const base = window.location.origin;
+      const rewrite = (url: string) => (url && typeof url === 'string') ? url.replace(/^https?:\/\/[^/]+/, base) : url;
+      if (data.referralLink) data.referralLink = rewrite(data.referralLink);
+      if (data.leftLink) data.leftLink = rewrite(data.leftLink);
+      if (data.rightLink) data.rightLink = rewrite(data.rightLink);
+    }
+    return data;
   },
 
   async checkReconsumption() {

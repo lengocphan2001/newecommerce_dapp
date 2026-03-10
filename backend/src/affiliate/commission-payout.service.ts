@@ -9,6 +9,18 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuditLogAction, AuditLogEntityType } from '../audit-log/entities/audit-log.entity';
 import { AdminService } from '../admin/admin.service';
 
+/** Payout fee: 10% is withheld; user receives 90% of accumulated commission */
+const PAYOUT_FEE_PERCENT = 10;
+
+/**
+ * Returns the amount to actually send to the user after deducting the payout fee (90% of gross).
+ * Used so we don't pay 100% of commission — 10% is kept as fee.
+ */
+function getPayoutAmountAfterFee(grossAmount: number): string {
+  const netAmount = grossAmount * (1 - PAYOUT_FEE_PERCENT / 100);
+  return Number(netAmount.toFixed(18)).toFixed(18);
+}
+
 @Injectable()
 export class CommissionPayoutService {
   private readonly logger = new Logger(CommissionPayoutService.name);
@@ -95,10 +107,14 @@ export class CommissionPayoutService {
     const commissionIds: string[] = [];
 
     for (const [walletAddress, data] of grouped.entries()) {
+      const netAmount = getPayoutAmountAfterFee(data.totalAmount);
+      this.logger.debug(
+        `Payout ${walletAddress}: gross=${data.totalAmount}, fee=${PAYOUT_FEE_PERCENT}%, net=${netAmount}`,
+      );
       recipients.push({
         userId: data.user.id,
         walletAddress: walletAddress,
-        amount: data.totalAmount.toString(),
+        amount: netAmount,
         commissionIds: data.commissions.map((c) => c.id),
       });
 
@@ -346,12 +362,13 @@ export class CommissionPayoutService {
       commissionIds = [commission.id];
     }
 
+    const netAmount = getPayoutAmountAfterFee(amount);
     const dto: BatchPayoutDto = {
       recipients: [
         {
           userId,
           walletAddress,
-          amount: amount.toString(),
+          amount: netAmount,
           commissionIds: commissionIds.length > 0 ? commissionIds : undefined,
         },
       ],
