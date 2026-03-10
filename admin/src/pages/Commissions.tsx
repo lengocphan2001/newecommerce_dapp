@@ -232,6 +232,17 @@ const CommissionsPage: React.FC = () => {
       ),
     },
     {
+      title: 'Referral ID',
+      dataIndex: 'userId',
+      key: 'userId',
+      width: 280,
+      render: (userId: string) => (
+        <span style={{ fontFamily: 'monospace', fontSize: '12px' }} title={userId}>
+          {userId || '-'}
+        </span>
+      ),
+    },
+    {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
@@ -433,6 +444,9 @@ const CommissionsPage: React.FC = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Email">
                 {selectedCommission.user?.email || 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Referral ID" span={2}>
+                <span style={{ fontFamily: 'monospace' }}>{selectedCommission.userId || '-'}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Type">{getTypeTag(selectedCommission.type)}</Descriptions.Item>
               <Descriptions.Item label="Status">{getStatusTag(selectedCommission.status)}</Descriptions.Item>
