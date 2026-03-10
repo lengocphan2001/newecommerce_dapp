@@ -41,6 +41,8 @@ interface Product {
   createdAt: string;
   tags?: string[];
   salePercentage?: number;
+  /** Commission % for referrer when buyer is TV. 0 or empty = not applicable. */
+  commissionPercentTV?: number;
 }
 
 export default function HomePage() {
@@ -561,6 +563,11 @@ export default function HomePage() {
                         </span>
                       </button>
                     </div>
+                    {typeof product.commissionPercentTV === 'number' && product.commissionPercentTV > 0 && (
+                      <p className="text-xs font-semibold text-red-600 mt-2 pt-2 border-t border-gray-100">
+                        {t("commissionRateLabel")} {Number(product.commissionPercentTV).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

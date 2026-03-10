@@ -17,7 +17,6 @@ function RegisterForm() {
 
   const [formData, setFormData] = useState({
     phoneNumber: "",
-    email: "",
     referralUser: "",
     leg: "",
   });
@@ -127,14 +126,6 @@ function RegisterForm() {
       setError("Vui lòng nhập số điện thoại");
       return;
     }
-    if (!formData.email.trim()) {
-      setError("Vui lòng nhập email");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setError("Email không hợp lệ");
-      return;
-    }
     if (!isFirstUser && (!formData.referralUser || !formData.referralUser.trim())) {
       setError("Vui lòng nhập mã giới thiệu");
       return;
@@ -163,7 +154,6 @@ function RegisterForm() {
         country: "VN",
         address: "",
         phoneNumber: formData.phoneNumber.trim(),
-        email: formData.email.trim(),
         referralUser: formData.referralUser.trim() || undefined,
         leg: (formData.leg as "left" | "right") || undefined,
       });
@@ -312,22 +302,6 @@ function RegisterForm() {
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
               className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               placeholder={t("enterPhoneNumber")}
-              required
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("email")} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder={t("email")}
               required
             />
           </div>

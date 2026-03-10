@@ -350,6 +350,7 @@ export type I18nKey =
   | "cannotConnectWallet"
   | "favorite"
   | "sold"
+  | "commissionRateLabel"
   | "productDetails"
   | "category"
   | "brand"
@@ -731,7 +732,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     organic: "Organic",
     bestSeller: "Best Seller",
     lowStock: "Sắp hết hàng: {count} túi",
-    soldPercentage: "Đã bán {percentage}%",
+    soldPercentage: "Lượt bán {percentage}%",
     highCommission: "Hoa hồng cao",
     highCommissionDesc: "Nhận tới {percentage}% cho mỗi đơn",
     fastDelivery: "Giao nhanh 2h",
@@ -777,7 +778,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     walletNotFound: "Không tìm thấy ví. Vui lòng cài đặt Shopii Wallet.",
     cannotConnectWallet: "Không thể kết nối ví",
     favorite: "Yêu Thích",
-    sold: "Đã bán",
+    sold: "Lượt bán",
+    commissionRateLabel: "Tỉ lệ hoa hồng",
     productDetails: "Chi tiết sản phẩm",
     category: "Danh mục",
     brand: "Thương hiệu",
@@ -1202,6 +1204,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     cannotConnectWallet: "Cannot connect wallet",
     favorite: "Favorite",
     sold: "Sold",
+    commissionRateLabel: "Commission rate",
     productDetails: "Product Details",
     category: "Category",
     brand: "Brand",
@@ -1626,6 +1629,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     cannotConnectWallet: "지갑을 연결할 수 없습니다",
     favorite: "즐겨찾기",
     sold: "판매됨",
+    commissionRateLabel: "커미션 비율",
     productDetails: "제품 세부정보",
     category: "카테고리",
     brand: "브랜드",

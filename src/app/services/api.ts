@@ -25,7 +25,7 @@ export const api = {
     country: string;
     address?: string;
     phoneNumber: string;
-    email: string;
+    email?: string;
     referralUser?: string;
     leg?: 'left' | 'right';
   }) {

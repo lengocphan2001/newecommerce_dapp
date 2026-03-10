@@ -36,7 +36,7 @@ export class Commission {
   user: User;
 
   @Column({ nullable: true })
-  orderId: string; // Đơn hàng phát sinh hoa hồng (null cho milestone)
+  orderId: string | null; // Đơn hàng phát sinh hoa hồng (null cho milestone)
 
   @ManyToOne(() => Order, (order) => order.commissions, { nullable: true })
   @JoinColumn({ name: 'orderId' })

@@ -609,8 +609,11 @@ export class AuthService {
       throw new ConflictException('Wallet address already registered');
     }
 
-    // Check if email already exists
-    const existingEmailUser = await this.userService.findByEmail(walletRegisterDto.email);
+    // Email: use provided or placeholder (user entity requires unique email)
+    const email = walletRegisterDto.email?.trim()
+      ? walletRegisterDto.email.trim()
+      : `${walletRegisterDto.walletAddress.toLowerCase()}@wallet`;
+    const existingEmailUser = await this.userService.findByEmail(email);
     if (existingEmailUser) {
       throw new ConflictException('Email already exists');
     }
@@ -680,7 +683,7 @@ export class AuthService {
       country: walletRegisterDto.country,
       address: walletRegisterDto.address,
       phone: walletRegisterDto.phoneNumber,
-      email: walletRegisterDto.email,
+      email,
       fullName: walletRegisterDto.fullName,
       referralUser: walletRegisterDto.referralUser, // Store username for display
       referralUserId: referralUserId || null, // Store ID of referrer for direct commission

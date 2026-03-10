@@ -89,6 +89,15 @@ export class CommissionService {
   }
 
   /**
+   * Order value used for commission (excludes shipping fee).
+   */
+  private getOrderValueForCommission(order: Order): number {
+    const total = Number(order.totalAmount) || 0;
+    const shipping = Number(order.shippingFee) || 0;
+    return Math.max(0, total - shipping);
+  }
+
+  /**
    * Tính toán và phân phối hoa hồng khi có đơn hàng mới
    */
   async calculateCommissions(orderId: string): Promise<void> {
@@ -128,7 +137,8 @@ export class CommissionService {
         return;
       }
 
-      this.logger.log(`Calculating commissions for order ${orderId}, buyer: ${buyer.id} (referralUserId: ${buyer.referralUserId}, parentId: ${buyer.parentId}), amount: ${order.totalAmount}`);
+      const orderValue = this.getOrderValueForCommission(order);
+      this.logger.log(`Calculating commissions for order ${orderId}, buyer: ${buyer.id} (referralUserId: ${buyer.referralUserId}, parentId: ${buyer.parentId}), orderValue: ${orderValue} (excl. shipping)`);
 
       // Package type is only set when user buys a package (not from product purchase).
 
@@ -198,8 +208,9 @@ export class CommissionService {
       return;
     }
 
+    const orderValue = this.getOrderValueForCommission(order);
     const canReceiveCommission = await this.checkReconsumption(referrer, config);
-    const rawCommissionAmount = order.totalAmount * config.directCommissionRate;
+    const rawCommissionAmount = orderValue * config.directCommissionRate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     this.logger.log(`Creating direct commission: referrer ${referrer.id}, buyer ${buyer.id}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`);
@@ -212,7 +223,7 @@ export class CommissionService {
         type: CommissionType.DIRECT,
         status: canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
         amount: commissionAmount,
-        orderAmount: order.totalAmount,
+        orderAmount: orderValue,
         notes: canReceiveCommission ? undefined : 'Blocked: Reconsumption required',
       });
 
@@ -323,13 +334,14 @@ export class CommissionService {
       // Xác định buyer thuộc nhánh nào của ancestor
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
 
-      this.logger.log(`Updating volume for ancestor ${ancestor.id}: ${buyerSide} branch increase by ${order.totalAmount}`);
+      const orderValue = this.getOrderValueForCommission(order);
+      this.logger.log(`Updating volume for ancestor ${ancestor.id}: ${buyerSide} branch increase by ${orderValue}`);
 
-      // Update volume bằng SQL Increment (Atomics)
+      // Update volume bằng SQL Increment (Atomics) — based on order value excl. shipping
       await this.userRepository.createQueryBuilder()
         .update(User)
         .set({
-          [buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: () => `${buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} + ${order.totalAmount}`
+          [buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: () => `${buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} + ${orderValue}`
         })
         .where("id = :id", { id: ancestor.id })
         .execute();
@@ -410,8 +422,8 @@ export class CommissionService {
     status: CommissionStatus,
     config: Package
   ): Promise<void> {
-
-    const rawCommissionAmount = order.totalAmount * config.groupCommissionRate;
+    const orderValue = this.getOrderValueForCommission(order);
+    const rawCommissionAmount = orderValue * config.groupCommissionRate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     this.logger.log(`Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`);
@@ -423,7 +435,7 @@ export class CommissionService {
       type: CommissionType.GROUP,
       status: status,
       amount: commissionAmount,
-      orderAmount: order.totalAmount,
+      orderAmount: orderValue,
       side: side,
       notes: status === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : undefined,
     });
@@ -541,6 +553,7 @@ export class CommissionService {
     const rawCommissionAmount = groupCommissionAmount * rate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
+    const orderValue = this.getOrderValueForCommission(order);
     const commission = this.commissionRepository.create({
       userId: manager.id,
       orderId: order.id,
@@ -548,7 +561,7 @@ export class CommissionService {
       type: CommissionType.MANAGEMENT,
       status: status,
       amount: commissionAmount,
-      orderAmount: order.totalAmount,
+      orderAmount: orderValue,
       level: level,
       notes: status === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : undefined,
     });

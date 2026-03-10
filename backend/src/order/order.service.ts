@@ -196,7 +196,7 @@ export class OrderService {
       }
     }
 
-    // 2. Update buyer's total purchase amount & check reconsumption
+    // 2. Update buyer's total purchase amount, upgrade package type by threshold, & check reconsumption
     if (order.userId) {
       const user = await this.userRepository.findOne({ where: { id: order.userId } });
       if (user) {
@@ -207,6 +207,24 @@ export class OrderService {
             'totalPurchaseAmount',
             amount,
           );
+        }
+
+        // 2b. Upgrade package type when totalPurchaseAmount reaches a package's price (TV → CTV → NPP by level)
+        const updatedUser = await this.userRepository.findOne({ where: { id: order.userId } });
+        if (updatedUser) {
+          const total = Number(updatedUser.totalPurchaseAmount) || 0;
+          const packages = await this.packagesService.findAll();
+          let highestQualified: { code: string; level: number } | null = null;
+          for (const pkg of packages) {
+            if (!pkg.isActive) continue;
+            const price = Number(pkg.price) ?? 0;
+            if (total >= price && (highestQualified === null || pkg.level > highestQualified.level)) {
+              highestQualified = { code: pkg.code, level: pkg.level };
+            }
+          }
+          if (highestQualified && updatedUser.packageType !== highestQualified.code) {
+            await this.userRepository.update(order.userId, { packageType: highestQualified.code });
+          }
         }
 
         const isReconsumption = await this.checkIfReconsumption(user, order.totalAmount);
