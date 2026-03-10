@@ -22,6 +22,13 @@ export class AdminController {
   async exportUsers(@Res() res: Response) {
     const users = await this.adminService.exportUsers();
 
+    const escapeCsv = (val: string | number | Date | null | undefined): string => {
+      if (val === null || val === undefined) return '';
+      const s = val instanceof Date ? (isNaN(val.getTime()) ? '' : val.toISOString()) : String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
     const headers = [
       'ID',
       'Username',
@@ -32,6 +39,10 @@ export class AdminController {
       'Package Type',
       'Status',
       'Wallet Address',
+      'Referral User',
+      'Referral User ID',
+      'Parent ID',
+      'Position',
       'Total Purchase Amount',
       'Total Commission Received',
       'Left Branch Total',
@@ -40,20 +51,24 @@ export class AdminController {
     ];
 
     const rows = users.map(user => [
-      user.id,
-      user.username || '',
-      user.email,
-      `"${(user.fullName || '').replace(/"/g, '""')}"`,
-      user.phone || '',
-      user.country || '',
-      user.packageType || '',
-      user.status,
-      user.walletAddress || '',
-      user.totalPurchaseAmount || 0,
-      user.totalCommissionReceived || 0,
-      user.leftBranchTotal || 0,
-      user.rightBranchTotal || 0,
-      user.createdAt
+      escapeCsv(user.id),
+      escapeCsv(user.username),
+      escapeCsv(user.email),
+      escapeCsv(user.fullName),
+      escapeCsv(user.phone),
+      escapeCsv(user.country),
+      escapeCsv(user.packageType),
+      escapeCsv(user.status),
+      escapeCsv(user.walletAddress),
+      escapeCsv(user.referralUser),
+      escapeCsv(user.referralUserId),
+      escapeCsv(user.parentId),
+      escapeCsv(user.position),
+      user.totalPurchaseAmount ?? 0,
+      user.totalCommissionReceived ?? 0,
+      user.leftBranchTotal ?? 0,
+      user.rightBranchTotal ?? 0,
+      escapeCsv(user.createdAt)
     ]);
 
     const csvContent = [

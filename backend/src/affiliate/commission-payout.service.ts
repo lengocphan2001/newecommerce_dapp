@@ -107,14 +107,14 @@ export class CommissionPayoutService {
     const commissionIds: string[] = [];
 
     for (const [walletAddress, data] of grouped.entries()) {
-      const netAmount = getPayoutAmountAfterFee(data.totalAmount);
+      const grossAmount = Number(data.totalAmount).toFixed(18);
       this.logger.debug(
-        `Payout ${walletAddress}: gross=${data.totalAmount}, fee=${PAYOUT_FEE_PERCENT}%, net=${netAmount}`,
+        `Payout ${walletAddress}: gross=${data.totalAmount} (fee ${PAYOUT_FEE_PERCENT}% applied at execute)`,
       );
       recipients.push({
         userId: data.user.id,
         walletAddress: walletAddress,
-        amount: netAmount,
+        amount: grossAmount,
         commissionIds: data.commissions.map((c) => c.id),
       });
 
@@ -166,11 +166,18 @@ export class CommissionPayoutService {
         throw new Error('No pending commissions found for the provided recipients');
       }
 
-      // Prepare blockchain payout data
-      const blockchainRecipients = dto.recipients.map((r) => ({
-        address: r.walletAddress,
-        amount: r.amount,
-      }));
+      // Always apply 10% payout fee before sending to blockchain (single place: so admin UI, auto-payout, and order-approval all send 90% to chain)
+      const blockchainRecipients = dto.recipients.map((r) => {
+        const gross = parseFloat(r.amount);
+        const netAmount = getPayoutAmountAfterFee(isNaN(gross) ? 0 : gross);
+        this.logger.debug(
+          `Payout fee: ${r.walletAddress} gross=${gross} -> net=${netAmount} (${PAYOUT_FEE_PERCENT}% withheld)`,
+        );
+        return {
+          address: r.walletAddress,
+          amount: netAmount,
+        };
+      });
 
       // Generate batch ID if not provided
       const batchId =
@@ -362,13 +369,12 @@ export class CommissionPayoutService {
       commissionIds = [commission.id];
     }
 
-    const netAmount = getPayoutAmountAfterFee(amount);
     const dto: BatchPayoutDto = {
       recipients: [
         {
           userId,
           walletAddress,
-          amount: netAmount,
+          amount: Number(amount).toFixed(18),
           commissionIds: commissionIds.length > 0 ? commissionIds : undefined,
         },
       ],

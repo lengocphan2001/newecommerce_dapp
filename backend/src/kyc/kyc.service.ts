@@ -56,4 +56,12 @@ export class KycService {
       relations: ['user']
     });
   }
+
+  /** Get all KYC records for export (with user relation for email, username, etc.) */
+  async getAllForExport() {
+    return this.kycRepository.find({
+      order: { createdAt: 'DESC' },
+      relations: ['user'],
+    });
+  }
 }

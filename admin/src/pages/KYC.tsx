@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Space, Modal, Form, Input, Switch, message, Image } from 'antd';
-import { CheckOutlined } from '@ant-design/icons';
+import { CheckOutlined, DownloadOutlined } from '@ant-design/icons';
 import { kycService, Kyc } from '../services/kycService';
 
 const KYC: React.FC = () => {
   const [kycs, setKycs] = useState<Kyc[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedKyc, setSelectedKyc] = useState<Kyc | null>(null);
   const [form] = Form.useForm();
@@ -13,6 +14,27 @@ const KYC: React.FC = () => {
   useEffect(() => {
     fetchKYC();
   }, []);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await kycService.exportToExcel();
+      const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: 'text/csv;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'kyc-export.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success('KYC data exported successfully');
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Failed to export KYC');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchKYC = async () => {
     setLoading(true);
@@ -100,7 +122,17 @@ const KYC: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 24 }}>KYC Verification</h1>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0 }}>KYC Verification</h1>
+        <Button
+          type="primary"
+          icon={<DownloadOutlined />}
+          onClick={handleExport}
+          loading={exporting}
+        >
+          Export to Excel
+        </Button>
+      </div>
       <Table
         columns={columns}
         dataSource={kycs}
