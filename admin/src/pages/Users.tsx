@@ -448,6 +448,23 @@ const Users: React.FC = () => {
             </TabPane>
 
             <TabPane tab="Orders" key="orders">
+              <Descriptions bordered column={1} style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Total Purchase">
+                  {(() => {
+                    const amount = userDetail.user?.totalPurchaseAmount ?? 0;
+                    if (amount === 0 || amount === null || amount === undefined) return '$0.00 USDT';
+                    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+                    if (isNaN(num)) return '$0.00 USDT';
+                    let str = num.toFixed(8).replace(/\.?0+$/, '');
+                    if (!str.includes('.')) str += '.00';
+                    else {
+                      const [int, dec] = str.split('.');
+                      if (dec.length < 2) str = `${int}.${dec.padEnd(2, '0')}`;
+                    }
+                    return `$${str} USDT`;
+                  })()}
+                </Descriptions.Item>
+              </Descriptions>
               <Table
                 dataSource={userDetail.orders || []}
                 rowKey="id"

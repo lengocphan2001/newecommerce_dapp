@@ -201,10 +201,14 @@ export class CommissionService {
       return;
     }
 
-    // Use referrer's package or default (lowest-tier) so referrers with NONE still earn commission
-    const config = await this.getPackageConfig(referrer.packageType) || await this.getDefaultPackageConfig();
+    // Only users with a package (CTV, NPP, etc.) receive commission; NONE = no commission
+    if (!referrer.packageType || referrer.packageType === 'NONE') {
+      this.logger.debug(`Referrer ${referrer.id} has no package (packageType: ${referrer.packageType}), skipping direct commission`);
+      return;
+    }
+    const config = await this.getPackageConfig(referrer.packageType);
     if (!config) {
-      this.logger.debug(`No package config for referrer ${referrer.id} (packageType: ${referrer.packageType}) and no default package`);
+      this.logger.debug(`No package config for referrer ${referrer.id} (packageType: ${referrer.packageType})`);
       return;
     }
 
@@ -269,8 +273,14 @@ export class CommissionService {
     });
     if (!referrer) return;
 
-    const config = await this.getPackageConfig(referrer.packageType) || await this.getDefaultPackageConfig();
-    const canReceiveCommission = config ? await this.checkReconsumption(referrer, config) : false;
+    // Only referrers with a package receive product commission; NONE = skip
+    if (!referrer.packageType || referrer.packageType === 'NONE') {
+      this.logger.debug(`[PRODUCT COMMISSION] Referrer ${referrer.id} has no package, skipping`);
+      return;
+    }
+    const config = await this.getPackageConfig(referrer.packageType);
+    if (!config) return;
+    const canReceiveCommission = await this.checkReconsumption(referrer, config);
 
     const items = Array.isArray(order.items) ? order.items : [];
     for (const item of items) {
@@ -304,12 +314,6 @@ export class CommissionService {
 
       if (status === CommissionStatus.PENDING && config) {
         await this.updateUserCommissionAndCheckThreshold(referrer, commissionAmount, config);
-      } else if (status === CommissionStatus.PENDING) {
-        await this.userRepository.createQueryBuilder()
-          .update(User)
-          .set({ totalCommissionReceived: () => `totalCommissionReceived + ${commissionAmount}` })
-          .where('id = :id', { id: referrer.id })
-          .execute();
       }
     }
   }
@@ -359,8 +363,12 @@ export class CommissionService {
     this.logger.log(`[GROUP COMMISSION] Processing ${ancestors.length} ancestors for buyer ${buyer.id}`);
 
     for (const ancestor of ancestors) {
-      // Use ancestor's package or default so ancestors with NONE still earn group commission
-      const config = await this.getPackageConfig(ancestor.packageType) || await this.getDefaultPackageConfig();
+      // Only ancestors with a package receive group commission; NONE = skip
+      if (!ancestor.packageType || ancestor.packageType === 'NONE') {
+        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} has no package, skipping`);
+        continue;
+      }
+      const config = await this.getPackageConfig(ancestor.packageType);
       if (!config) continue;
 
       // Kiểm tra xem ancestor có đủ cả 2 nhánh trái và phải không
