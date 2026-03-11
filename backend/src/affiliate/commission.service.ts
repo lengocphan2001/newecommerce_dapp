@@ -12,6 +12,9 @@ import { PackagesService } from '../packages/packages.service';
 import { Package } from '../packages/entities/package.entity';
 import { Product } from '../product/entities/product.entity';
 
+/** Số cấp hoa hồng quản lý: chỉ trả cho 3 parent gần nhất (F1, F2, F3) kể từ người nhận group trở lên. */
+const MANAGEMENT_MAX_LEVELS = 3;
+
 @Injectable()
 export class CommissionService {
   private readonly logger = new Logger(CommissionService.name);
@@ -216,6 +219,11 @@ export class CommissionService {
     const rawCommissionAmount = orderValue * config.directCommissionRate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
+    if (commissionAmount <= 0) {
+      this.logger.debug(`Direct commission amount is 0 (rate or order value), skipping create for referrer ${referrer.id}`);
+      return;
+    }
+
     this.logger.log(`Creating direct commission: referrer ${referrer.id}, buyer ${buyer.id}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`);
 
     try {
@@ -352,7 +360,9 @@ export class CommissionService {
   }
 
   /**
-   * Tính hoa hồng nhóm (binary tree)
+   * Tính hoa hồng nhóm (binary tree).
+   * Quy tắc: Khi giao dịch phát sinh ở nhánh yếu, TẤT CẢ ancestor đều được hoa hồng group (điều kiện: mỗi ancestor có đủ 2 nhánh).
+   * Hai nhánh bằng nhau thì nhánh nào phát sinh giao dịch cũng coi là nhánh yếu → vẫn trả. Chỉ không trả khi giao dịch ở nhánh mạnh.
    */
   private async calculateGroupCommission(
     order: Order,
@@ -362,7 +372,6 @@ export class CommissionService {
     this.logger.log(`[GROUP COMMISSION] Processing ${ancestors.length} ancestors for buyer ${buyer.id}`);
 
     for (const ancestor of ancestors) {
-      // Only ancestors with a package receive group commission; NONE = skip
       if (!ancestor.packageType || ancestor.packageType === 'NONE') {
         this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} has no package, skipping`);
         continue;
@@ -370,14 +379,12 @@ export class CommissionService {
       const config = await this.getPackageConfig(ancestor.packageType);
       if (!config) continue;
 
-      // Kiểm tra xem ancestor có đủ cả 2 nhánh trái và phải không
+      // Điều kiện: 2 nhánh đều có người (có ít nhất 1 con trái và 1 con phải)
       const hasBothBranches = await this.hasBothBranches(ancestor.id);
       if (!hasBothBranches) {
-        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} does not have both left and right branches, skipping group commission`);
+        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} does not have both left and right branches, skipping`);
         continue;
       }
-
-      // Hoa hồng nhóm: chỉ tính khi cân nhánh (giao dịch phát sinh từ nhánh yếu), không yêu cầu minSale
 
       // Xác định buyer thuộc nhánh nào của ancestor
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
@@ -387,27 +394,21 @@ export class CommissionService {
 
       this.logger.log(`[GROUP COMMISSION] Ancestor ${ancestor.id}: buyerSide=${buyerSide}, weakSide=${weakSide} (Current volumes - Left: ${ancestor.leftBranchTotal}, Right: ${ancestor.rightBranchTotal})`);
 
-      // QUAN TRỌNG: Nếu cả hai nhánh đều = 0 (giao dịch đầu tiên), không tính hoa hồng nhóm
-      if (Number(ancestor.leftBranchTotal) === 0 && Number(ancestor.rightBranchTotal) === 0) {
-        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} has both branches at 0 (first transaction), skipping group commission`);
+      // Trả hoa hồng khi: (1) hai nhánh bằng nhau → nhánh nào phát sinh giao dịch cũng coi là nhánh yếu, trả; (2) hoặc giao dịch ở đúng nhánh yếu.
+      if (weakSide !== null && buyerSide !== weakSide) {
+        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id}: order on strong side (buyerSide: ${buyerSide}, weakSide: ${weakSide}), skipping`);
         continue;
       }
 
-      // Nếu hai nhánh bằng nhau (weakSide === null) HOẶC đơn hàng phát sinh ở đúng nhánh yếu -> Trả hoa hồng
-      if (weakSide === null || buyerSide === weakSide) {
-        const canReceiveCommission = await this.checkReconsumption(ancestor, config);
-
-        await this.createGroupCommission(
-          order,
-          buyer,
-          ancestor,
-          buyerSide,
-          canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
-          config
-        );
-      } else {
-        this.logger.debug(`[GROUP COMMISSION] Order is not on weak side (buyerSide: ${buyerSide}, weakSide: ${weakSide}) of ancestor ${ancestor.id}, skipping`);
-      }
+      const canReceiveCommission = await this.checkReconsumption(ancestor, config);
+      await this.createGroupCommission(
+        order,
+        buyer,
+        ancestor,
+        buyerSide,
+        canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
+        config
+      );
     }
   }
 
@@ -425,6 +426,11 @@ export class CommissionService {
     const orderValue = this.getOrderValueForCommission(order);
     const rawCommissionAmount = orderValue * config.groupCommissionRate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
+
+    if (commissionAmount <= 0) {
+      this.logger.debug(`Group commission amount is 0 (groupCommissionRate or order value), skipping create for ancestor ${ancestor.id}`);
+      return;
+    }
 
     this.logger.log(`Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`);
 
@@ -448,10 +454,8 @@ export class CommissionService {
   }
 
   /**
-   * Tính hoa hồng quản lý nhóm.
-   * Khi A nhận hoa hồng nhóm (group): parent của A nhận % từ A, superparent nhận % từ A, v.v.
-   * Tất cả % đều tính trên cùng một gốc là số tiền hoa hồng của A (package managementRateF1/F2/F3).
-   * Không cascade: không tính % trên hoa hồng quản lý của cấp dưới.
+   * Tính hoa hồng quản lý: chỉ từ hoa hồng nhóm (group).
+   * Chỉ trả cho 3 parent gần nhất (F1, F2, F3) kể từ người nhận group trở lên; mỗi người phải đạt managementMinSales trên cả hai nhánh.
    */
   private async calculateManagementCommission(
     order: Order,
@@ -473,26 +477,26 @@ export class CommissionService {
   }
 
   /**
-   * Trả hoa hồng quản lý cho F1, F2, F3 của A dựa trên số tiền hoa hồng nhóm của A.
-   * F1 nhận amount_A × managementRateF1 (của gói F1), F2 nhận amount_A × managementRateF2, F3 nhận amount_A × managementRateF3.
-   * Base luôn là amount của A, không đệ quy.
+   * Trả hoa hồng quản lý cho đúng 3 parent gần nhất (F1, F2, F3) kể từ A (người nhận group) trở lên.
+   * F1 = parent của A, F2 = parent của F1, F3 = parent của F2. Base = amount hoa hồng nhóm của A.
+   * Điều kiện bắt buộc: mỗi F1/F2/F3 phải có cả hai nhánh đạt doanh số >= managementMinSales (theo gói).
    */
   private async payManagementFromGroupEarner(
     order: Order,
     userA: User,
     sourceCommission: Commission,
   ): Promise<void> {
-    const ancestors = await this.getAncestors(userA);
+    const ancestors = await this.getAncestors(userA); // [F1, F2, F3, ...] từ gần đến xa
     const baseAmount = Number(sourceCommission.amount);
 
-    for (let i = 0; i < Math.min(3, ancestors.length); i++) {
+    for (let i = 0; i < Math.min(MANAGEMENT_MAX_LEVELS, ancestors.length); i++) {
       const manager = ancestors[i];
       const level = i + 1; // 1 = F1, 2 = F2, 3 = F3
 
       const config = await this.getPackageConfig(manager.packageType);
       if (!config) continue;
 
-      // Hoa hồng quản lý: chỉ trả khi mỗi nhánh của manager đạt minSale (trái >= minSale và phải >= minSale)
+      // Bắt buộc: mỗi nhánh (trái và phải) của manager phải đạt doanh số >= managementMinSales
       const minSales = Number(config.managementMinSales ?? 0);
       if (minSales > 0) {
         const leftTotal = Number(manager.leftBranchTotal ?? 0);
@@ -559,10 +563,14 @@ export class CommissionService {
     rate: number,
     status: CommissionStatus,
     config: Package
-  ): Promise<Commission> {
-
+  ): Promise<Commission | null> {
     const rawCommissionAmount = groupCommissionAmount * rate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
+
+    if (commissionAmount <= 0) {
+      this.logger.debug(`Management commission amount is 0 (base or rate), skipping create for manager ${manager.id} F${level}`);
+      return null;
+    }
 
     const orderValue = this.getOrderValueForCommission(order);
     const commission = this.commissionRepository.create({
