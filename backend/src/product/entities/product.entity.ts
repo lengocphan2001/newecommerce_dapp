@@ -116,6 +116,10 @@ export class Product {
   @Column({ type: 'timestamp', nullable: true })
   pushedAt: Date | null;
 
+  /** When true, show this product in the home page image strip (under the title). */
+  @Column({ default: false })
+  featuredOnHome: boolean;
+
   @Column({ type: 'int', nullable: true, default: 0 })
   salePercentage?: number;
 

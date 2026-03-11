@@ -63,6 +63,7 @@ function PackageCheckoutContent() {
     accountName: string;
     qrImageUrl?: string;
     isEnabled: boolean;
+    usdtPriceVnd?: number | null;
   } | null>(null);
   const [processingStep, setProcessingStep] = useState<ProcessingStep>("idle");
   const [error, setError] = useState("");
@@ -78,17 +79,22 @@ function PackageCheckoutContent() {
     }
   }, [purchaseId, amount, router]);
 
+  // USDT/VND rate for banking: use admin-set price when set, else fetch from CoinGecko
   useEffect(() => {
-    if (paymentMethod === "banking") {
-      fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
-        .then((res) => res.json())
-        .then((data: { tether?: { vnd?: number } }) => {
-          const rate = data?.tether?.vnd;
-          if (typeof rate === "number" && rate > 0) setUsdtToVnd(rate);
-        })
-        .catch(() => setUsdtToVnd(null));
+    if (paymentMethod !== "banking") return;
+    const adminRate = bankingConfig?.usdtPriceVnd;
+    if (typeof adminRate === "number" && adminRate > 0) {
+      setUsdtToVnd(adminRate);
+      return;
     }
-  }, [paymentMethod]);
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+      .then((res) => res.json())
+      .then((data: { tether?: { vnd?: number } }) => {
+        const rate = data?.tether?.vnd;
+        if (typeof rate === "number" && rate > 0) setUsdtToVnd(rate);
+      })
+      .catch(() => setUsdtToVnd(null));
+  }, [paymentMethod, bankingConfig?.usdtPriceVnd]);
 
   const loadUsdtBalance = useCallback(async (address: string) => {
     try {

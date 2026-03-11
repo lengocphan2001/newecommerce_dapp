@@ -26,6 +26,20 @@ export class BankingConfig {
     @Column({ default: true })
     isEnabled: boolean;
 
+    /** Admin-set USDT price in VND (e.g. 25000). When set, checkout uses this for banking instead of fetching from CoinGecko. */
+    @Column({
+      type: 'decimal',
+      precision: 14,
+      scale: 2,
+      nullable: true,
+      default: null,
+      transformer: {
+        to: (v: number | null) => v,
+        from: (v: string | null) => (v != null && v !== '' ? parseFloat(v) : null),
+      },
+    })
+    usdtPriceVnd?: number | null;
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

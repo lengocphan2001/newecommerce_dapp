@@ -82,6 +82,15 @@ export const api = {
     return response.json();
   },
 
+  /** Products marked "Featured on home" for the home page image strip */
+  async getFeaturedProducts() {
+    const response = await fetch(`${API_BASE_URL}/products?featuredOnHome=true`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch featured products');
+    }
+    return response.json();
+  },
+
   async getCategories() {
     const response = await fetch(`${API_BASE_URL}/categories`);
     if (!response.ok) {
@@ -199,6 +208,8 @@ export const api = {
     accountName: string;
     qrImageUrl?: string;
     isEnabled: boolean;
+    /** Admin-set USDT price in VND. When set, checkout uses this for banking instead of CoinGecko. */
+    usdtPriceVnd?: number | null;
     updatedAt?: string;
   }> {
     const response = await fetch(`${API_BASE_URL}/admin/banking-config`);

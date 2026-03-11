@@ -17,6 +17,7 @@ import {
   ReloadOutlined,
   EyeOutlined,
   CheckCircleOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { commissionService, Commission } from '../services/commissionService';
 
@@ -34,6 +35,7 @@ const CommissionsPage: React.FC = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
   const [approveNotes, setApproveNotes] = useState('');
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     fetchCommissions();
@@ -41,7 +43,7 @@ const CommissionsPage: React.FC = () => {
 
   useEffect(() => {
     filterCommissions();
-  }, [commissions, selectedStatus, selectedType]);
+  }, [commissions, selectedStatus, selectedType, searchText]);
 
   const fetchCommissions = async () => {
     setLoading(true);
@@ -63,15 +65,35 @@ const CommissionsPage: React.FC = () => {
 
   const filterCommissions = () => {
     let filtered = [...commissions];
-    
+
     if (selectedStatus !== 'all') {
       filtered = filtered.filter((c) => c.status === selectedStatus);
     }
-    
+
     if (selectedType !== 'all') {
       filtered = filtered.filter((c) => c.type === selectedType);
     }
-    
+
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      filtered = filtered.filter((c) => {
+        const id = (c.id || '').toLowerCase();
+        const userId = (c.userId || '').toLowerCase();
+        const orderId = (c.orderId || '').toLowerCase();
+        const email = (c.user?.email || '').toLowerCase();
+        const fullName = (c.user?.fullName || '').toLowerCase();
+        const username = (c.user?.username || '').toLowerCase();
+        return (
+          id.includes(q) ||
+          userId.includes(q) ||
+          orderId.includes(q) ||
+          email.includes(q) ||
+          fullName.includes(q) ||
+          username.includes(q)
+        );
+      });
+    }
+
     setFilteredCommissions(filtered);
   };
 
@@ -359,7 +381,15 @@ const CommissionsPage: React.FC = () => {
         </Space>
       </div>
 
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <Input
+          placeholder="Search by ID, user ID, email, name, order ID..."
+          prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+          allowClear
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 320 }}
+        />
         <Select
           style={{ width: 150 }}
           value={selectedStatus}

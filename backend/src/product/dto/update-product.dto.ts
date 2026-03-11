@@ -8,7 +8,9 @@ import {
   Matches,
   IsUUID,
   Max,
+  IsBoolean,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UpdateProductDto {
   @IsString()
@@ -106,6 +108,11 @@ export class UpdateProductDto {
   @IsOptional()
   @Min(0)
   fakeSold?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  featuredOnHome?: boolean;
 
   @IsNumber()
   @IsOptional()

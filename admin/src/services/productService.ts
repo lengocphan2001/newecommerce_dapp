@@ -23,6 +23,8 @@ export interface Product {
   origin?: string;
   clothingType?: string;
   fakeSold?: number;
+  /** Show in home page image strip (under title). */
+  featuredOnHome?: boolean;
   createdAt?: string;
   pushedAt?: string;
   salePercentage?: number;

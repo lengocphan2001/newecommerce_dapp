@@ -1,28 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
-import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
-  const { totalItems } = useShoppingCart();
-  const [mounted, setMounted] = useState(false);
-
-  // Fix hydration mismatch by only showing badge after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Debug: Log pathname changes
-  useEffect(() => {
-    if (mounted) {
-      
-    }
-  }, [pathname, mounted]);
 
   const menuItems = [
     {
@@ -30,13 +15,6 @@ export default function BottomNav() {
       label: t("navHome"),
       icon: "home",
       activePaths: ["/home"],
-    },
-    {
-      href: "/home/cart",
-      label: t("navShopping"),
-      icon: "shopping_bag",
-      activePaths: ["/home/cart", "/home/checkout", "/home/shopping"],
-      badge: totalItems > 0 ? totalItems : undefined,
     },
     {
       href: "/home/orders",
@@ -106,18 +84,12 @@ export default function BottomNav() {
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
               }`}
               type="button"
-              {...(item.href === "/home/cart" ? { "data-bottom-nav-cart": true } : {})}
             >
               <span className={`material-symbols-outlined text-[24px] transition-transform group-hover:scale-110 ${
                 active ? "font-bold" : ""
               }`}>
                 {item.icon}
               </span>
-              {mounted && item.badge && (
-                <span className="absolute top-0 right-1/2 translate-x-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white">
-                  {item.badge > 9 ? "9+" : item.badge}
-                </span>
-              )}
               <span className={`text-[10px] transition-all ${
                 active ? "font-bold text-primary-dark" : "font-medium"
               }`}>

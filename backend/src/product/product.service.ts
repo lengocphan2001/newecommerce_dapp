@@ -64,6 +64,15 @@ export class ProductService {
       queryBuilder.where('product.categoryId = :categoryId', { categoryId: query.categoryId });
     }
 
+    // Filter by featured on home (for home page image strip)
+    if (query.featuredOnHome === true || query.featuredOnHome === 'true') {
+      if (query.categoryId) {
+        queryBuilder.andWhere('product.featuredOnHome = :featuredOnHome', { featuredOnHome: true });
+      } else {
+        queryBuilder.where('product.featuredOnHome = :featuredOnHome', { featuredOnHome: true });
+      }
+    }
+
     let allProducts = await queryBuilder.getMany();
 
     // Filter by country if provided (check if countries array contains the country)
