@@ -62,6 +62,7 @@ const PackagesPage: React.FC = () => {
             groupCommissionRate: 0,
             groupCommissionMinSales: 2000,
             managementRateF1: 0,
+            managementMinSales: 0,
         });
         setIsModalVisible(true);
     };
@@ -76,6 +77,7 @@ const PackagesPage: React.FC = () => {
             managementRateF1: record.managementRateF1 * 100,
             managementRateF2: record.managementRateF2 ? record.managementRateF2 * 100 : null,
             managementRateF3: record.managementRateF3 ? record.managementRateF3 * 100 : null,
+            managementMinSales: record.managementMinSales ?? 0,
         });
         setIsModalVisible(true);
     };
@@ -359,6 +361,14 @@ const PackagesPage: React.FC = () => {
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
                     </div>
+                    <Form.Item
+                        name="managementMinSales"
+                        label="Management Min Sales ($)"
+                        tooltip="Mỗi nhánh (trái và phải) của F1/F2/F3 phải đạt doanh số tối thiểu này mới được nhận hoa hồng quản lý. 0 = không yêu cầu."
+                        style={{ maxWidth: 280 }}
+                    >
+                        <InputNumber style={{ width: '100%' }} min={0} step={100} precision={2} />
+                    </Form.Item>
 
                     <Title level={5} style={{ marginTop: 16 }}>Reconsumption</Title>
                     <div style={{ display: 'flex', gap: '16px' }}>

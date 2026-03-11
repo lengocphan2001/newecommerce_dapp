@@ -106,6 +106,19 @@ export class Package {
     })
     managementRateF3: number | null;
 
+    /** Doanh số tối thiểu mỗi nhánh (trái và phải đều >= giá trị này) để được nhận hoa hồng quản lý (F1/F2/F3). 0 = không yêu cầu. */
+    @Column({
+        type: 'decimal',
+        precision: 10,
+        scale: 2,
+        default: 0,
+        transformer: {
+            to: (value: number) => value,
+            from: (value: string) => (value != null ? parseFloat(value) : 0),
+        },
+    })
+    managementMinSales: number;
+
     @Column({
         type: 'decimal',
         precision: 10,

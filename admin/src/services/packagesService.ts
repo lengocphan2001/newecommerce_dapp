@@ -12,6 +12,7 @@ export interface Package {
     managementRateF1: number;
     managementRateF2: number | null;
     managementRateF3: number | null;
+    managementMinSales: number;
     reconsumptionThreshold: number;
     reconsumptionRequired: number;
     level: number;
@@ -31,6 +32,7 @@ export interface CreatePackageDto {
     managementRateF1: number;
     managementRateF2?: number | null;
     managementRateF3?: number | null;
+    managementMinSales?: number;
     reconsumptionThreshold: number;
     reconsumptionRequired: number;
     level: number;
@@ -48,6 +50,7 @@ export interface UpdatePackageDto {
     managementRateF1?: number;
     managementRateF2?: number | null;
     managementRateF3?: number | null;
+    managementMinSales?: number;
     reconsumptionThreshold?: number;
     reconsumptionRequired?: number;
     level?: number;

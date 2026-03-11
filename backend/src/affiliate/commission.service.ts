@@ -146,11 +146,10 @@ export class CommissionService {
       this.logger.log(`Step 1: Calculating direct commission for order ${orderId}`);
       await this.calculateDirectCommission(order, buyer);
 
-      // BƯỚC 1b: Tính hoa hồng theo từng sản phẩm (% TV/CTV/NPP) cho người giới thiệu
-      this.logger.log(`Step 1b: Calculating product commission for order ${orderId}`);
-      await this.calculateProductCommission(order, buyer);
+      // BƯỚC 1b: Hoa hồng product tạm tắt – sẽ làm rõ logic sau
+      // await this.calculateProductCommission(order, buyer);
 
-      // BƯỚC 2: Tính hoa hồng nhóm (binary tree) - logic cân cặp chuẩn
+      // BƯỚC 2: Tính hoa hồng nhóm (cân nhánh – khi có giao dịch từ nhánh yếu, không cần minSale)
       // Tính dựa trên volume hiện tại (trước khi cộng volume của đơn hàng này)
       this.logger.log(`Step 2: Calculating group commission for order ${orderId}`);
       await this.calculateGroupCommission(order, buyer);
@@ -378,14 +377,7 @@ export class CommissionService {
         continue;
       }
 
-      // Kiểm tra doanh số tối thiểu mỗi nhánh (configurable per package)
-      const minSales = Number(config.groupCommissionMinSales ?? 0);
-      const leftTotal = Number(ancestor.leftBranchTotal);
-      const rightTotal = Number(ancestor.rightBranchTotal);
-      if (minSales > 0 && (leftTotal < minSales || rightTotal < minSales)) {
-        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} does not meet min sales per branch ($${minSales}): left=${leftTotal}, right=${rightTotal}, skipping`);
-        continue;
-      }
+      // Hoa hồng nhóm: chỉ tính khi cân nhánh (giao dịch phát sinh từ nhánh yếu), không yêu cầu minSale
 
       // Xác định buyer thuộc nhánh nào của ancestor
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
@@ -499,6 +491,17 @@ export class CommissionService {
 
       const config = await this.getPackageConfig(manager.packageType);
       if (!config) continue;
+
+      // Hoa hồng quản lý: chỉ trả khi mỗi nhánh của manager đạt minSale (trái >= minSale và phải >= minSale)
+      const minSales = Number(config.managementMinSales ?? 0);
+      if (minSales > 0) {
+        const leftTotal = Number(manager.leftBranchTotal ?? 0);
+        const rightTotal = Number(manager.rightBranchTotal ?? 0);
+        if (leftTotal < minSales || rightTotal < minSales) {
+          this.logger.debug(`[MANAGEMENT] Manager ${manager.id} (F${level}) does not meet managementMinSales $${minSales} per branch (left: $${leftTotal}, right: $${rightTotal}), skipping`);
+          continue;
+        }
+      }
 
       const canReceiveCommission = await this.checkReconsumption(manager, config);
       let rate = 0;
