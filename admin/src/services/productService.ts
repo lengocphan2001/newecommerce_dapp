@@ -29,12 +29,20 @@ export interface Product {
   pushedAt?: string;
   salePercentage?: number;
   combos?: { quantity: number; price: number; label?: string }[];
-  /** Commission % for buyer package TV (0–100). Referrer gets this % of (price × qty). */
+  /** true = hoa hồng sản phẩm (%), false = chỉ hoa hồng theo gói (package). */
+  useProductCommission?: boolean;
+  /** Direct: commission % for buyer package TV/CTV/NPP (0–100). */
   commissionPercentTV?: number;
-  /** Commission % for buyer package CTV (0–100). */
   commissionPercentCTV?: number;
-  /** Commission % for buyer package NPP (0–100). */
   commissionPercentNPP?: number;
+  /** Group: % hoa hồng nhóm theo gói người mua. */
+  commissionPercentGroupTV?: number;
+  commissionPercentGroupCTV?: number;
+  commissionPercentGroupNPP?: number;
+  /** Management: % hoa hồng quản lý (F1/F2/F3) khi nguồn là product group. */
+  commissionPercentManagementTV?: number;
+  commissionPercentManagementCTV?: number;
+  commissionPercentManagementNPP?: number;
 }
 
 export const productService = {

@@ -1,0 +1,14 @@
+# Example Nginx config for admin SPA at /admin
+# Add this inside your server { } block, or include it.
+# Without this, reload on https://shopii.biz/admin/packages returns 404.
+
+location /admin {
+  alias /path/to/your/admin/build;   # or root + path
+  try_files $uri $uri/ /admin/index.html;
+}
+
+# If using root-based path:
+# location /admin/ {
+#   root /path/to/your;
+#   try_files $uri $uri/ /admin/index.html;
+# }

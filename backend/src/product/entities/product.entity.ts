@@ -123,47 +123,102 @@ export class Product {
   @Column({ type: 'int', nullable: true, default: 0 })
   salePercentage?: number;
 
-  /** Commission % for buyer package TV (0–100). Referrer gets this % of (price × qty) when a TV user buys. */
+  /** true = dùng hoa hồng sản phẩm (%), false = chỉ dùng hoa hồng theo gói (package) cho đơn hàng. Default false. */
+  @Column({ type: 'boolean', default: false })
+  useProductCommission: boolean;
+
+  /** Direct: commission % for buyer package TV (0–100). Referrer gets this % of (price × qty). */
   @Column({
     type: 'decimal',
     precision: 5,
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => (value != null ? parseFloat(value) : 0),
-    },
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
   })
   commissionPercentTV?: number;
 
-  /** Commission % for buyer package CTV (0–100). */
   @Column({
     type: 'decimal',
     precision: 5,
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => (value != null ? parseFloat(value) : 0),
-    },
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
   })
   commissionPercentCTV?: number;
 
-  /** Commission % for buyer package NPP (0–100). */
   @Column({
     type: 'decimal',
     precision: 5,
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: {
-      to: (value: number) => value,
-      from: (value: string) => (value != null ? parseFloat(value) : 0),
-    },
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
   })
   commissionPercentNPP?: number;
+
+  /** Group: % hoa hồng nhóm (ancestors cân nhánh) khi khách có gói TV/CTV/NPP mua sản phẩm này. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  commissionPercentGroupTV?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  commissionPercentGroupCTV?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  commissionPercentGroupNPP?: number;
+
+  /** Management: % hoa hồng quản lý (F1/F2/F3 của người nhận product group) khi khách có gói TV/CTV/NPP mua. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  commissionPercentManagementTV?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  commissionPercentManagementCTV?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  commissionPercentManagementNPP?: number;
 
   @CreateDateColumn()
   createdAt: Date;

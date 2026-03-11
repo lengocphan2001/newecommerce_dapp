@@ -120,6 +120,11 @@ export class UpdateProductDto {
   @Max(100)
   salePercentage?: number;
 
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  useProductCommission?: boolean;
+
   @IsNumber()
   @IsOptional()
   @Min(0)
@@ -137,5 +142,41 @@ export class UpdateProductDto {
   @Min(0)
   @Max(100)
   commissionPercentNPP?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentGroupTV?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentGroupCTV?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentGroupNPP?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentManagementTV?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentManagementCTV?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionPercentManagementNPP?: number;
 }
 
