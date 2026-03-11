@@ -13,19 +13,66 @@ import {
   message,
   Popconfirm,
   Select,
+  Switch,
   Tabs,
+  Card,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
+import { packagesService, Package } from '../services/packagesService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
 const availableTags = ['SALE', 'COMING_SOON', 'HOT', 'NEW', 'SOLD_OUT'];
 
+const PACKAGE_CODES = ['TV', 'CTV', 'NPP'] as const;
+const PACKAGE_LABELS: Record<string, string> = { TV: 'Thành Viên', CTV: 'Cộng tác viên', NPP: 'Nhà phân phối' };
+
+/** Form state for editing a package (rates stored as % 0-100 for display) */
+interface PackageEditForm {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  price: number;
+  level: number;
+  isActive: boolean;
+  directCommissionRate: number;
+  groupCommissionRate: number;
+  groupCommissionMinSales: number;
+  managementRateF1: number;
+  managementRateF2: number | null;
+  managementRateF3: number | null;
+  reconsumptionThreshold: number;
+  reconsumptionRequired: number;
+}
+
+function packageToEditForm(pkg: Package): PackageEditForm {
+  return {
+    id: pkg.id,
+    name: pkg.name,
+    code: pkg.code,
+    description: pkg.description ?? '',
+    price: Number(pkg.price),
+    level: pkg.level,
+    isActive: pkg.isActive,
+    directCommissionRate: Number(pkg.directCommissionRate) * 100,
+    groupCommissionRate: Number(pkg.groupCommissionRate) * 100,
+    groupCommissionMinSales: Number(pkg.groupCommissionMinSales ?? 2000),
+    managementRateF1: Number(pkg.managementRateF1) * 100,
+    managementRateF2: pkg.managementRateF2 != null ? Number(pkg.managementRateF2) * 100 : null,
+    managementRateF3: pkg.managementRateF3 != null ? Number(pkg.managementRateF3) * 100 : null,
+    reconsumptionThreshold: Number(pkg.reconsumptionThreshold ?? 0),
+    reconsumptionRequired: Number(pkg.reconsumptionRequired ?? 0),
+  };
+}
+
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [packageEdits, setPackageEdits] = useState<Record<string, PackageEditForm>>({});
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -38,7 +85,60 @@ const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchPackages();
   }, []);
+
+  useEffect(() => {
+    const next: Record<string, PackageEditForm> = {};
+    PACKAGE_CODES.forEach((code) => {
+      const pkg = packages.find((p) => p.code === code);
+      if (pkg) next[code] = packageToEditForm(pkg);
+    });
+    setPackageEdits((prev) => ({ ...prev, ...next }));
+  }, [packages]);
+
+  const fetchPackages = async () => {
+    try {
+      const data = await packagesService.getAll();
+      setPackages(Array.isArray(data) ? data : []);
+    } catch {
+      setPackages([]);
+    }
+  };
+
+  const updatePackageField = (code: string, field: keyof PackageEditForm, value: any) => {
+    setPackageEdits((prev) => {
+      const cur = prev[code];
+      if (!cur) return prev;
+      return { ...prev, [code]: { ...cur, [field]: value } };
+    });
+  };
+
+  const handleSavePackage = async (code: string) => {
+    const edit = packageEdits[code];
+    if (!edit) return;
+    try {
+      await packagesService.update(edit.id, {
+        name: edit.name,
+        description: edit.description || undefined,
+        price: edit.price,
+        level: edit.level,
+        isActive: edit.isActive,
+        directCommissionRate: edit.directCommissionRate / 100,
+        groupCommissionRate: edit.groupCommissionRate / 100,
+        groupCommissionMinSales: edit.groupCommissionMinSales,
+        managementRateF1: edit.managementRateF1 / 100,
+        managementRateF2: edit.managementRateF2 != null ? edit.managementRateF2 / 100 : null,
+        managementRateF3: edit.managementRateF3 != null ? edit.managementRateF3 / 100 : null,
+        reconsumptionThreshold: edit.reconsumptionThreshold,
+        reconsumptionRequired: edit.reconsumptionRequired,
+      });
+      message.success(`Đã cập nhật gói ${code}`);
+      fetchPackages();
+    } catch (e: any) {
+      message.error(e?.message || 'Cập nhật gói thất bại');
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -113,6 +213,7 @@ const Products: React.FC = () => {
       commissionPercentTV: product.commissionPercentTV ?? undefined,
       commissionPercentCTV: product.commissionPercentCTV ?? undefined,
       commissionPercentNPP: product.commissionPercentNPP ?? undefined,
+      featuredOnHome: product.featuredOnHome ?? false,
     });
     setThumbnailFileList([]);
     setDetailFileList([]);
@@ -443,6 +544,92 @@ const Products: React.FC = () => {
                   ),
                 },
                 {
+                  key: 'commission',
+                  label: 'Hoa hồng',
+                  children: (
+                    <>
+                      <Typography.Title level={5} style={{ marginTop: 0 }}>Cấu hình đầy đủ từng gói (TV, CTV, NPP)</Typography.Title>
+                      <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                        Chỉnh toàn bộ thông tin gói giống trang Packages. Phần « Hoa hồng sản phẩm » dùng khi khách mua sản phẩm này theo gói. Bấm « Cập nhật gói » để lưu thông tin gói.
+                      </Typography.Text>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        {PACKAGE_CODES.map((code) => {
+                          const edit = packageEdits[code];
+                          const fieldName = code === 'TV' ? 'commissionPercentTV' : code === 'CTV' ? 'commissionPercentCTV' : 'commissionPercentNPP';
+                          if (!edit) return <Card key={code} size="small"><Typography.Text type="secondary">Đang tải gói {code}...</Typography.Text></Card>;
+                          return (
+                            <Card key={code} size="small" title={<><Typography.Text strong>{edit.name}</Typography.Text><Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{edit.code} · Level {edit.level}</Typography.Text></>} extra={<Button type="primary" size="small" onClick={() => handleSavePackage(code)}>Cập nhật gói</Button>}>
+                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                <Form.Item label="Tên gói" style={{ flex: 1, minWidth: 160, marginBottom: 8 }}>
+                                  <Input value={edit.name} onChange={(e) => updatePackageField(code, 'name', e.target.value)} placeholder="Tên gói" />
+                                </Form.Item>
+                                <Form.Item label="Code" style={{ width: 100, marginBottom: 8 }}>
+                                  <Input value={edit.code} disabled />
+                                </Form.Item>
+                                <Form.Item label="Mô tả" style={{ width: '100%', marginBottom: 8 }}>
+                                  <Input.TextArea value={edit.description} onChange={(e) => updatePackageField(code, 'description', e.target.value)} rows={2} placeholder="Mô tả" />
+                                </Form.Item>
+                              </div>
+                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                <Form.Item label="Price ($)" style={{ width: 120, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} step={0.0001} value={edit.price} onChange={(v) => updatePackageField(code, 'price', v ?? 0)} />
+                                </Form.Item>
+                                <Form.Item label="Level" style={{ width: 80, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={1} value={edit.level} onChange={(v) => updatePackageField(code, 'level', v ?? 1)} />
+                                </Form.Item>
+                                <Form.Item label="Kích hoạt" valuePropName="checked" style={{ marginBottom: 8 }}>
+                                  <Switch checked={edit.isActive} onChange={(v) => updatePackageField(code, 'isActive', v)} />
+                                </Form.Item>
+                              </div>
+                              <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>Commission Rates (%)</Typography.Title>
+                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                <Form.Item label="Direct (%)" style={{ width: 120, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} max={100} value={edit.directCommissionRate} onChange={(v) => updatePackageField(code, 'directCommissionRate', v ?? 0)} />
+                                </Form.Item>
+                                <Form.Item label="Group (%)" style={{ width: 120, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} max={100} value={edit.groupCommissionRate} onChange={(v) => updatePackageField(code, 'groupCommissionRate', v ?? 0)} />
+                                </Form.Item>
+                                <Form.Item label="Min Branch Sales ($)" tooltip="Doanh thu tối thiểu mỗi nhánh để nhận hoa hồng nhóm" style={{ width: 160, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} value={edit.groupCommissionMinSales} onChange={(v) => updatePackageField(code, 'groupCommissionMinSales', v ?? 0)} />
+                                </Form.Item>
+                              </div>
+                              <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>Management Commission (%)</Typography.Title>
+                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                <Form.Item label="F1 (%)" style={{ width: 100, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} max={100} value={edit.managementRateF1} onChange={(v) => updatePackageField(code, 'managementRateF1', v ?? 0)} />
+                                </Form.Item>
+                                <Form.Item label="F2 (%)" style={{ width: 100, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} max={100} value={edit.managementRateF2 ?? undefined} onChange={(v) => updatePackageField(code, 'managementRateF2', v ?? null)} />
+                                </Form.Item>
+                                <Form.Item label="F3 (%)" style={{ width: 100, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} max={100} value={edit.managementRateF3 ?? undefined} onChange={(v) => updatePackageField(code, 'managementRateF3', v ?? null)} />
+                                </Form.Item>
+                              </div>
+                              <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>Reconsumption</Typography.Title>
+                              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                <Form.Item label="Threshold ($)" tooltip="Tổng hoa hồng tối đa trước khi reset" style={{ width: 140, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} value={edit.reconsumptionThreshold} onChange={(v) => updatePackageField(code, 'reconsumptionThreshold', v ?? 0)} />
+                                </Form.Item>
+                                <Form.Item label="Required ($)" tooltip="Số tiền cần mua lại để kích hoạt lại gói" style={{ width: 140, marginBottom: 8 }}>
+                                  <InputNumber style={{ width: '100%' }} min={0} value={edit.reconsumptionRequired} onChange={(v) => updatePackageField(code, 'reconsumptionRequired', v ?? 0)} />
+                                </Form.Item>
+                              </div>
+                              <Typography.Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>Hoa hồng sản phẩm (%)</Typography.Title>
+                              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                                % hoa hồng cho người giới thiệu khi khách có gói {code} mua sản phẩm này. (Lưu cùng form sản phẩm.)
+                              </Typography.Text>
+                              <Form.Item name={fieldName} label={`${code} (%)`} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ marginBottom: 0, maxWidth: 120 }}>
+                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
+                              </Form.Item>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ),
+                },
+                {
                   key: 'en',
                   label: 'English',
                   children: (
@@ -632,40 +819,20 @@ const Products: React.FC = () => {
               <InputNumber style={{ width: '100%' }} min={0} placeholder="Optional" />
             </Form.Item>
             <Form.Item
+              name="featuredOnHome"
+              label="Featured on home"
+              valuePropName="checked"
+              tooltip="Show this product in the home page image strip (under the title)"
+            >
+              <Switch checkedChildren="Yes" unCheckedChildren="No" />
+            </Form.Item>
+            <Form.Item
               name="salePercentage"
               label="Sale Percentage (%)"
               rules={[{ type: 'number', min: 0, max: 100 }]}
               tooltip="Optional discount percentage (0-100) to apply. E.g., 20 means 20% off."
             >
               <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="e.g. 20" />
-            </Form.Item>
-            <Typography.Title level={5}>Hoa hồng theo sản phẩm (%)</Typography.Title>
-            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-              % hoa hồng cho người giới thiệu khi khách mua (theo gói của người mua: TV, CTV, NPP). Để 0 hoặc trống = không áp dụng.
-            </Typography.Text>
-            <Form.Item
-              name="commissionPercentTV"
-              label="TV (%)"
-              rules={[{ type: 'number', min: 0, max: 100 }]}
-              tooltip="Phần trăm hoa hồng khi người mua có gói TV"
-            >
-              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-            </Form.Item>
-            <Form.Item
-              name="commissionPercentCTV"
-              label="CTV (%)"
-              rules={[{ type: 'number', min: 0, max: 100 }]}
-              tooltip="Phần trăm hoa hồng khi người mua có gói CTV"
-            >
-              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-            </Form.Item>
-            <Form.Item
-              name="commissionPercentNPP"
-              label="NPP (%)"
-              rules={[{ type: 'number', min: 0, max: 100 }]}
-              tooltip="Phần trăm hoa hồng khi người mua có gói NPP"
-            >
-              <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
             </Form.Item>
             <Form.Item
               name="categoryId"

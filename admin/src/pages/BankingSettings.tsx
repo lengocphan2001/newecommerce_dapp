@@ -42,6 +42,7 @@ const BankingSettings: React.FC = () => {
                 accountNumber: config.accountNumber || '',
                 accountName: config.accountName || '',
                 isEnabled: config.isEnabled ?? true,
+                usdtPriceVnd: config.usdtPriceVnd ?? undefined,
             });
             setQrPreview(config.qrImageUrl);
         } catch (error) {
@@ -85,6 +86,7 @@ const BankingSettings: React.FC = () => {
             await bankingService.updateConfig({
                 ...values,
                 qrImageUrl: qrPreview,
+                usdtPriceVnd: values.usdtPriceVnd != null && values.usdtPriceVnd !== '' ? Number(values.usdtPriceVnd) : null,
             });
             message.success('Banking config saved successfully');
         } catch (error) {
@@ -147,6 +149,20 @@ const BankingSettings: React.FC = () => {
                         rules={[{ required: true, message: 'Please enter account name' }]}
                     >
                         <Input placeholder="e.g. NGUYEN VAN A" style={{ textTransform: 'uppercase' }} />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="usdtPriceVnd"
+                        label="USDT Price (VND)"
+                        tooltip="When set, checkout will use this rate for bank transfer (1 USDT = X VND) instead of fetching from CoinGecko. Leave empty to use live rate."
+                    >
+                        <InputNumber
+                            style={{ width: 200 }}
+                            min={0}
+                            step={100}
+                            placeholder="e.g. 25000 (leave empty = use CoinGecko)"
+                            addonAfter="VNĐ"
+                        />
                     </Form.Item>
 
                     <Form.Item label="QR Code Image">

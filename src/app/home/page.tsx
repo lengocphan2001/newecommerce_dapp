@@ -65,6 +65,7 @@ export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [sliders, setSliders] = useState<Slider[]>([]);
   const [currentSliderIndex, setCurrentSliderIndex] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [flagImageError, setFlagImageError] = useState<{ vietnam: boolean; usa: boolean }>({
     vietnam: false,
     usa: false,
@@ -76,6 +77,7 @@ export default function HomePage() {
     fetchProducts();
     fetchCategories();
     fetchSliders();
+    fetchFeaturedProducts();
     loadWalletInfo();
     loadReferralInfo();
   }, []);
@@ -108,6 +110,15 @@ export default function HomePage() {
       setSliders(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch sliders');
+    }
+  };
+
+  const fetchFeaturedProducts = async () => {
+    try {
+      const data = await api.getFeaturedProducts();
+      setFeaturedProducts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setFeaturedProducts([]);
     }
   };
 
@@ -187,7 +198,9 @@ export default function HomePage() {
     }, buttonElement);
   };
 
+  const featuredIds = new Set(featuredProducts.map((p) => p.id));
   const filteredProducts = products.filter((product) => {
+    if (featuredIds.has(product.id)) return false; // don't show in grid when shown in title strip
     const displayName = getLocalizedContent(product.name, product.nameEn);
     return displayName.toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -226,10 +239,10 @@ export default function HomePage() {
         onSearchChange={setSearchQuery}
       />
 
-      {/* Page title (moved from header) */}
-      <div className="px-4 py-3 bg-white border-b border-gray-100">
+      {/* Page title + featured products strip (same row) */}
+      <div className="px-4 py-3 bg-white border-b border-gray-100 flex flex-row items-center gap-3 min-h-[3rem]">
         <h1
-          className="text-lg font-bold tracking-tight truncate max-w-md mx-auto"
+          className="text-lg font-bold tracking-tight truncate flex-shrink-0"
           style={{
             background: "linear-gradient(90deg, #2563eb 0%, #6366f1 25%, #9333ea 50%, #c026d3 75%, #ea580c 100%)",
             WebkitBackgroundClip: "text",
@@ -239,6 +252,27 @@ export default function HomePage() {
         >
           {t("homeTitle")}
         </h1>
+        {featuredProducts.length > 0 && (
+          <div className="flex gap-6 overflow-x-auto flex-1 min-w-0 justify-center scrollbar-hide">
+            {featuredProducts.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleProductClick(p.id)}
+                className="flex-shrink-0 flex flex-col items-center gap-1 rounded-lg overflow-hidden hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              >
+                <img
+                  src={p.thumbnailUrl || "/images/unnamed.png"}
+                  alt={getLocalizedContent(p.name, p.nameEn)}
+                  className="h-10 w-10 object-cover rounded"
+                />
+                <span className="text-[10px] font-medium text-gray-700 truncate max-w-[4rem] text-center leading-tight px-0.5">
+                  {getLocalizedContent(p.name, p.nameEn)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Scrollable Content */}

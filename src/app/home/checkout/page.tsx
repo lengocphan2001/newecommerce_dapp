@@ -85,6 +85,7 @@ export default function CheckoutPage() {
     accountName: string;
     qrImageUrl?: string;
     isEnabled: boolean;
+    usdtPriceVnd?: number | null;
   } | null>(null);
   const [bankingOrderId, setBankingOrderId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | null>(null);
@@ -92,9 +93,15 @@ export default function CheckoutPage() {
 
   const userWalletAddress = walletAddress || (typeof window !== "undefined" ? localStorage.getItem("walletAddress") : null);
 
-  // Fetch latest USDT/VND rate when user selects banking payment
+  // USDT/VND rate for banking: use admin-set price when set, else fetch from CoinGecko
   useEffect(() => {
     if (paymentMethod !== "banking") return;
+    const adminRate = bankingConfig?.usdtPriceVnd;
+    if (typeof adminRate === "number" && adminRate > 0) {
+      setUsdtToVnd(adminRate);
+      console.log("adminRate", adminRate);
+      return;
+    }
     let cancelled = false;
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
       .then((res) => res.json())
@@ -105,7 +112,7 @@ export default function CheckoutPage() {
       })
       .catch(() => { if (!cancelled) setUsdtToVnd(null); });
     return () => { cancelled = true; };
-  }, [paymentMethod]);
+  }, [paymentMethod, bankingConfig?.usdtPriceVnd]);
 
   const copyToClipboard = async (text: string, field: "bankName" | "accountNumber" | "accountName" | "content") => {
     if (!text) return;
@@ -690,14 +697,14 @@ export default function CheckoutPage() {
               onClick={() => setPaymentMethod("wallet")}
               className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg transition ${paymentMethod === "wallet" ? "bg-primary text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"}`}
             >
-              💳 Ví (USDT)
+              Ví (USDT)
             </button>
             <button
               type="button"
               onClick={() => bankingConfig?.isEnabled && setPaymentMethod("banking")}
               className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg transition ${paymentMethod === "banking" ? "bg-primary text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"} ${!bankingConfig?.isEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              🏦 Chuyển khoản
+              Chuyển khoản
             </button>
           </div>
 
@@ -767,7 +774,7 @@ export default function CheckoutPage() {
                 <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền chuyển khoản</p>
                 <p className="font-bold text-slate-900 text-lg">{formatPrice(finalTotal)} USDT</p>
                 {usdtToVnd != null && (
-                  <p className="text-sm text-slate-600 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)} (tỷ giá mới nhất)</p>
+                  <p className="text-sm text-slate-600 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)} </p>
                 )}
                 {usdtToVnd == null && paymentMethod === "banking" && (
                   <p className="text-xs text-slate-400 mt-0.5">Đang lấy tỷ giá USDT/VND...</p>
@@ -850,9 +857,6 @@ export default function CheckoutPage() {
                     </button>
                   )}
                 </div>
-                <p className="text-amber-700 mt-1.5">
-                  Ghi địa chỉ ví của bạn vào nội dung chuyển khoản để admin xác nhận đơn hàng.
-                </p>
               </div>
             </div>
           )}
@@ -882,7 +886,6 @@ export default function CheckoutPage() {
                     <span className="text-text-sub font-medium">Tổng thanh toán (VND)</span>
                     <span className="font-bold text-slate-900">{formatVnd(finalTotal * usdtToVnd)}</span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Tỷ giá USDT cập nhật tại thời điểm thanh toán</p>
                 </div>
               </>
             )}

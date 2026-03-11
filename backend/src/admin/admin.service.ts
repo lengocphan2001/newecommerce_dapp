@@ -363,6 +363,7 @@ export class AdminService {
         accountNumber: '',
         accountName: '',
         isEnabled: false,
+        usdtPriceVnd: null,
       });
       config = await this.bankingConfigRepository.save(config);
     }

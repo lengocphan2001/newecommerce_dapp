@@ -252,7 +252,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Packages (CTV, NPP, TV) - 3 columns */}
+            {/* Buy package section - hidden for now (Packages CTV, NPP, TV)
             <div className="mt-5 w-full max-w-sm mx-auto">
               {purchaseError && (
                 <p className="text-sm font-medium text-red-600 mb-3 text-center">{purchaseError}</p>
@@ -288,6 +288,7 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+            */}
 
             {/* Commission Progress Bar */}
             {reconsumptionStatus && reconsumptionStatus.threshold && (

@@ -7,6 +7,8 @@ export interface BankingConfig {
     accountName: string;
     qrImageUrl?: string;
     isEnabled: boolean;
+    /** Admin-set USDT price in VND. When set, checkout uses this for banking instead of CoinGecko. */
+    usdtPriceVnd?: number | null;
     updatedAt?: string;
 }
 
