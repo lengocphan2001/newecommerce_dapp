@@ -119,6 +119,22 @@ export class PackagesService implements OnModuleInit {
         return this.packagesRepository.findOne({ where: { code } });
     }
 
+    /**
+     * Threshold hiệu lực theo totalPurchaseAmount: mỗi lần user mua thêm >= giá gói thì threshold cộng thêm một lần.
+     * effectiveThreshold = reconsumptionThreshold × max(1, floor(totalPurchaseAmount / packagePrice))
+     * VD: NPP threshold 400$, giá gói 100$; totalPurchaseAmount 100 → 400; 200 → 800; 350 → 1200.
+     */
+    getEffectiveThreshold(
+        totalPurchaseAmount: number,
+        pkg: { reconsumptionThreshold: number; price: number },
+    ): number {
+        const threshold = Number(pkg.reconsumptionThreshold) || 0;
+        const price = Number(pkg.price) || 1;
+        const total = Number(totalPurchaseAmount) || 0;
+        const multiplier = Math.max(1, Math.floor(total / price));
+        return threshold * multiplier;
+    }
+
     async create(createPackageDto: Partial<Package>): Promise<Package> {
         const newPackage = this.packagesRepository.create(createPackageDto);
         return this.packagesRepository.save(newPackage);

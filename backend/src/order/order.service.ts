@@ -381,26 +381,26 @@ export class OrderService {
       const packages = await this.packagesService.findAll();
 
       for (const pkg of packages) {
-        // Chỉ check nếu đã nhận đủ hoa hồng (dựa trên ngưỡng của gói đó)
-        if (user.totalCommissionReceived >= pkg.reconsumptionThreshold) {
-          // Nếu đơn hàng này đủ giá trị để "tái kích hoạt" hoặc "mua mới" gói này
-          if (orderAmount >= pkg.price) {
-            return true;
-          }
+        const effective = this.packagesService.getEffectiveThreshold(
+          Number(user.totalPurchaseAmount),
+          pkg,
+        );
+        if (Number(user.totalCommissionReceived) >= effective && orderAmount >= pkg.price) {
+          return true;
         }
       }
 
       return false;
     }
 
-    // User có packageType cụ thể
     const pkg = await this.packagesService.findByCode(user.packageType);
-
     if (!pkg) return false;
 
-    // Nếu đã đạt ngưỡng và orderAmount >= price (hoặc reconsumptionRequired nếu logic khác) → là tái tiêu dùng
-    // Note: packageValue ~ price
-    if (user.totalCommissionReceived >= pkg.reconsumptionThreshold && orderAmount >= pkg.price) {
+    const effective = this.packagesService.getEffectiveThreshold(
+      Number(user.totalPurchaseAmount),
+      pkg,
+    );
+    if (Number(user.totalCommissionReceived) >= effective && orderAmount >= pkg.price) {
       return true;
     }
 

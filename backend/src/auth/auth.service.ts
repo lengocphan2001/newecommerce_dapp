@@ -437,12 +437,16 @@ export class AuthService {
       };
     }));
 
-    // Get commission config for max limit
+    // Threshold hiệu lực (theo totalPurchaseAmount: mỗi lần mua >= giá gói thì cộng thêm một lần)
     let maxCommission = '0.00';
     if (user.packageType !== 'NONE') {
       const config = await this.packagesService.findByCode(user.packageType);
       if (config) {
-        maxCommission = formatDecimal(config.reconsumptionThreshold);
+        const effective = this.packagesService.getEffectiveThreshold(
+          Number(user.totalPurchaseAmount),
+          config,
+        );
+        maxCommission = formatDecimal(effective);
       }
     }
 
@@ -501,20 +505,27 @@ export class AuthService {
       // Packages được sắp xếp theo level tăng dần từ service
       let reachedPackage: any = null;
       for (const pkg of packages) {
-        if (user.totalCommissionReceived >= pkg.reconsumptionThreshold) {
+        const effective = this.packagesService.getEffectiveThreshold(
+          Number(user.totalPurchaseAmount),
+          pkg,
+        );
+        if (Number(user.totalCommissionReceived) >= effective) {
           reachedPackage = pkg;
         }
       }
 
       if (reachedPackage) {
-        threshold = reachedPackage.reconsumptionThreshold;
+        threshold = this.packagesService.getEffectiveThreshold(
+          Number(user.totalPurchaseAmount),
+          reachedPackage,
+        );
         packageValue = reachedPackage.price;
         return {
           needsReconsumption: true,
           threshold,
           packageValue,
           currentCommission: user.totalCommissionReceived,
-          message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua gói (${reachedPackage.name}) để tiếp tục nhận hoa hồng.`,
+          message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua thêm (>= ${packageValue} USDT) để nâng threshold và tiếp tục nhận hoa hồng.`,
         };
       }
 
@@ -534,27 +545,28 @@ export class AuthService {
       };
     }
 
-    const threshold = config.reconsumptionThreshold;
+    const effectiveThreshold = this.packagesService.getEffectiveThreshold(
+      Number(user.totalPurchaseAmount),
+      config,
+    );
     const packageValue = config.price;
 
-    // Nếu chưa đạt ngưỡng
-    if (user.totalCommissionReceived < threshold) {
+    if (Number(user.totalCommissionReceived) < effectiveThreshold) {
       return {
         needsReconsumption: false,
-        threshold,
+        threshold: effectiveThreshold,
         currentCommission: user.totalCommissionReceived,
-        remaining: threshold - user.totalCommissionReceived,
-        message: `Bạn cần nhận thêm ${(threshold - user.totalCommissionReceived).toFixed(5)} USDT để đạt ngưỡng.`,
+        remaining: effectiveThreshold - Number(user.totalCommissionReceived),
+        message: `Bạn cần nhận thêm ${(effectiveThreshold - Number(user.totalCommissionReceived)).toFixed(5)} USDT để đạt ngưỡng.`,
       };
     }
 
-    // Đã đạt ngưỡng → cần mua gói lại
     return {
       needsReconsumption: true,
-      threshold,
+      threshold: effectiveThreshold,
       packageValue,
       currentCommission: user.totalCommissionReceived,
-      message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua gói (${config.name}) để tiếp tục nhận hoa hồng.`,
+      message: `Bạn đã đạt ngưỡng hoa hồng ${effectiveThreshold} USDT. Vui lòng mua thêm (>= ${packageValue} USDT) để nâng threshold và tiếp tục nhận hoa hồng.`,
     };
   }
 

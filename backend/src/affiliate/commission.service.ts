@@ -721,50 +721,40 @@ export class CommissionService {
   }
 
   /**
-   * Helper to update user commission and check if they reached threshold
+   * Cộng dồn hoa hồng và kiểm tra threshold hiệu lực (theo totalPurchaseAmount: mỗi lần mua >= giá gói thì threshold cộng thêm).
    */
   private async updateUserCommissionAndCheckThreshold(user: User, amount: number, config: Package) {
-    await this.userRepository.createQueryBuilder()
-      .update(User)
-      .set({
-        totalCommissionReceived: () => `totalCommissionReceived + ${amount}`
-      })
-      .where("id = :id", { id: user.id })
-      .execute();
+    await this.userRepository.increment({ id: user.id }, 'totalCommissionReceived', amount);
 
-    // Update logic: Check threshold
     const updatedUser = await this.userRepository.findOne({ where: { id: user.id } });
     if (updatedUser) {
-      const newTotalCommission = updatedUser.totalCommissionReceived;
-      if (newTotalCommission >= config.reconsumptionThreshold) {
-        // Reached threshold -> set packageType to NONE
-        await this.userRepository.update(user.id, {
-          packageType: 'NONE',
-        });
-        this.logger.log(`User ${user.id} reached threshold ${config.reconsumptionThreshold}, packageType set to NONE`);
+      const newTotalCommission = Number(updatedUser.totalCommissionReceived);
+      const effectiveThreshold = this.packagesService.getEffectiveThreshold(
+        Number(updatedUser.totalPurchaseAmount),
+        config,
+      );
+      if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
+        await this.userRepository.update(user.id, { packageType: 'NONE' });
+        this.logger.log(`User ${user.id} reached effective threshold ${effectiveThreshold}, packageType set to NONE`);
       }
     }
   }
 
   /**
-   * Kiểm tra điều kiện tái tiêu dùng
-   * Users with NONE can still receive (e.g. when using default package rates) until they buy a package and hit threshold.
+   * Kiểm tra điều kiện tái tiêu dùng. So sánh với threshold hiệu lực (tính theo totalPurchaseAmount).
    */
   private async checkReconsumption(user: User, config: Package): Promise<boolean> {
     if (user.packageType === 'NONE') {
-      return true; // Allow commission when using default package (referrer who hasn't bought a package yet)
-    }
-
-    const threshold = config.reconsumptionThreshold;
-    const packageValue = config.price; // Or config.reconsumptionRequired if that logic differs
-
-    // Nếu chưa đạt ngưỡng hoa hồng
-    if (user.totalCommissionReceived < threshold) {
       return true;
     }
 
-    // Đã đạt ngưỡng -> BLOCKED (Strict enforcement)
-    // Người dùng phải mua gói mới để updateUserPackage kích hoạt logic reset totalCommissionReceived
+    const effectiveThreshold = this.packagesService.getEffectiveThreshold(
+      Number(user.totalPurchaseAmount),
+      config,
+    );
+    if (Number(user.totalCommissionReceived) < effectiveThreshold) {
+      return true;
+    }
     return false;
   }
 
@@ -1007,21 +997,10 @@ export class CommissionService {
         if (config) {
           await this.updateUserCommissionAndCheckThreshold(user, amount, config);
         } else {
-          // Should not happen if user.packageType is not NONE
-          // Just update commission total
-          await this.userRepository.createQueryBuilder()
-            .update(User)
-            .set({ totalCommissionReceived: () => `totalCommissionReceived + ${amount}` })
-            .where("id = :id", { id: userId })
-            .execute();
+          await this.userRepository.increment({ id: userId }, 'totalCommissionReceived', amount);
         }
       } else {
-        // If NONE, just update total (they might be blocked anyway but records are kept)
-        await this.userRepository.createQueryBuilder()
-          .update(User)
-          .set({ totalCommissionReceived: () => `totalCommissionReceived + ${amount}` })
-          .where("id = :id", { id: userId })
-          .execute();
+        await this.userRepository.increment({ id: userId }, 'totalCommissionReceived', amount);
       }
     }
 

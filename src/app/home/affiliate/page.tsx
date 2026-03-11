@@ -386,13 +386,18 @@ export default function AffiliatePage() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600" title={t("maxCommissionTooltip") || "Tăng khi bạn mua thêm (theo giá gói)"}>
                           {t("maximum")}
                         </span>
                         <span className="text-lg font-bold text-primary-dark">
                           ${formatVolume(maxCommission)}
                         </span>
                       </div>
+                    {maxCommission > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {t("maxCommissionTooltip") || "Ngưỡng tăng khi mua thêm hàng (theo giá gói)."}
+                      </p>
+                    )}
                     </div>
                   </div>
                 )}
