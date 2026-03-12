@@ -11,6 +11,7 @@ import {
     Card,
     Divider,
     InputNumber,
+    Select,
 } from 'antd';
 import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined } from '@ant-design/icons';
 import { bankingService, BankingConfig } from '../services/bankingService';
@@ -19,6 +20,17 @@ import api from '../services/api';
 
 const { Title, Text } = Typography;
 
+const VIETQR_BANKS_API = 'https://api.vietqr.io/v2/banks';
+
+interface VietQRBank {
+    id: number;
+    name: string;
+    code: string;
+    bin: string;
+    shortName: string;
+    logo?: string;
+}
+
 const BankingSettings: React.FC = () => {
     const [form] = Form.useForm();
     const [payoutForm] = Form.useForm();
@@ -26,10 +38,24 @@ const BankingSettings: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [savingPayout, setSavingPayout] = useState(false);
     const [qrPreview, setQrPreview] = useState<string | undefined>(undefined);
+    const [bankList, setBankList] = useState<VietQRBank[]>([]);
+    const [banksLoading, setBanksLoading] = useState(true);
 
     useEffect(() => {
         fetchConfig();
         fetchPayoutConfig();
+    }, []);
+
+    useEffect(() => {
+        fetch(VIETQR_BANKS_API)
+            .then((res) => res.json())
+            .then((data: { code?: string; data?: VietQRBank[] }) => {
+                if (data?.data && Array.isArray(data.data)) {
+                    setBankList(data.data.sort((a, b) => (a.shortName || a.name).localeCompare(b.shortName || b.name)));
+                }
+            })
+            .catch(() => message.warning('Could not load VietQR bank list. You can enter Bank ID manually.'))
+            .finally(() => setBanksLoading(false));
     }, []);
 
     const fetchConfig = async () => {
@@ -41,6 +67,7 @@ const BankingSettings: React.FC = () => {
                 bankName: config.bankName || '',
                 accountNumber: config.accountNumber || '',
                 accountName: config.accountName || '',
+                bankId: config.bankId || '',
                 isEnabled: config.isEnabled ?? true,
                 usdtPriceVnd: config.usdtPriceVnd ?? undefined,
             });
@@ -149,6 +176,32 @@ const BankingSettings: React.FC = () => {
                         rules={[{ required: true, message: 'Please enter account name' }]}
                     >
                         <Input placeholder="e.g. NGUYEN VAN A" style={{ textTransform: 'uppercase' }} />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="bankId"
+                        label="VietQR Bank"
+                        tooltip="Select bank for dynamic VietQR on checkout (amount + transfer content). Leave empty to use uploaded QR image only."
+                    >
+                        {bankList.length > 0 ? (
+                            <Select
+                                allowClear
+                                showSearch
+                                placeholder="Chọn ngân hàng (hoặc để trống)"
+                                loading={banksLoading}
+                                optionFilterProp="label"
+                                options={bankList.map((b) => ({
+                                    value: b.bin,
+                                    label: `${b.shortName || b.name} (${b.bin})`,
+                                }))}
+                            />
+                        ) : (
+                            <Input
+                                placeholder={banksLoading ? 'Đang tải danh sách...' : 'Nhập mã 6 số (vd: 970436) nếu danh sách không tải được'}
+                                maxLength={10}
+                                disabled={banksLoading}
+                            />
+                        )}
                     </Form.Item>
 
                     <Form.Item

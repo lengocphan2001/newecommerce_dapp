@@ -83,6 +83,7 @@ export default function CheckoutPage() {
     bankName: string;
     accountNumber: string;
     accountName: string;
+    bankId?: string;
     qrImageUrl?: string;
     isEnabled: boolean;
     usdtPriceVnd?: number | null;
@@ -140,6 +141,28 @@ export default function CheckoutPage() {
       window.open(bankingConfig.qrImageUrl, "_blank");
     }
   };
+
+  const finalTotal = totalAmount + shippingFee;
+
+  /** Build VietQR image URL: bank info + amount (VND) + transfer content. addInfo max 25 chars. */
+  const getVietQrUrl = (): string | null => {
+    const bankId = bankingConfig?.bankId?.trim();
+    const accountNumber = bankingConfig?.accountNumber?.trim().replace(/\s/g, "");
+    const accountName = (bankingConfig?.accountName || "").trim();
+    if (!bankId || !accountNumber) return null;
+    const template = "compact2";
+    const base = `https://img.vietqr.io/image/${bankId}-${accountNumber}-${template}.png`;
+    const params = new URLSearchParams();
+    if (usdtToVnd != null && usdtToVnd > 0 && finalTotal > 0) {
+      const vndAmount = Math.round(finalTotal * usdtToVnd);
+      if (vndAmount > 0) params.set("amount", String(vndAmount));
+    }
+    const addInfo = (userWalletAddress || "SHOPII").replace(/[^a-zA-Z0-9\s]/g, "").slice(0, 25).trim() || "SHOPII";
+    params.set("addInfo", addInfo);
+    if (accountName) params.set("accountName", accountName);
+    return `${base}?${params.toString()}`;
+  };
+  const vietQrUrl = getVietQrUrl();
 
   useEffect(() => {
     loadWalletInfo();
@@ -630,9 +653,6 @@ export default function CheckoutPage() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Final total (shippingFee is already calculated in state)
-  const finalTotal = totalAmount + shippingFee;
-
   return (
     <div className="bg-background-light font-display text-text-main antialiased flex flex-col">
       {/* Header */}
@@ -827,20 +847,45 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </div>
-              {bankingConfig.qrImageUrl && (
-                <div className="flex flex-col items-center pt-2">
-                  <span className="text-xs text-text-sub font-medium mb-2">Quét mã QR để chuyển khoản</span>
-                  <img src={bankingConfig.qrImageUrl} alt="QR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
-                  <button
-                    type="button"
-                    onClick={downloadQrImage}
-                    className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">download</span>
-                    Tải ảnh QR
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-col items-center pt-2">
+                {vietQrUrl ? (
+                  <>
+                    <span className="text-xs text-text-sub font-medium mb-2">
+                      Quét mã QR để chuyển khoản (số tiền + nội dung đã điền sẵn)
+                    </span>
+                    <img src={vietQrUrl} alt="VietQR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
+                    <a
+                      href={vietQrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      Mở / tải ảnh QR
+                    </a>
+                  </>
+                ) : bankingConfig.qrImageUrl ? (
+                  <>
+                    <span className="text-xs text-text-sub font-medium mb-2">Quét mã QR để chuyển khoản</span>
+                    <img src={bankingConfig.qrImageUrl} alt="QR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
+                    <button
+                      type="button"
+                      onClick={downloadQrImage}
+                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      Tải ảnh QR
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center py-4 px-3 rounded-lg bg-slate-100 border border-slate-200 w-full max-w-sm">
+                    <p className="text-sm font-medium text-slate-700 mb-1">Chưa có mã QR</p>
+                    <p className="text-xs text-slate-500">
+                      Để hiển thị mã QR quét chuyển khoản, Admin cần vào <strong>Banking Settings</strong> → chọn <strong>VietQR Bank</strong> (hoặc tải ảnh QR lên) rồi lưu.
+                    </p>
+                  </div>
+                )}
+              </div>
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-2">
                 <strong>Nội dung chuyển khoản (địa chỉ ví của bạn):</strong>
                 <div className="flex flex-wrap items-center gap-2 mt-1">

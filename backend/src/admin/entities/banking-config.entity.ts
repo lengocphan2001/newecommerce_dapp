@@ -19,7 +19,11 @@ export class BankingConfig {
     @Column({ default: '' })
     accountName: string;
 
-    /** URL to the QR image uploaded by admin */
+    /** VietQR Bank ID (6 digits, e.g. 970436). When set, checkout generates dynamic QR with amount and transfer content. */
+    @Column({ length: 10, default: '', nullable: true })
+    bankId?: string;
+
+    /** URL to the QR image uploaded by admin (fallback when bankId not set) */
     @Column({ nullable: true })
     qrImageUrl?: string;
 

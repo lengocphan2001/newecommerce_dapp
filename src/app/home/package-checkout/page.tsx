@@ -61,6 +61,7 @@ function PackageCheckoutContent() {
     bankName: string;
     accountNumber: string;
     accountName: string;
+    bankId?: string;
     qrImageUrl?: string;
     isEnabled: boolean;
     usdtPriceVnd?: number | null;
@@ -147,6 +148,26 @@ function PackageCheckoutContent() {
     loadWalletInfo();
     api.getBankingConfig().then((c) => setBankingConfig(c)).catch(() => setBankingConfig(null));
   }, [loadWalletInfo]);
+
+  /** VietQR URL for package payment: amount (VND) + addInfo = purchaseId (max 25 chars). */
+  const getVietQrUrl = (): string | null => {
+    const bankId = bankingConfig?.bankId?.trim();
+    const accountNumber = bankingConfig?.accountNumber?.trim().replace(/\s/g, "");
+    const accountName = (bankingConfig?.accountName || "").trim();
+    if (!bankId || !accountNumber) return null;
+    const template = "compact2";
+    const base = `https://img.vietqr.io/image/${bankId}-${accountNumber}-${template}.png`;
+    const params = new URLSearchParams();
+    if (usdtToVnd != null && usdtToVnd > 0 && amount > 0) {
+      const vndAmount = Math.round(amount * usdtToVnd);
+      if (vndAmount > 0) params.set("amount", String(vndAmount));
+    }
+    const addInfo = (purchaseId || "PACKAGE").replace(/[^a-zA-Z0-9\s-]/g, "").slice(0, 25).trim() || "PACKAGE";
+    params.set("addInfo", addInfo);
+    if (accountName) params.set("accountName", accountName);
+    return `${base}?${params.toString()}`;
+  };
+  const vietQrUrl = getVietQrUrl();
 
   const connectWallet = async () => {
     try {
@@ -403,6 +424,13 @@ function PackageCheckoutContent() {
                   </div>
                 </div>
               </div>
+              {vietQrUrl && (
+                <div className="flex flex-col items-center pt-2">
+                  <span className="text-xs text-slate-600 font-medium mb-2">Quét mã QR (số tiền + nội dung đã điền sẵn)</span>
+                  <img src={vietQrUrl} alt="VietQR chuyển khoản" className="w-56 h-56 min-w-[224px] min-h-[224px] object-contain rounded-lg border border-slate-200 bg-white" />
+                  <a href={vietQrUrl} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs text-primary font-semibold">Mở / tải ảnh QR</a>
+                </div>
+              )}
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
                 <strong>Nội dung chuyển khoản (bắt buộc):</strong>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">

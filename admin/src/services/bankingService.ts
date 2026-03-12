@@ -5,6 +5,8 @@ export interface BankingConfig {
     bankName: string;
     accountNumber: string;
     accountName: string;
+    /** VietQR Bank ID (6 digits, e.g. 970436). When set, checkout shows dynamic VietQR with amount and transfer content. */
+    bankId?: string;
     qrImageUrl?: string;
     isEnabled: boolean;
     /** Admin-set USDT price in VND. When set, checkout uses this for banking instead of CoinGecko. */
