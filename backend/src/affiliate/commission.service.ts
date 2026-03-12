@@ -839,6 +839,44 @@ export class CommissionService {
 
   // --- Missing Read/Admin Methods ---
 
+  /**
+   * Lấy stats commission cho nhiều user trong MỘT query (GROUP BY userId).
+   * Dùng cho admin getAllStats để tránh N+1.
+   */
+  async getStatsForUserIds(userIds: string[]): Promise<Map<string, { totalCommission: number; pendingCommission: number; commissions: { direct: number; group: number; management: number } }>> {
+    const map = new Map<string, { totalCommission: number; pendingCommission: number; commissions: { direct: number; group: number; management: number } }>();
+    if (userIds.length === 0) return map;
+
+    const num = (v: string | null | undefined): number =>
+      v === null || v === undefined ? 0 : parseFloat(String(v)) || 0;
+
+    const qb = this.commissionRepository.createQueryBuilder('c');
+    const rows = await qb
+      .select('c.userId', 'userId')
+      .addSelect('COALESCE(SUM(CASE WHEN c.status = :paid THEN c.amount ELSE 0 END), 0)', 'totalCommission')
+      .addSelect('COALESCE(SUM(CASE WHEN c.status = :pending THEN c.amount ELSE 0 END), 0)', 'pendingCommission')
+      .addSelect("COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)", 'direct')
+      .addSelect("COALESCE(SUM(CASE WHEN c.type = 'group' AND c.status = :paid THEN c.amount ELSE 0 END), 0)", 'group')
+      .addSelect("COALESCE(SUM(CASE WHEN c.type = 'management' AND c.status = :paid THEN c.amount ELSE 0 END), 0)", 'management')
+      .where('c.userId IN (:...userIds)', { userIds })
+      .groupBy('c.userId')
+      .setParameters({ paid: CommissionStatus.PAID, pending: CommissionStatus.PENDING })
+      .getRawMany<{ userId: string; totalCommission: string; pendingCommission: string; direct: string; group: string; management: string }>();
+
+    for (const row of rows) {
+      map.set(row.userId, {
+        totalCommission: this.roundCommission(num(row.totalCommission)),
+        pendingCommission: this.roundCommission(num(row.pendingCommission)),
+        commissions: {
+          direct: this.roundCommission(num(row.direct)),
+          group: this.roundCommission(num(row.group)),
+          management: this.roundCommission(num(row.management)),
+        },
+      });
+    }
+    return map;
+  }
+
   async getStats(userId: string) {
     const qb = this.commissionRepository.createQueryBuilder('c');
     const raw = await qb

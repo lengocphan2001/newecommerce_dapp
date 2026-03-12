@@ -1,6 +1,4 @@
-/**
- * Utility functions for handling authentication errors
- */
+import { invalidateCache } from '@/app/services/apiCache';
 
 /**
  * Checks if an error is an authentication error
@@ -8,7 +6,7 @@
  */
 export function handleAuthError(error: any, router: any): boolean {
   const errorMessage = error?.message || error?.toString() || '';
-  const isAuthError = 
+  const isAuthError =
     errorMessage.includes('Not authenticated') ||
     errorMessage.includes('Authentication expired') ||
     errorMessage.includes('401') ||
@@ -16,8 +14,8 @@ export function handleAuthError(error: any, router: any): boolean {
     error?.response?.status === 401;
 
   if (isAuthError) {
-    // Clear token if exists
     if (typeof window !== 'undefined') {
+      invalidateCache('referralInfo');
       localStorage.removeItem('token');
     }
     

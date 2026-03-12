@@ -1,8 +1,13 @@
 "use client";
 
-import React from "react";
-import BinaryTreeView from "./BinaryTreeView";
+import React, { Suspense, lazy } from "react";
+
+const BinaryTreeView = lazy(() => import("./BinaryTreeView"));
 
 export default function FullTreePage() {
-  return <BinaryTreeView />;
+  return (
+    <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center text-slate-500">Đang tải cây...</div>}>
+      <BinaryTreeView />
+    </Suspense>
+  );
 }

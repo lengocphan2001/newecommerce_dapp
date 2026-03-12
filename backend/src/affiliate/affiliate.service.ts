@@ -46,7 +46,8 @@ export class AffiliateService {
   }
 
   /**
-   * Lấy thống kê affiliate của tất cả users (chỉ admin)
+   * Lấy thống kê affiliate của tất cả users (chỉ admin).
+   * Dùng 1 query tổng hợp commission (GROUP BY userId) thay vì N query → nhanh hơn khi nhiều user.
    */
   async getAllStats(): Promise<any[]> {
     const users = await this.userRepository.find({
@@ -69,9 +70,15 @@ export class AffiliateService {
       order: { createdAt: 'DESC' },
     });
 
-    // Lấy stats cho từng user
-    const statsPromises = users.map(async (user) => {
-      const stats = await this.commissionService.getStats(user.id);
+    const userIds = users.map((u) => u.id);
+    const statsMap = await this.commissionService.getStatsForUserIds(userIds);
+
+    return users.map((user) => {
+      const stats = statsMap.get(user.id) ?? {
+        totalCommission: 0,
+        pendingCommission: 0,
+        commissions: { direct: 0, group: 0, management: 0 },
+      };
       return {
         userId: user.id,
         email: user.email,
@@ -86,14 +93,13 @@ export class AffiliateService {
         totalReconsumptionAmount: user.totalReconsumptionAmount,
         leftBranchTotal: user.leftBranchTotal,
         rightBranchTotal: user.rightBranchTotal,
-        ...stats,
+        pendingCommission: stats.pendingCommission,
+        commissions: stats.commissions,
         pending: stats.pendingCommission,
         paid: stats.totalCommission,
         createdAt: user.createdAt,
       };
     });
-
-    return Promise.all(statsPromises);
   }
 
   /**

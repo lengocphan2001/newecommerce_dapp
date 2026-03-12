@@ -1,5 +1,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
+import { apiCache } from './apiCache';
+
 export const api = {
   async checkWallet(address: string) {
     const response = await fetch(`${API_BASE_URL}/auth/wallet/check?address=${encodeURIComponent(address)}`);
@@ -92,20 +94,29 @@ export const api = {
   },
 
   async getCategories() {
+    const cached = apiCache.get('categories');
+    if (cached != null) return cached as Awaited<ReturnType<typeof api.getCategories>>;
     const response = await fetch(`${API_BASE_URL}/categories`);
     if (!response.ok) {
       throw new Error('Failed to fetch categories');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.set('categories', data);
+    return data;
   },
 
   async getSliders(activeOnly: boolean = true) {
+    const cacheKey = 'sliders';
+    const cached = apiCache.get(cacheKey);
+    if (cached != null) return cached as Awaited<ReturnType<typeof api.getSliders>>;
     const url = `${API_BASE_URL}/sliders?activeOnly=${activeOnly}`;
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error('Failed to fetch sliders');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.set(cacheKey, data);
+    return data;
   },
 
   async getProduct(id: string) {
@@ -125,6 +136,9 @@ export const api = {
   },
 
   async getReferralInfo() {
+    const cached = apiCache.get('referralInfo');
+    if (cached) return cached;
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -136,15 +150,14 @@ export const api = {
     });
     if (!response.ok) {
       if (response.status === 401) {
-        // Clear invalid token
         localStorage.removeItem('token');
+        apiCache.invalidate('referralInfo');
         throw new Error('Authentication expired. Please reconnect your wallet.');
       }
       const error = await response.json().catch(() => ({ message: 'Failed to get referral info' }));
       throw new Error(error.message || 'Failed to get referral info');
     }
     const data = await response.json();
-    // Always show referral links for current domain (e.g. shopii.biz after moving from binanmall.com)
     if (typeof window !== 'undefined' && window.location?.origin) {
       const base = window.location.origin;
       const rewrite = (url: string) => (url && typeof url === 'string') ? url.replace(/^https?:\/\/[^/]+/, base) : url;
@@ -152,6 +165,7 @@ export const api = {
       if (data.leftLink) data.leftLink = rewrite(data.leftLink);
       if (data.rightLink) data.rightLink = rewrite(data.rightLink);
     }
+    apiCache.set('referralInfo', data);
     return data;
   },
 
@@ -200,25 +214,28 @@ export const api = {
     return response.json();
   },
 
-  /** Public: get banking config for checkout (no auth). */
+  /** Public: get banking config for checkout (no auth). Cached 5 min. */
   async getBankingConfig(): Promise<{
     id?: number;
     bankName: string;
     accountNumber: string;
     accountName: string;
-    /** VietQR Bank ID (6 digits). When set, checkout shows dynamic VietQR with amount and transfer content. */
     bankId?: string;
     qrImageUrl?: string;
     isEnabled: boolean;
-    /** Admin-set USDT price in VND. When set, checkout uses this for banking instead of CoinGecko. */
     usdtPriceVnd?: number | null;
     updatedAt?: string;
   }> {
+    const cached = apiCache.get<Awaited<ReturnType<typeof api.getBankingConfig>>>('bankingConfig');
+    if (cached) return cached;
+
     const response = await fetch(`${API_BASE_URL}/admin/banking-config`);
     if (!response.ok) {
       throw new Error('Failed to fetch banking config');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.set('bankingConfig', data);
+    return data;
   },
 
   async createOrder(

@@ -76,7 +76,7 @@ export default function CheckoutPage() {
   const [usdtBalance, setUsdtBalance] = useState<string>("0");
   const [bnbBalance, setBnbBalance] = useState<string>("0");
   const [shippingAddress, setShippingAddress] = useState("");
-  const [checkoutUser, setCheckoutUser] = useState<{ fullName?: string; phone?: string; address?: string } | null>(null);
+  const [checkoutUser, setCheckoutUser] = useState<{ fullName?: string; phone?: string; address?: string; username?: string } | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<"wallet" | "banking">("wallet");
   const [bankingConfig, setBankingConfig] = useState<{
@@ -157,7 +157,7 @@ export default function CheckoutPage() {
       const vndAmount = Math.round(finalTotal * usdtToVnd);
       if (vndAmount > 0) params.set("amount", String(vndAmount));
     }
-    const addInfo = (userWalletAddress || "SHOPII").replace(/[^a-zA-Z0-9\s]/g, "").slice(0, 25).trim() || "SHOPII";
+    const addInfo = (checkoutUser?.username || "SHOPII").replace(/[^a-zA-Z0-9\s]/g, "").slice(0, 25).trim() || "SHOPII";
     params.set("addInfo", addInfo);
     if (accountName) params.set("accountName", accountName);
     return `${base}?${params.toString()}`;
@@ -209,18 +209,18 @@ export default function CheckoutPage() {
 
   const loadCheckoutUser = async () => {
     try {
-      let userBase = { fullName: "", phone: "" };
-      // 1. Try API for basic info
+      let userBase = { fullName: "", phone: "", username: "" as string | undefined };
+      // 1. Try API for basic info (includes Binary ID / username)
       if (typeof api !== 'undefined') {
         try {
           const info = await api.getReferralInfo();
           userBase = {
             fullName: info.fullName || "Nguyễn Văn A",
-            phone: info.phone || info.phoneNumber || "+84 912 345 678"
+            phone: info.phone || info.phoneNumber || "+84 912 345 678",
+            username: info.username
           };
         } catch (e) {
-          // Basic fallback
-          userBase = { fullName: "Nguyễn Văn A", phone: "+84 912 345 678" };
+          userBase = { fullName: "Nguyễn Văn A", phone: "+84 912 345 678", username: undefined };
         }
       }
 
@@ -233,11 +233,11 @@ export default function CheckoutPage() {
         setCheckoutUser({
           fullName: parsedUser.name || userBase.fullName,
           phone: parsedUser.phone || userBase.phone,
-          address: storedAddress
+          address: storedAddress,
+          username: parsedUser.username ?? userBase.username
         });
         setShippingAddress(storedAddress);
       } else {
-        // Fallback to what we have or userAddress
         const localAddr = localStorage.getItem("userAddress");
         setCheckoutUser({
           ...userBase,
@@ -887,15 +887,15 @@ export default function CheckoutPage() {
                 )}
               </div>
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-2">
-                <strong>Nội dung chuyển khoản (địa chỉ ví của bạn):</strong>
+                <strong>Nội dung chuyển khoản (Binary ID của bạn):</strong>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <code className="flex-1 min-w-0 break-all font-mono bg-amber-100/80 px-2 py-1.5 rounded text-slate-800">
-                    {userWalletAddress || "Chưa có địa chỉ ví — đăng nhập bằng ví để hiện"}
+                    {checkoutUser?.username || "Đăng nhập để hiện Binary ID"}
                   </code>
-                  {userWalletAddress && (
+                  {checkoutUser?.username && (
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(userWalletAddress, "content")}
+                      onClick={() => copyToClipboard(checkoutUser.username!, "content")}
                       className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-200/80 text-amber-900 text-xs font-semibold hover:bg-amber-300/80 transition"
                     >
                       {copiedField === "content" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
@@ -979,14 +979,12 @@ export default function CheckoutPage() {
         error={error}
         onClose={() => setProcessingStep("idle")}
         bankingSuccess={
-          processingStep === "success" && bankingOrderId && userWalletAddress
+          processingStep === "success" && bankingOrderId
             ? {
                 orderId: bankingOrderId,
-                transferContent: userWalletAddress,
+                transferContent: checkoutUser?.username || "",
               }
-            : processingStep === "success" && bankingOrderId
-              ? { orderId: bankingOrderId, transferContent: "" }
-              : undefined
+            : undefined
         }
       />
 

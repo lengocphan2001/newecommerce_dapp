@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
+import { invalidateCache } from "@/app/services/apiCache";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
 
@@ -142,6 +143,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
+    invalidateCache("referralInfo");
     localStorage.removeItem("token");
     localStorage.removeItem("walletAddress");
     router.push("/");

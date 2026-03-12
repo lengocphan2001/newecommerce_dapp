@@ -73,27 +73,30 @@ export default function HomePage() {
   const [addToCartAnimating, setAddToCartAnimating] = useState<string | null>(null);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
+  // Chỉ load products khi filter thay đổi (gồm lần mount) — tránh gọi 2 lần
   useEffect(() => {
     fetchProducts();
-    fetchCategories();
-    fetchSliders();
-    fetchFeaturedProducts();
+  }, [selectedCountry, selectedCategoryId]);
+
+  // Load categories, sliders, featured, referral song song (cache 10 phút cho categories/sliders)
+  useEffect(() => {
     loadWalletInfo();
-    loadReferralInfo();
+    Promise.allSettled([
+      fetchCategories(),
+      fetchSliders(),
+      fetchFeaturedProducts(),
+      loadReferralInfo(),
+    ]);
   }, []);
 
   useEffect(() => {
     if (sliders.length > 0) {
       const interval = setInterval(() => {
         setCurrentSliderIndex((prev) => (prev + 1) % sliders.length);
-      }, 5000); // Auto slide every 5 seconds
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [sliders.length]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [selectedCountry, selectedCategoryId]);
 
   const fetchCategories = async () => {
     try {
