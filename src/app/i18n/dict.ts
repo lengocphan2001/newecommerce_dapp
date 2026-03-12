@@ -339,6 +339,7 @@ export type I18nKey =
   | "totalCommissionCanReceive"
   | "received"
   | "maximum"
+  | "maxCommissionTooltip"
   | "scanToRegister"
   | "loginTitle"
   | "loginSubtitle"
@@ -768,6 +769,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     totalCommissionCanReceive: "Tổng hoa hồng có thể nhận",
     received: "Đã nhận",
     maximum: "Tối đa",
+    maxCommissionTooltip: "Tăng khi bạn mua thêm (theo giá gói)",
     scanToRegister: "Quét để đăng ký",
     loginTitle: "Tương lai của",
     loginSubtitle: "Ví Tiêu Dùng Thông Minh Toàn Cầu",
@@ -1193,6 +1195,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     totalCommissionCanReceive: "Total Commission Can Receive",
     received: "Received",
     maximum: "Maximum",
+    maxCommissionTooltip: "Increases when you purchase more (based on package price)",
     scanToRegister: "Scan to register",
     loginTitle: "The Future of",
     loginSubtitle: "Global Smart Consumption Wallet",
@@ -1618,6 +1621,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     totalCommissionCanReceive: "받을 수 있는 총 커미션",
     received: "받음",
     maximum: "최대",
+    maxCommissionTooltip: "추가 구매 시 증가 (패키지 가격 기준)",
     scanToRegister: "스캔하여 등록",
     loginTitle: "의 미래",
     loginSubtitle: "전세계 스마트 소비 지갑",

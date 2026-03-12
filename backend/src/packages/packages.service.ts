@@ -120,19 +120,18 @@ export class PackagesService implements OnModuleInit {
     }
 
     /**
-     * Threshold hiệu lực theo totalPurchaseAmount: mỗi lần user mua thêm >= giá gói thì threshold cộng thêm một lần.
-     * effectiveThreshold = reconsumptionThreshold × max(1, floor(totalPurchaseAmount / packagePrice))
-     * VD: NPP threshold 400$, giá gói 100$; totalPurchaseAmount 100 → 400; 200 → 800; 350 → 1200.
+     * Hoa hồng tối đa được nhận (effective threshold) = totalPurchase × (maxThreshold / required).
+     * maxThreshold = reconsumptionThreshold của gói, required = giá gói (price).
+     * VD: NPP threshold 800$, giá gói 100$ → ratio 8; totalPurchase 200$ → maxCommission = 200 × 8 = 1600$.
      */
     getEffectiveThreshold(
         totalPurchaseAmount: number,
         pkg: { reconsumptionThreshold: number; price: number },
     ): number {
-        const threshold = Number(pkg.reconsumptionThreshold) || 0;
-        const price = Number(pkg.price) || 1;
+        const maxThreshold = Number(pkg.reconsumptionThreshold) || 0;
+        const required = Number(pkg.price) || 1;
         const total = Number(totalPurchaseAmount) || 0;
-        const multiplier = Math.max(1, Math.floor(total / price));
-        return threshold * multiplier;
+        return total * (maxThreshold / required);
     }
 
     async create(createPackageDto: Partial<Package>): Promise<Package> {

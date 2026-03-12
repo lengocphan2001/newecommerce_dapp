@@ -396,7 +396,7 @@ export class CommissionService {
 
         if (groupStatus === CommissionStatus.PENDING) {
           await this.updateUserCommissionAndCheckThreshold(ancestor, groupCommissionAmount, ancestorConfig);
-          await this.payManagementFromProductGroupEarner(order, ancestor, groupCommission, product, buyerPkg);
+          // Management chỉ trả từ package group (tối đa 3 F1/F2/F3 per order), không trả thêm từ product group
         }
       }
     }
@@ -532,25 +532,24 @@ export class CommissionService {
 
   /**
    * Tính hoa hồng quản lý: chỉ từ hoa hồng nhóm (group).
-   * Chỉ trả cho 3 parent gần nhất (F1, F2, F3) kể từ người nhận group trở lên; mỗi người phải đạt managementMinSales trên cả hai nhánh.
+   * Tối đa 3 management per order (F1, F2, F3). Chỉ lấy MỘT group earner (người nhận group gần buyer nhất) để trả F1/F2/F3.
    */
   private async calculateManagementCommission(
     order: Order,
     buyer: User,
   ): Promise<void> {
-    // Chỉ hoa hồng nhóm (group), không tính từ milestone
     const groupCommissions = await this.commissionRepository.find({
       where: { orderId: order.id, type: CommissionType.GROUP },
     });
 
     if (groupCommissions.length === 0) return;
 
-    for (const sourceCommission of groupCommissions) {
-      const userA = await this.userRepository.findOne({ where: { id: sourceCommission.userId } });
-      if (!userA || !userA.parentId) continue;
+    // Chỉ dùng 1 group earner → tối đa 3 management (F1, F2, F3) cho cả order
+    const sourceCommission = groupCommissions[0];
+    const userA = await this.userRepository.findOne({ where: { id: sourceCommission.userId } });
+    if (!userA || !userA.parentId) return;
 
-      await this.payManagementFromGroupEarner(order, userA, sourceCommission);
-    }
+    await this.payManagementFromGroupEarner(order, userA, sourceCommission);
   }
 
   /**
@@ -570,16 +569,22 @@ export class CommissionService {
       const manager = ancestors[i];
       const level = i + 1; // 1 = F1, 2 = F2, 3 = F3
 
-      const config = await this.getPackageConfig(manager.packageType);
+      // Luôn lấy gói từ DB (không cache) để dùng đúng managementMinSales mới nhất
+      const config = await this.packagesService.findByCode(manager.packageType || '');
       if (!config) continue;
 
-      // Bắt buộc: mỗi nhánh (trái và phải) của manager phải đạt doanh số >= managementMinSales
+      // Bắt buộc: mỗi nhánh (trái và phải) của manager phải đạt doanh số >= managementMinSales (theo gói)
       const minSales = Number(config.managementMinSales ?? 0);
       if (minSales > 0) {
-        const leftTotal = Number(manager.leftBranchTotal ?? 0);
-        const rightTotal = Number(manager.rightBranchTotal ?? 0);
+        // Đọc lại manager từ DB để có left/right branch totals mới nhất
+        const freshManager = await this.userRepository.findOne({
+          where: { id: manager.id },
+          select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
+        });
+        const leftTotal = Number(freshManager?.leftBranchTotal ?? 0);
+        const rightTotal = Number(freshManager?.rightBranchTotal ?? 0);
         if (leftTotal < minSales || rightTotal < minSales) {
-          this.logger.debug(`[MANAGEMENT] Manager ${manager.id} (F${level}) does not meet managementMinSales $${minSales} per branch (left: $${leftTotal}, right: $${rightTotal}), skipping`);
+          this.logger.log(`[MANAGEMENT] Manager ${manager.id} (F${level}) does not meet managementMinSales $${minSales} per branch (left: $${leftTotal}, right: $${rightTotal}), skipping`);
           continue;
         }
       }
@@ -630,13 +635,17 @@ export class CommissionService {
       const manager = ancestors[i];
       const level = i + 1;
 
-      const config = await this.getPackageConfig(manager.packageType);
+      const config = await this.packagesService.findByCode(manager.packageType || '');
       if (!config) continue;
 
       const minSales = Number(config.managementMinSales ?? 0);
       if (minSales > 0) {
-        const leftTotal = Number(manager.leftBranchTotal ?? 0);
-        const rightTotal = Number(manager.rightBranchTotal ?? 0);
+        const freshManager = await this.userRepository.findOne({
+          where: { id: manager.id },
+          select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
+        });
+        const leftTotal = Number(freshManager?.leftBranchTotal ?? 0);
+        const rightTotal = Number(freshManager?.rightBranchTotal ?? 0);
         if (leftTotal < minSales || rightTotal < minSales) continue;
       }
 
@@ -831,42 +840,49 @@ export class CommissionService {
   // --- Missing Read/Admin Methods ---
 
   async getStats(userId: string) {
-    const totalCommission = await this.commissionRepository.sum('amount', {
-      userId,
-      status: CommissionStatus.PAID,
-    });
+    const qb = this.commissionRepository.createQueryBuilder('c');
+    const raw = await qb
+      .select(
+        'COALESCE(SUM(CASE WHEN c.status = :paid THEN c.amount ELSE 0 END), 0)',
+        'totalCommission',
+      )
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN c.status = :pending THEN c.amount ELSE 0 END), 0)',
+        'pendingCommission',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        'direct',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN c.type = 'group' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        'group',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN c.type = 'management' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        'management',
+      )
+      .where('c.userId = :userId', { userId })
+      .setParameters({ paid: CommissionStatus.PAID, pending: CommissionStatus.PENDING })
+      .getRawOne<{
+        totalCommission: string;
+        pendingCommission: string;
+        direct: string;
+        group: string;
+        management: string;
+      }>();
 
-    const pendingCommission = await this.commissionRepository.sum('amount', {
-      userId,
-      status: CommissionStatus.PENDING,
-    });
-
-    const direct = await this.commissionRepository.sum('amount', {
-      userId,
-      type: CommissionType.DIRECT,
-      status: CommissionStatus.PAID,
-    });
-
-    const group = await this.commissionRepository.sum('amount', {
-      userId,
-      type: CommissionType.GROUP,
-      status: CommissionStatus.PAID,
-    });
-
-    const management = await this.commissionRepository.sum('amount', {
-      userId,
-      type: CommissionType.MANAGEMENT,
-      status: CommissionStatus.PAID,
-    });
+    const num = (v: string | null | undefined): number =>
+      v === null || v === undefined ? 0 : parseFloat(String(v)) || 0;
 
     return {
-      totalCommission: this.roundCommission(totalCommission || 0),
-      pendingCommission: this.roundCommission(pendingCommission || 0),
+      totalCommission: this.roundCommission(num(raw?.totalCommission)),
+      pendingCommission: this.roundCommission(num(raw?.pendingCommission)),
       commissions: {
-        direct: this.roundCommission(direct || 0),
-        group: this.roundCommission(group || 0),
-        management: this.roundCommission(management || 0),
-      }
+        direct: this.roundCommission(num(raw?.direct)),
+        group: this.roundCommission(num(raw?.group)),
+        management: this.roundCommission(num(raw?.management)),
+      },
     };
   }
 

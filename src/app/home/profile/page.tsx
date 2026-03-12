@@ -176,11 +176,6 @@ export default function ProfilePage() {
     }
   };
 
-  const calculateReconsumptionCycles = () => {
-    if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
-    return Math.floor(reconsumptionStatus.currentCommission / reconsumptionStatus.threshold);
-  };
-
   const calculateCommissionProgress = () => {
     if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
     const progress = (reconsumptionStatus.currentCommission / reconsumptionStatus.threshold) * 100;
@@ -308,7 +303,14 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Số lần tái tiêu dùng</p>
-                    <p className="text-base font-black text-slate-900">{calculateReconsumptionCycles()} lần</p>
+                    <p className="text-base font-black text-slate-900">
+                      {(() => {
+                        const total = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
+                        const price = Number(reconsumptionStatus?.packageValue) || 0;
+                        if (price <= 0) return "0 lần";
+                        return `${Math.floor(total / price)} lần`;
+                      })()}
+                    </p>
                   </div>
                   <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Đã tái tiêu dùng</p>
