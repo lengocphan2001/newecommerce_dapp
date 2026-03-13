@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/app/components/AppHeader";
 import LanguageSelect from "@/app/components/LanguageSelect";
@@ -56,7 +56,7 @@ export default function HomePage() {
     if (lang === 'vi') return viContent;
     return enContent || viContent;
   };
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
@@ -72,9 +72,33 @@ export default function HomePage() {
   });
   const [addToCartAnimating, setAddToCartAnimating] = useState<string | null>(null);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const productsSectionRef = useRef<HTMLDivElement>(null);
+  const filterChangedOnce = useRef(false);
+  const fetchProductsRef = useRef<() => void>(() => {});
 
-  // Chỉ load products khi filter thay đổi (gồm lần mount) — tránh gọi 2 lần
+  // Lazy-load products when the products section scrolls into view
   useEffect(() => {
+    fetchProductsRef.current = fetchProducts;
+  });
+  useEffect(() => {
+    const el = productsSectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchProductsRef.current();
+      },
+      { rootMargin: "100px", threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // Refetch when user changes country or category (skip initial mount)
+  useEffect(() => {
+    if (!filterChangedOnce.current) {
+      filterChangedOnce.current = true;
+      return;
+    }
     fetchProducts();
   }, [selectedCountry, selectedCategoryId]);
 
@@ -101,7 +125,7 @@ export default function HomePage() {
   const fetchCategories = async () => {
     try {
       const data = await api.getCategories();
-      setCategories(Array.isArray(data) ? data : []);
+      setCategories(Array.isArray(data) ? (data as Category[]) : []);
     } catch (error) {
       console.error('Failed to fetch categories');
     }
@@ -110,7 +134,7 @@ export default function HomePage() {
   const fetchSliders = async () => {
     try {
       const data = await api.getSliders(true);
-      setSliders(Array.isArray(data) ? data : []);
+      setSliders(Array.isArray(data) ? (data as Slider[]) : []);
     } catch (error) {
       console.error('Failed to fetch sliders');
     }
@@ -483,8 +507,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Featured Products Grid */}
-        <div className="px-4 pt-4 pb-8 bg-white">
+        {/* Featured Products Grid — lazy-loaded when this section is in view */}
+        <div ref={productsSectionRef} className="px-4 pt-4 pb-8 bg-white">
           <div className="flex justify-between items-center mb-5">
             <h3 className="text-lg font-bold text-text-dark">{getCountryLabel(selectedCountry)}</h3>
             <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>

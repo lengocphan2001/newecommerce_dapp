@@ -91,12 +91,13 @@ export class GoogleSheetsService {
         return itemStr;
       }).join(', ');
 
+      // Use shipping phone/name from order (set at checkout from selected address) so Google Sheet matches what user entered
       const row = [
         order.id,
         order.userId,
         user?.username || '',
-        user?.fullName || '',
-        user?.phone || '',
+        order.shippingName ?? user?.fullName ?? '',
+        order.shippingPhone ?? user?.phone ?? '',
         order.totalAmount.toString(),
         order.status,
         itemsString,

@@ -23,6 +23,8 @@ interface Order {
     shippingFee?: number;
     status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
     shippingAddress?: string;
+    shippingPhone?: string;
+    shippingName?: string;
     transactionHash?: string;
     createdAt: string;
     updatedAt: string;
@@ -295,6 +297,11 @@ export default function OrderDetailClient() {
                         </div>
                         <div className="flex-1">
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("deliveryAddress")}</p>
+                            {(order.shippingName || order.shippingPhone) && (
+                                <p className="text-slate-900 text-sm font-medium leading-relaxed mb-1">
+                                    {[order.shippingName, order.shippingPhone].filter(Boolean).join(" · ")}
+                                </p>
+                            )}
                             <p className="text-slate-900 text-sm font-medium leading-relaxed">{order.shippingAddress || "N/A"}</p>
                         </div>
                     </div>

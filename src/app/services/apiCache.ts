@@ -11,6 +11,8 @@ const CACHE_TTL_MS = {
   categories: 10 * 60 * 1000,
   /** Sliders: 10 min */
   sliders: 10 * 60 * 1000,
+  /** Products list (keyed by country_categoryId): 10 min */
+  products: 10 * 60 * 1000,
 } as const;
 
 type CacheKey = keyof typeof CACHE_TTL_MS;
@@ -21,6 +23,10 @@ interface Entry<T> {
 }
 
 const store = new Map<CacheKey, Entry<unknown>>();
+
+/** Keyed cache for products: key = "country_categoryId" (e.g. "VIETNAM_all", "USA_xyz") */
+const productsStore = new Map<string, Entry<unknown>>();
+const PRODUCTS_TTL_MS = 10 * 60 * 1000;
 
 function get<T>(key: CacheKey): T | null {
   const entry = store.get(key) as Entry<T> | undefined;
@@ -39,10 +45,30 @@ function set<T>(key: CacheKey, data: T): void {
   });
 }
 
+function getProductsKeyed(key: string): unknown | null {
+  const entry = productsStore.get(key) as Entry<unknown> | undefined;
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    productsStore.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setProductsKeyed(key: string, data: unknown): void {
+  productsStore.set(key, {
+    data,
+    expiresAt: Date.now() + PRODUCTS_TTL_MS,
+  });
+}
+
 /** Clear one key (e.g. after logout so next login gets fresh referralInfo). */
 export function invalidateCache(key?: CacheKey): void {
   if (key) store.delete(key);
-  else store.clear();
+  else {
+    store.clear();
+    productsStore.clear();
+  }
 }
 
 export const apiCache = {
@@ -50,4 +76,7 @@ export const apiCache = {
   set,
   invalidate: invalidateCache,
   TTL: CACHE_TTL_MS,
+  /** Keyed cache for products list (key = "country_categoryId") */
+  getProducts: getProductsKeyed,
+  setProducts: setProductsKeyed,
 };

@@ -66,7 +66,10 @@ export const api = {
     return response.json();
   },
 
-  async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string) {
+  async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string): Promise<unknown> {
+    const cacheKey = `products:${country ?? 'all'}:${categoryId ?? 'all'}`;
+    const cached = apiCache.getProducts(cacheKey);
+    if (cached != null) return cached;
     const params = new URLSearchParams();
     if (country) {
       params.append('country', country);
@@ -81,7 +84,9 @@ export const api = {
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.setProducts(cacheKey, data);
+    return data;
   },
 
   /** Products marked "Featured on home" for the home page image strip */
@@ -93,9 +98,9 @@ export const api = {
     return response.json();
   },
 
-  async getCategories() {
+  async getCategories(): Promise<unknown[]> {
     const cached = apiCache.get('categories');
-    if (cached != null) return cached as Awaited<ReturnType<typeof api.getCategories>>;
+    if (cached != null) return cached as unknown[];
     const response = await fetch(`${API_BASE_URL}/categories`);
     if (!response.ok) {
       throw new Error('Failed to fetch categories');
@@ -105,10 +110,10 @@ export const api = {
     return data;
   },
 
-  async getSliders(activeOnly: boolean = true) {
+  async getSliders(activeOnly: boolean = true): Promise<unknown[]> {
     const cacheKey = 'sliders';
     const cached = apiCache.get(cacheKey);
-    if (cached != null) return cached as Awaited<ReturnType<typeof api.getSliders>>;
+    if (cached != null) return cached as unknown[];
     const url = `${API_BASE_URL}/sliders?activeOnly=${activeOnly}`;
     const response = await fetch(url);
     if (!response.ok) {
@@ -242,19 +247,23 @@ export const api = {
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    paymentMethod?: 'wallet' | 'banking'
+    paymentMethod?: 'wallet' | 'banking',
+    options?: { shippingPhone?: string; shippingName?: string }
   ) {
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
     }
+    const body: Record<string, unknown> = { items, transactionHash, shippingAddress, paymentMethod };
+    if (options?.shippingPhone != null) body.shippingPhone = options.shippingPhone;
+    if (options?.shippingName != null) body.shippingName = options.shippingName;
     const response = await fetch(`${API_BASE_URL}/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ items, transactionHash, shippingAddress, paymentMethod }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       const error = await response.json();

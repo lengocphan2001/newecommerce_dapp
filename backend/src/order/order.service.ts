@@ -133,6 +133,8 @@ export class OrderService {
       status: initialStatus,
       transactionHash: createOrderDto.transactionHash,
       shippingAddress: createOrderDto.shippingAddress,
+      shippingPhone: createOrderDto.shippingPhone,
+      shippingName: createOrderDto.shippingName,
       paymentMethod: createOrderDto.paymentMethod || 'wallet',
     });
 

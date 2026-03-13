@@ -169,7 +169,9 @@ export default function ProductDetailClient() {
       // Fetch related products
       try {
         const allProducts = await api.getProducts();
-        const productsList = Array.isArray(allProducts) ? allProducts : (allProducts?.data || []);
+        const productsList = Array.isArray(allProducts)
+          ? allProducts
+          : ((allProducts as { data?: unknown[] })?.data ?? []);
         // Filter out current product and take max 2
         const related = productsList
           .filter((p: Product) => p.id !== productId)

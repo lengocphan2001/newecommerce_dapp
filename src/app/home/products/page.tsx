@@ -72,7 +72,7 @@ export default function ProductsPage() {
   const fetchCategories = async () => {
     try {
       const data = await api.getCategories();
-      setCategories(Array.isArray(data) ? data : []);
+      setCategories(Array.isArray(data) ? (data as Category[]) : []);
     } catch (error) {
       console.error('Failed to fetch categories');
     }
@@ -84,7 +84,7 @@ export default function ProductsPage() {
       // Get first selected country for API call, or undefined
       const country = selectedCountries.length > 0 ? selectedCountries[0] : undefined;
       const response = await api.getProducts(country, selectedCategoryId || undefined);
-      let filtered = Array.isArray(response) ? response : response.data || [];
+      let filtered = Array.isArray(response) ? response : (response as { data?: unknown[] })?.data ?? [];
 
       // Additional frontend filtering by countries if multiple selected
       if (selectedCountries.length > 0) {

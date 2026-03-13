@@ -28,6 +28,16 @@ export class CreateOrderDto {
   @IsOptional()
   shippingAddress?: string;
 
+  /** Phone number for shipping (e.g. from selected address). Used in Google Sheet. */
+  @IsString()
+  @IsOptional()
+  shippingPhone?: string;
+
+  /** Recipient name for shipping (e.g. from selected address). Used in Google Sheet. */
+  @IsString()
+  @IsOptional()
+  shippingName?: string;
+
   @IsString()
   @IsOptional()
   paymentMethod?: string; // 'wallet' | 'banking'

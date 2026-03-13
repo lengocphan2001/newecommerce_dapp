@@ -72,6 +72,14 @@ export class Order {
   @Column({ type: 'text', nullable: true })
   shippingAddress: string;
 
+  /** Phone number used for this order's shipping (may differ from user profile). */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  shippingPhone: string;
+
+  /** Recipient name used for this order's shipping (may differ from user profile). */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  shippingName: string;
+
   @Column({ nullable: true })
   transactionHash: string; // Hash giao dịch blockchain
 

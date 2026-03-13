@@ -409,7 +409,8 @@ export default function CheckoutPage() {
         })),
         undefined,
         shippingAddress,
-        "banking"
+        "banking",
+        { shippingPhone: checkoutUser?.phone, shippingName: checkoutUser?.fullName }
       );
       setBankingOrderId(orderData.id);
       setProcessingStep("success");
@@ -538,7 +539,9 @@ export default function CheckoutPage() {
           properties: item.properties,
         })),
         undefined, // No transaction hash yet
-        shippingAddress
+        shippingAddress,
+        "wallet",
+        { shippingPhone: checkoutUser?.phone, shippingName: checkoutUser?.fullName }
       );
       orderIdForRedirect = orderData.id;
       console.log("Order created pending:", orderData.id);
