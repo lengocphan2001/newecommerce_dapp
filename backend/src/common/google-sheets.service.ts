@@ -42,7 +42,7 @@ export class GoogleSheetsService {
     try {
       const headers = [
         'Order ID', 'User ID', 'Username', 'Full Name', 'Phone Number', 'Total Amount',
-        'Status', 'Items', 'Shipping Address', 'Transaction Hash',
+        'Status', 'Items', 'Product IDs', 'Shipping Address', 'Transaction Hash',
         'Created At', 'Updated At'
       ];
 
@@ -72,11 +72,14 @@ export class GoogleSheetsService {
         });
       } else if (rows[0].length < headers.length) {
         // Existing sheet has fewer columns (e.g. missing Transaction Hash); ensure header row is complete
-        await this.request('PUT', '/values/Orders!A1:L1?valueInputOption=RAW', {
+        const colLetterH = String.fromCharCode(64 + headers.length);
+        await this.request('PUT', `/values/Orders!A1:${colLetterH}1?valueInputOption=RAW`, {
           values: [headers],
         });
         this.logger.log('Orders sheet header updated to include all columns (e.g. Transaction Hash)');
       }
+
+      const colLetter = String.fromCharCode(64 + headers.length);
 
       // Prepare data row with properties
       const itemsString = order.items.map(item => {
@@ -91,7 +94,11 @@ export class GoogleSheetsService {
         return itemStr;
       }).join(', ');
 
-      // Use shipping phone/name from order (set at checkout from selected address) so Google Sheet matches what user entered
+      const productIdsString = (order.items || [])
+        .map((item: { productId?: string }) => item.productId || '')
+        .filter(Boolean)
+        .join(', ');
+
       const row = [
         order.id,
         order.userId,
@@ -101,6 +108,7 @@ export class GoogleSheetsService {
         order.totalAmount.toString(),
         order.status,
         itemsString,
+        productIdsString,
         order.shippingAddress || '',
         order.transactionHash || '',
         order.createdAt?.toISOString() || new Date().toISOString(),
@@ -110,13 +118,13 @@ export class GoogleSheetsService {
       const rowIndex = rows.findIndex((r: any) => r[0] === order.id);
 
       if (rowIndex !== -1) {
-        const range = `Orders!A${rowIndex + 1}:L${rowIndex + 1}`;
+        const range = `Orders!A${rowIndex + 1}:${colLetter}${rowIndex + 1}`;
         await this.request('PUT', `/values/${range}?valueInputOption=RAW`, {
           values: [row],
         });
         this.logger.log(`Order ${order.id} updated in Google Sheets`);
       } else {
-        await this.request('POST', '/values/Orders!A:L:append?valueInputOption=RAW', {
+        await this.request('POST', `/values/Orders!A:${colLetter}:append?valueInputOption=RAW`, {
           values: [row],
         });
         this.logger.log(`Order ${order.id} appended to Google Sheets`);

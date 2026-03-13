@@ -43,6 +43,12 @@ interface Product {
   salePercentage?: number;
   /** Commission % for referrer when buyer is TV. 0 or empty = not applicable. */
   commissionPercentTV?: number;
+  /** Bật hoa hồng theo sản phẩm (khi true hiển thị Direct NPP). */
+  useProductCommission?: boolean;
+  /** Direct % khi buyer là NPP (dùng khi useProductCommission). */
+  commissionPercentNPP?: number;
+  /** Cấu hình hoa hồng theo gói (NPP.directCommissionRate 0–1). */
+  commissionConfigByPackage?: Record<string, { directCommissionRate?: number }>;
 }
 
 export default function HomePage() {
@@ -624,11 +630,18 @@ export default function HomePage() {
                         </span>
                       </button>
                     </div>
-                    {typeof product.commissionPercentTV === 'number' && product.commissionPercentTV > 0 && (
-                      <p className="text-xs font-semibold text-red-600 mt-2 pt-2 border-t border-gray-100">
-                        {t("commissionRateLabel")} {Number(product.commissionPercentTV).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%
-                      </p>
-                    )}
+                    {(() => {
+                      const useProductCommission = product.useProductCommission === true;
+                      const displayPercent = useProductCommission
+                        ? (typeof product.commissionPercentNPP === 'number' ? product.commissionPercentNPP : (product.commissionConfigByPackage?.NPP?.directCommissionRate != null ? Number(product.commissionConfigByPackage.NPP.directCommissionRate) * 100 : 0))
+                        : (typeof product.commissionPercentTV === 'number' ? product.commissionPercentTV : 0);
+                      if (typeof displayPercent !== 'number' || displayPercent <= 0) return null;
+                      return (
+                        <p className="text-xs font-semibold text-red-600 mt-2 pt-2 border-t border-gray-100">
+                          {t("commissionRateLabel")} {Number(displayPercent).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}

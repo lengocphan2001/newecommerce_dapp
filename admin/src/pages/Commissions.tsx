@@ -222,11 +222,15 @@ const CommissionsPage: React.FC = () => {
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  /** Hiển thị Type; với product thì phân biệt Direct / Group theo notes. */
+  /** Hiển thị Type; với product phân biệt Direct/Group; với management phân biệt Package/Product. */
   const getTypeTag = (type: string, notes?: string | null) => {
     if (type === 'product' && notes) {
       if (notes.startsWith('Product direct')) return <Tag color="green">Product (Direct)</Tag>;
       if (notes.startsWith('Product group')) return <Tag color="lime">Product (Group)</Tag>;
+    }
+    if (type === 'management') {
+      if (notes?.includes('From product group')) return <Tag color="cyan">Management (Product)</Tag>;
+      return <Tag color="geekblue">Management (Package)</Tag>;
     }
     const typeConfig: Record<string, { color: string; text: string }> = {
       direct: { color: 'blue', text: 'Direct' },

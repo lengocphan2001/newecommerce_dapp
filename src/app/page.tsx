@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, getAddress } from "ethers";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { api } from "@/app/services/api";
@@ -20,7 +19,6 @@ const ERC20_ABI = [
   "function decimals() view returns (uint8)",
 ] as const;
 
-// Default: always read USDT BEP-20 on BSC (no wallet network switch needed)
 const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
 const BSC_RPC = "https://bsc-dataseed.binance.org/";
 
@@ -29,20 +27,34 @@ function getEthereum(): Eip1193Provider | undefined {
   return (window as any).ethereum as Eip1193Provider | undefined;
 }
 
+/** Lazy-load ethers only when connecting/fetching balance — giảm bundle initial cho trình duyệt ví (SafePal, Binance). */
+async function fetchUsdtBep20AndStore(walletAddress: string): Promise<string> {
+  const { Contract, JsonRpcProvider, formatUnits, getAddress } = await import("ethers");
+  const bscProvider = new JsonRpcProvider(BSC_RPC);
+  const contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, bscProvider);
+  const [decimals, balance] = await Promise.all([
+    contract.decimals(),
+    contract.balanceOf(getAddress(walletAddress)),
+  ]);
+  const formatted = formatUnits(balance as bigint, Number(decimals));
+  try {
+    localStorage.setItem("usdtBep20Contract", USDT_BSC);
+    localStorage.setItem("usdtBep20Decimals", String(Number(decimals)));
+    localStorage.setItem("usdtBep20Balance", formatted);
+    localStorage.setItem("usdtBep20UpdatedAt", String(Date.now()));
+  } catch {
+    // ignore
+  }
+  return formatted;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { t } = useI18n();
 
-  const ethereum = useMemo(() => getEthereum(), []);
-  const bscProvider = useMemo(() => new JsonRpcProvider(BSC_RPC), []);
-
   const [address, setAddress] = useState<string>("");
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-
-  const isSafePal =
-    typeof window !== "undefined" &&
-    (!!(window as any).ethereum?.isSafePal || navigator.userAgent.toLowerCase().includes("safepal"));
 
   const refreshAddress = useCallback(async () => {
     setError("");
@@ -86,37 +98,16 @@ export default function HomePage() {
     } finally {
       setIsConnecting(false);
     }
-  }, []);
-
-  const fetchUsdtBep20AndStore = useCallback(
-    async (walletAddress: string) => {
-      // Read BEP-20 USDT on BSC via public RPC (no chain switch)
-      const contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, bscProvider);
-      const [decimals, balance] = await Promise.all([
-        contract.decimals(),
-        contract.balanceOf(getAddress(walletAddress)),
-      ]);
-      const formatted = formatUnits(balance as bigint, Number(decimals));
-
-      try {
-        localStorage.setItem("usdtBep20Contract", USDT_BSC);
-        localStorage.setItem("usdtBep20Decimals", String(Number(decimals)));
-        localStorage.setItem("usdtBep20Balance", formatted);
-        localStorage.setItem("usdtBep20UpdatedAt", String(Date.now()));
-      } catch {
-        // ignore
-      }
-      return formatted;
-    },
-    [bscProvider]
-  );
+  }, [t]);
 
   const handleConnectAndLogin = useCallback(async () => {
     setError("");
     setIsConnecting(true);
     try {
       const eth = getEthereum();
-      const injectedProvider = eth ? new BrowserProvider(eth as any) : null;
+      // Lazy-load ethers only when user clicks Connect (giảm thời gian load trang đầu trên ví)
+      const ethers = await import("ethers");
+      const injectedProvider = eth ? new ethers.BrowserProvider(eth as any) : null;
 
       const addr = address || (await connectWallet());
       if (!addr) {
@@ -124,14 +115,12 @@ export default function HomePage() {
         return;
       }
 
-      // Store wallet address in localStorage (for register flow if needed)
       try {
         localStorage.setItem("walletAddress", addr);
       } catch {
         // ignore
       }
 
-      // Store current chainId (for register flow), but still fetch USDT on BSC by default.
       let chainIdHex = "";
       try {
         if (eth) {
@@ -142,56 +131,48 @@ export default function HomePage() {
         // ignore
       }
 
-      // Warm-up: make sure injected provider is alive (helps some in-app browsers)
       try {
         await injectedProvider?.getNetwork();
       } catch {
         // ignore
       }
 
-      // Check if wallet address is already registered
       try {
         const checkResult = await api.checkWallet(addr);
         if (!checkResult.exists) {
-          // User not registered, redirect to register page (wallet info already in localStorage)
           router.push("/register");
           return;
         }
 
-        // User exists, authenticate them to get a token
         try {
           const loginResult = await api.walletLogin(addr);
           if (loginResult.token) {
             localStorage.setItem("token", loginResult.token);
           }
         } catch (loginError: any) {
-          // If login fails, try to continue with existing token if any
           const existingToken = localStorage.getItem("token");
           if (!existingToken) {
-            // No token at all, redirect to register
             router.push("/register");
             return;
           }
         }
       } catch (e: any) {
-        // If check fails, try to use existing token
         const existingToken = localStorage.getItem("token");
         if (!existingToken) {
-          // No token, redirect to register
           router.push("/register");
           return;
         }
       }
 
-      // User exists and has token, continue to home
-      await fetchUsdtBep20AndStore(addr);
+      // Chuyển vào /home ngay, fetch USDT nền sau (trải nghiệm nhanh hơn trên ví)
       router.push("/home");
+      fetchUsdtBep20AndStore(addr).catch(() => {});
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
       setIsConnecting(false);
     }
-  }, [address, connectWallet, fetchUsdtBep20AndStore, router]);
+  }, [address, connectWallet, router]);
 
   useEffect(() => {
     refreshAddress();

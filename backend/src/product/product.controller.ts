@@ -18,7 +18,6 @@ export class ProductController {
   async exportProducts(@Query() query: any, @Res() res: Response) {
     const products = await this.productService.findAll(query);
 
-    // Define the CSV header
     const headers = [
       'ID',
       'Name',
@@ -26,28 +25,61 @@ export class ProductController {
       'Stock',
       'Category',
       'Sold Count',
-      'Created At'
+      'Created At',
+      'Use Product Commission',
+      'Direct % TV', 'Direct % CTV', 'Direct % NPP',
+      'Group % TV', 'Group % CTV', 'Group % NPP',
+      'Group Min Sales ($)',
+      'Management % TV', 'Management % CTV', 'Management % NPP',
+      'Management F1 (%)', 'Management F2 (%)', 'Management F3 (%)',
+      'Management Min Sales ($)',
+      'Reconsumption Threshold ($)', 'Reconsumption Required ($)',
+      'Commission Config By Package (JSON)',
     ];
 
-    // Map products to CSV rows
-    // Explicitly excluding description, imageUrl, and detailImageUrls
-    const rows = products.map(product => [
+    const escapeCsv = (v: any): string => {
+      if (v == null || v === '') return '';
+      const s = String(v);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const rows = products.map((product: any) => [
       product.id,
-      `"${(product.name || '').replace(/"/g, '""')}"`, // escape quotes in name
-      product.price,
-      product.stock,
-      product.category?.name || '',
-      product.soldCount || 0,
-      product.createdAt
+      product.name ?? '',
+      product.price ?? '',
+      product.stock ?? '',
+      product.category?.name ?? '',
+      product.soldCount ?? 0,
+      product.createdAt ?? '',
+      product.useProductCommission ? 'Yes' : 'No',
+      product.commissionPercentTV ?? '',
+      product.commissionPercentCTV ?? '',
+      product.commissionPercentNPP ?? '',
+      product.commissionPercentGroupTV ?? '',
+      product.commissionPercentGroupCTV ?? '',
+      product.commissionPercentGroupNPP ?? '',
+      product.groupCommissionMinSales ?? '',
+      product.commissionPercentManagementTV ?? '',
+      product.commissionPercentManagementCTV ?? '',
+      product.commissionPercentManagementNPP ?? '',
+      product.managementRateF1 ?? '',
+      product.managementRateF2 ?? '',
+      product.managementRateF3 ?? '',
+      product.managementMinSales ?? '',
+      product.reconsumptionThreshold ?? '',
+      product.reconsumptionRequired ?? '',
+      product.commissionConfigByPackage
+        ? JSON.stringify(product.commissionConfigByPackage)
+        : '',
     ]);
 
-    // Build the CSV string
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.join(','))
+      ...rows.map((row: any[]) => row.map((cell: any) => escapeCsv(cell)).join(',')),
     ].join('\n');
 
-    res.header('Content-Type', 'text/csv');
+    res.header('Content-Type', 'text/csv; charset=utf-8');
     res.header('Content-Disposition', 'attachment; filename="products.csv"');
     return res.send(csvContent);
   }

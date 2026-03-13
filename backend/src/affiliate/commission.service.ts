@@ -175,14 +175,30 @@ export class CommissionService {
     }
   }
 
+  /** Đơn có bất kỳ dòng nào bật hoa hồng sản phẩm thì không dùng package (direct/group/management). */
+  private async orderHasAnyProductCommission(order: Order): Promise<boolean> {
+    const items = Array.isArray(order.items) ? order.items : [];
+    for (const item of items) {
+      if (!item?.productId) continue;
+      const product = await this.productRepository.findOne({ where: { id: item.productId }, select: ['id', 'useProductCommission'] });
+      if (product?.useProductCommission === true) return true;
+    }
+    return false;
+  }
+
   /**
-   * Tính hoa hồng trực tiếp (chỉ áp dụng cho dòng đơn dùng hoa hồng theo gói – useProductCommission = false).
-   * Các dòng bật hoa hồng sản phẩm được xử lý trong calculateProductCommission.
+   * Tính hoa hồng trực tiếp (chỉ khi đơn KHÔNG có bất kỳ dòng nào dùng hoa hồng sản phẩm).
+   * Nếu có dòng useProductCommission = true thì bỏ qua package direct/group/management.
    */
   private async calculateDirectCommission(
     order: Order,
     buyer: User,
   ): Promise<void> {
+    if (await this.orderHasAnyProductCommission(order)) {
+      this.logger.debug(`Order ${order.id} has product commission lines, skipping package direct`);
+      return;
+    }
+
     const freshBuyer = await this.userRepository.findOne({
       where: { id: buyer.id },
       select: ['id', 'referralUserId'],
@@ -253,6 +269,7 @@ export class CommissionService {
   }
 
   /** Cấu hình hoa hồng sản phẩm cho một gói: từ commissionConfigByPackage[code] (cùng form Package) hoặc từ các trường phẳng cũ. */
+  /** Config dùng cho hoa hồng sản phẩm (useProductCommission = true). Bao gồm reconsumption để không phụ thuộc Package. */
   private getProductCommissionConfigForPackage(
     product: Product,
     packageCode: string,
@@ -264,6 +281,8 @@ export class CommissionService {
     managementRateF2: number;
     managementRateF3: number;
     managementMinSales: number;
+    reconsumptionThreshold: number;
+    reconsumptionRequired: number;
   } | null {
     const code = (packageCode || '').toUpperCase();
     if (!code || code === 'NONE') return null;
@@ -277,6 +296,8 @@ export class CommissionService {
         managementRateF2: Number(byPkg.managementRateF2 ?? 0),
         managementRateF3: Number(byPkg.managementRateF3 ?? 0),
         managementMinSales: Number(byPkg.managementMinSales ?? 0),
+        reconsumptionThreshold: Number(byPkg.reconsumptionThreshold ?? product.reconsumptionThreshold ?? 0),
+        reconsumptionRequired: Number(byPkg.reconsumptionRequired ?? product.reconsumptionRequired ?? 0),
       };
     }
     const directPct = this.getProductCommissionPercent(product, packageCode);
@@ -290,6 +311,8 @@ export class CommissionService {
       managementRateF2: mgmtPct / 100,
       managementRateF3: mgmtPct / 100,
       managementMinSales: Number(product.managementMinSales ?? 0),
+      reconsumptionThreshold: Number(product.reconsumptionThreshold ?? 0),
+      reconsumptionRequired: Number(product.reconsumptionRequired ?? 0),
     };
   }
 
@@ -347,9 +370,6 @@ export class CommissionService {
       this.logger.debug(`[PRODUCT COMMISSION] Referrer ${referrer.id} has no package, skipping`);
       return;
     }
-    const referrerConfig = await this.getPackageConfig(referrer.packageType);
-    if (!referrerConfig) return;
-    const referrerCanReceive = await this.checkReconsumption(referrer, referrerConfig);
 
     const ancestors = await this.getAncestors(buyer);
     const items = Array.isArray(order.items) ? order.items : [];
@@ -375,8 +395,9 @@ export class CommissionService {
       const itemAmount = Number(item.price) * item.quantity;
       const productNote = (product.name || '').slice(0, 60);
 
-      // --- Product DIRECT: referrer nhận % direct (từ commissionConfigByPackage[referrer.packageType] hoặc % cũ)
+      // --- Product DIRECT: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
       if (directRate > 0) {
+        const referrerCanReceive = await this.checkReconsumptionWithProductConfig(referrer, referrerProductConfig);
         const rawDirect = itemAmount * directRate;
         const commissionAmount = this.roundCommission(rawDirect);
         if (commissionAmount > 0) {
@@ -395,13 +416,13 @@ export class CommissionService {
           });
           await this.commissionRepository.save(directCommission);
 
-          if (directStatus === CommissionStatus.PENDING && referrerConfig) {
-            await this.updateUserCommissionAndCheckThreshold(referrer, commissionAmount, referrerConfig);
+          if (directStatus === CommissionStatus.PENDING && referrerProductConfig) {
+            await this.updateUserCommissionAndCheckThresholdWithProductConfig(referrer, commissionAmount, referrerProductConfig);
           }
         }
       }
 
-      // --- Product GROUP: ancestors (cùng logic cân nhánh), rate từ commissionConfigByPackage[ancestor.packageType] hoặc % cũ
+      // --- Product GROUP: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
       for (const ancestor of ancestors) {
         if (!ancestor.packageType || ancestor.packageType === 'NONE') continue;
         const ancestorProductConfig = this.getProductCommissionConfigForPackage(product, ancestor.packageType);
@@ -413,9 +434,6 @@ export class CommissionService {
         const rawGroup = itemAmount * groupRate;
         const groupCommissionAmount = this.roundCommission(rawGroup);
         if (groupCommissionAmount <= 0) continue;
-
-        const ancestorConfig = await this.getPackageConfig(ancestor.packageType);
-        if (!ancestorConfig) continue;
 
         const hasBothBranches = await this.hasBothBranches(ancestor.id);
         if (!hasBothBranches) continue;
@@ -439,7 +457,7 @@ export class CommissionService {
         if (Number(ancestor.leftBranchTotal) === 0 && Number(ancestor.rightBranchTotal) === 0) continue;
         if (weakSide !== null && buyerSide !== weakSide) continue;
 
-        const ancestorCanReceive = await this.checkReconsumption(ancestor, ancestorConfig);
+        const ancestorCanReceive = await this.checkReconsumptionWithProductConfig(ancestor, ancestorProductConfig);
         const groupStatus = ancestorCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
 
         this.logger.log(`[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`);
@@ -461,8 +479,8 @@ export class CommissionService {
         productGroupAmountByAncestorId.set(ancestor.id, prev + groupCommissionAmount);
         if (!firstProductGroupMeta) firstProductGroupMeta = { product, buyerPkg };
 
-        if (groupStatus === CommissionStatus.PENDING) {
-          await this.updateUserCommissionAndCheckThreshold(ancestor, groupCommissionAmount, ancestorConfig);
+        if (groupStatus === CommissionStatus.PENDING && ancestorProductConfig) {
+          await this.updateUserCommissionAndCheckThresholdWithProductConfig(ancestor, groupCommissionAmount, ancestorProductConfig);
         }
       }
     }
@@ -528,13 +546,17 @@ export class CommissionService {
   }
 
   /**
-   * Tính hoa hồng nhóm (chỉ áp dụng cho dòng đơn dùng hoa hồng theo gói – useProductCommission = false).
-   * Dùng đủ config gói: groupCommissionRate, groupCommissionMinSales (mỗi nhánh đạt tối thiểu mới được nhận).
+   * Tính hoa hồng nhóm package. Bỏ qua hoàn toàn nếu đơn có bất kỳ dòng nào dùng hoa hồng sản phẩm.
    */
   private async calculateGroupCommission(
     order: Order,
     buyer: User,
   ): Promise<void> {
+    if (await this.orderHasAnyProductCommission(order)) {
+      this.logger.debug(`[GROUP COMMISSION] Order ${order.id} has product commission lines, skipping package group`);
+      return;
+    }
+
     const items = Array.isArray(order.items) ? order.items : [];
     let packageOrderValue = 0;
     for (const item of items) {
@@ -758,10 +780,10 @@ export class CommissionService {
       }
       if (rate <= 0) continue;
 
-      const config = await this.packagesService.findByCode(manager.packageType || '');
-      if (!config) continue;
+      // Chỉ dùng config sản phẩm (theo gói của manager), không dùng Package
+      const managerProductConfig = this.getProductCommissionConfigForPackage(product, manager.packageType || '');
 
-      const minSales = productMinSales > 0 ? productMinSales : Number(config.managementMinSales ?? 0);
+      const minSales = productMinSales > 0 ? productMinSales : (managerProductConfig ? managerProductConfig.managementMinSales : 0);
       if (minSales > 0) {
         const freshManager = await this.userRepository.findOne({
           where: { id: manager.id },
@@ -772,7 +794,7 @@ export class CommissionService {
         if (leftTotal < minSales || rightTotal < minSales) continue;
       }
 
-      const canReceiveCommission = await this.checkReconsumption(manager, config);
+      const canReceiveCommission = await this.checkReconsumptionWithProductConfig(manager, managerProductConfig);
       const freshManager = await this.userRepository.findOne({ where: { id: manager.id } });
       if (!freshManager) continue;
 
@@ -784,7 +806,8 @@ export class CommissionService {
         baseAmount,
         rate,
         canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
-        config,
+        null as any,
+        { fromProductGroup: true, productReconsumptionConfig: managerProductConfig },
       );
     }
   }
@@ -820,7 +843,8 @@ export class CommissionService {
     groupCommissionAmount: number,
     rate: number,
     status: CommissionStatus,
-    config: Package
+    config: Package | null,
+    options?: { fromProductGroup?: boolean; productReconsumptionConfig?: { reconsumptionThreshold: number; reconsumptionRequired: number } | null }
   ): Promise<Commission | null> {
     const rawCommissionAmount = groupCommissionAmount * rate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
@@ -831,6 +855,10 @@ export class CommissionService {
     }
 
     const orderValue = this.getOrderValueForCommission(order);
+    const baseNote = options?.fromProductGroup ? 'From product group' : undefined;
+    const blockedNote = status === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : undefined;
+    const notes = [baseNote, blockedNote].filter(Boolean).join('; ') || undefined;
+
     const commission = this.commissionRepository.create({
       userId: manager.id,
       orderId: order.id,
@@ -840,13 +868,17 @@ export class CommissionService {
       amount: commissionAmount,
       orderAmount: orderValue,
       level: level,
-      notes: status === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : undefined,
+      notes,
     });
 
     await this.commissionRepository.save(commission);
 
     if (status === CommissionStatus.PENDING) {
-      await this.updateUserCommissionAndCheckThreshold(manager, commissionAmount, config);
+      if (options?.fromProductGroup && options?.productReconsumptionConfig) {
+        await this.updateUserCommissionAndCheckThresholdWithProductConfig(manager, commissionAmount, options.productReconsumptionConfig);
+      } else if (config) {
+        await this.updateUserCommissionAndCheckThreshold(manager, commissionAmount, config);
+      }
     }
 
     return commission;
@@ -888,6 +920,63 @@ export class CommissionService {
       return true;
     }
     return false;
+  }
+
+  /** Ngưỡng hiệu lực theo config sản phẩm (reconsumptionThreshold / reconsumptionRequired). Dùng khi useProductCommission = true. */
+  private getEffectiveThresholdFromProductConfig(
+    totalPurchaseAmount: number,
+    config: { reconsumptionThreshold: number; reconsumptionRequired: number },
+  ): number {
+    const threshold = Number(config.reconsumptionThreshold) || 0;
+    const required = Number(config.reconsumptionRequired) || 1;
+    const total = Number(totalPurchaseAmount) || 0;
+    return total * (threshold / required);
+  }
+
+  /**
+   * Kiểm tra tái tiêu dùng theo config SẢN PHẨM (không dùng Package). Dùng trong luồng hoa hồng sản phẩm.
+   * Nếu config null hoặc không có ngưỡng → cho nhận (true).
+   */
+  private async checkReconsumptionWithProductConfig(
+    user: User,
+    productConfig: { reconsumptionThreshold: number; reconsumptionRequired: number } | null,
+  ): Promise<boolean> {
+    if (user.packageType === 'NONE') return true;
+    if (!productConfig || (Number(productConfig.reconsumptionThreshold) <= 0 && Number(productConfig.reconsumptionRequired) <= 0)) {
+      return true;
+    }
+    const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
+      Number(user.totalPurchaseAmount),
+      productConfig,
+    );
+    if (Number(user.totalCommissionReceived) < effectiveThreshold) return true;
+    return false;
+  }
+
+  /**
+   * Cộng dồn hoa hồng và kiểm tra threshold theo config SẢN PHẨM (không dùng Package). Dùng trong luồng hoa hồng sản phẩm.
+   */
+  private async updateUserCommissionAndCheckThresholdWithProductConfig(
+    user: User,
+    amount: number,
+    productConfig: { reconsumptionThreshold: number; reconsumptionRequired: number } | null,
+  ): Promise<void> {
+    await this.userRepository.increment({ id: user.id }, 'totalCommissionReceived', amount);
+    if (!productConfig || (Number(productConfig.reconsumptionThreshold) <= 0 && Number(productConfig.reconsumptionRequired) <= 0)) {
+      return;
+    }
+    const updatedUser = await this.userRepository.findOne({ where: { id: user.id } });
+    if (updatedUser) {
+      const newTotalCommission = Number(updatedUser.totalCommissionReceived);
+      const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
+        Number(updatedUser.totalPurchaseAmount),
+        productConfig,
+      );
+      if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
+        await this.userRepository.update(user.id, { packageType: 'NONE' });
+        this.logger.log(`User ${user.id} reached product-config effective threshold ${effectiveThreshold}, packageType set to NONE`);
+      }
+    }
   }
 
   /**

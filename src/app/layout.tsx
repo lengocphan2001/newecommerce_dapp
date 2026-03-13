@@ -4,20 +4,24 @@ import "./globals.css";
 import { I18nProvider } from "@/app/i18n/I18nProvider";
 import { ShoppingCartProvider } from "@/app/contexts/ShoppingCartContext";
 
+// display: swap để không chặn render trên trình duyệt ví (SafePal, Binance)
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const workSans = Work_Sans({
   variable: "--font-display",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

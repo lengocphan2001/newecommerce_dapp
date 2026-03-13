@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Chỉ bật static export khi build production
-  // Trong development, tắt để hỗ trợ dynamic routes
   ...(process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_STATIC_EXPORT === 'true'
     ? {
         output: 'export',
@@ -12,7 +11,10 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  /* config options here */
+  // Giảm bundle size cho trình duyệt ví (SafePal, Binance): tree-shake ethers khi chỉ import một phần
+  experimental: {
+    optimizePackageImports: ['ethers'],
+  },
 };
 
 export default nextConfig;

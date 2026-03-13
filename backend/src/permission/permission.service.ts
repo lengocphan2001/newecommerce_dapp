@@ -76,9 +76,41 @@ export class PermissionService {
       { code: 'sliders.update', name: 'Update Sliders', module: 'sliders', description: 'Update existing sliders' },
       { code: 'sliders.delete', name: 'Delete Sliders', module: 'sliders', description: 'Delete sliders' },
       
-      // Commission Config
+      // Packages
+      { code: 'packages.view', name: 'View Packages', module: 'packages', description: 'View packages list' },
+      { code: 'packages.create', name: 'Create Packages', module: 'packages', description: 'Create new packages' },
+      { code: 'packages.update', name: 'Update Packages', module: 'packages', description: 'Update existing packages' },
+      { code: 'packages.delete', name: 'Delete Packages', module: 'packages', description: 'Delete packages' },
+      
+      // KYC
+      { code: 'kyc.view', name: 'View KYC', module: 'kyc', description: 'View KYC verification list' },
+      { code: 'kyc.update', name: 'Update KYC', module: 'kyc', description: 'Approve or reject KYC' },
+      
+      // Wallet
+      { code: 'wallet.view', name: 'View Wallet', module: 'wallet', description: 'View wallet and transactions' },
+      { code: 'wallet.update', name: 'Update Wallet', module: 'wallet', description: 'Manage wallet balance' },
+      
+      // Affiliate
+      { code: 'affiliate.view', name: 'View Affiliate', module: 'affiliate', description: 'View affiliate network and referrals' },
+      { code: 'affiliate.update', name: 'Update Affiliate', module: 'affiliate', description: 'Manage affiliate settings' },
+      
+      // Commissions (list & payout)
+      { code: 'commissions.view', name: 'View Commissions', module: 'commissions', description: 'View commissions list' },
+      { code: 'commissions.payout', name: 'Commission Payout', module: 'commissions', description: 'Process commission payout' },
+      
+      // Commission Config (legacy / config page)
       { code: 'commission.view', name: 'View Commission Config', module: 'commission', description: 'View commission configuration' },
       { code: 'commission.update', name: 'Update Commission Config', module: 'commission', description: 'Update commission configuration' },
+      
+      // Milestone Reward
+      { code: 'milestone-reward.view', name: 'View Milestone Reward', module: 'milestone-reward', description: 'View milestone rewards' },
+      { code: 'milestone-reward.update', name: 'Update Milestone Reward', module: 'milestone-reward', description: 'Manage milestone rewards' },
+      
+      // Audit Log
+      { code: 'audit-log.view', name: 'View Audit Log', module: 'audit-log', description: 'View audit log' },
+      
+      // Tree View
+      { code: 'tree.view', name: 'View Tree', module: 'tree', description: 'View affiliate tree / binary tree' },
     ];
 
     for (const perm of permissions) {
