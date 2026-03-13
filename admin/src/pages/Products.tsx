@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Table,
   Button,
@@ -15,17 +15,17 @@ import {
   Select,
   Switch,
   Tabs,
+  Card,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
+import { packagesService, Package } from '../services/packagesService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
 const availableTags = ['SALE', 'COMING_SOON', 'HOT', 'NEW', 'SOLD_OUT'];
-
-/** Nhãn gói dùng cho % hoa hồng sản phẩm theo gói người mua */
-const PACKAGE_LABELS: Record<string, string> = { TV: 'Thành Viên (TV)', CTV: 'Cộng tác viên (CTV)', NPP: 'Nhà phân phối (NPP)' };
+const { Title } = Typography;
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,11 +38,25 @@ const Products: React.FC = () => {
   const [detailFileList, setDetailFileList] = useState<UploadFile[]>([]);
   const [currentDetailImageUrls, setCurrentDetailImageUrls] = useState<string[]>([]);
   const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState<string | undefined>(undefined);
+  const [packages, setPackages] = useState<Package[]>([]);
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
   }, []);
+
+  const fetchPackages = useCallback(async () => {
+    try {
+      const data = await packagesService.getAll();
+      setPackages(data || []);
+    } catch {
+      setPackages([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPackages();
+  }, [fetchPackages]);
 
   const fetchCategories = async () => {
     try {
@@ -94,7 +108,26 @@ const Products: React.FC = () => {
   const handleCreate = () => {
     setEditingProduct(null);
     form.resetFields();
-    form.setFieldsValue({ description: '', descriptionEn: '', useProductCommission: false });
+    const defaultCommissionByPackage: Record<string, Record<string, number | null>> = {};
+    packages.forEach((p) => {
+      defaultCommissionByPackage[p.code] = {
+        directCommissionRate: (p.directCommissionRate ?? 0) * 100,
+        groupCommissionRate: (p.groupCommissionRate ?? 0) * 100,
+        groupCommissionMinSales: p.groupCommissionMinSales ?? 0,
+        managementRateF1: (p.managementRateF1 ?? 0) * 100,
+        managementRateF2: p.managementRateF2 != null ? p.managementRateF2 * 100 : null,
+        managementRateF3: p.managementRateF3 != null ? p.managementRateF3 * 100 : null,
+        managementMinSales: p.managementMinSales ?? 0,
+        reconsumptionThreshold: p.reconsumptionThreshold ?? 0,
+        reconsumptionRequired: p.reconsumptionRequired ?? 0,
+      };
+    });
+    form.setFieldsValue({
+      description: '',
+      descriptionEn: '',
+      useProductCommission: false,
+      ...(Object.keys(defaultCommissionByPackage).length ? { commissionConfigByPackage: defaultCommissionByPackage } : {}),
+    });
     setThumbnailFileList([]);
     setThumbnailFileList([]);
     setDetailFileList([]);
@@ -125,6 +158,51 @@ const Products: React.FC = () => {
       commissionPercentManagementNPP: product.commissionPercentManagementNPP ?? undefined,
       useProductCommission: product.useProductCommission === true,
       featuredOnHome: product.featuredOnHome ?? false,
+      groupCommissionMinSales: product.groupCommissionMinSales ?? undefined,
+      managementRateF1: product.managementRateF1 ?? undefined,
+      managementRateF2: product.managementRateF2 ?? undefined,
+      managementRateF3: product.managementRateF3 ?? undefined,
+      managementMinSales: product.managementMinSales ?? undefined,
+      reconsumptionThreshold: product.reconsumptionThreshold ?? undefined,
+      reconsumptionRequired: product.reconsumptionRequired ?? undefined,
+      commissionConfigByPackage: (() => {
+        const raw = product.commissionConfigByPackage;
+        const out: Record<string, Record<string, number | null>> = {};
+        const push = (code: string, c: any) => {
+          out[code] = {
+            directCommissionRate: c?.directCommissionRate != null ? Number(c.directCommissionRate) * 100 : 0,
+            groupCommissionRate: c?.groupCommissionRate != null ? Number(c.groupCommissionRate) * 100 : 0,
+            groupCommissionMinSales: c?.groupCommissionMinSales ?? 0,
+            managementRateF1: c?.managementRateF1 != null ? Number(c.managementRateF1) * 100 : 0,
+            managementRateF2: c?.managementRateF2 != null ? Number(c.managementRateF2) * 100 : null,
+            managementRateF3: c?.managementRateF3 != null ? Number(c.managementRateF3) * 100 : null,
+            managementMinSales: c?.managementMinSales ?? 0,
+            reconsumptionThreshold: c?.reconsumptionThreshold ?? 0,
+            reconsumptionRequired: c?.reconsumptionRequired ?? 0,
+          };
+        };
+        if (raw && typeof raw === 'object') {
+          for (const [code, c] of Object.entries(raw)) {
+            if (c && typeof c === 'object') push(code, c);
+          }
+        }
+        packages.forEach((p) => {
+          if (!out[p.code]) {
+            out[p.code] = {
+              directCommissionRate: (p.directCommissionRate ?? 0) * 100,
+              groupCommissionRate: (p.groupCommissionRate ?? 0) * 100,
+              groupCommissionMinSales: p.groupCommissionMinSales ?? 0,
+              managementRateF1: (p.managementRateF1 ?? 0) * 100,
+              managementRateF2: p.managementRateF2 != null ? p.managementRateF2 * 100 : null,
+              managementRateF3: p.managementRateF3 != null ? p.managementRateF3 * 100 : null,
+              managementMinSales: p.managementMinSales ?? 0,
+              reconsumptionThreshold: p.reconsumptionThreshold ?? 0,
+              reconsumptionRequired: p.reconsumptionRequired ?? 0,
+            };
+          }
+        });
+        return Object.keys(out).length ? out : undefined;
+      })(),
     });
     setThumbnailFileList([]);
     setDetailFileList([]);
@@ -186,11 +264,43 @@ const Products: React.FC = () => {
         thumbnailUrl = undefined;
       }
 
-      // Only include image fields if they have valid values
+      // Convert commissionConfigByPackage: form stores rates 0–100, API expects 0–1 (giống package)
+      let commissionConfigByPackage = values.commissionConfigByPackage;
+      if (commissionConfigByPackage && typeof commissionConfigByPackage === 'object') {
+        const converted: Record<string, any> = {};
+        type ConfigEntry = {
+          directCommissionRate?: number;
+          groupCommissionRate?: number;
+          groupCommissionMinSales?: number;
+          managementRateF1?: number;
+          managementRateF2?: number | null;
+          managementRateF3?: number | null;
+          managementMinSales?: number;
+          reconsumptionThreshold?: number;
+          reconsumptionRequired?: number;
+        };
+        for (const [code, c] of Object.entries(commissionConfigByPackage) as [string, ConfigEntry][]) {
+          if (!c || typeof c !== 'object') continue;
+          converted[code] = {
+            directCommissionRate: c.directCommissionRate != null ? Number(c.directCommissionRate) / 100 : 0,
+            groupCommissionRate: c.groupCommissionRate != null ? Number(c.groupCommissionRate) / 100 : 0,
+            groupCommissionMinSales: c.groupCommissionMinSales ?? 0,
+            managementRateF1: c.managementRateF1 != null ? Number(c.managementRateF1) / 100 : 0,
+            managementRateF2: c.managementRateF2 != null ? Number(c.managementRateF2) / 100 : null,
+            managementRateF3: c.managementRateF3 != null ? Number(c.managementRateF3) / 100 : null,
+            managementMinSales: c.managementMinSales ?? 0,
+            reconsumptionThreshold: c.reconsumptionThreshold ?? 0,
+            reconsumptionRequired: c.reconsumptionRequired ?? 0,
+          };
+        }
+        commissionConfigByPackage = Object.keys(converted).length ? converted : undefined;
+      }
+
       const payload: any = {
         ...values,
-        thumbnailUrl: thumbnailUrl || null, // Allow explicit removal in backend if null is handled, or just don't send if empty
+        thumbnailUrl: thumbnailUrl || null,
         detailImageUrls: detailImageUrls,
+        ...(commissionConfigByPackage !== undefined ? { commissionConfigByPackage } : {}),
       };
 
       if (editingProduct) {
@@ -626,7 +736,7 @@ const Products: React.FC = () => {
                         name="useProductCommission"
                         label="Loại hoa hồng"
                         valuePropName="checked"
-                        tooltip="Bật = hoa hồng theo % sản phẩm (Direct/Group/Management bên dưới). Tắt = chỉ dùng hoa hồng theo gói (package) của đơn hàng."
+                        tooltip="Bật = hoa hồng theo cấu hình từng gói bên dưới (form giống Edit Package). Tắt = dùng hoa hồng theo gói của đơn hàng."
                         style={{ marginBottom: 16 }}
                       >
                         <Switch
@@ -638,43 +748,57 @@ const Products: React.FC = () => {
                         {({ getFieldValue }) =>
                           getFieldValue('useProductCommission') === false ? (
                             <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                              Sản phẩm này dùng hoa hồng theo gói (package): direct/group/management tính theo đơn hàng và gói của người mua, không dùng % theo sản phẩm. Các ô % bên dưới không áp dụng.
+                              Sản phẩm này dùng hoa hồng theo gói (package): direct/group/management tính theo đơn hàng và gói của người mua. Các cấu hình bên dưới không áp dụng.
                             </Typography.Text>
                           ) : (
                             <>
                               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                                % theo gói người mua (TV/CTV/NPP), tính trên giá trị dòng sản phẩm. Direct: referrer; Group: ancestors cân nhánh; Management: F1/F2/F3 của người nhận product group.
+                                Cấu hình hoa hồng theo từng gói – cùng form như trang Package. Chỉ chỉnh các gói có trong hệ thống.
                               </Typography.Text>
-                              <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>Direct (%)</Typography.Text>
-                              <Form.Item name="commissionPercentTV" label={PACKAGE_LABELS.TV} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Form.Item name="commissionPercentCTV" label={PACKAGE_LABELS.CTV} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Form.Item name="commissionPercentNPP" label={PACKAGE_LABELS.NPP} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Typography.Text strong style={{ display: 'block', marginTop: 16, marginBottom: 8 }}>Group (%)</Typography.Text>
-                              <Form.Item name="commissionPercentGroupTV" label={PACKAGE_LABELS.TV} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Form.Item name="commissionPercentGroupCTV" label={PACKAGE_LABELS.CTV} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Form.Item name="commissionPercentGroupNPP" label={PACKAGE_LABELS.NPP} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Typography.Text strong style={{ display: 'block', marginTop: 16, marginBottom: 8 }}>Management (%)</Typography.Text>
-                              <Form.Item name="commissionPercentManagementTV" label={PACKAGE_LABELS.TV} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Form.Item name="commissionPercentManagementCTV" label={PACKAGE_LABELS.CTV} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
-                              <Form.Item name="commissionPercentManagementNPP" label={PACKAGE_LABELS.NPP} rules={[{ type: 'number', min: 0, max: 100 }]} style={{ maxWidth: 200 }}>
-                                <InputNumber style={{ width: '100%' }} min={0} max={100} step={0.5} placeholder="0" />
-                              </Form.Item>
+                              {packages.length === 0 ? (
+                                <Typography.Text type="secondary">Chưa có gói nào. Vào trang Package để tạo gói (TV, CTV, NPP...).</Typography.Text>
+                              ) : (
+                                packages.map((pkg) => (
+                                  <Card key={pkg.id} title={`${pkg.name} (${pkg.code})`} size="small" style={{ marginBottom: 16 }}>
+                                    <Title level={5} style={{ marginTop: 0 }}>Commission Rates (%)</Title>
+                                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'directCommissionRate']} label="Direct (%)" style={{ flex: 1, minWidth: 120 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="0" />
+                                      </Form.Item>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'groupCommissionRate']} label="Group (%)" style={{ flex: 1, minWidth: 120 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="0" />
+                                      </Form.Item>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'groupCommissionMinSales']} label="Min Branch Sales ($)" tooltip="Minimum cumulative sales required on EACH branch before group commission is paid" style={{ flex: 1, minWidth: 160 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} step={100} precision={2} placeholder="0" />
+                                      </Form.Item>
+                                    </div>
+                                    <Title level={5} style={{ marginTop: 16 }}>Management Commission (%)</Title>
+                                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'managementRateF1']} label="F1 (%)" style={{ flex: 1, minWidth: 100 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="0" />
+                                      </Form.Item>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'managementRateF2']} label="F2 (%)" style={{ flex: 1, minWidth: 100 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="0" />
+                                      </Form.Item>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'managementRateF3']} label="F3 (%)" style={{ flex: 1, minWidth: 100 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="0" />
+                                      </Form.Item>
+                                    </div>
+                                    <Form.Item name={['commissionConfigByPackage', pkg.code, 'managementMinSales']} label="Management Min Sales ($)" tooltip="Mỗi nhánh (trái và phải) của F1/F2/F3 phải đạt doanh số tối thiểu này. 0 = không yêu cầu." style={{ maxWidth: 280 }}>
+                                      <InputNumber style={{ width: '100%' }} min={0} step={100} precision={2} placeholder="0" />
+                                    </Form.Item>
+                                    <Title level={5} style={{ marginTop: 16 }}>Reconsumption</Title>
+                                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'reconsumptionThreshold']} label="Threshold ($)" tooltip="Max commission before reset/re-purchase" style={{ flex: 1, minWidth: 140 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0" />
+                                      </Form.Item>
+                                      <Form.Item name={['commissionConfigByPackage', pkg.code, 'reconsumptionRequired']} label="Required Amount ($)" tooltip="Amount needed to purchase to restore package" style={{ flex: 1, minWidth: 140 }}>
+                                        <InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} placeholder="0" />
+                                      </Form.Item>
+                                    </div>
+                                  </Card>
+                                ))
+                              )}
                             </>
                           )
                         }

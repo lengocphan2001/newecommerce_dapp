@@ -220,6 +220,91 @@ export class Product {
   })
   commissionPercentManagementNPP?: number;
 
+  /** Giống package: Min doanh số mỗi nhánh ($) để được nhận hoa hồng nhóm. 0 = không yêu cầu. */
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  groupCommissionMinSales?: number;
+
+  /** Giống package: % hoa hồng quản lý F1 (0–100). Nếu set thì dùng thay cho commissionPercentManagement* theo gói. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  managementRateF1?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  managementRateF2?: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  managementRateF3?: number;
+
+  /** Giống package: doanh số tối thiểu mỗi nhánh ($) để F1/F2/F3 nhận hoa hồng quản lý. 0 = không yêu cầu. */
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  managementMinSales?: number;
+
+  /** Giống package: ngưỡng hoa hồng tối đa ($) trước khi yêu cầu tái tiêu dùng. */
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  reconsumptionThreshold?: number;
+
+  /** Giống package: số tiền mua thêm ($) để khôi phục sau khi đạt ngưỡng. */
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  reconsumptionRequired?: number;
+
+  /**
+   * Cấu hình hoa hồng theo từng gói (code) – cùng cấu trúc form như Package.
+   * Key = package code (TV, CTV, NPP). Value = { directCommissionRate (0–1), groupCommissionRate, groupCommissionMinSales, managementRateF1/F2/F3, managementMinSales, reconsumptionThreshold, reconsumptionRequired }.
+   */
+  @Column({ type: 'simple-json', nullable: true })
+  commissionConfigByPackage?: Record<string, {
+    directCommissionRate?: number;
+    groupCommissionRate?: number;
+    groupCommissionMinSales?: number;
+    managementRateF1?: number;
+    managementRateF2?: number | null;
+    managementRateF3?: number | null;
+    managementMinSales?: number;
+    reconsumptionThreshold?: number;
+    reconsumptionRequired?: number;
+  }>;
+
   @CreateDateColumn()
   createdAt: Date;
 

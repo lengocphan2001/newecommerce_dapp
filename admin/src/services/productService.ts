@@ -43,6 +43,26 @@ export interface Product {
   commissionPercentManagementTV?: number;
   commissionPercentManagementCTV?: number;
   commissionPercentManagementNPP?: number;
+  /** Giống package */
+  groupCommissionMinSales?: number;
+  managementRateF1?: number;
+  managementRateF2?: number;
+  managementRateF3?: number;
+  managementMinSales?: number;
+  reconsumptionThreshold?: number;
+  reconsumptionRequired?: number;
+  /** Cấu hình hoa hồng theo từng gói (code) – cùng cấu trúc như Package. Rates trong DB là 0–1. */
+  commissionConfigByPackage?: Record<string, {
+    directCommissionRate?: number;
+    groupCommissionRate?: number;
+    groupCommissionMinSales?: number;
+    managementRateF1?: number;
+    managementRateF2?: number | null;
+    managementRateF3?: number | null;
+    managementMinSales?: number;
+    reconsumptionThreshold?: number;
+    reconsumptionRequired?: number;
+  }>;
 }
 
 export const productService = {

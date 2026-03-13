@@ -21,6 +21,15 @@ function getPayoutAmountAfterFee(grossAmount: number): string {
   return Number(netAmount.toFixed(18)).toFixed(18);
 }
 
+/**
+ * Commission được trả ngay (không cần đạt ngưỡng): Direct từ package HOẶC Product direct (type=PRODUCT, notes bắt đầu "Product direct").
+ */
+function isPayImmediately(commission: Commission): boolean {
+  if (commission.type === CommissionType.DIRECT) return true;
+  if (commission.type === CommissionType.PRODUCT && commission.notes?.startsWith('Product direct')) return true;
+  return false;
+}
+
 @Injectable()
 export class CommissionPayoutService {
   private readonly logger = new Logger(CommissionPayoutService.name);
@@ -484,10 +493,10 @@ export class CommissionPayoutService {
 
     if (pendingCommissions.length === 0) return;
 
-    const directPending = pendingCommissions.filter((c) => c.type === CommissionType.DIRECT);
-    const nonDirectPending = pendingCommissions.filter((c) => c.type !== CommissionType.DIRECT);
+    const directPending = pendingCommissions.filter((c) => isPayImmediately(c));
+    const nonDirectPending = pendingCommissions.filter((c) => !isPayImmediately(c));
 
-    // 1) Pay all DIRECT immediately (no threshold)
+    // 1) Pay all direct (package DIRECT + product direct) immediately (no threshold)
     if (directPending.length > 0) {
       const valid = directPending.filter((c) => c.user?.walletAddress);
       if (valid.length > 0) {
@@ -564,8 +573,8 @@ export class CommissionPayoutService {
     const minThreshold = await this.adminService.getMinPayoutThreshold();
     this.logger.log(`[PAYOUT] Min payout threshold (for group/other): $${minThreshold}`);
 
-    // 1) Pay DIRECT commissions from this order immediately (no accumulation)
-    const directCommissions = orderCommissions.filter((c) => c.type === CommissionType.DIRECT);
+    // 1) Pay direct commissions (package DIRECT + product direct) from this order immediately (no accumulation)
+    const directCommissions = orderCommissions.filter((c) => isPayImmediately(c));
     if (directCommissions.length > 0) {
       const byUser = new Map<string, { user: User; commissions: Commission[]; totalAmount: number }>();
       for (const c of directCommissions) {

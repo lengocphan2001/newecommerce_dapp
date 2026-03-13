@@ -222,7 +222,12 @@ const CommissionsPage: React.FC = () => {
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  const getTypeTag = (type: string) => {
+  /** Hiển thị Type; với product thì phân biệt Direct / Group theo notes. */
+  const getTypeTag = (type: string, notes?: string | null) => {
+    if (type === 'product' && notes) {
+      if (notes.startsWith('Product direct')) return <Tag color="green">Product (Direct)</Tag>;
+      if (notes.startsWith('Product group')) return <Tag color="lime">Product (Group)</Tag>;
+    }
     const typeConfig: Record<string, { color: string; text: string }> = {
       direct: { color: 'blue', text: 'Direct' },
       group: { color: 'purple', text: 'Group' },
@@ -268,8 +273,8 @@ const CommissionsPage: React.FC = () => {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
-      width: 120,
-      render: (type: string) => getTypeTag(type),
+      width: 140,
+      render: (type: string, record: Commission) => getTypeTag(type, record.notes),
     },
     {
       title: 'Amount',
@@ -478,7 +483,7 @@ const CommissionsPage: React.FC = () => {
               <Descriptions.Item label="Referral ID" span={2}>
                 <span style={{ fontFamily: 'monospace' }}>{selectedCommission.userId || '-'}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Type">{getTypeTag(selectedCommission.type)}</Descriptions.Item>
+              <Descriptions.Item label="Type">{getTypeTag(selectedCommission.type, selectedCommission.notes)}</Descriptions.Item>
               <Descriptions.Item label="Status">{getStatusTag(selectedCommission.status)}</Descriptions.Item>
               <Descriptions.Item label="Amount">
                 <span style={{ fontWeight: 'bold', color: '#1890ff', fontSize: '18px' }}>

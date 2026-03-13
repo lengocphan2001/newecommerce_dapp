@@ -9,6 +9,7 @@ import {
   IsUUID,
   Max,
   IsBoolean,
+  IsObject,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -178,5 +179,57 @@ export class UpdateProductDto {
   @Min(0)
   @Max(100)
   commissionPercentManagementNPP?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  groupCommissionMinSales?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  managementRateF1?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  managementRateF2?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  managementRateF3?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  managementMinSales?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  reconsumptionThreshold?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  reconsumptionRequired?: number;
+
+  @IsOptional()
+  @IsObject()
+  commissionConfigByPackage?: Record<string, {
+    directCommissionRate?: number;
+    groupCommissionRate?: number;
+    groupCommissionMinSales?: number;
+    managementRateF1?: number;
+    managementRateF2?: number | null;
+    managementRateF3?: number | null;
+    managementMinSales?: number;
+    reconsumptionThreshold?: number;
+    reconsumptionRequired?: number;
+  }>;
 }
 
