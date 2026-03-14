@@ -438,18 +438,7 @@ export class CommissionService {
         const hasBothBranches = await this.hasBothBranches(ancestor.id);
         if (!hasBothBranches) continue;
 
-        const productMinBranchSales = ancestorProductConfig
-          ? ancestorProductConfig.groupCommissionMinSales
-          : Number(product.groupCommissionMinSales ?? 0);
-        if (productMinBranchSales > 0) {
-          const freshAncestor = await this.userRepository.findOne({
-            where: { id: ancestor.id },
-            select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
-          });
-          const leftTotal = Number(freshAncestor?.leftBranchTotal ?? 0);
-          const rightTotal = Number(freshAncestor?.rightBranchTotal ?? 0);
-          if (leftTotal < productMinBranchSales || rightTotal < productMinBranchSales) continue;
-        }
+        // Min branch sales chỉ áp dụng cho hoa hồng quản lý (management), không áp dụng cho hoa hồng cân nhánh (product group).
 
         const buyerSide = await this.getBuyerSide(buyer, ancestor);
         const weakSide = await this.getWeakSide(ancestor.id);
@@ -589,19 +578,7 @@ export class CommissionService {
         continue;
       }
 
-      const minBranchSales = Number(config.groupCommissionMinSales ?? 0);
-      if (minBranchSales > 0) {
-        const freshAncestor = await this.userRepository.findOne({
-          where: { id: ancestor.id },
-          select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
-        });
-        const leftTotal = Number(freshAncestor?.leftBranchTotal ?? 0);
-        const rightTotal = Number(freshAncestor?.rightBranchTotal ?? 0);
-        if (leftTotal < minBranchSales || rightTotal < minBranchSales) {
-          this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} does not meet groupCommissionMinSales $${minBranchSales} (left: $${leftTotal}, right: $${rightTotal}), skipping`);
-          continue;
-        }
-      }
+      // Min branch sales chỉ áp dụng cho hoa hồng quản lý (management), không áp dụng cho hoa hồng cân nhánh (group).
 
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
       const weakSide = await this.getWeakSide(ancestor.id);

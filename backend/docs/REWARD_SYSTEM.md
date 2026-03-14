@@ -17,9 +17,9 @@
 |------|--------|
 | 1 | **Hoa hồng trực tiếp (direct):** Người giới thiệu (referrer) nhận % theo gói (`directCommissionRate`) trên `order.totalAmount`. Bị **BLOCKED** nếu đã đạt ngưỡng hoa hồng mà chưa tái tiêu dùng. |
 | 1b | **Hoa hồng sản phẩm (product):** Theo % TV/CTV/NPP của từng sản phẩm, cho referrer. Cũng kiểm tra tái tiêu dùng. |
-| 2 | **Hoa hồng nhóm (group):** Cây nhị phân (binary). Mỗi ancestor có đủ 2 nhánh trái/phải và đạt doanh số tối thiểu mỗi nhánh mới được tính. Chỉ trả khi đơn nằm ở **nhánh yếu** (hoặc 2 nhánh bằng nhau). Bị BLOCKED nếu chưa tái tiêu dùng. |
+| 2 | **Hoa hồng nhóm (group / cân nhánh):** Cây nhị phân (binary). Mỗi ancestor có đủ 2 nhánh trái/phải (có người cả hai bên) mới được tính. **Không** yêu cầu min branch sales (min branch sales chỉ áp dụng cho hoa hồng quản lý). Chỉ trả khi đơn nằm ở **nhánh yếu** (hoặc 2 nhánh bằng nhau). Bị BLOCKED nếu chưa tái tiêu dùng. |
 | 3 | **Cập nhật volume:** Cộng `order.totalAmount` vào `leftBranchTotal` hoặc `rightBranchTotal` của tất cả ancestor (theo nhánh của buyer). |
-| 4 | **Hoa hồng quản lý (management):** F1/F2/F3 nhận % trên hoa hồng nhóm của cấp dưới. Cũng kiểm tra tái tiêu dùng. |
+| 4 | **Hoa hồng quản lý (management):** F1/F2/F3 nhận % trên hoa hồng nhóm của cấp dưới. **Yêu cầu:** mỗi nhánh (trái và phải) của F1/F2/F3 phải đạt doanh số ≥ managementMinSales (theo gói). Cũng kiểm tra tái tiêu dùng. |
 
 ---
 
