@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useI18n();
-  // Optimistic: highlight tab ngay khi tap, không đợi route xong
   const [pressedHref, setPressedHref] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,6 +32,14 @@ export default function BottomNav() {
     });
   };
 
+  const handleNavigate = (href: string) => {
+    const normalizedPathname = pathname.replace(/\/$/, "") || "/";
+    const normalizedHref = href.replace(/\/$/, "") || "/";
+    if (normalizedPathname === normalizedHref) return;
+    setPressedHref(href);
+    router.push(href);
+  };
+
   return (
     <nav className="fixed bottom-0 left-0 w-full bg-white/95 backdrop-blur-lg border-t border-gray-200 z-[70] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
       <div className="flex justify-between items-center max-w-md mx-auto px-4 pt-3 pb-5 safe-area-inset-bottom">
@@ -40,12 +47,10 @@ export default function BottomNav() {
           const active = isActive(item) || pressedHref === item.href;
 
           return (
-            <Link
+            <button
               key={item.href}
-              href={item.href}
-              prefetch={true}
-              scroll={false}
-              onClick={() => setPressedHref(item.href)}
+              type="button"
+              onClick={() => handleNavigate(item.href)}
               className={`flex flex-col items-center gap-1 transition-all duration-150 ease-out group relative min-w-[60px] px-2 py-1 rounded-lg touch-manipulation ${
                 active
                   ? "text-primary-dark bg-primary/10"
@@ -66,7 +71,7 @@ export default function BottomNav() {
               >
                 {item.label}
               </span>
-            </Link>
+            </button>
           );
         })}
       </div>
