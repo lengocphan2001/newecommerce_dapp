@@ -1,7 +1,7 @@
 import { Controller, Get, Put, Patch, Post, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
-import { UpdateUserStatusDto } from './dto';
+import { UpdateUserStatusDto, UpdateFakeCommissionDto } from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('admin')
@@ -94,6 +94,12 @@ export class AdminController {
   @Put('users/:id/status')
   async updateUserStatus(@Param('id') id: string, @Body() statusDto: UpdateUserStatusDto) {
     return this.adminService.updateUserStatus(id, statusDto);
+  }
+
+  @Patch('users/:id/fake-commission')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateUserFakeCommission(@Param('id') id: string, @Body() dto: UpdateFakeCommissionDto) {
+    return this.adminService.updateUserFakeReceivedCommission(id, dto.fakeReceivedCommission);
   }
 
   @Get('tree/:userId')

@@ -6,6 +6,8 @@ export const adminService = {
   getUserDetail: (id: string) => api.get(`/admin/users/${id}/detail`),
   getOrders: (params?: any) => api.get('/admin/orders', { params }),
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
+  updateUserFakeCommission: (id: string, fakeReceivedCommission: number) =>
+    api.patch(`/admin/users/${id}/fake-commission`, { fakeReceivedCommission }),
   getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
   withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
   exportUsers: () => api.get('/admin/users/export', { responseType: 'blob' }),

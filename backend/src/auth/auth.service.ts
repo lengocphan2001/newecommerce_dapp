@@ -468,6 +468,7 @@ export class AuthService {
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
+      fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
       maxCommission,
       packageType: user.packageType,
       totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
@@ -568,6 +569,17 @@ export class AuthService {
       currentCommission: user.totalCommissionReceived,
       message: `Bạn đã đạt ngưỡng hoa hồng ${effectiveThreshold} USDT. Vui lòng mua thêm (>= ${packageValue} USDT) để nâng threshold và tiếp tục nhận hoa hồng.`,
     };
+  }
+
+  /**
+   * Danh sách F1 (người giới thiệu trực tiếp) của user, kèm hiệu suất (số F1 của từng người).
+   */
+  async getF1List(userId: string) {
+    const list = await this.userService.getF1ListWithPerformance(userId);
+    return list.map((item) => ({
+      ...item,
+      createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+    }));
   }
 
   async getChildren(userId: string, position?: 'left' | 'right') {

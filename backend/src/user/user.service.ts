@@ -237,6 +237,45 @@ export class UserService {
     });
   }
 
+  /**
+   * Lấy danh sách F1 (người được giới thiệu trực tiếp bởi userId) kèm hiệu suất:
+   * mỗi F1 có thêm directReferralCount = số người mà F1 đó giới thiệu trực tiếp.
+   */
+  async getF1ListWithPerformance(userId: string): Promise<Array<{
+    id: string;
+    username: string | null;
+    fullName: string;
+    email: string;
+    packageType: string;
+    createdAt: Date;
+    directReferralCount: number;
+  }>> {
+    const f1Users = await this.userRepository.find({
+      where: { referralUserId: userId },
+      select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+      order: { createdAt: 'ASC' },
+    });
+
+    const result = await Promise.all(
+      f1Users.map(async (u) => {
+        const directReferralCount = await this.userRepository.count({
+          where: { referralUserId: u.id },
+        });
+        return {
+          id: u.id,
+          username: u.username,
+          fullName: u.fullName,
+          email: u.email,
+          packageType: u.packageType || 'NONE',
+          createdAt: u.createdAt,
+          directReferralCount,
+        };
+      }),
+    );
+
+    return result;
+  }
+
   async getBinaryTreeStats(userId: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {

@@ -96,6 +96,19 @@ export class User {
     precision: 36,
     scale: 18,
     default: 0,
+    name: 'fake_received_commission',
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  fakeReceivedCommission: number; // Hoa hồng “ảo” do admin thêm, hiển thị = totalCommissionReceived + fakeReceivedCommission
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
     transformer: {
       to: (value: number) => value,
       from: (value: string) => parseFloat(value),

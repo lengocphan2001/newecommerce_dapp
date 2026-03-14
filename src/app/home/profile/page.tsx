@@ -37,13 +37,24 @@ export default function ProfilePage() {
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState("");
+  const [kycStatus, setKycStatus] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserProfile();
     loadWalletStatus();
     loadReconsumptionStatus();
     loadPackages();
+    loadKycStatus();
   }, []);
+
+  const loadKycStatus = async () => {
+    try {
+      const res = await api.getKycStatus();
+      setKycStatus(res?.status ?? "UNVERIFIED");
+    } catch {
+      setKycStatus("UNVERIFIED");
+    }
+  };
 
   const loadPackages = async () => {
     try {
@@ -218,7 +229,13 @@ export default function ProfilePage() {
               >
               </div>
             </div>
-            <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm"></div>
+            {kycStatus === "APPROVED" ? (
+              <div className="absolute bottom-1 right-1 flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 border-[3px] border-white shadow-md" title={t("verified")}>
+                <span className="material-symbols-outlined text-white text-lg">verified</span>
+              </div>
+            ) : (
+              <div className="absolute bottom-1 right-1 bg-green-500 w-6 h-6 rounded-full border-4 border-white shadow-sm"></div>
+            )}
             <label
               htmlFor="avatar-upload"
               className="absolute bottom-0 right-0 flex items-center justify-center w-10 h-10 rounded-full bg-primary hover:bg-primary-dark text-white shadow-lg cursor-pointer transition-all active:scale-95"
@@ -239,9 +256,17 @@ export default function ProfilePage() {
             />
           </div>
           <div className="mt-4 text-center w-full">
-            <h2 className="text-2xl font-bold text-slate-900">{userInfo?.fullName || "Nguyễn Văn A"}</h2>
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center justify-center gap-2 flex-wrap">
+              {userInfo?.fullName || "Nguyễn Văn A"}
+              {kycStatus === "APPROVED" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-xs font-semibold shadow-sm" title={t("verified")}>
+                  <span className="material-symbols-outlined text-sm">verified</span>
+                  {t("verified")}
+                </span>
+              )}
+            </h2>
             <div className="flex flex-col items-center gap-2 mt-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-center">
                 <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
                 <span className="bg-yellow-50 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   {userInfo?.packageType === 'NONE' ? 'User' : userInfo?.packageType}
@@ -287,8 +312,8 @@ export default function ProfilePage() {
             </div>
             */}
 
-            {/* Commission Progress Bar */}
-            {reconsumptionStatus && reconsumptionStatus.threshold && (
+            {/* Commission Progress Bar - dùng ternary để tránh render số 0 khi threshold = 0 */}
+            {reconsumptionStatus && reconsumptionStatus.threshold ? (
               <div className="w-full max-w-sm mx-auto mt-6 bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-bold text-slate-800">{t("maxCommission")}</span>
@@ -320,7 +345,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
 
             

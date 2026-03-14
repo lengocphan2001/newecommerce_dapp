@@ -7,6 +7,7 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   Select,
   message,
   Popconfirm,
@@ -33,6 +34,8 @@ const Users: React.FC = () => {
   const [userDetail, setUserDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
+  const [savingFakeCommission, setSavingFakeCommission] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -130,12 +133,29 @@ const Users: React.FC = () => {
     try {
       setDetailLoading(true);
       const response = await adminService.getUserDetail(userId);
-      setUserDetail(response.data);
+      const data = response.data;
+      setUserDetail(data);
+      const raw = data?.user?.fakeReceivedCommission;
+      setFakeCommissionValue(typeof raw === 'number' ? raw : parseFloat(raw || '0') || 0);
       setIsDetailModalVisible(true);
     } catch (error: any) {
       message.error('Failed to load user details: ' + (error.message || 'Unknown error'));
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const handleSaveFakeCommission = async () => {
+    if (!userDetail?.user?.id) return;
+    try {
+      setSavingFakeCommission(true);
+      const response = await adminService.updateUserFakeCommission(userDetail.user.id, fakeCommissionValue);
+      setUserDetail(response.data);
+      message.success('Fake commission updated');
+    } catch (error: any) {
+      message.error(error.response?.data?.message || 'Failed to update fake commission');
+    } finally {
+      setSavingFakeCommission(false);
     }
   };
 
@@ -338,6 +358,21 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Total Commission Received">
                   ${userDetail.user.totalCommissionReceived} USDT
+                </Descriptions.Item>
+                <Descriptions.Item label="Fake Received Commission (admin)">
+                  <Space>
+                    <InputNumber
+                      min={0}
+                      step={0.01}
+                      value={fakeCommissionValue}
+                      onChange={(v) => setFakeCommissionValue(v ?? 0)}
+                      style={{ width: 140 }}
+                    />
+                    <Button type="primary" size="small" loading={savingFakeCommission} onClick={handleSaveFakeCommission}>
+                      Save
+                    </Button>
+                  </Space>
+                  <span style={{ marginLeft: 8 }}>USDT (displayed as + this on user affiliate page)</span>
                 </Descriptions.Item>
                 <Descriptions.Item label="Total Reconsumption Amount">
                   ${userDetail.user.totalReconsumptionAmount} USDT

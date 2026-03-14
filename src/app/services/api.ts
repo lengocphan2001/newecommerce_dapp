@@ -219,6 +219,36 @@ export const api = {
     return response.json();
   },
 
+  /** Danh sách F1 (người giới thiệu trực tiếp) kèm hiệu suất (số F1 của từng người). */
+  async getF1List(): Promise<Array<{
+    id: string;
+    username: string | null;
+    fullName: string;
+    email: string;
+    packageType: string;
+    createdAt: string;
+    directReferralCount: number;
+  }>> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/referral/f1`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to get F1 list' }));
+      throw new Error(error.message || 'Failed to get F1 list');
+    }
+    return response.json();
+  },
+
   /** Public: get banking config for checkout (no auth). Cached 5 min. */
   async getBankingConfig(): Promise<{
     id?: number;

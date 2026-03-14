@@ -109,6 +109,15 @@ export class AdminService {
     return { message: `Update user status ${id}` };
   }
 
+  async updateUserFakeReceivedCommission(userId: string, fakeReceivedCommission: number) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    await this.userRepository.update(userId, { fakeReceivedCommission });
+    return this.getUserDetail(userId);
+  }
+
   /**
    * Get detailed user information including addresses, commissions, orders, tree stats
    */
@@ -247,6 +256,7 @@ export class AdminService {
         isAdmin: user.isAdmin,
         totalPurchaseAmount: formatDecimal(user.totalPurchaseAmount),
         totalCommissionReceived: formatDecimal(user.totalCommissionReceived),
+        fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
         totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
         leftBranchTotal: formatDecimal(user.leftBranchTotal),
         rightBranchTotal: formatDecimal(user.rightBranchTotal),

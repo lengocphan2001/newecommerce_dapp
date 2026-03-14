@@ -298,6 +298,12 @@ export type I18nKey =
   | "activeUsers"
   | "newToday"
   | "referralTools"
+  | "f1ListTitle"
+  | "f1Performance"
+  | "f1DirectReferrals"
+  | "f1Empty"
+  | "f1JoinedDate"
+  | "viewFullF1List"
   | "imageTooLarge"
   | "commission"
   | "organic"
@@ -728,6 +734,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     activeUsers: "Người dùng hoạt động",
     newToday: "Mới hôm nay",
     referralTools: "Công cụ giới thiệu",
+    f1ListTitle: "Danh sách F1",
+    f1Performance: "Hiệu suất",
+    f1DirectReferrals: "Số F1",
+    f1Empty: "Bạn chưa có F1 nào.",
+    f1JoinedDate: "Ngày tham gia",
+    viewFullF1List: "Xem đầy đủ danh sách F1",
     imageTooLarge: "Ảnh quá lớn (Max 5MB)",
     commission: "Hoa hồng",
     organic: "Organic",
@@ -1154,6 +1166,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     activeUsers: "Active Users",
     newToday: "New today",
     referralTools: "Referral Tools",
+    f1ListTitle: "F1 List",
+    f1Performance: "Performance",
+    f1DirectReferrals: "Direct referrals",
+    f1Empty: "You have no F1 yet.",
+    f1JoinedDate: "Joined",
+    viewFullF1List: "View full F1 list",
     imageTooLarge: "Image too large (Max 5MB)",
     commission: "Commission",
     organic: "Organic",
@@ -1580,6 +1598,12 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     activeUsers: "활성 사용자",
     newToday: "오늘 신규",
     referralTools: "추천 도구",
+    f1ListTitle: "F1 목록",
+    f1Performance: "성과",
+    f1DirectReferrals: "직접 추천 수",
+    f1Empty: "아직 F1이 없습니다.",
+    f1JoinedDate: "가입일",
+    viewFullF1List: "F1 전체 목록 보기",
     imageTooLarge: "이미지가 너무 큽니다 (최대 5MB)",
     commission: "수수료",
     organic: "유기농",
