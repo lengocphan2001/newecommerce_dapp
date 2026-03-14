@@ -14,14 +14,21 @@ export default function EditProfilePage() {
     displayName: "",
     email: "",
     phone: "",
-    avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBQffTSr_qe4oi_yS3HAoWFsf7w2w9llbONDMakuC8IPT53Ok7EgJpO0AFzkCfQ8Qi-Pro4LeASHD0AKWxRxR9iKB800muBJQec9x0cpVtXJsiSxDwDgDCdlIgKgmnAa7zpO_pqpJ-lFyibXcZSqlN1bzNXFKL1BLwFs150ViBLuT3TnlRgfX36lGbdbPSSg70FlD67_WFrzkdlgxPomFer9947GUO4nkQRlsaV6N-Ncsp1W5XK8vvv1GYh0_kK6jm0ObYKE3Fh7ak"
+    avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBQffTSr_qe4oi_yS3HAoWFsf7w2w9llbONDMakuC8IPT53Ok7EgJpO0AFzkCfQ8Qi-Pro4LeASHD0AKWxRxR9iKB800muBJQec9x0cpVtXJsiSxDwDgDCdlIgKgmnAa7zpO_pqpJ-lFyibXcZSqlN1bzNXFKL1BLwFs150ViBLuT3TnlRgfX36lGbdbPSSg70FlD67_WFrzkdlgxPomFer9947GUO4nkQRlsaV6N-Ncsp1W5XK8vvv1GYh0_kK6jm0ObYKE3Fh7ak",
+    walletAddress: "",
   });
-
-  const [walletAddress, setWalletAddress] = useState("0x71C...8e92");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmNewPassword: "",
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   useEffect(() => {
     loadUserData();
@@ -29,49 +36,34 @@ export default function EditProfilePage() {
 
   const loadUserData = async () => {
     try {
-      // Load from localStorage as initial state
       const storedPhone = localStorage.getItem("userPhone");
-      const storedAddress = localStorage.getItem("walletAddress");
       const storedAvatar = localStorage.getItem("userAvatar");
       const storedName = localStorage.getItem("userName");
       const storedEmail = localStorage.getItem("userEmail");
 
-      if (storedAddress) {
-        setWalletAddress(shortAddress(storedAddress));
-      }
-
-      // Try API if available
-      if (typeof api !== 'undefined') {
+      if (typeof api !== "undefined") {
         try {
           const info = await api.getReferralInfo();
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             displayName: info.fullName || storedName || "Nguyễn Văn A",
             phone: info.phoneNumber || info.phone || storedPhone || "",
-            email: info.email || storedEmail || "vana.nguyen@safepal.io",
-            avatar: info.avatar || storedAvatar || prev.avatar
+            email: info.email || storedEmail || "",
+            avatar: info.avatar || storedAvatar || prev.avatar,
+            walletAddress: info.walletAddress || "",
           }));
           return;
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
-      // Fallback
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         displayName: storedName || "Nguyễn Văn A",
         phone: storedPhone || "",
-        email: storedEmail || "vana.nguyen@safepal.io",
-        avatar: storedAvatar || prev.avatar
+        email: storedEmail || "",
+        avatar: storedAvatar || prev.avatar,
       }));
-
-    } catch (error) {
-    }
-  };
-
-  const shortAddress = (addr: string) => {
-    if (!addr) return t("notConnected");
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    } catch (error) {}
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,19 +187,21 @@ export default function EditProfilePage() {
         }
       }
 
-      // Call API to update profile
       await api.updateProfile({
         fullName: formData.displayName,
         email: formData.email,
         phoneNumber: formData.phone,
-        avatar: avatarUrl // Use URL instead of base64
+        avatar: avatarUrl,
+        walletAddress: formData.walletAddress || undefined,
       });
 
-      // Update localStorage for consistency
       localStorage.setItem("userPhone", formData.phone);
       localStorage.setItem("userName", formData.displayName);
       localStorage.setItem("userEmail", formData.email);
       localStorage.setItem("userAvatar", avatarUrl);
+      if (formData.walletAddress) {
+        localStorage.setItem("walletAddress", formData.walletAddress);
+      }
 
       setMessage({ type: 'success', text: t("profileUpdated") });
 
@@ -215,6 +209,32 @@ export default function EditProfilePage() {
       setMessage({ type: 'error', text: err.message || t("updateFailed") });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordMessage(null);
+    if (!passwordForm.currentPassword.trim()) {
+      setPasswordMessage({ type: 'error', text: 'Vui lòng nhập mật khẩu hiện tại' });
+      return;
+    }
+    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+      setPasswordMessage({ type: 'error', text: 'Mật khẩu mới tối thiểu 6 ký tự' });
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
+      setPasswordMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp' });
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await api.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      setPasswordMessage({ type: 'success', text: 'Đã đổi mật khẩu thành công' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    } catch (err: any) {
+      setPasswordMessage({ type: 'error', text: err.message || 'Đổi mật khẩu thất bại' });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -327,20 +347,71 @@ export default function EditProfilePage() {
             </label>
           </div>
 
-          {/* DApp Wallet Context (Read-only) */}
-          <div className="flex flex-col w-full py-3 mt-2">
-            <div className="bg-[#135bec]/5 rounded-xl p-4 border border-[#135bec]/20">
-              <div className="flex items-center gap-3">
-                <div className="bg-white p-2 rounded-lg text-[#135bec]">
-                  <span className="material-symbols-outlined text-2xl">account_balance_wallet</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#135bec] opacity-70">{t("safePalWalletLinked")}</p>
-                  <p className="text-xs font-mono text-[#4c669a] truncate">{walletAddress}</p>
-                </div>
-                <span className="material-symbols-outlined text-green-500 text-xl filled" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+          {/* Địa chỉ ví nhận hoa hồng (điền tay, không kết nối ví) */}
+          <div className="flex flex-col w-full py-3">
+            <label className="flex flex-col w-full">
+              <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-2 ml-1">Địa chỉ ví nhận hoa hồng</p>
+              <input
+                name="walletAddress"
+                value={formData.walletAddress}
+                onChange={handleInputChange}
+                className="form-input flex w-full min-w-0 flex-1 rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-14 placeholder:text-[#4c669a] p-[15px] text-base font-mono leading-normal transition-all"
+                placeholder="0x..."
+                type="text"
+              />
+              <p className="text-xs text-slate-500 mt-1 ml-1">Dùng để nhận hoa hồng (USDT BEP20). Có thể để trống.</p>
+            </label>
+          </div>
+
+          {/* Đổi mật khẩu */}
+          <div className="flex flex-col w-full py-3 mt-4 border-t border-[#cfd7e7]">
+            <p className="text-[#0d121b] text-sm font-semibold leading-normal pb-3 ml-1">Đổi mật khẩu</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1 ml-1">Mật khẩu hiện tại</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                  className="form-input w-full rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                  placeholder="Nhập mật khẩu hiện tại"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1 ml-1">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                  className="form-input w-full rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                  placeholder="Tối thiểu 6 ký tự"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1 ml-1">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmNewPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, confirmNewPassword: e.target.value }))}
+                  className="form-input w-full rounded-xl text-[#0d121b] focus:outline-0 focus:ring-2 focus:ring-[#135bec]/20 border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                  placeholder="Nhập lại mật khẩu mới"
+                />
               </div>
             </div>
+            {passwordMessage && (
+              <div className={`mt-2 p-3 rounded-xl text-sm font-medium ${passwordMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {passwordMessage.text}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleChangePassword}
+              disabled={passwordLoading}
+              className="mt-3 w-full rounded-xl border-2 border-[#135bec] text-[#135bec] font-bold py-3 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {passwordLoading && <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>}
+              {passwordLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+            </button>
           </div>
 
           {/* Message Toast */}

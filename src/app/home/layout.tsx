@@ -12,31 +12,10 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   const { animation } = useShoppingCart();
 
   useEffect(() => {
-    // Check if user has token and wallet address
     const token = localStorage.getItem("token");
-    const walletAddress = localStorage.getItem("walletAddress");
-
-    if (!token || !walletAddress) {
-      // Try to auto-login if wallet exists
-      if (walletAddress) {
-        api.walletLogin(walletAddress)
-          .then((result) => {
-            if (result.token) {
-              localStorage.setItem("token", result.token);
-              // Stay on home page
-            } else {
-              // No token, redirect to login
-              router.push("/");
-            }
-          })
-          .catch(() => {
-            // Login failed, redirect to login
-            router.push("/");
-          });
-      } else {
-        // No wallet, redirect to login
-        router.push("/");
-      }
+    if (!token) {
+      router.push("/");
+      return;
     }
   }, [router]);
 

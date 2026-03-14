@@ -2,69 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AppHeader from "@/app/components/AppHeader";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import TransactionProcessingModal, { ProcessingStep } from "@/app/components/TransactionProcessingModal";
 import { api } from "@/app/services/api";
-import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, parseUnits, getAddress } from "ethers";
 import { useI18n } from "@/app/i18n/I18nProvider";
-
-const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955"; // USDT BEP20 on BSC
-const BSC_RPC = "https://bsc-dataseed.binance.org/";
-const BSC_CHAIN_ID = "0x38"; // 56 in decimal
-
-function getEthereum() {
-  if (typeof window === "undefined") return undefined;
-  return (window as any).ethereum;
-}
-
-const ERC20_ABI = [
-  "function balanceOf(address owner) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-  "function transfer(address to, uint256 amount) returns (bool)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function allowance(address owner, address spender) view returns (uint256)",
-] as const;
-
-// Helper function to poll transaction receipt
-async function pollTransactionReceipt(txHash: string, timeout: number = 120000): Promise<any> {
-  const provider = new JsonRpcProvider(BSC_RPC);
-  const startTime = Date.now();
-  let lastError: any = null;
-
-  while (Date.now() - startTime < timeout) {
-    try {
-      const receipt = await provider.getTransactionReceipt(txHash);
-      if (receipt) {
-        // Transaction found
-        if (receipt.status === 1) {
-          return receipt;
-        }
-        if (receipt.status === 0) {
-          throw new Error("Transaction failed on blockchain");
-        }
-      }
-      // Receipt is null - transaction not yet mined, continue polling
-      lastError = null;
-    } catch (error: any) {
-      // If it's a transaction failure, throw immediately
-      if (error.message && error.message.includes("failed")) {
-        throw error;
-      }
-      // Store error but continue polling (might be network issue)
-      lastError = error;
-    }
-
-    // Wait 3 seconds before next poll (slightly longer to avoid rate limiting)
-    await new Promise(resolve => setTimeout(resolve, 3000));
-  }
-
-  // If we have a last error, throw it, otherwise timeout
-  if (lastError) {
-    throw new Error(`Transaction polling failed: ${lastError.message}`);
-  }
-  throw new Error("Transaction confirmation timeout - transaction may still be pending");
-}
 
 export default function CheckoutPage() {
   const { items, totalAmount, clearCart } = useShoppingCart();
@@ -72,13 +13,9 @@ export default function CheckoutPage() {
   const { t } = useI18n();
   const [processingStep, setProcessingStep] = useState<ProcessingStep>("idle");
   const [error, setError] = useState("");
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [usdtBalance, setUsdtBalance] = useState<string>("0");
-  const [bnbBalance, setBnbBalance] = useState<string>("0");
   const [shippingAddress, setShippingAddress] = useState("");
   const [checkoutUser, setCheckoutUser] = useState<{ fullName?: string; phone?: string; address?: string; username?: string } | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<"wallet" | "banking">("wallet");
   const [bankingConfig, setBankingConfig] = useState<{
     bankName: string;
     accountNumber: string;
@@ -92,11 +29,8 @@ export default function CheckoutPage() {
   const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | null>(null);
   const [usdtToVnd, setUsdtToVnd] = useState<number | null>(null);
 
-  const userWalletAddress = walletAddress || (typeof window !== "undefined" ? localStorage.getItem("walletAddress") : null);
-
   // USDT/VND rate for banking: use admin-set price when set, else fetch from CoinGecko
   useEffect(() => {
-    if (paymentMethod !== "banking") return;
     const adminRate = bankingConfig?.usdtPriceVnd;
     if (typeof adminRate === "number" && adminRate > 0) {
       setUsdtToVnd(adminRate);
@@ -113,7 +47,7 @@ export default function CheckoutPage() {
       })
       .catch(() => { if (!cancelled) setUsdtToVnd(null); });
     return () => { cancelled = true; };
-  }, [paymentMethod, bankingConfig?.usdtPriceVnd]);
+  }, [bankingConfig?.usdtPriceVnd]);
 
   const copyToClipboard = async (text: string, field: "bankName" | "accountNumber" | "accountName" | "content") => {
     if (!text) return;
@@ -165,12 +99,10 @@ export default function CheckoutPage() {
   const vietQrUrl = getVietQrUrl();
 
   useEffect(() => {
-    loadWalletInfo();
     loadCheckoutUser();
     calculateShippingFee();
     api.getBankingConfig().then((c) => setBankingConfig(c)).catch(() => setBankingConfig(null));
 
-    // Listen for address changes when returning from address page
     const handleStorageChange = () => {
       loadCheckoutUser();
     };
@@ -251,144 +183,6 @@ export default function CheckoutPage() {
   };
 
 
-  const loadUsdtBep20Balance = async (address: string) => {
-    try {
-      // Use JsonRpcProvider to read BEP-20 USDT balance on BSC (same as profile page)
-      const provider = new JsonRpcProvider(BSC_RPC);
-      const contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
-      const [decimals, balance] = await Promise.all([
-        contract.decimals(),
-        contract.balanceOf(getAddress(address)),
-      ]);
-      const formatted = formatUnits(balance as bigint, Number(decimals));
-      setUsdtBalance(formatted);
-
-      // Cache balance
-      try {
-        localStorage.setItem("usdtBep20Balance", formatted);
-        localStorage.setItem("usdtBep20UpdatedAt", String(Date.now()));
-      } catch {
-        // ignore
-      }
-    } catch (error) {
-      setUsdtBalance("0");
-    }
-  };
-
-  const loadWalletInfo = async () => {
-    try {
-      // First, try to load cached balance
-      try {
-        const cached = localStorage.getItem("usdtBep20Balance");
-        if (cached) setUsdtBalance(cached);
-      } catch {
-        // ignore
-      }
-
-      const eth = getEthereum();
-      if (!eth) {
-        // Try to get wallet address from localStorage
-        const storedAddr = localStorage.getItem("walletAddress");
-        if (storedAddr) {
-          setWalletAddress(storedAddr);
-          await loadUsdtBep20Balance(storedAddr);
-        } else {
-          setError("Vui lòng cài đặt ví Shopii hoặc ví tương thích");
-        }
-        return;
-      }
-
-      // Request account access if needed
-      try {
-        await eth.request({ method: "eth_requestAccounts" });
-      } catch (e) {
-        // User rejected, try localStorage
-        const storedAddr = localStorage.getItem("walletAddress");
-        if (storedAddr) {
-          setWalletAddress(storedAddr);
-          await loadUsdtBep20Balance(storedAddr);
-        }
-        return;
-      }
-
-      const accounts = (await eth.request({ method: "eth_accounts" })) as string[];
-      if (accounts && accounts.length > 0) {
-        const address = accounts[0];
-        setWalletAddress(address);
-        await loadUsdtBep20Balance(address);
-      } else {
-        // Try localStorage
-        const storedAddr = localStorage.getItem("walletAddress");
-        if (storedAddr) {
-          setWalletAddress(storedAddr);
-          await loadUsdtBep20Balance(storedAddr);
-        }
-      }
-    } catch (err: any) {
-      // Try localStorage as fallback
-      try {
-        const storedAddr = localStorage.getItem("walletAddress");
-        if (storedAddr) {
-          setWalletAddress(storedAddr);
-          await loadUsdtBep20Balance(storedAddr);
-        }
-      } catch {
-        setError(err.message || "Không thể kết nối ví Shopii");
-      }
-    }
-  };
-
-  const connectWallet = async () => {
-    try {
-      const eth = getEthereum();
-      if (!eth) {
-        setError("Vui lòng cài đặt ví Shopii");
-        return;
-      }
-
-      // Request account access
-      await eth.request({ method: "eth_requestAccounts" });
-
-      // Check if already on BSC, if not, switch
-      const chainId = await eth.request({ method: "eth_chainId" }) as string;
-
-      if (chainId !== BSC_CHAIN_ID) {
-        try {
-          await eth.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: BSC_CHAIN_ID }],
-          });
-        } catch (switchError: any) {
-          // Chain not added, add it
-          if (switchError.code === 4902 || switchError.code === -32603) {
-            await eth.request({
-              method: "wallet_addEthereumChain",
-              params: [
-                {
-                  chainId: BSC_CHAIN_ID,
-                  chainName: "Binance Smart Chain",
-                  nativeCurrency: {
-                    name: "BNB",
-                    symbol: "BNB",
-                    decimals: 18,
-                  },
-                  rpcUrls: ["https://bsc-dataseed.binance.org/"],
-                  blockExplorerUrls: ["https://bscscan.com/"],
-                },
-              ],
-            });
-          } else {
-            throw switchError;
-          }
-        }
-      }
-
-      await loadWalletInfo();
-    } catch (err: any) {
-      setError(err.message || "Không thể kết nối ví Shopii");
-    }
-  };
-
   const handleBankingOrder = async () => {
     if (!shippingAddress.trim()) {
       setError("Vui lòng nhập địa chỉ giao hàng");
@@ -425,207 +219,7 @@ export default function CheckoutPage() {
   };
 
   const handlePayment = async () => {
-    if (paymentMethod === "banking") {
-      await handleBankingOrder();
-      return;
-    }
-    if (!walletAddress) {
-      setError("Vui lòng kết nối ví");
-      return;
-    }
-
-    const finalTotal = totalAmount + shippingFee;
-    if (parseFloat(usdtBalance || "0") < finalTotal) {
-      setError("Số dư USDT không đủ");
-      return;
-    }
-
-    if (!shippingAddress.trim()) {
-      setError("Vui lòng nhập địa chỉ giao hàng");
-      return;
-    }
-
-    setProcessingStep("confirming");
-    setError("");
-
-    let orderIdForRedirect: string | undefined;
-    try {
-      const eth = getEthereum();
-      if (!eth) throw new Error("Ví không khả dụng");
-
-      // Ensure wallet is on BSC network
-      const chainId = await eth.request({ method: "eth_chainId" }) as string;
-      if (chainId !== BSC_CHAIN_ID) {
-        try {
-          await eth.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: BSC_CHAIN_ID }],
-          });
-        } catch (switchError: any) {
-          if (switchError.code === 4902 || switchError.code === -32603) {
-            await eth.request({
-              method: "wallet_addEthereumChain",
-              params: [
-                {
-                  chainId: BSC_CHAIN_ID,
-                  chainName: "Binance Smart Chain",
-                  nativeCurrency: {
-                    name: "BNB",
-                    symbol: "BNB",
-                    decimals: 18,
-                  },
-                  rpcUrls: ["https://bsc-dataseed.binance.org/"],
-                  blockExplorerUrls: ["https://bscscan.com/"],
-                },
-              ],
-            });
-          } else {
-            throw new Error("Vui lòng chuyển sang mạng BSC để thanh toán");
-          }
-        }
-      }
-
-      const provider = new BrowserProvider(eth as any);
-      const signer = await provider.getSigner();
-
-      // Get decimals... (logic unchanged)
-      let decimals = 18;
-      try {
-        const cachedDecimals = localStorage.getItem("usdtBep20Decimals");
-        if (cachedDecimals) {
-          decimals = parseInt(cachedDecimals, 10);
-        } else {
-          const readProvider = new JsonRpcProvider(BSC_RPC);
-          const readContract = new Contract(getAddress(USDT_BSC), ERC20_ABI, readProvider);
-          try {
-            decimals = Number(await readContract.decimals());
-            localStorage.setItem("usdtBep20Decimals", String(decimals));
-          } catch (e) {
-          }
-        }
-      } catch (e) {
-      }
-
-      const usdtContract = new Contract(USDT_BSC, ERC20_ABI, signer);
-      const finalTotal = totalAmount + shippingFee;
-
-      // Ensure we have a valid decimal string and valid decimals
-      // Ensure we have a valid decimal string and valid decimals.
-      // Fix: Round to 4 decimals to avoid floating point precision issues (e.g. 0.6000000000000001)
-      const formattedTotal = parseFloat(finalTotal.toFixed(4)).toString();
-      const amount = parseUnits(formattedTotal, decimals);
-
-      // Use a fallback address if env is missing to prevent sending to 0x0
-      const recipientAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET;
-
-      if (!recipientAddress || recipientAddress === "0x0000000000000000000000000000000000000000") {
-        throw new Error("Cửa hàng chưa thiết lập ví nhận thanh toán (NEXT_PUBLIC_PAYMENT_WALLET)");
-      }
-
-      // 1. Create Order (PENDING)
-      const orderStartTime = Date.now();
-      setProcessingStep("creating_order");
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("Vui lòng đăng nhập");
-      }
-
-      // Create order WITHOUT transaction hash first
-      const orderData = await api.createOrder(
-        items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          properties: item.properties,
-        })),
-        undefined, // No transaction hash yet
-        shippingAddress,
-        "wallet",
-        { shippingPhone: checkoutUser?.phone, shippingName: checkoutUser?.fullName }
-      );
-      orderIdForRedirect = orderData.id;
-      console.log("Order created pending:", orderData.id);
-
-      // 2. Send Transaction
-      // Use standard contract method with explicit gas limit
-      const transferTx = await usdtContract.transfer(recipientAddress, amount, { gasLimit: 150000 });
-      const transactionHash = transferTx.hash;
-      const txStartTime = Date.now();
-
-      // 3. Wait for confirmation
-      setProcessingStep("processing");
-
-      // Artificial delay to ensure user sees the processing state
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      let receipt;
-      try {
-        // Try wait() with only 1 confirmation (faster) and reasonable timeout
-        const waitStartTime = Date.now();
-        // Wait for only 1 confirmation to speed up (BSC is fast, 1 confirmation is usually enough)
-        const waitPromise = transferTx.wait(1); // Only wait for 1 confirmation
-        const waitTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Wait timeout")), 30000) // 30 seconds should be enough for BSC
-        );
-
-        receipt = await Promise.race([waitPromise, waitTimeout]) as any;
-        const waitDuration = Date.now() - waitStartTime;
-      } catch (waitError: any) {
-        // Wait() timed out or failed, use polling as fallback
-        const pollStartTime = Date.now();
-        receipt = await pollTransactionReceipt(transactionHash, 60000); // Reduced to 60s
-        const pollDuration = Date.now() - pollStartTime;
-      }
-
-      const totalTxTime = Date.now() - txStartTime;
-
-      if (!receipt || !receipt.hash) {
-        throw new Error("Không thể xác nhận giao dịch");
-      }
-
-      // Verify transaction status
-      const status = receipt.status;
-      const isSuccess = status === 1 || status === "0x1" || status === true;
-      if (!isSuccess) {
-        throw new Error("Giao dịch thất bại trên blockchain");
-      }
-
-      // 4. Confirm Payment for the Order
-      setProcessingStep("creating_order"); // Reuse this step or add a new one like "confirming_payment"
-
-      await api.confirmPayment(orderData.id, transactionHash);
-
-      const orderDuration = Date.now() - orderStartTime;
-
-      // 5. Success
-      setProcessingStep("success");
-      clearCart();
-
-      // Wait a bit before redirecting so user sees the success message
-      setTimeout(() => {
-        router.push(`/home/orders?success=true&orderId=${orderData.id}`);
-      }, 1500); // Reduced from 2000ms to 1500ms
-
-    } catch (err: any) {
-
-      // Check for user rejection
-      if (err.code === "ACTION_REJECTED" || err.code === 4001 || err?.info?.error?.code === 4001 || (err.message && err.message.includes("rejected"))) {
-        setError("Bạn đã hủy giao dịch");
-      } else if (err.message === "CONFIRM_TIMEOUT") {
-        setError("Xác nhận thanh toán đang quá lâu. Vui lòng kiểm tra đơn hàng của bạn.");
-        setProcessingStep("error");
-        // Still redirect to orders so user can see the order (may be confirmed or pending)
-        const id = orderIdForRedirect;
-        setTimeout(() => {
-          router.push(id ? `/home/orders?orderId=${id}` : "/home/orders");
-        }, 3000);
-        return;
-      } else {
-        setError(err.message || "Thanh toán thất bại");
-      }
-
-      setProcessingStep("error");
-    }
+    await handleBankingOrder();
   };
 
   const formatPrice = (price: number) => {
@@ -641,19 +235,6 @@ export default function CheckoutPage() {
       currency: "VND",
       maximumFractionDigits: 0,
     }).format(amount);
-  };
-
-  const formatBalance = (balance: string) => {
-    const num = parseFloat(balance || "0");
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 3,
-    }).format(num);
-  };
-
-  const shortAddress = (address?: string | null) => {
-    if (!address) return "0x1234...abcd";
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   return (
@@ -707,90 +288,18 @@ export default function CheckoutPage() {
           </div>
         </section>
 
-        {/* Section 2: Payment Method */}
+        {/* Section 2: Payment - Chuyển khoản ngân hàng */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">2</span>
             <h2 className="text-base font-bold text-slate-700">{t("paymentMethod")}</h2>
           </div>
-          {/* Tabs: Ví (USDT) | Chuyển khoản */}
-          <div className="flex rounded-xl border-2 border-purple-100 bg-white p-1 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("wallet")}
-              className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg transition ${paymentMethod === "wallet" ? "bg-primary text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"}`}
-            >
-              Ví (USDT)
-            </button>
-            <button
-              type="button"
-              onClick={() => bankingConfig?.isEnabled && setPaymentMethod("banking")}
-              className={`flex-1 py-2.5 px-3 text-sm font-bold rounded-lg transition ${paymentMethod === "banking" ? "bg-primary text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"} ${!bankingConfig?.isEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              Chuyển khoản
-            </button>
-          </div>
-
-          {paymentMethod === "wallet" && (
-            <>
-              <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="size-10 rounded-full bg-gray-100 bg-cover bg-center border border-slate-200" style={{
-                      backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuDtLWBC8wB037R9cWqWUH1eRY-ZY0HW_ddkkNGLjliyJNCZr49lS45qsJjELi5cirrppCzmZgrDIhI8aORjjiyBrBVAqJRd2s7jFzu5mOXYZKpmTCn5O4mdZiZWzcv4YdMcNWHXcBdlf_34FZwIIrT9ET0rhg8kZ8bOXhDfIUMxCSC2PyvuUo82k9c4lHqNsSNXhp7q5P_YE71hUiSZHvzfNw0S7I8eYnG0nLp9FZYUMUr7pOSpjkIx-rBa831cVmWsY4iYHfEdU4c')"
-                    }}></div>
-                    <div className="absolute -bottom-1 -right-1 bg-green-500 border-2 border-white rounded-full p-[2px] shadow-sm">
-                      <span className="material-symbols-outlined text-white text-[10px] font-bold block">link</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{t("paymentMethodSafePal")}</p>
-                    <p className="text-xs text-text-sub font-medium font-mono bg-slate-100 px-1 rounded inline-block mt-0.5">
-                      {shortAddress(walletAddress)}
-                    </p>
-                  </div>
-                </div>
-                {walletAddress ? (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-md border border-green-100">
-                    <div className="size-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                    {t("connected")}
-                  </div>
-                ) : (
-                  <button
-                    onClick={connectWallet}
-                    className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded-md hover:bg-primary-dark transition"
-                  >
-                    {t("connect")}
-                  </button>
-                )}
-              </div>
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-text-sub px-1 uppercase tracking-wider">{t("paymentAsset")}</p>
-                <div className="flex items-center p-3.5 rounded-xl border-2 border-primary bg-purple-50">
-                  <div className="size-11 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100">
-                    <span className="material-symbols-outlined text-[22px]">attach_money</span>
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-slate-900 text-base">USDT</p>
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">BEP20</span>
-                    </div>
-                    <p className="text-xs text-text-sub mt-0.5">Số dư: <span className="font-semibold text-slate-700">{formatBalance(usdtBalance)}</span></p>
-                  </div>
-                  <div className="size-5 rounded-full border-[1.5px] border-primary bg-primary flex items-center justify-center">
-                    <div className="size-2 bg-white rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {paymentMethod === "banking" && !bankingConfig?.isEnabled && (
+          {!bankingConfig?.isEnabled && (
             <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 text-center text-slate-500 text-sm">
-              Phương thức chuyển khoản tạm thời không khả dụng. Vui lòng chọn thanh toán bằng Ví (USDT).
+              Phương thức chuyển khoản tạm thời không khả dụng. Vui lòng liên hệ admin.
             </div>
           )}
-          {paymentMethod === "banking" && bankingConfig && bankingConfig.isEnabled && (
+          {bankingConfig && bankingConfig.isEnabled && (
             <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 space-y-4">
               <p className="text-sm text-slate-600">Chuyển khoản đến tài khoản sau. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận đã nhận tiền.</p>
               <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
@@ -799,7 +308,7 @@ export default function CheckoutPage() {
                 {usdtToVnd != null && (
                   <p className="text-sm text-slate-600 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)} </p>
                 )}
-                {usdtToVnd == null && paymentMethod === "banking" && (
+                {usdtToVnd == null && (
                   <p className="text-xs text-slate-400 mt-0.5">Đang lấy tỷ giá USDT/VND...</p>
                 )}
               </div>
@@ -927,7 +436,7 @@ export default function CheckoutPage() {
                 <span className="font-bold text-slate-900">{formatPrice(shippingFee)} USDT</span>
               </div>
             )}
-            {paymentMethod === "banking" && usdtToVnd != null && (
+            {usdtToVnd != null && (
               <>
                 <div className="border-t border-slate-100 pt-3 mt-1">
                   <div className="flex justify-between text-sm items-center">
@@ -950,24 +459,17 @@ export default function CheckoutPage() {
               <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
               <span className="text-sm font-bold text-slate-500">USDT</span>
             </div>
-            {paymentMethod === "banking" && usdtToVnd != null && (
+            {usdtToVnd != null && (
               <span className="text-xs text-slate-500 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)}</span>
             )}
           </div>
           <button
             onClick={handlePayment}
-            disabled={
-              processingStep !== "idle"
-              || (paymentMethod === "wallet" && (!walletAddress || parseFloat(usdtBalance || "0") < finalTotal))
-            }
+            disabled={processingStep !== "idle"}
             className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>
-              {processingStep !== "idle"
-                ? t("processingPayment")
-                : paymentMethod === "banking"
-                  ? "Đặt hàng"
-                  : t("confirmPurchase")}
+              {processingStep !== "idle" ? t("processingPayment") : "Đặt hàng"}
             </span>
             {processingStep === "idle" && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
           </button>

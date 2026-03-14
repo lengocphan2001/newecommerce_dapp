@@ -8,7 +8,7 @@ import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { PackagesService } from '../packages/packages.service';
 import { AdminService } from '../admin/admin.service';
 import { MailService } from '../mail/mail.service';
-import { LoginDto, RegisterDto, WalletRegisterDto } from './dto';
+import { LoginDto, RegisterDto, WalletRegisterDto, UsernameRegisterDto, ChangePasswordDto } from './dto';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -204,6 +204,35 @@ export class AuthService {
         walletAddress: user.walletAddress,
         chainId: user.chainId,
         fullName: user.fullName,
+      },
+    };
+  }
+
+  /**
+   * Web2 login: đăng nhập bằng username + password (cho user đã được set password qua script).
+   */
+  async loginByUsername(username: string, password: string) {
+    const user = await this.userService.findByUsername(username.trim());
+    if (!user) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+
+    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        walletAddress: user.walletAddress,
       },
     };
   }
@@ -453,6 +482,11 @@ export class AuthService {
     // Get min payout threshold from system config
     const minPayoutThreshold = await this.adminService.getMinPayoutThreshold();
 
+    // Payout fee: 10% withheld; số tiền thực nhận về ví = 90% (phải khớp với commission-payout.service PAYOUT_FEE_PERCENT)
+    const PAYOUT_FEE_PERCENT = 10;
+    const grossCommission = Number(user.totalCommissionReceived) || 0;
+    const netCommission = grossCommission * (1 - PAYOUT_FEE_PERCENT / 100);
+
     return {
       referralCode,
       referralLink,
@@ -468,6 +502,10 @@ export class AuthService {
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
+      /** Số tiền thực nhận về ví (sau khi trừ phí 10%) */
+      bonusCommissionNet: formatDecimal(netCommission),
+      /** Phần trăm phí khi rút (10%) */
+      payoutFeePercent: PAYOUT_FEE_PERCENT,
       fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
       maxCommission,
       packageType: user.packageType,
@@ -611,8 +649,8 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, data: any) {
-    // Whitelist fields allow to update
-    const allowed = ['fullName', 'email', 'phone', 'avatar'];
+    // Whitelist fields allow to update (walletAddress = địa chỉ ví nhận hoa hồng)
+    const allowed = ['fullName', 'email', 'phone', 'avatar', 'walletAddress'];
     const updateData: any = {};
 
     for (const key of allowed) {
@@ -623,6 +661,19 @@ export class AuthService {
     if (data.phoneNumber) updateData.phone = data.phoneNumber;
 
     return this.userService.update(userId, updateData);
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.userService.findOne(userId);
+    if (!user || !user.password) {
+      throw new UnauthorizedException('User not found or password login not available');
+    }
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+    await this.userService.update(userId, { password: newPassword });
+    return { message: 'Password updated successfully' };
   }
 
   async walletRegister(walletRegisterDto: WalletRegisterDto) {
@@ -763,6 +814,92 @@ export class AuthService {
         username: user.username,
         walletAddress: user.walletAddress,
         chainId: user.chainId,
+      },
+    };
+  }
+
+  /** Đăng ký bằng username + password (không cần ví) */
+  async usernameRegister(dto: UsernameRegisterDto) {
+    const email = `${dto.username.trim().toLowerCase()}@user.local`;
+    const existingEmail = await this.userService.findByEmail(email);
+    if (existingEmail) {
+      throw new ConflictException('Email already exists');
+    }
+    const existingUsername = await this.userService.findByUsername(dto.username.trim());
+    if (existingUsername) {
+      throw new ConflictException('Username already exists');
+    }
+
+    const nonAdminUserCount = await this.userService.countNonAdminUsers();
+    const isFirstUser = nonAdminUserCount === 0;
+
+    let parentId: string | null = null;
+    let position: 'left' | 'right' | null = null;
+    let referralUserId: string | null = null;
+
+    if (dto.referralUser?.trim()) {
+      const referralUser = await this.userService.findByUsername(dto.referralUser.trim());
+      if (!referralUser) {
+        throw new ConflictException('Referral code (username) does not exist');
+      }
+      referralUserId = referralUser.id;
+      if (dto.leg === 'left' || dto.leg === 'right') {
+        const slot = await this.userService.findExtremeSlotInBranch(referralUserId, dto.leg);
+        parentId = slot.parentId;
+        position = slot.position;
+      } else {
+        const weakLeg = await this.userService.getWeakLeg(referralUserId);
+        const slot = await this.userService.findExtremeSlotInBranch(referralUserId, weakLeg);
+        parentId = slot.parentId;
+        position = slot.position;
+      }
+    } else if (!isFirstUser) {
+      throw new ConflictException('Referral code is required for registration');
+    }
+
+    const fullName = dto.fullName?.trim() || dto.username;
+    const user = await this.userService.create({
+      email,
+      password: dto.password,
+      username: dto.username.trim(),
+      fullName,
+      phone: dto.phoneNumber.trim(),
+      country: 'VN',
+      referralUser: dto.referralUser?.trim() || null,
+      referralUserId,
+      parentId,
+      position,
+      status: 'ACTIVE',
+    });
+
+    try {
+      await this.userService.addAddress(user.id, {
+        name: fullName,
+        phone: dto.phoneNumber.trim(),
+        address: '',
+        isDefault: true,
+      });
+    } catch (error) {
+      console.error('Error creating default address:', error);
+    }
+
+    if (referralUserId) {
+      try {
+        await this.milestoneRewardService.checkAndProcessMilestones(referralUserId);
+      } catch (error) {
+        console.error('Error processing milestone rewards:', error);
+      }
+    }
+
+    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
       },
     };
   }

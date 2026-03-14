@@ -2,29 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Contract, JsonRpcProvider, formatUnits, getAddress, BrowserProvider } from "ethers";
 import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
-
-function getEthereum() {
-  if (typeof window === "undefined") return undefined;
-  return (window as any).ethereum;
-}
-
-const USDT_BSC = "0x55d398326f99059fF775485246999027B3197955";
-const BSC_RPC = "https://bsc-dataseed.binance.org/";
-const ERC20_ABI = ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"] as const;
-
-interface Asset {
-  symbol: string;
-  name: string;
-  balance: number;
-  usdValue: number;
-  color: string;
-  icon?: string;
-}
 
 interface Transaction {
   id: string;
@@ -40,14 +21,13 @@ interface Transaction {
 export default function WalletsPage() {
   const { t } = useI18n();
   const router = useRouter();
-  const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [usdtBalance, setUsdtBalance] = useState<string>("0");
-  const [isLoadingUSDT, setIsLoadingUSDT] = useState<boolean>(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
+
+  const walletAddress = referralInfo?.walletAddress || "";
 
   useEffect(() => {
     fetchWalletData();
@@ -68,119 +48,14 @@ export default function WalletsPage() {
     }
   };
 
-  const loadUsdtBep20Balance = async (address: string) => {
-    setIsLoadingUSDT(true);
-    try {
-      // Validate address
-      if (!address || !getAddress(address)) {
-        throw new Error("Invalid wallet address");
-      }
-
-      let provider: JsonRpcProvider | BrowserProvider;
-      let contract: Contract;
-
-      // Try to use SafePalMall provider first (if available)
-      const ethereum = getEthereum();
-      if (ethereum) {
-        try {
-          // Use SafePalMall provider
-          const browserProvider = new BrowserProvider(ethereum);
-          const network = await browserProvider.getNetwork();
-
-          // Ensure we're on BSC (chainId: 56 = 0x38)
-          if (Number(network.chainId) !== 56) {
-            // If not on BSC, fallback to RPC
-            provider = new JsonRpcProvider(BSC_RPC);
-          } else {
-            provider = browserProvider;
-          }
-
-          contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
-        } catch (providerError) {
-          // Fallback to RPC if SafePalMall provider fails
-          provider = new JsonRpcProvider(BSC_RPC);
-          contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
-        }
-      } else {
-        // Use public RPC as fallback
-        provider = new JsonRpcProvider(BSC_RPC);
-        contract = new Contract(getAddress(USDT_BSC), ERC20_ABI, provider);
-      }
-
-      // Get balance and decimals
-      const [decimals, balance] = await Promise.all([
-        contract.decimals(),
-        contract.balanceOf(getAddress(address)),
-      ]);
-
-      const formatted = formatUnits(balance as bigint, Number(decimals));
-      setUsdtBalance(formatted);
-
-      // Cache the balance
-      try {
-        localStorage.setItem("usdtBep20Balance", formatted);
-        localStorage.setItem("usdtBep20UpdatedAt", String(Date.now()));
-      } catch {
-        // ignore localStorage errors
-      }
-    } catch (error) {
-      console.error("Error loading USDT balance:", error);
-      // Try to use cached balance as fallback
-      try {
-        const cached = localStorage.getItem("usdtBep20Balance");
-        const cachedTime = localStorage.getItem("usdtBep20UpdatedAt");
-        // Only use cache if it's less than 5 minutes old
-        if (cached && cachedTime) {
-          const age = Date.now() - parseInt(cachedTime, 10);
-          if (age < 5 * 60 * 1000) { // 5 minutes
-            setUsdtBalance(cached);
-          } else {
-            setUsdtBalance("0");
-          }
-        } else {
-          setUsdtBalance("0");
-        }
-      } catch {
-        setUsdtBalance("0");
-      }
-    } finally {
-      setIsLoadingUSDT(false);
-    }
-  };
-
   const fetchWalletData = async () => {
     try {
       setLoading(true);
-
-      // Get wallet address from localStorage
-      if (typeof window !== "undefined") {
-        const storedAddr = localStorage.getItem("walletAddress") || "";
-        setWalletAddress(storedAddr);
-
-        // Try to load cached USDT balance first
-        try {
-          const cached = localStorage.getItem("usdtBep20Balance");
-          if (cached) setUsdtBalance(cached);
-        } catch {
-          // ignore
-        }
-
-        // Load USDT balance from blockchain
-        if (storedAddr) {
-          loadUsdtBep20Balance(storedAddr);
-        }
-      }
-
-      // Get referral info for affiliate balance
       try {
         const info = await api.getReferralInfo();
         setReferralInfo(info);
       } catch (err: any) {
-        // Check if it's an authentication error and redirect
-        if (handleAuthError(err, router)) {
-          return; // Redirect is happening
-        }
-        // User might not be logged in or no referral info, ignore other errors
+        if (handleAuthError(err, router)) return;
       }
     } catch (error) {
     } finally {
@@ -203,11 +78,6 @@ export default function WalletsPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
     }).format(num);
-  };
-
-  const shortAddress = (address?: string) => {
-    if (!address) return t("notConnected");
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const copyAddress = async (e?: React.MouseEvent) => {
@@ -239,22 +109,13 @@ export default function WalletsPage() {
     }
   };
 
-  // Calculate total net worth
-  const shoppingBalance = parseFloat(referralInfo?.accumulatedPurchases || '0');
-  const affiliateBalance = parseFloat(referralInfo?.bonusCommission || '0');
-  const usdtBalanceNum = parseFloat(usdtBalance || '0');
-  const totalNetWorth = usdtBalanceNum;
-
-  // Assets list
-  const assets: Asset[] = [
-    {
-      symbol: "USDT",
-      name: t("tether"),
-      balance: usdtBalanceNum,
-      usdValue: usdtBalanceNum,
-      color: "bg-[#26A17B]",
-    },
-  ];
+  const shoppingBalance = parseFloat(referralInfo?.accumulatedPurchases || "0");
+  const affiliateBalanceGross = parseFloat(referralInfo?.bonusCommission || "0");
+  const feePercent = referralInfo?.payoutFeePercent ?? 10;
+  const affiliateBalanceNet = referralInfo?.bonusCommissionNet != null
+    ? parseFloat(String(referralInfo.bonusCommissionNet))
+    : affiliateBalanceGross * (1 - feePercent / 100);
+  const affiliateBalance = affiliateBalanceNet;
 
   // Helper function to safely format date
   const formatDateSafe = (dateString: string | null | undefined): string => {
@@ -375,40 +236,54 @@ export default function WalletsPage() {
       </header>
 
       <main className="flex-1 flex flex-col gap-6 px-4 bg-white mt-4">
-        {/* Main Balance Card */}
+        {/* Số dư hoa hồng + Địa chỉ ví nhận hoa hồng */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-gray-100">
           <div className="relative z-10 flex flex-col gap-4">
-            
             <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-600">{t("totalNetWorth")}</p>
-              <button
-                onClick={() => setBalanceVisible(!balanceVisible)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[20px]">
-                  {balanceVisible ? 'visibility' : 'visibility_off'}
-                </span>
-              </button>
-            </div>
-              
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-600">Số tiền nhận về ví (sau phí {feePercent}%)</p>
+                <button
+                  onClick={() => setBalanceVisible(!balanceVisible)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {balanceVisible ? "visibility" : "visibility_off"}
+                  </span>
+                </button>
+              </div>
               <h2 className="text-4xl font-bold tracking-tight text-text-dark">
-                {balanceVisible ? `$${formatUSDT(totalNetWorth)}` : '••••••'}
+                {balanceVisible ? `$${formatUSDT(affiliateBalance)}` : "••••••"}
               </h2>
-              <button
-                onClick={copyAddress}
-                type="button"
-                className="flex items-center gap-2 mt-1 cursor-pointer group hover:opacity-80 transition-opacity"
-              >
-                <p className="text-sm font-mono text-gray-500 group-hover:text-primary-dark transition-colors">
-                  {shortAddress(walletAddress)}
+              {balanceVisible && affiliateBalanceGross > 0 && (
+                <p className="text-xs text-gray-500">
+                  Tổng tích lũy: ${formatUSDT(affiliateBalanceGross)} (trước phí {feePercent}%)
                 </p>
-                <span className={`material-symbols-outlined text-[16px] transition-colors ${copied
-                  ? "text-primary-dark"
-                  : "text-gray-400 group-hover:text-primary-dark"
-                  }`}>
-                  {copied ? "check" : "content_copy"}
-                </span>
+              )}
+            </div>
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs font-medium text-gray-600 mb-2">Địa chỉ ví nhận hoa hồng (USDT BEP20)</p>
+              {walletAddress ? (
+                <button
+                  onClick={copyAddress}
+                  type="button"
+                  className="flex items-center gap-2 cursor-pointer group hover:opacity-80 transition-opacity w-full text-left"
+                >
+                  <p className="text-sm font-mono text-gray-600 group-hover:text-primary-dark transition-colors truncate flex-1">
+                    {walletAddress}
+                  </p>
+                  <span className={`material-symbols-outlined text-[16px] shrink-0 ${copied ? "text-primary-dark" : "text-gray-400 group-hover:text-primary-dark"}`}>
+                    {copied ? "check" : "content_copy"}
+                  </span>
+                </button>
+              ) : (
+                <p className="text-sm text-gray-500 mb-2">Chưa cập nhật. Cập nhật tại trang cá nhân.</p>
+              )}
+              <button
+                type="button"
+                onClick={() => router.push("/home/profile/edit")}
+                className="mt-2 text-sm font-medium text-primary-dark hover:text-primary"
+              >
+                {walletAddress ? "Đổi địa chỉ ví" : "Thêm địa chỉ ví"}
               </button>
             </div>
           </div>
@@ -428,51 +303,11 @@ export default function WalletsPage() {
           <div className="flex flex-col gap-2 rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-yellow-500 text-[20px]">group_work</span>
-              <p className="text-xs font-medium text-gray-600">{t("affiliate")}</p>
+              <p className="text-xs font-medium text-gray-600">Hoa hồng (sau phí)</p>
             </div>
             <p className="text-xl font-bold text-text-dark">
               ${formatUSDT(affiliateBalance)}
             </p>
-          </div>
-        </div>
-
-        {/* Assets List */}
-        <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-bold px-1 text-text-dark">{t("assets")}</h3>
-          <div className="flex flex-col gap-3">
-            {assets.map((asset, index) => (
-              <div
-                key={asset.symbol}
-                className="flex items-center justify-between rounded-xl bg-white p-4 border border-gray-100 shadow-sm hover:border-gray-200 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`relative h-10 w-10 rounded-full ${asset.color} flex items-center justify-center text-white font-bold text-lg`}>
-                    {asset.icon ? (
-                      <span className="material-symbols-outlined text-[24px]">{asset.icon}</span>
-                    ) : (
-                      asset.symbol[0]
-                    )}
-                    {index === 0 && (
-                      <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-white border-2 border-white"></div>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <p className="text-base font-semibold text-text-dark">{asset.name}</p>
-                    <p className="text-xs text-gray-500">{asset.symbol}</p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end">
-                  <p className="text-base font-bold text-text-dark">
-                    {balanceVisible
-                      ? formatUSDT(asset.balance)
-                      : '••••'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {balanceVisible ? `≈ $${formatUSDT(asset.usdValue)}` : '••••'}
-                  </p>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
@@ -506,9 +341,11 @@ export default function WalletsPage() {
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-primary-dark' : 'text-text-dark'}`}>
-                      {tx.type === 'commission' || tx.type === 'deposit' ? '+' : '-'} ${formatUSDT(Math.abs(tx.amount))}
+                      {tx.type === 'commission' || tx.type === 'deposit'
+                        ? `+$${formatUSDT(Math.abs(tx.amount) * (1 - feePercent / 100))}`
+                        : `-$${formatUSDT(Math.abs(tx.amount))}`}
                     </p>
-                    <p className="text-xs text-gray-500">{tx.status}</p>
+                    <p className="text-xs text-gray-500">{tx.status}{tx.type === 'commission' ? ` (sau phí ${feePercent}%)` : ''}</p>
                   </div>
                 </div>
               ))

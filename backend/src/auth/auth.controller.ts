@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, Query, UseGuards, Request, Put, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginDto } from './dto';
+import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginDto, UsernameLoginDto, UsernameRegisterDto, ChangePasswordDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
 import { PackagesService } from '../packages/packages.service';
 
@@ -15,6 +15,13 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Request() req: any, @Body() data: any) {
     return this.authService.updateProfile(req.user.sub, data);
+  }
+
+  /** Đổi mật khẩu (yêu cầu mật khẩu hiện tại) */
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(req.user.sub, dto.currentPassword, dto.newPassword);
   }
 
   @Post('login')
@@ -37,6 +44,12 @@ export class AuthController {
     return this.authService.walletRegister(walletRegisterDto);
   }
 
+  /** Đăng ký bằng username + password (không cần ví) */
+  @Post('username-register')
+  async usernameRegister(@Body() dto: UsernameRegisterDto) {
+    return this.authService.usernameRegister(dto);
+  }
+
   @Get('wallet/check')
   async checkWallet(@Query('address') address: string) {
     return this.authService.checkWallet(address);
@@ -50,6 +63,12 @@ export class AuthController {
   @Post('wallet/login')
   async walletLogin(@Body() walletLoginDto: WalletLoginDto) {
     return this.authService.walletLogin(walletLoginDto.walletAddress);
+  }
+
+  /** Web2: đăng nhập bằng username + password */
+  @Post('username-login')
+  async usernameLogin(@Body() dto: UsernameLoginDto) {
+    return this.authService.loginByUsername(dto.username, dto.password);
   }
 
   @Post('refresh')

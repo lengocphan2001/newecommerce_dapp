@@ -206,14 +206,18 @@ export default function ActivityPage() {
           ? `${datetimeStr} • ${fromMemberInfo}`
           : fromMemberInfo;
 
+        const feePercent = referralInfo?.payoutFeePercent ?? 10;
+        const grossAmount = parseFloat(activity.amount) || 0;
+        const netAmount = grossAmount * (1 - feePercent / 100);
+
         allActivities.push({
           id: activity.id,
           type: 'commission',
           title: commissionType, // Use the calculated commissionType directly
           description: description,
-          amount: parseFloat(activity.amount),
-          amountLabel: `+$${Number(activity.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
-          status: 'Đã cộng',
+          amount: netAmount,
+          amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
+          status: `Về ví (đã trừ ${feePercent}% phí)`,
           statusColor: 'text-primary',
           icon: activityType === 'GROUP' ? 'account_tree' : 'card_membership',
           iconColor: activityType === 'GROUP' ? 'text-amber-500' : 'text-amber-500',

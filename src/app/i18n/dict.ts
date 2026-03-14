@@ -350,6 +350,8 @@ export type I18nKey =
   | "loginTitle"
   | "loginSubtitle"
   | "loginDescription"
+  | "loginButton"
+  | "passwordLabel"
   | "connectSafePalWallet"
   | "whatIsSafePal"
   | "securedByWeb3"
@@ -786,6 +788,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     loginTitle: "Tương lai của",
     loginSubtitle: "Ví Tiêu Dùng Thông Minh Toàn Cầu",
     loginDescription: "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung.",
+    loginButton: "Đăng nhập",
+    passwordLabel: "Mật khẩu",
     connectSafePalWallet: "Kết nối Ví Shopii",
     whatIsSafePal: "Shopii    là gì?",
     securedByWeb3: "Bảo mật bởi Công nghệ Web3",
@@ -1218,6 +1222,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     loginTitle: "The Future of",
     loginSubtitle: "Global Smart Consumption Wallet",
     loginDescription: "Shop for groceries and increase your income through a decentralized network.",
+    loginButton: "Log in",
+    passwordLabel: "Password",
     connectSafePalWallet: "Connect Shopii Wallet",
     whatIsSafePal: "What is Shopii?",
     securedByWeb3: "Secured by Web3 Technology",
@@ -1650,6 +1656,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     loginTitle: "의 미래",
     loginSubtitle: "전세계 스마트 소비 지갑",
     loginDescription: "식료품을 쇼핑하고 분산 네트워크를 통해 수입을 늘리세요.",
+    loginButton: "로그인",
+    passwordLabel: "비밀번호",
     connectSafePalWallet: "Shopii 지갑 연결",
     whatIsSafePal: "SafePal이란?",
     securedByWeb3: "Web3 기술로 보호됨",

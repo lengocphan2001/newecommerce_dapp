@@ -22,7 +22,8 @@
     "backfill:referral-user-id": "ts-node -r tsconfig-paths/register src/common/scripts/backfill-referral-user-id.ts",
     "db:init": "ts-node -r tsconfig-paths/register scripts/init-database.ts",
     "clear:data": "ts-node -r tsconfig-paths/register scripts/clear-data.ts",
-    "script:set-product-package": "ts-node -r tsconfig-paths/register scripts/set-all-products-use-package-commission.ts"
+    "script:set-product-package": "ts-node -r tsconfig-paths/register scripts/set-all-products-use-package-commission.ts",
+    "script:set-passwords": "ts-node -r tsconfig-paths/register scripts/set-passwords-for-existing-users.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

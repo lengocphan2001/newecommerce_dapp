@@ -66,6 +66,45 @@ export const api = {
     return response.json();
   },
 
+  /** Web2: đăng nhập bằng username + password */
+  async usernameLogin(username: string, password: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/username-login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username: username.trim(), password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Invalid username or password');
+    }
+
+    return response.json();
+  },
+
+  /** Đăng ký bằng username + password (không cần ví) */
+  async usernameRegister(data: {
+    username: string;
+    password: string;
+    fullName?: string;
+    phoneNumber: string;
+    referralUser?: string;
+    leg?: 'left' | 'right';
+  }) {
+    const response = await fetch(`${API_BASE_URL}/auth/username-register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Registration failed');
+    }
+    return response.json();
+  },
+
   async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string): Promise<unknown> {
     const cacheKey = `products:${country ?? 'all'}:${categoryId ?? 'all'}`;
     const cached = apiCache.getProducts(cacheKey);
@@ -431,6 +470,26 @@ export const api = {
     const text = await response.text();
     return text ? JSON.parse(text) : {};
   },
+
+  /** Đổi mật khẩu (yêu cầu mật khẩu hiện tại) */
+  async changePassword(currentPassword: string, newPassword: string) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Đổi mật khẩu thất bại');
+    }
+    return response.json();
+  },
+
   async getAddresses() {
     const token = localStorage.getItem('token');
     if (!token) return []; // Allow guest/local mode

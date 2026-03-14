@@ -11,16 +11,16 @@ function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(true);
-  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
-  const [countdown, setCountdown] = useState(5);
   const [isFirstUser, setIsFirstUser] = useState(false);
 
   const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+    confirmPassword: "",
     phoneNumber: "",
     referralUser: "",
     leg: "",
   });
-  const [username, setUsername] = useState("");
 
   const generateUsername = () => {
     const letters = "abcdefghijklmnopqrstuvwxyz";
@@ -31,102 +31,53 @@ function RegisterForm() {
     return s;
   };
 
-  const [walletAddress, setWalletAddress] = useState("");
-  const [chainId, setChainId] = useState("");
-
   useEffect(() => {
-    // Get wallet address and chainId from localStorage (not URL for security)
-    const address = localStorage.getItem("walletAddress") || "";
-    const chainIdParam = localStorage.getItem("chainId") || "";
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get("ref");
+    const leg = urlParams.get("leg");
+    setFormData((prev) => ({
+      ...prev,
+      ...(refCode ? { referralUser: refCode, leg: (leg === "left" || leg === "right") ? leg : prev.leg } : {}),
+      username: prev.username || generateUsername(),
+    }));
 
-    if (!address) {
-      router.push("/safepal");
-      return;
-    }
-
-    setWalletAddress(address);
-    setChainId(chainIdParam);
-    setUsername(generateUsername());
-
-    // Get referral code and leg from URL parameter
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const refCode = urlParams.get("ref");
-      const leg = urlParams.get("leg"); // left or right
-      if (refCode) {
-        setFormData((prev) => ({
-          ...prev,
-          referralUser: refCode,
-          leg: (leg === "left" || leg === "right") ? leg : prev.leg
-        }));
-      }
-    }
-
-
-    // Check if user is already registered and if this is first user
-    let countdownTimer: NodeJS.Timeout | null = null;
-
-    const checkUserRegistration = async () => {
-      try {
-        setIsChecking(true);
-        const [checkResult, firstUserResult] = await Promise.all([
-          api.checkWallet(address),
-          api.isFirstUser().catch(() => ({ isFirstUser: false, count: 0 })), // Fallback if API fails
-        ]);
-
-        if (checkResult.exists) {
-          setIsAlreadyRegistered(true);
-          // Start countdown
-          let remaining = 5;
-          countdownTimer = setInterval(() => {
-            remaining--;
-            setCountdown(remaining);
-            if (remaining <= 0) {
-              if (countdownTimer) clearInterval(countdownTimer);
-              // Auto login and redirect
-              api.walletLogin(address).then((result) => {
-                if (result.token) {
-                  localStorage.setItem("token", result.token);
-                }
-                router.push("/home");
-              }).catch(() => {
-                router.push("/");
-              });
-            }
-          }, 1000);
-        } else {
-          setIsAlreadyRegistered(false);
-          setIsFirstUser(firstUserResult.isFirstUser || false);
-        }
-      } catch (err: any) {
-        console.error("Error checking wallet:", err);
-        // If check fails, allow registration to proceed
-        setIsAlreadyRegistered(false);
-        setIsFirstUser(false);
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    checkUserRegistration();
-
-    // Cleanup timer on unmount
-    return () => {
-      if (countdownTimer) {
-        clearInterval(countdownTimer);
-      }
-    };
-  }, [router]);
+    api.isFirstUser()
+      .then((r: { isFirstUser?: boolean }) => setIsFirstUser(!!r?.isFirstUser))
+      .catch(() => setIsFirstUser(false))
+      .finally(() => setIsChecking(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    const username = formData.username.trim();
+    if (!username || username.length < 3) {
+      setError("Tên đăng nhập tối thiểu 3 ký tự (chữ và số)");
+      return;
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(username)) {
+      setError("Tên đăng nhập chỉ được chứa chữ và số");
+      return;
+    }
+    if (!formData.password) {
+      setError("Vui lòng nhập mật khẩu");
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError("Mật khẩu tối thiểu 6 ký tự");
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp");
+      return;
+    }
     if (!formData.phoneNumber.trim()) {
       setError("Vui lòng nhập số điện thoại");
       return;
     }
-    if (!isFirstUser && (!formData.referralUser || !formData.referralUser.trim())) {
+    if (!isFirstUser && !formData.referralUser?.trim()) {
       setError("Vui lòng nhập mã giới thiệu");
       return;
     }
@@ -134,44 +85,28 @@ function RegisterForm() {
       setError(t("selectSide"));
       return;
     }
-    if (!walletAddress || !chainId) {
-      setError("Thông tin ví không hợp lệ");
-      return;
-    }
-    if (!username || username.length < 6) {
-      setError("Tên đăng nhập chưa được tạo. Vui lòng tải lại trang.");
-      return;
-    }
 
     setIsLoading(true);
 
     try {
-      const result = await api.walletRegister({
-        walletAddress,
-        chainId,
+      const result = await api.usernameRegister({
         username,
+        password: formData.password,
         fullName: username,
-        country: "VN",
-        address: "",
         phoneNumber: formData.phoneNumber.trim(),
-        referralUser: formData.referralUser.trim() || undefined,
-        leg: (formData.leg as "left" | "right") || undefined,
+        referralUser: formData.referralUser?.trim() || undefined,
+        leg: (formData.leg === "left" || formData.leg === "right") ? formData.leg : undefined,
       });
 
-      // Store token
       if (result.token) {
         localStorage.setItem("token", result.token);
       }
-      localStorage.setItem("walletAddress", walletAddress);
-
-      // Redirect to home
       router.push("/home");
     } catch (err: any) {
       const msg = typeof err.message === "string" ? err.message : "";
-      const isUsernameTaken =
-        /username\s+already\s+exists/i.test(msg) || msg === "Username already exists";
+      const isUsernameTaken = /username\s+already\s+exists/i.test(msg);
       if (isUsernameTaken) {
-        setUsername(generateUsername());
+        setFormData((prev) => ({ ...prev, username: generateUsername() }));
         setError("Tên đăng nhập đã tồn tại. Đã tạo mã mới, vui lòng thử lại.");
       } else {
         setError(msg || "Đăng ký thất bại. Vui lòng thử lại.");
@@ -180,56 +115,12 @@ function RegisterForm() {
     }
   };
 
-  const chainIdDec = chainId ? String(Number(BigInt(chainId))) : "";
-
-  // Show loading while checking
   if (isChecking) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="text-center">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900 mx-auto mb-4"></div>
           <p className="text-sm text-zinc-600">{t("checkingRegistration")}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show already registered message with countdown
-  if (isAlreadyRegistered) {
-    return (
-      <div className="min-h-screen bg-zinc-50 py-8 px-4">
-        <div className="mx-auto max-w-md">
-          <div className="rounded-xl bg-blue-50 border border-blue-200 p-6 text-center">
-            <div className="mb-4">
-              <div className="mx-auto h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined text-blue-600 text-3xl">check_circle</span>
-              </div>
-              <h2 className="text-xl font-bold text-zinc-900 mb-2">{t("alreadyRegistered")}</h2>
-              <p className="text-sm text-zinc-600 mb-4">
-                {t("alreadyRegisteredMessage")}
-              </p>
-            </div>
-            <div className="bg-white rounded-lg p-4 mb-4">
-              <p className="text-sm text-zinc-600 mb-2">{t("redirectingToLogin")}</p>
-              <p className="text-2xl font-bold text-blue-600">{countdown}</p>
-              <p className="text-xs text-zinc-500 mt-1">{t("seconds")}</p>
-            </div>
-            <button
-              onClick={() => {
-                api.walletLogin(walletAddress).then((result) => {
-                  if (result.token) {
-                    localStorage.setItem("token", result.token);
-                  }
-                  router.push("/home");
-                }).catch(() => {
-                  router.push("/");
-                });
-              }}
-              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-            >
-              {t("goToLoginNow")}
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -243,51 +134,72 @@ function RegisterForm() {
           <p className="mt-2 text-sm text-zinc-600">
             {t("completeInfoToCreateAccount")}
           </p>
+          <p className="mt-2 text-sm text-zinc-600">
+            Đã có tài khoản?{" "}
+            <a href="/" className="font-medium text-blue-600 hover:text-blue-700">
+              Đăng nhập
+            </a>
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Wallet Info (Read-only) */}
-          <div className="rounded-xl bg-blue-50 p-4">
-            <div className="mb-2 text-xs font-medium text-blue-900">{t("walletInfoAutoFill")}</div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-600">{t("walletAddressLabel")}</span>
-                <span className="font-mono text-xs text-zinc-900">
-                  {walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : "-"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-600">{t("chainIdLabel")}</span>
-                <span className="font-mono text-xs text-zinc-900">
-                  {chainIdDec || chainId || "-"}
-                </span>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-blue-700">
-              {t("walletInfoCannotChange")}
-            </p>
-          </div>
-
-          {/* Username (auto-generated, read-only) */}
+          {/* Username */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("username")}
+              {t("username")} <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-2">
-              <span className="flex-1 rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-2.5 font-mono text-base text-zinc-900">
-                {username || "—"}
-              </span>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value.replace(/[^a-zA-Z0-9]/g, "") })}
+                className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 font-mono text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                placeholder="abc123"
+                minLength={3}
+                maxLength={20}
+              />
               <button
                 type="button"
-                onClick={() => setUsername(generateUsername())}
+                onClick={() => setFormData({ ...formData, username: generateUsername() })}
                 className="shrink-0 rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition-colors"
               >
                 Tạo mới
               </button>
             </div>
             <p className="mt-1 text-xs text-zinc-500">
-              Tự động tạo (3 chữ + 3 số). Bấm &quot;Tạo mới&quot; để đổi.
+              Chữ và số, 3–20 ký tự. Bấm &quot;Tạo mới&quot; để tạo ngẫu nhiên.
             </p>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-700">
+              Mật khẩu <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="Tối thiểu 6 ký tự"
+              minLength={6}
+            />
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-zinc-700">
+              Xác nhận mật khẩu <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+              className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              placeholder="Nhập lại mật khẩu"
+            />
           </div>
 
           {/* Phone Number */}
