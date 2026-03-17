@@ -107,6 +107,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: 'wallet.view',
     },
     {
+      key: '/wallet-deposit-requests',
+      icon: <BankOutlined />,
+      label: 'Yêu cầu nạp ví',
+      permission: null,
+    },
+    {
       key: '/affiliate',
       icon: <TeamOutlined />,
       label: 'Affiliate',

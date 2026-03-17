@@ -102,6 +102,32 @@ export class UploadController {
     const baseUrl = `${protocol}://${req.get('host')}`;
     return { url: `${baseUrl}/files/${file.filename}` };
   }
+
+  /**
+   * Upload ảnh chứng từ chuyển khoản (cho yêu cầu nạp tiền ví).
+   * User đăng nhập có thể gọi (JwtAuthGuard, không cần AdminGuard).
+   */
+  @Post('deposit-proof')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: UPLOAD_DIR,
+        filename: (_req, file, cb) => {
+          const safeExt = extname(file.originalname || '').toLowerCase() || '.png';
+          cb(null, `deposit-${randomUUID()}${safeExt}`);
+        },
+      }),
+      fileFilter,
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }),
+  )
+  uploadDepositProof(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+    if (!file) throw new BadRequestException('File is required');
+    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const baseUrl = `${protocol}://${req.get('host')}`;
+    return { url: `${baseUrl}/files/${file.filename}` };
+  }
 }
 
 

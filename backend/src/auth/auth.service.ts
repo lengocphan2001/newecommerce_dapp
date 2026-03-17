@@ -496,6 +496,8 @@ export class AuthService {
       fullName: user.fullName,
       email: user.email,
       walletAddress: user.walletAddress,
+      /** Số dư ví nạp tiền (banking) - admin duyệt nạp rồi cộng vào đây */
+      walletBalance: formatDecimal(user.walletBalance ?? 0),
       phone: user.phone,
       phoneNumber: user.phone, // Alias for compatibility
       address: user.address,

@@ -632,10 +632,22 @@ export default function HomePage() {
                     </div>
                     {(() => {
                       const useProductCommission = product.useProductCommission === true;
-                      const displayPercent = useProductCommission
-                        ? (typeof product.commissionPercentNPP === 'number' ? product.commissionPercentNPP : (product.commissionConfigByPackage?.NPP?.directCommissionRate != null ? Number(product.commissionConfigByPackage.NPP.directCommissionRate) * 100 : 0))
-                        : (typeof product.commissionPercentTV === 'number' ? product.commissionPercentTV : 0);
-                      if (typeof displayPercent !== 'number' || displayPercent <= 0) return null;
+                      // Khi bật hoa hồng sản phẩm: dùng đúng directCommissionRate từ tab "Hoa hồng sản phẩm" (commissionConfigByPackage.NPP). DB lưu 0–1 → *100 để hiển thị %.
+                      let displayPercent: number;
+                      if (useProductCommission) {
+                        const nppDirect = product.commissionConfigByPackage?.NPP?.directCommissionRate;
+                        if (nppDirect != null) {
+                          const v = Number(nppDirect);
+                          displayPercent = v <= 1 ? v * 100 : v;
+                        } else {
+                          const pct = Number(product.commissionPercentNPP);
+                          displayPercent = Number.isFinite(pct) ? pct : 0;
+                        }
+                      } else {
+                        const pct = Number(product.commissionPercentTV);
+                        displayPercent = Number.isFinite(pct) ? pct : 0;
+                      }
+                      if (!Number.isFinite(displayPercent) || displayPercent <= 0) return null;
                       return (
                         <p className="text-xs font-semibold text-red-600 mt-2 pt-2 border-t border-gray-100">
                           {t("commissionRateLabel")} {Number(displayPercent).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%

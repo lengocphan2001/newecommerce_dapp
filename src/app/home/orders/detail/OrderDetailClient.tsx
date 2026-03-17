@@ -26,6 +26,7 @@ interface Order {
     shippingPhone?: string;
     shippingName?: string;
     transactionHash?: string;
+    paymentMethod?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -314,9 +315,22 @@ export default function OrderDetailClient() {
                         </div>
                         <div className="flex-1">
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("paymentMethodSafePal")}</p>
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
-                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                {order.paymentMethod === "deposit_wallet" && (
+                                  <>
+                                    <span className="text-slate-900 text-sm font-bold">Ví nạp tiền</span>
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 border border-green-200 font-bold">Đã trừ ví</span>
+                                  </>
+                                )}
+                                {order.paymentMethod === "banking" && (
+                                  <span className="text-slate-900 text-sm font-bold">Chuyển khoản ngân hàng</span>
+                                )}
+                                {order.paymentMethod !== "deposit_wallet" && order.paymentMethod !== "banking" && (
+                                  <>
+                                    <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>
+                                  </>
+                                )}
                             </div>
                             {order.transactionHash && (
                                 <div

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import TransactionProcessingModal, { ProcessingStep } from "@/app/components/TransactionProcessingModal";
 import { api } from "@/app/services/api";
+import { apiCache } from "@/app/services/apiCache";
 import { useI18n } from "@/app/i18n/I18nProvider";
 
 export default function CheckoutPage() {
@@ -28,6 +29,10 @@ export default function CheckoutPage() {
   const [bankingOrderId, setBankingOrderId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | null>(null);
   const [usdtToVnd, setUsdtToVnd] = useState<number | null>(null);
+  /** Tab thanh toán: 'deposit_wallet' = Ví nạp tiền, 'banking' = Chuyển khoản */
+  const [paymentTab, setPaymentTab] = useState<"deposit_wallet" | "banking">("deposit_wallet");
+  /** Số dư ví nạp tiền (từ referral info hoặc wallet/balance) */
+  const [depositBalance, setDepositBalance] = useState<number | null>(null);
 
   // USDT/VND rate for banking: use admin-set price when set, else fetch from CoinGecko
   useEffect(() => {
@@ -142,7 +147,8 @@ export default function CheckoutPage() {
   const loadCheckoutUser = async () => {
     try {
       let userBase = { fullName: "", phone: "", username: "" as string | undefined };
-      // 1. Try API for basic info (includes Binary ID / username)
+      // 1. Try API for basic info (includes Binary ID / username, ví nạp tiền)
+      let walletBal: number | null = null;
       if (typeof api !== 'undefined') {
         try {
           const info = await api.getReferralInfo();
@@ -151,9 +157,18 @@ export default function CheckoutPage() {
             phone: info.phone || info.phoneNumber || "+84 912 345 678",
             username: info.username
           };
+          const bal = info.walletBalance != null ? Number(info.walletBalance) : null;
+          if (typeof bal === "number" && !Number.isNaN(bal)) walletBal = bal;
         } catch (e) {
           userBase = { fullName: "Nguyễn Văn A", phone: "+84 912 345 678", username: undefined };
         }
+      }
+      if (walletBal != null) setDepositBalance(walletBal);
+      else if (typeof api?.getWalletBalance === "function") {
+        try {
+          const { balance } = await api.getWalletBalance();
+          if (typeof balance === "number") setDepositBalance(balance);
+        } catch { /* ignore */ }
       }
 
       // 2. Check for "Selected Address" overrides from AddressPage (which saves to shippingUser/shippingAddress)
@@ -182,6 +197,39 @@ export default function CheckoutPage() {
     }
   };
 
+
+  const handleDepositWalletOrder = async () => {
+    if (!shippingAddress.trim()) {
+      setError("Vui lòng nhập địa chỉ giao hàng");
+      return;
+    }
+    const balance = depositBalance ?? 0;
+    if (balance < finalTotal) {
+      setError("Số dư ví nạp tiền không đủ. Vui lòng nạp thêm hoặc chọn Chuyển khoản.");
+      return;
+    }
+    setProcessingStep("creating_order");
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Vui lòng đăng nhập");
+      const orderData = await api.createOrder(
+        items.map((item) => ({ productId: item.productId, quantity: item.quantity, properties: item.properties })),
+        undefined,
+        shippingAddress,
+        "deposit_wallet",
+        { shippingPhone: checkoutUser?.phone, shippingName: checkoutUser?.fullName }
+      );
+      setBankingOrderId(orderData.id);
+      setProcessingStep("success");
+      clearCart();
+      apiCache.invalidate("referralInfo"); // để trang Ví / checkout lần sau hiển thị số dư mới
+      setTimeout(() => router.push(`/home/orders?success=true&orderId=${orderData.id}`), 2500);
+    } catch (err: any) {
+      setError(err.message || "Đặt hàng thất bại");
+      setProcessingStep("error");
+    }
+  };
 
   const handleBankingOrder = async () => {
     if (!shippingAddress.trim()) {
@@ -219,8 +267,11 @@ export default function CheckoutPage() {
   };
 
   const handlePayment = async () => {
-    await handleBankingOrder();
+    if (paymentTab === "deposit_wallet") await handleDepositWalletOrder();
+    else await handleBankingOrder();
   };
+
+  const canPayWithDepositWallet = (depositBalance ?? 0) >= finalTotal;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -288,19 +339,70 @@ export default function CheckoutPage() {
           </div>
         </section>
 
-        {/* Section 2: Payment - Chuyển khoản ngân hàng */}
+        {/* Section 2: Payment - Tab Ví nạp tiền | Chuyển khoản */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">2</span>
             <h2 className="text-base font-bold text-slate-700">{t("paymentMethod")}</h2>
           </div>
+
+          {/* Tabs: Ví nạp tiền | Chuyển khoản */}
+          <div className="bg-white rounded-2xl shadow-card border border-purple-100 overflow-hidden">
+            <div className="flex border-b border-slate-100">
+              <button
+                type="button"
+                onClick={() => setPaymentTab("deposit_wallet")}
+                className={`flex-1 py-3.5 px-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+                  paymentTab === "deposit_wallet"
+                    ? "bg-primary/10 text-primary border-b-2 border-primary"
+                    : "text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+                Ví nạp tiền
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentTab("banking")}
+                className={`flex-1 py-3.5 px-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+                  paymentTab === "banking"
+                    ? "bg-primary/10 text-primary border-b-2 border-primary"
+                    : "text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                Chuyển khoản
+              </button>
+            </div>
+
+            {/* Nội dung tab Ví nạp tiền */}
+            {paymentTab === "deposit_wallet" && (
+              <div className="p-4 space-y-3">
+                <p className="text-sm text-slate-600">Thanh toán bằng số dư ví nạp tiền. Đơn hàng được xác nhận ngay.</p>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-xs text-slate-500 font-medium mb-0.5">Số dư ví nạp tiền</p>
+                  <p className="font-bold text-slate-900 text-lg">
+                    {depositBalance != null ? formatPrice(depositBalance) : "—"} USDT
+                  </p>
+                </div>
+                {depositBalance != null && (depositBalance < finalTotal) && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    Số dư không đủ ({formatPrice(finalTotal - depositBalance)} USDT thiếu). Vui lòng nạp thêm hoặc chọn Chuyển khoản.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Nội dung tab Chuyển khoản */}
+            {paymentTab === "banking" && (
+              <>
           {!bankingConfig?.isEnabled && (
-            <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 text-center text-slate-500 text-sm">
+            <div className="p-4 text-center text-slate-500 text-sm">
               Phương thức chuyển khoản tạm thời không khả dụng. Vui lòng liên hệ admin.
             </div>
           )}
           {bankingConfig && bankingConfig.isEnabled && (
-            <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 space-y-4">
+            <div className="p-4 space-y-4">
               <p className="text-sm text-slate-600">Chuyển khoản đến tài khoản sau. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận đã nhận tiền.</p>
               <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
                 <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền chuyển khoản</p>
@@ -417,6 +519,9 @@ export default function CheckoutPage() {
               </div>
             </div>
           )}
+              </>
+            )}
+          </div>
         </section>
 
         {/* Section 3: Payment Details */}
@@ -465,7 +570,11 @@ export default function CheckoutPage() {
           </div>
           <button
             onClick={handlePayment}
-            disabled={processingStep !== "idle"}
+            disabled={
+              processingStep !== "idle" ||
+              (paymentTab === "deposit_wallet" && !canPayWithDepositWallet) ||
+              (paymentTab === "banking" && !bankingConfig?.isEnabled)
+            }
             className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>
@@ -484,7 +593,7 @@ export default function CheckoutPage() {
         error={error}
         onClose={() => setProcessingStep("idle")}
         bankingSuccess={
-          processingStep === "success" && bankingOrderId
+          processingStep === "success" && bankingOrderId && paymentTab === "banking"
             ? {
                 orderId: bankingOrderId,
                 transferContent: checkoutUser?.username || "",

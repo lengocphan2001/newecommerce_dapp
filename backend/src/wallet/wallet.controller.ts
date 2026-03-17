@@ -1,29 +1,37 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { WalletService } from './wallet.service';
-import { DepositDto, WithdrawDto } from './dto';
+import { JwtAuthGuard } from '../common/guards';
+import { CreateDepositRequestDto } from './dto';
+import { WalletDepositStatus } from './entities/wallet-deposit-request.entity';
 
 @Controller('wallet')
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
-  @Get('balance/:userId')
-  async getBalance(@Param('userId') userId: string) {
+  /** Số dư ví nạp tiền (user đăng nhập) */
+  @Get('balance')
+  @UseGuards(JwtAuthGuard)
+  async getMyBalance(@Request() req: any) {
+    const userId = req.user.sub;
     return this.walletService.getBalance(userId);
   }
 
-  @Post('deposit')
-  async deposit(@Body() depositDto: DepositDto) {
-    return this.walletService.deposit(depositDto);
+  /** User tạo yêu cầu nạp tiền */
+  @Post('deposit-requests')
+  @UseGuards(JwtAuthGuard)
+  async createDepositRequest(@Request() req: any, @Body() dto: CreateDepositRequestDto) {
+    const userId = req.user.sub;
+    return this.walletService.createDepositRequest(userId, dto);
   }
 
-  @Post('withdraw')
-  async withdraw(@Body() withdrawDto: WithdrawDto) {
-    return this.walletService.withdraw(withdrawDto);
-  }
-
-  @Get('transactions/:userId')
-  async getTransactions(@Param('userId') userId: string, @Query() query: any) {
-    return this.walletService.getTransactions(userId, query);
+  /** User xem danh sách yêu cầu nạp tiền của mình */
+  @Get('deposit-requests')
+  @UseGuards(JwtAuthGuard)
+  async getMyDepositRequests(@Request() req: any, @Query('status') status?: string) {
+    const userId = req.user.sub;
+    const statusEnum = status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)
+      ? (status as WalletDepositStatus)
+      : undefined;
+    return this.walletService.getMyDepositRequests(userId, statusEnum);
   }
 }
-

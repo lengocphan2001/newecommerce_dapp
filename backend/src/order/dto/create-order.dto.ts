@@ -40,6 +40,6 @@ export class CreateOrderDto {
 
   @IsString()
   @IsOptional()
-  paymentMethod?: string; // 'wallet' | 'banking'
+  paymentMethod?: string; // 'wallet' | 'banking' | 'deposit_wallet'
 }
 

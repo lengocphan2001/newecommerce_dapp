@@ -43,6 +43,7 @@ import { Package } from './packages/entities/package.entity';
 import { PackagePurchase } from './packages/entities/package-purchase.entity';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { Kyc } from './kyc/entities/kyc.entity';
+import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.entity';
 
 @Module({
   imports: [
@@ -67,7 +68,7 @@ import { Kyc } from './kyc/entities/kyc.entity';
           configService.get<string>('DB_PASSWORD') ||
           ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, SystemConfig, Category, Slider, Staff, StaffSession, Role, Permission, Package, PackagePurchase, Kyc],
+        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, SystemConfig, Category, Slider, Staff, StaffSession, Role, Permission, Package, PackagePurchase, Kyc, WalletDepositRequest],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
           configService.get<string>('NODE_ENV') !== 'production',

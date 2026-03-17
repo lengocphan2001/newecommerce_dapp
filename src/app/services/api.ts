@@ -316,7 +316,7 @@ export const api = {
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    paymentMethod?: 'wallet' | 'banking',
+    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet',
     options?: { shippingPhone?: string; shippingName?: string }
   ) {
     const token = localStorage.getItem('token');
@@ -441,7 +441,7 @@ export const api = {
     return result.url;
   },
 
-  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string }) {
+  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string }) {
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -487,6 +487,58 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Đổi mật khẩu thất bại');
     }
+    return response.json();
+  },
+
+  /** Ví nạp tiền (banking): số dư */
+  async getWalletBalance() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/balance`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get wallet balance');
+    return response.json();
+  },
+
+  /** Ví nạp tiền: danh sách yêu cầu nạp của tôi */
+  async getMyDepositRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const url = status ? `${API_BASE_URL}/wallet/deposit-requests?status=${status}` : `${API_BASE_URL}/wallet/deposit-requests`;
+    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Failed to get deposit requests');
+    return response.json();
+  },
+
+  /** Ví nạp tiền: tạo yêu cầu nạp (số tiền VND đã chuyển, admin sẽ tính USDT theo tỉ giá) */
+  async createDepositRequest(data: { amountVnd: number; proofImageUrl?: string; transferNote?: string }) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/deposit-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Tạo yêu cầu nạp thất bại');
+    }
+    return response.json();
+  },
+
+  /** Upload ảnh chứng từ chuyển khoản (cho nạp ví) */
+  async uploadDepositProof(file: File): Promise<{ url: string }> {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${API_BASE_URL}/uploads/deposit-proof`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Upload ảnh thất bại');
     return response.json();
   },
 

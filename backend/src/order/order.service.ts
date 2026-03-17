@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
@@ -121,9 +121,25 @@ export class OrderService {
     // Add shipping fee to total amount
     const finalTotal = totalAmount + shippingFee;
 
-    // Determine initial status: If transactionHash is present (Crypto payment), CONFIRM immediately.
-    // Otherwise (COD/Banking pending), set to PENDING.
-    const initialStatus = createOrderDto.transactionHash ? OrderStatus.CONFIRMED : OrderStatus.PENDING;
+    const paymentMethod = createOrderDto.paymentMethod || 'wallet';
+
+    // Ví nạp tiền: trừ số dư và xác nhận đơn ngay
+    if (paymentMethod === 'deposit_wallet') {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found');
+      const balance = Number(user.walletBalance ?? 0);
+      if (balance < finalTotal) {
+        throw new BadRequestException(`Số dư ví nạp tiền không đủ. Hiện tại: ${balance.toFixed(2)} USDT, cần: ${finalTotal.toFixed(2)} USDT`);
+      }
+      user.walletBalance = balance - finalTotal;
+      await this.userRepository.save(user);
+    }
+
+    // Determine initial status: Crypto (transactionHash) or deposit_wallet → CONFIRMED; Banking → PENDING
+    const initialStatus =
+      createOrderDto.transactionHash || paymentMethod === 'deposit_wallet'
+        ? OrderStatus.CONFIRMED
+        : OrderStatus.PENDING;
 
     const order = this.orderRepository.create({
       userId,
@@ -135,7 +151,7 @@ export class OrderService {
       shippingAddress: createOrderDto.shippingAddress,
       shippingPhone: createOrderDto.shippingPhone,
       shippingName: createOrderDto.shippingName,
-      paymentMethod: createOrderDto.paymentMethod || 'wallet',
+      paymentMethod,
     });
 
     const savedOrder = await this.orderRepository.save(order);

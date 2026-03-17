@@ -146,6 +146,19 @@ export class User {
   @Column({ default: false })
   isAdmin: boolean;
 
+  /** Số dư ví nạp tiền (banking) - admin duyệt nạp rồi cộng vào đây */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  walletBalance: number;
+
   @Column({ default: false })
   emailVerified: boolean;
 
