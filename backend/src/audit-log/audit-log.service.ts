@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, Like } from 'typeorm';
-import { AuditLog, AuditLogAction, AuditLogEntityType } from './entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditLogAction,
+  AuditLogEntityType,
+} from './entities/audit-log.entity';
 import { CreateAuditLogDto } from './dto/create-audit-log.dto';
 
 @Injectable()
@@ -58,7 +62,12 @@ export class AuditLogService {
     page?: number;
     limit?: number;
     search?: string;
-  }): Promise<{ data: AuditLog[]; total: number; page: number; limit: number }> {
+  }): Promise<{
+    data: AuditLog[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const page = query.page ? parseInt(query.page.toString(), 10) : 1;
     const limit = query.limit ? parseInt(query.limit.toString(), 10) : 50;
     const skip = (page - 1) * limit;
@@ -87,7 +96,8 @@ export class AuditLogService {
       where.createdAt = Between(start, end);
     }
 
-    const queryBuilder = this.auditLogRepository.createQueryBuilder('audit_log');
+    const queryBuilder =
+      this.auditLogRepository.createQueryBuilder('audit_log');
 
     if (Object.keys(where).length > 0) {
       queryBuilder.where(where);
@@ -100,10 +110,7 @@ export class AuditLogService {
       );
     }
 
-    queryBuilder
-      .orderBy('audit_log.createdAt', 'DESC')
-      .skip(skip)
-      .take(limit);
+    queryBuilder.orderBy('audit_log.createdAt', 'DESC').skip(skip).take(limit);
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
@@ -151,7 +158,12 @@ export class AuditLogService {
     endDate?: string;
     page?: number;
     limit?: number;
-  }): Promise<{ data: AuditLog[]; total: number; page: number; limit: number }> {
+  }): Promise<{
+    data: AuditLog[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const where: FindOptionsWhere<AuditLog> = {
       entityType: AuditLogEntityType.COMMISSION_PAYOUT,
     };
@@ -190,7 +202,10 @@ export class AuditLogService {
   /**
    * Get audit log statistics
    */
-  async getStatistics(startDate?: Date, endDate?: Date): Promise<{
+  async getStatistics(
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
     total: number;
     byAction: Record<string, number>;
     byEntityType: Record<string, number>;

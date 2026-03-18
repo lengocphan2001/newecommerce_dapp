@@ -269,6 +269,15 @@ npm run build:static
 
 Admin là ứng dụng React (CRA), build ra thư mục `admin/build`. **Không dùng PM2:** Nginx serve trực tiếp thư mục tĩnh tại path `/admin` (xem mục 6.2).
 
+### 5.x Import sản phẩm từ CSV (Admin)
+
+Trong trang **Products** của Admin:
+
+- **Export Products**: tải file `products.csv`.
+- **Import CSV**: upload lại `products.csv` (hoặc file CSV theo đúng header export). Backend sẽ **upsert**:
+  - Có cột `ID`: nếu ID tồn tại thì update, không tồn tại thì tạo mới (giữ nguyên ID).
+  - Bỏ qua ảnh (thumbnail/detail images) – bạn có thể chỉnh ảnh sau.
+
 ### 5.1 File `admin/.env.production`
 
 ```bash
@@ -544,6 +553,7 @@ npm run build:prod
 - **Admin build "exited too early" / thoát sớm:** VPS thiếu RAM. Thêm swap (mục 5.2), hoặc chạy `NODE_OPTIONS=--max-old-space-size=2048 npm run build:prod`, hoặc build Admin trên máy local rồi scp thư mục `admin/build` lên VPS.
 - **`Script not found: .../backend/dist/main.js` / API không start:** Backend build ra `dist/src/main.js` (không phải `dist/main.js`). Đảm bảo `package.json` có `"start:prod": "node dist/src/main.js"`. Sau khi sửa: `cd /var/www/shopii/backend && npm run build && ls dist/src/main.js`, rồi `pm2 restart shopii-api`.
 - **API 502:** Kiểm tra Backend có chạy: `pm2 status`, `pm2 logs shopii-api`. Kiểm tra `backend/.env` (DB, PORT).
+- **MySQL báo `ER_NO_SUCH_TABLE` (thiếu bảng):** Chạy script tạo bảng: `cd /var/www/shopii/backend && npm run db:init`. Script này dùng `.env` để kết nối và sẽ `synchronize` để tạo các table cần thiết (bao gồm `wallet_deposit_requests`). Sau đó restart API: `pm2 restart shopii-api`.
 - **shopiibiztest.top hiện nội dung domain khác:** Cần server block riêng chỉ với `server_name shopiibiztest.top www.shopiibiztest.top` (mục 6.0). Kiểm tra `sites-enabled`, bỏ `default_server` khỏi config domain kia nếu cần.
 - **FE/Admin trắng hoặc 404:** Kiểm tra Nginx `root`/`alias`, đường dẫn `out/` và `admin/build/`. Base path Admin phải là `/admin`.
 - **CORS:** Thêm đúng domain vào `CORS_ORIGINS` trong `backend/.env` và restart Backend.

@@ -5,4 +5,3 @@ export interface PaginationResult<T> {
   limit: number;
   totalPages: number;
 }
-

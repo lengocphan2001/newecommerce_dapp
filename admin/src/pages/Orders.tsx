@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Select, message, Space, Button, Modal, Descriptions } from 'antd';
+import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input } from 'antd';
 import { orderService, Order } from '../services/orderService';
 
 const Orders: React.FC = () => {
@@ -7,15 +7,21 @@ const Orders: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     fetchOrders();
   }, []);
 
-  const fetchOrders = async () => {
+  const getQueryParams = () => {
+    const q = searchText.trim();
+    return q ? { q } : undefined;
+  };
+
+  const fetchOrders = async (params?: any) => {
     setLoading(true);
     try {
-      const response = await orderService.getAll();
+      const response = await orderService.getAll(params);
       setOrders(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch orders');
@@ -24,13 +30,22 @@ const Orders: React.FC = () => {
     }
   };
 
+  const handleSearch = () => {
+    fetchOrders(getQueryParams());
+  };
+
+  const handleClearSearch = () => {
+    setSearchText('');
+    fetchOrders(undefined);
+  };
+
   const handleStatusChange = async (orderId: string, status: string) => {
     try {
       // Convert uppercase status to lowercase for backend
       const normalizedStatus = status.toLowerCase();
       await orderService.updateStatus(orderId, { status: normalizedStatus });
       message.success('Order status updated');
-      fetchOrders();
+      fetchOrders(getQueryParams());
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to update order status');
     }
@@ -40,7 +55,7 @@ const Orders: React.FC = () => {
     try {
       await orderService.updateStatus(orderId, { status: 'confirmed' });
       message.success('Order approved. Commission will be calculated automatically.');
-      fetchOrders();
+      fetchOrders(getQueryParams());
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to approve order');
     }
@@ -184,6 +199,17 @@ const Orders: React.FC = () => {
   return (
     <div>
       <h1 style={{ marginBottom: 24 }}>Orders Management</h1>
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Input.Search
+          placeholder="Tìm theo mã đơn, user, transaction hash..."
+          value={searchText}
+          allowClear
+          onChange={(e) => setSearchText(e.target.value)}
+          onSearch={handleSearch}
+          style={{ width: 420 }}
+        />
+        <Button onClick={handleClearSearch} disabled={!searchText.trim()}>Xóa</Button>
+      </Space>
       <Table
         columns={columns}
         dataSource={orders}

@@ -72,7 +72,8 @@ export class CommissionPayoutService {
     private configService: ConfigService,
   ) {
     this.contractAddress =
-      this.configService.get<string>('COMMISSION_PAYOUT_CONTRACT_ADDRESS') || '';
+      this.configService.get<string>('COMMISSION_PAYOUT_CONTRACT_ADDRESS') ||
+      '';
   }
 
   /**
@@ -107,14 +108,16 @@ export class CommissionPayoutService {
         if (envContent.includes('COMMISSION_PAYOUT_CONTRACT_ADDRESS=')) {
           envContent = envContent.replace(
             /COMMISSION_PAYOUT_CONTRACT_ADDRESS=.*/g,
-            `COMMISSION_PAYOUT_CONTRACT_ADDRESS=${newAddress}`
+            `COMMISSION_PAYOUT_CONTRACT_ADDRESS=${newAddress}`,
           );
         } else {
           envContent += `\nCOMMISSION_PAYOUT_CONTRACT_ADDRESS=${newAddress}\n`;
         }
 
         fs.writeFileSync(envPath, envContent);
-        this.logger.log(`Updated COMMISSION_PAYOUT_CONTRACT_ADDRESS in .env to ${newAddress}`);
+        this.logger.log(
+          `Updated COMMISSION_PAYOUT_CONTRACT_ADDRESS in .env to ${newAddress}`,
+        );
       }
     } catch (error) {
       this.logger.error(`Failed to update .env file: ${error.message}`);
@@ -124,56 +127,77 @@ export class CommissionPayoutService {
   /**
    * Deploy a new Commission Payout contract
    */
-  async deployContract(tokenAddress?: string): Promise<{ contractAddress: string; txHash: string }> {
+  async deployContract(
+    tokenAddress?: string,
+  ): Promise<{ contractAddress: string; txHash: string }> {
     try {
       this.logger.log('Starting contract deployment...');
       const wallet = this.web3Service.getWallet();
 
       // Determine token address
-      const useTokenAddress = tokenAddress ||
+      const useTokenAddress =
+        tokenAddress ||
         this.configService.get<string>('TOKEN_ADDRESS') ||
         (this.configService.get<string>('BSC_NETWORK') === 'mainnet'
-          ? "0x55d398326f99059fF775485246999027B3197955" // USDT BEP20 Mainnet
-          : "0x0000000000000000000000000000000000000000");
+          ? '0x55d398326f99059fF775485246999027B3197955' // USDT BEP20 Mainnet
+          : '0x0000000000000000000000000000000000000000');
 
-      if (!useTokenAddress || useTokenAddress === "0x0000000000000000000000000000000000000000") {
+      if (
+        !useTokenAddress ||
+        useTokenAddress === '0x0000000000000000000000000000000000000000'
+      ) {
         throw new Error('Valid token address is required for deployment');
       }
 
       // Read contract artifact
       const artifactPath = path.resolve(
         process.cwd(),
-        'contracts/artifacts/contracts/CommissionPayout.sol/CommissionPayout.json'
+        'contracts/artifacts/contracts/CommissionPayout.sol/CommissionPayout.json',
       );
 
       if (!fs.existsSync(artifactPath)) {
-        throw new Error('Contract artifact not found. Please compile the contract first.');
+        throw new Error(
+          'Contract artifact not found. Please compile the contract first.',
+        );
       }
 
       const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
 
       // Create factory and deploy
-      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, wallet);
+      const factory = new ethers.ContractFactory(
+        artifact.abi,
+        artifact.bytecode,
+        wallet,
+      );
 
       const gasPrice = await this.web3Service.getGasPrice();
-      this.logger.log(`Deploying with token address ${useTokenAddress}, gas price: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`);
+      this.logger.log(
+        `Deploying with token address ${useTokenAddress}, gas price: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`,
+      );
 
       // Send deployment transaction
       const deployTx = await factory.deploy(useTokenAddress, {
-        gasPrice: gasPrice
+        gasPrice: gasPrice,
       });
 
-      this.logger.log(`Deployment transaction sent: ${deployTx.deploymentTransaction()?.hash}`);
+      this.logger.log(
+        `Deployment transaction sent: ${deployTx.deploymentTransaction()?.hash}`,
+      );
 
       // Wait for deployment
       await deployTx.waitForDeployment();
       const newContractAddress = await deployTx.getAddress();
 
-      this.logger.log(`Contract deployed successfully at: ${newContractAddress}`);
+      this.logger.log(
+        `Contract deployed successfully at: ${newContractAddress}`,
+      );
 
       // Update local state
       this.contractAddress = newContractAddress;
-      this.contract = this.web3Service.getContract(newContractAddress, COMMISSION_PAYOUT_ABI);
+      this.contract = this.web3Service.getContract(
+        newContractAddress,
+        COMMISSION_PAYOUT_ABI,
+      );
 
       // Update .env file
       this.updateEnvFile(newContractAddress);
@@ -233,7 +257,9 @@ export class CommissionPayoutService {
     try {
       const formattedAddress = this.web3Service.formatAddress(newOwner);
       const gasPrice = await this.web3Service.getGasPrice();
-      const tx = await contract.transferOwnership(formattedAddress, { gasPrice });
+      const tx = await contract.transferOwnership(formattedAddress, {
+        gasPrice,
+      });
       await this.web3Service.waitForTransaction(tx.hash, 1);
       return { txHash: tx.hash };
     } catch (error: any) {
@@ -296,7 +322,9 @@ export class CommissionPayoutService {
     const contract = this.getContract();
 
     // Prepare data
-    const addresses = recipients.map((r) => this.web3Service.formatAddress(r.address));
+    const addresses = recipients.map((r) =>
+      this.web3Service.formatAddress(r.address),
+    );
     const amounts = recipients.map((r) => {
       // Convert amount to BigNumber
       // USDT BEP20 uses 18 decimals
@@ -306,7 +334,8 @@ export class CommissionPayoutService {
     });
 
     // Generate batch ID if not provided
-    const finalBatchId = batchId || this.generateBatchId(addresses, amounts.map(String));
+    const finalBatchId =
+      batchId || this.generateBatchId(addresses, amounts.map(String));
 
     // Check if batch already processed
     const isProcessed = await contract.isBatchProcessed(finalBatchId);
@@ -316,7 +345,10 @@ export class CommissionPayoutService {
 
     // Check contract balance
     const balance = await contract.getBalance();
-    const totalAmount = amounts.reduce((sum, amount) => sum + amount, BigInt(0));
+    const totalAmount = amounts.reduce(
+      (sum, amount) => sum + amount,
+      BigInt(0),
+    );
     if (balance < totalAmount) {
       throw new Error(
         `Insufficient contract balance. Required: ${ethers.formatEther(totalAmount)}, Available: ${ethers.formatEther(balance)}`,
@@ -335,7 +367,11 @@ export class CommissionPayoutService {
       // Estimate gas
       let gasLimit: bigint;
       try {
-        gasLimit = await contract.batchPayout.estimateGas(finalBatchId, addresses, amounts);
+        gasLimit = await contract.batchPayout.estimateGas(
+          finalBatchId,
+          addresses,
+          amounts,
+        );
         gasLimit = (gasLimit * BigInt(120)) / BigInt(100); // 20% buffer
       } catch (error) {
         this.logger.warn('Gas estimation failed, using default', error);
@@ -439,17 +475,20 @@ export class CommissionPayoutService {
     const contract = this.getContract();
     const filter = contract.filters.BatchPayout();
 
-    contract.on(filter, (batchId, executor, recipients, amounts, timestamp, event) => {
-      callback({
-        batchId,
-        executor,
-        recipients,
-        amounts,
-        timestamp,
-        blockNumber: event.blockNumber,
-        txHash: event.transactionHash,
-      });
-    });
+    contract.on(
+      filter,
+      (batchId, executor, recipients, amounts, timestamp, event) => {
+        callback({
+          batchId,
+          executor,
+          recipients,
+          amounts,
+          timestamp,
+          blockNumber: event.blockNumber,
+          txHash: event.transactionHash,
+        });
+      },
+    );
 
     this.logger.log('Listening to payout events...');
   }
@@ -472,7 +511,9 @@ export class CommissionPayoutService {
     const gasPriceWithBuffer = (gasPrice * BigInt(120)) / BigInt(100);
 
     // Execute transaction
-    this.logger.log(`Executing emergency withdraw to ${address}, amount: ${amountStr}`);
+    this.logger.log(
+      `Executing emergency withdraw to ${address}, amount: ${amountStr}`,
+    );
 
     try {
       const tx = await contract.emergencyWithdraw(address, amount, {

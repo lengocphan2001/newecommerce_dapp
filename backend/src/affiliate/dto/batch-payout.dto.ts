@@ -1,4 +1,11 @@
-import { IsArray, IsNotEmpty, IsString, ValidateNested, ArrayMinSize, ArrayMaxSize } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsString,
+  ValidateNested,
+  ArrayMinSize,
+  ArrayMaxSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PayoutRecipientDto {

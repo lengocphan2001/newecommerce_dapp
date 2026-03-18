@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Kyc, KycStatus } from './entities/kyc.entity';
@@ -9,7 +13,7 @@ export class KycService {
   constructor(
     @InjectRepository(Kyc)
     private kycRepository: Repository<Kyc>,
-  ) { }
+  ) {}
 
   async submitKyc(userId: string, kycDto: SubmitKycDto) {
     const existing = await this.kycRepository.findOne({
@@ -53,7 +57,7 @@ export class KycService {
   async getAll(params?: any) {
     return this.kycRepository.find({
       order: { createdAt: 'DESC' },
-      relations: ['user']
+      relations: ['user'],
     });
   }
 

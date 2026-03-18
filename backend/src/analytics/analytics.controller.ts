@@ -8,30 +8,30 @@ import { Roles } from '../common/decorators/roles.decorator';
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles('admin')
 export class AnalyticsController {
-    constructor(private readonly analyticsService: AnalyticsService) { }
+  constructor(private readonly analyticsService: AnalyticsService) {}
 
-    @Get('overview')
-    getOverview() {
-        return this.analyticsService.getOverview();
-    }
+  @Get('overview')
+  getOverview() {
+    return this.analyticsService.getOverview();
+  }
 
-    @Get('revenue-chart')
-    getRevenueChart(@Query('days') days?: number) {
-        return this.analyticsService.getRevenueChart(days ? Number(days) : 7);
-    }
+  @Get('revenue-chart')
+  getRevenueChart(@Query('days') days?: number) {
+    return this.analyticsService.getRevenueChart(days ? Number(days) : 7);
+  }
 
-    @Get('order-chart')
-    getOrderChart(@Query('days') days?: number) {
-        return this.analyticsService.getOrderChart(days ? Number(days) : 7);
-    }
+  @Get('order-chart')
+  getOrderChart(@Query('days') days?: number) {
+    return this.analyticsService.getOrderChart(days ? Number(days) : 7);
+  }
 
-    @Get('user-growth')
-    getUserGrowth(@Query('days') days?: number) {
-        return this.analyticsService.getUserGrowth(days ? Number(days) : 7);
-    }
+  @Get('user-growth')
+  getUserGrowth(@Query('days') days?: number) {
+    return this.analyticsService.getUserGrowth(days ? Number(days) : 7);
+  }
 
-    @Get('top-products')
-    getTopProducts(@Query('limit') limit?: number) {
-        return this.analyticsService.getTopProducts(limit ? Number(limit) : 5);
-    }
+  @Get('top-products')
+  getTopProducts(@Query('limit') limit?: number) {
+    return this.analyticsService.getTopProducts(limit ? Number(limit) : 5);
+  }
 }

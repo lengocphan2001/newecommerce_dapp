@@ -17,7 +17,7 @@ import {
   Tabs,
   Card,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
@@ -102,6 +102,44 @@ const Products: React.FC = () => {
     } catch (error) {
       console.error(error);
       message.error('Failed to export products');
+    }
+  };
+
+  const handleImportCsv = async (file: File) => {
+    try {
+      const res = await productService.importCsv(file);
+      const data = res.data as any;
+      const failed = Array.isArray(data?.failed) ? data.failed : [];
+      const summary = `Imported: total=${data?.total ?? 0}, created=${data?.created ?? 0}, updated=${data?.updated ?? 0}, failed=${failed.length}`;
+
+      if (failed.length) {
+        Modal.info({
+          title: 'Import finished with errors',
+          width: 800,
+          content: (
+            <div>
+              <div style={{ marginBottom: 12 }}>{summary}</div>
+              <div style={{ maxHeight: 360, overflow: 'auto' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {failed
+                    .slice(0, 200)
+                    .map((f: any) => `Row ${f.rowNumber}: ${f.name ?? ''} ${f.id ? `(${f.id})` : ''} -> ${f.error}`)
+                    .join('\n')}
+                  {failed.length > 200 ? `\n...and ${failed.length - 200} more` : ''}
+                </pre>
+              </div>
+            </div>
+          ),
+        });
+        message.warning(summary);
+      } else {
+        message.success(summary);
+      }
+
+      await fetchProducts();
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || 'Failed to import CSV';
+      message.error(msg);
     }
   };
 
@@ -465,6 +503,16 @@ const Products: React.FC = () => {
       >
         <h1 style={{ margin: 0, fontSize: 'clamp(20px, 4vw, 24px)' }}>Products Management</h1>
         <Space>
+          <Upload
+            accept=".csv,text/csv"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              handleImportCsv(file as any);
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />}>Import CSV</Button>
+          </Upload>
           <Button icon={<DownloadOutlined />} onClick={handleExport}>
             Export Products
           </Button>

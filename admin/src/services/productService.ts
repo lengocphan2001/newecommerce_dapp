@@ -73,5 +73,12 @@ export const productService = {
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/products/${id}`),
   togglePush: (id: string) => api.put<Product>(`/products/${id}/push`),
   export: () => api.get('/products/export', { responseType: 'blob' }),
+  importCsv: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/products/import', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 

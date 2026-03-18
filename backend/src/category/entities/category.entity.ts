@@ -28,7 +28,10 @@ export class Category {
   @Column({ nullable: true })
   parentId?: string;
 
-  @ManyToOne(() => Category, (cat) => cat.children, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Category, (cat) => cat.children, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'parentId' })
   parent?: Category;
 

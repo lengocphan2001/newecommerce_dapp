@@ -1,4 +1,15 @@
-import { Controller, Get, Put, Patch, Post, Body, Param, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Patch,
+  Post,
+  Body,
+  Param,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import { UpdateUserStatusDto, UpdateFakeCommissionDto } from './dto';
@@ -6,7 +17,7 @@ import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) { }
+  constructor(private readonly adminService: AdminService) {}
 
   @Get('dashboard')
   async getDashboard() {
@@ -22,10 +33,18 @@ export class AdminController {
   async exportUsers(@Res() res: Response) {
     const users = await this.adminService.exportUsers();
 
-    const escapeCsv = (val: string | number | Date | null | undefined): string => {
+    const escapeCsv = (
+      val: string | number | Date | null | undefined,
+    ): string => {
       if (val === null || val === undefined) return '';
-      const s = val instanceof Date ? (isNaN(val.getTime()) ? '' : val.toISOString()) : String(val);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+      const s =
+        val instanceof Date
+          ? isNaN(val.getTime())
+            ? ''
+            : val.toISOString()
+          : String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n'))
+        return `"${s.replace(/"/g, '""')}"`;
       return s;
     };
 
@@ -47,10 +66,10 @@ export class AdminController {
       'Total Commission Received',
       'Left Branch Total',
       'Right Branch Total',
-      'Created At'
+      'Created At',
     ];
 
-    const rows = users.map(user => [
+    const rows = users.map((user) => [
       escapeCsv(user.id),
       escapeCsv(user.username),
       escapeCsv(user.email),
@@ -68,12 +87,12 @@ export class AdminController {
       user.totalCommissionReceived ?? 0,
       user.leftBranchTotal ?? 0,
       user.rightBranchTotal ?? 0,
-      escapeCsv(user.createdAt)
+      escapeCsv(user.createdAt),
     ]);
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.join(','))
+      ...rows.map((row) => row.join(',')),
     ].join('\n');
 
     res.header('Content-Type', 'text/csv');
@@ -92,19 +111,34 @@ export class AdminController {
   }
 
   @Put('users/:id/status')
-  async updateUserStatus(@Param('id') id: string, @Body() statusDto: UpdateUserStatusDto) {
+  async updateUserStatus(
+    @Param('id') id: string,
+    @Body() statusDto: UpdateUserStatusDto,
+  ) {
     return this.adminService.updateUserStatus(id, statusDto);
   }
 
   @Patch('users/:id/fake-commission')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async updateUserFakeCommission(@Param('id') id: string, @Body() dto: UpdateFakeCommissionDto) {
-    return this.adminService.updateUserFakeReceivedCommission(id, dto.fakeReceivedCommission);
+  async updateUserFakeCommission(
+    @Param('id') id: string,
+    @Body() dto: UpdateFakeCommissionDto,
+  ) {
+    return this.adminService.updateUserFakeReceivedCommission(
+      id,
+      dto.fakeReceivedCommission,
+    );
   }
 
   @Get('tree/:userId')
-  async getFullTree(@Param('userId') userId: string, @Query('maxDepth') maxDepth?: number) {
-    return this.adminService.getFullTree(userId, maxDepth ? parseInt(maxDepth.toString(), 10) : 5);
+  async getFullTree(
+    @Param('userId') userId: string,
+    @Query('maxDepth') maxDepth?: number,
+  ) {
+    return this.adminService.getFullTree(
+      userId,
+      maxDepth ? parseInt(maxDepth.toString(), 10) : 5,
+    );
   }
 
   /** Public endpoint — used by checkout to display QR banking info */
@@ -133,4 +167,3 @@ export class AdminController {
     return this.adminService.updateSystemConfig(dto);
   }
 }
-

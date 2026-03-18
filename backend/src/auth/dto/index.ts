@@ -6,4 +6,3 @@ export * from './wallet-login.dto';
 export * from './username-login.dto';
 export * from './username-register.dto';
 export * from './change-password.dto';
-

@@ -60,15 +60,42 @@ import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.e
         host: configService.get<string>('DB_HOST') || 'localhost',
         port:
           configService.get<number>('DB_PORT') ||
-          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 3306 : 5432),
+          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql'
+            ? 3306
+            : 5432),
         username:
           configService.get<string>('DB_USERNAME') ||
-          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
+          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql'
+            ? 'root'
+            : 'postgres'),
         password:
           configService.get<string>('DB_PASSWORD') ||
-          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql' ? 'root' : 'postgres'),
+          ((configService.get<string>('DB_TYPE') || 'postgres') === 'mysql'
+            ? 'root'
+            : 'postgres'),
         database: configService.get<string>('DB_NAME') || 'ecommerce_dapp',
-        entities: [User, Address, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, SystemConfig, Category, Slider, Staff, StaffSession, Role, Permission, Package, PackagePurchase, Kyc, WalletDepositRequest],
+        entities: [
+          User,
+          Address,
+          Product,
+          Order,
+          Commission,
+          AuditLog,
+          MilestoneRewardConfig,
+          UserMilestone,
+          BankingConfig,
+          SystemConfig,
+          Category,
+          Slider,
+          Staff,
+          StaffSession,
+          Role,
+          Permission,
+          Package,
+          PackagePurchase,
+          Kyc,
+          WalletDepositRequest,
+        ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
           configService.get<string>('NODE_ENV') !== 'production',
@@ -99,4 +126,4 @@ import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.e
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

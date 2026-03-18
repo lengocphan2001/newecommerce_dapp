@@ -10,7 +10,10 @@
  * @param maxDecimals - Maximum decimal places (default: 8 for USDT)
  * @returns Formatted string representation
  */
-export function formatDecimal(value: number | string | null | undefined, maxDecimals: number = 8): string {
+export function formatDecimal(
+  value: number | string | null | undefined,
+  maxDecimals: number = 8,
+): string {
   if (value === null || value === undefined) {
     return '0.00';
   }
@@ -47,7 +50,10 @@ export function formatDecimal(value: number | string | null | undefined, maxDeci
  * @param maxDecimals - Maximum decimal places (default: 8 for USDT)
  * @returns Number with fixed precision
  */
-export function fixDecimalPrecision(value: number | string | null | undefined, maxDecimals: number = 8): number {
+export function fixDecimalPrecision(
+  value: number | string | null | undefined,
+  maxDecimals: number = 8,
+): number {
   const formatted = formatDecimal(value, maxDecimals);
   return parseFloat(formatted);
 }
@@ -84,7 +90,7 @@ export function formatDecimalsInObject(obj: any, maxDecimals: number = 8): any {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => formatDecimalsInObject(item, maxDecimals));
+    return obj.map((item) => formatDecimalsInObject(item, maxDecimals));
   }
 
   if (typeof obj === 'object') {

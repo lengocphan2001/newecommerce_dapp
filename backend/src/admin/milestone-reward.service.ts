@@ -22,7 +22,7 @@ export class MilestoneRewardService {
     private commissionService: CommissionService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
-  ) { }
+  ) {}
 
   /**
    * Get active milestone config
@@ -36,7 +36,9 @@ export class MilestoneRewardService {
     } catch (error: any) {
       // Handle case where table doesn't exist yet
       if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42P01') {
-        this.logger.warn('milestone_reward_config table does not exist yet. Please run database migration.');
+        this.logger.warn(
+          'milestone_reward_config table does not exist yet. Please run database migration.',
+        );
         return null;
       }
       this.logger.error('Error fetching milestone config:', error);
@@ -48,7 +50,11 @@ export class MilestoneRewardService {
    * Create or update milestone config
    * percentX, percentY, percentZ are percentages (e.g., 1.00 = 1%, 2.50 = 2.5%)
    */
-  async setConfig(percentX: number, percentY: number, percentZ: number): Promise<MilestoneRewardConfig> {
+  async setConfig(
+    percentX: number,
+    percentY: number,
+    percentZ: number,
+  ): Promise<MilestoneRewardConfig> {
     // Deactivate all existing configs
     await this.configRepository.update({ isActive: true }, { isActive: false });
 
@@ -139,7 +145,10 @@ export class MilestoneRewardService {
    * Calculate reward amount based on base purchase amount and milestone percentage
    * (Base amount can be the milestone group purchase total)
    */
-  async calculateRewardAmount(milestoneCount: number, baseAmount: number): Promise<number> {
+  async calculateRewardAmount(
+    milestoneCount: number,
+    baseAmount: number,
+  ): Promise<number> {
     const percent = await this.getRewardPercent(milestoneCount);
     if (percent <= 0 || baseAmount <= 0) {
       return 0;
@@ -176,14 +185,17 @@ export class MilestoneRewardService {
 
     // Filter to only count those with transactions
     const referralsWithTransactions = directReferrals.filter(
-      (ref) => (Number(ref.totalPurchaseAmount) || 0) > 0
+      (ref) => (Number(ref.totalPurchaseAmount) || 0) > 0,
     );
 
     const totalQualifiedReferrals = referralsWithTransactions.length;
-    this.logger.log(`[MILESTONE CHECK] User ${referralUserId} has ${totalQualifiedReferrals} qualified referrals. Checking for due milestones...`);
+    this.logger.log(
+      `[MILESTONE CHECK] User ${referralUserId} has ${totalQualifiedReferrals} qualified referrals. Checking for due milestones...`,
+    );
 
     // Get referrer's totalPurchaseAmount checks
-    const referrerPurchaseAmount = Number(referralUser.totalPurchaseAmount) || 0;
+    const referrerPurchaseAmount =
+      Number(referralUser.totalPurchaseAmount) || 0;
 
     if (referrerPurchaseAmount <= 0) {
       this.logger.warn(
@@ -210,11 +222,13 @@ export class MilestoneRewardService {
         continue;
       }
 
-      this.logger.log(`[MILESTONE CHECK] Found unpaid milestone ${milestoneTarget} for user ${referralUserId}. Processing...`);
+      this.logger.log(
+        `[MILESTONE CHECK] Found unpaid milestone ${milestoneTarget} for user ${referralUserId}. Processing...`,
+      );
 
       // Determine the group of users responsible for this milestone
       let startIndex: number;
-      let endIndex: number = milestoneTarget;
+      const endIndex: number = milestoneTarget;
 
       if (milestoneTarget === 2) {
         // Special case: M2 uses first 2 users (index 0, 1)
@@ -237,13 +251,21 @@ export class MilestoneRewardService {
       const rewardType = this.getRewardType(milestoneTarget);
       let percent = 0;
       switch (rewardType) {
-        case 'X': percent = config.percentX || 0; break;
-        case 'Y': percent = config.percentY || 0; break;
-        case 'Z': percent = config.percentZ || 0; break;
+        case 'X':
+          percent = config.percentX || 0;
+          break;
+        case 'Y':
+          percent = config.percentY || 0;
+          break;
+        case 'Z':
+          percent = config.percentZ || 0;
+          break;
       }
 
       if (percent <= 0) {
-        this.logger.warn(`[MILESTONE CHECK] No percentage configured for reward type ${rewardType} (milestone ${milestoneTarget}).`);
+        this.logger.warn(
+          `[MILESTONE CHECK] No percentage configured for reward type ${rewardType} (milestone ${milestoneTarget}).`,
+        );
         milestoneTarget *= 2;
         continue;
       }
@@ -253,7 +275,9 @@ export class MilestoneRewardService {
       const rewardAmount = (groupPurchaseTotal * percent) / 100;
 
       if (rewardAmount <= 0) {
-        this.logger.warn(`[MILESTONE CHECK] Calculated reward is 0. Base (Group Total): ${groupPurchaseTotal}, Percent: ${percent}.`);
+        this.logger.warn(
+          `[MILESTONE CHECK] Calculated reward is 0. Base (Group Total): ${groupPurchaseTotal}, Percent: ${percent}.`,
+        );
         milestoneTarget *= 2;
         continue;
       }
@@ -271,7 +295,9 @@ export class MilestoneRewardService {
       });
 
       await this.userMilestoneRepository.save(milestone);
-      this.logger.log(`[MILESTONE CHECK] Created milestone ${milestoneTarget} record for user ${referralUserId}. Amount: ${rewardAmount}`);
+      this.logger.log(
+        `[MILESTONE CHECK] Created milestone ${milestoneTarget} record for user ${referralUserId}. Amount: ${rewardAmount}`,
+      );
 
       // Award commission
       try {
@@ -283,25 +309,38 @@ export class MilestoneRewardService {
 
         if (referralUser.walletAddress) {
           try {
-            this.logger.log(`[MILESTONE CHECK] Transferring ${rewardAmount} USDT to ${referralUser.walletAddress}`);
-            const payoutResult = await this.commissionPayoutService.singlePayout(
-              referralUserId,
-              referralUser.walletAddress,
-              rewardAmount,
-              `milestone-${milestone.id}`,
+            this.logger.log(
+              `[MILESTONE CHECK] Transferring ${rewardAmount} USDT to ${referralUser.walletAddress}`,
             );
+            const payoutResult =
+              await this.commissionPayoutService.singlePayout(
+                referralUserId,
+                referralUser.walletAddress,
+                rewardAmount,
+                `milestone-${milestone.id}`,
+              );
 
             milestone.status = 'PAID';
             await this.userMilestoneRepository.save(milestone);
-            this.logger.log(`[MILESTONE CHECK] USDT transfer successful. Tx: ${payoutResult.txHash}`);
+            this.logger.log(
+              `[MILESTONE CHECK] USDT transfer successful. Tx: ${payoutResult.txHash}`,
+            );
           } catch (payoutError: any) {
-            this.logger.error(`[MILESTONE CHECK] USDT transfer failed: ${payoutError.message}`, payoutError);
+            this.logger.error(
+              `[MILESTONE CHECK] USDT transfer failed: ${payoutError.message}`,
+              payoutError,
+            );
           }
         } else {
-          this.logger.warn(`[MILESTONE CHECK] User has no wallet address. Keeping as PENDING.`);
+          this.logger.warn(
+            `[MILESTONE CHECK] User has no wallet address. Keeping as PENDING.`,
+          );
         }
       } catch (error) {
-        this.logger.error(`[MILESTONE CHECK] Error awarding commission logic:`, error);
+        this.logger.error(
+          `[MILESTONE CHECK] Error awarding commission logic:`,
+          error,
+        );
       }
 
       // Move to next milestone
@@ -332,7 +371,9 @@ export class MilestoneRewardService {
     } catch (error: any) {
       // Handle case where table doesn't exist yet
       if (error.code === 'ER_NO_SUCH_TABLE' || error.code === '42P01') {
-        this.logger.warn('user_milestones table does not exist yet. Please run database migration.');
+        this.logger.warn(
+          'user_milestones table does not exist yet. Please run database migration.',
+        );
         return [];
       }
       this.logger.error('Error fetching all milestones:', error);
@@ -342,7 +383,10 @@ export class MilestoneRewardService {
           order: { createdAt: 'DESC' },
         });
       } catch (fallbackError: any) {
-        if (fallbackError.code === 'ER_NO_SUCH_TABLE' || fallbackError.code === '42P01') {
+        if (
+          fallbackError.code === 'ER_NO_SUCH_TABLE' ||
+          fallbackError.code === '42P01'
+        ) {
           return [];
         }
         throw fallbackError;

@@ -15,4 +15,3 @@ import { BankingConfig } from '../admin/entities/banking-config.entity';
   exports: [WalletService],
 })
 export class WalletModule {}
-

@@ -24,9 +24,11 @@ export class CommissionPayoutScheduler {
   // @Cron(CronExpression.EVERY_HOUR)
   async handleHourlyPayout() {
     // DISABLED: Payout now happens immediately when order is approved
-    this.logger.debug('Scheduled auto payout is disabled. Payout happens immediately on order approval.');
+    this.logger.debug(
+      'Scheduled auto payout is disabled. Payout happens immediately on order approval.',
+    );
     return;
-    
+
     // Legacy code below (disabled)
     /*
     if (this.isRunning) {
@@ -65,5 +67,4 @@ export class CommissionPayoutScheduler {
     }
     */
   }
-
 }

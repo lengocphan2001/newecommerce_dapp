@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Staff } from './entities/staff.entity';
@@ -16,7 +20,10 @@ export class StaffService {
     private roleRepository: Repository<Role>,
   ) {}
 
-  async create(createStaffDto: CreateStaffDto, createdById?: string): Promise<Staff> {
+  async create(
+    createStaffDto: CreateStaffDto,
+    createdById?: string,
+  ): Promise<Staff> {
     // Check if email already exists
     const existingStaff = await this.staffRepository.findOne({
       where: { email: createStaffDto.email },
@@ -40,7 +47,9 @@ export class StaffService {
 
     // Assign roles if provided
     if (createStaffDto.roleIds && createStaffDto.roleIds.length > 0) {
-      const roles = await this.roleRepository.findBy({ id: In(createStaffDto.roleIds) });
+      const roles = await this.roleRepository.findBy({
+        id: In(createStaffDto.roleIds),
+      });
       staff.roles = roles;
     }
 
@@ -95,7 +104,9 @@ export class StaffService {
 
     // Update roles if provided
     if (updateStaffDto.roleIds) {
-      const roles = await this.roleRepository.findBy({ id: In(updateStaffDto.roleIds) });
+      const roles = await this.roleRepository.findBy({
+        id: In(updateStaffDto.roleIds),
+      });
       staff.roles = roles;
     }
 
@@ -108,7 +119,10 @@ export class StaffService {
     await this.staffRepository.remove(staff);
   }
 
-  async hasPermission(staffId: string, permissionCode: string): Promise<boolean> {
+  async hasPermission(
+    staffId: string,
+    permissionCode: string,
+  ): Promise<boolean> {
     const staff = await this.staffRepository.findOne({
       where: { id: staffId },
       relations: ['roles', 'roles.permissions'],

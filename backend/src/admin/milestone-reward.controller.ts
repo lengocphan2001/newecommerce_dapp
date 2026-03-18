@@ -55,7 +55,10 @@ export class MilestoneRewardController {
   async recheckMilestones(@Param('userId') userId: string) {
     try {
       await this.milestoneRewardService.checkAndProcessMilestones(userId);
-      return { success: true, message: 'Milestone check completed for user ' + userId };
+      return {
+        success: true,
+        message: 'Milestone check completed for user ' + userId,
+      };
     } catch (error: any) {
       throw new HttpException(
         error?.message || 'Failed to recheck milestones',

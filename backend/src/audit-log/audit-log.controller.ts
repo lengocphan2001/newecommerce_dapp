@@ -1,10 +1,21 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuditLogService } from './audit-log.service';
 import { CreateAuditLogDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { AuditLogAction, AuditLogEntityType } from './entities/audit-log.entity';
+import {
+  AuditLogAction,
+  AuditLogEntityType,
+} from './entities/audit-log.entity';
 
 @Controller('audit-logs')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -13,17 +24,20 @@ export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
   @Get()
-  async findAll(@Query() query: {
-    action?: AuditLogAction;
-    entityType?: AuditLogEntityType;
-    entityId?: string;
-    userId?: string;
-    startDate?: string;
-    endDate?: string;
-    page?: number;
-    limit?: number;
-    search?: string;
-  }) {
+  async findAll(
+    @Query()
+    query: {
+      action?: AuditLogAction;
+      entityType?: AuditLogEntityType;
+      entityId?: string;
+      userId?: string;
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+    },
+  ) {
     return this.auditLogService.findAll(query);
   }
 
@@ -39,13 +53,16 @@ export class AuditLogController {
   }
 
   @Get('payouts')
-  async getPayoutLogs(@Query() query: {
-    batchId?: string;
-    startDate?: string;
-    endDate?: string;
-    page?: number;
-    limit?: number;
-  }) {
+  async getPayoutLogs(
+    @Query()
+    query: {
+      batchId?: string;
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
     return this.auditLogService.findPayoutLogs(query);
   }
 
@@ -59,4 +76,3 @@ export class AuditLogController {
     return this.auditLogService.create(createAuditLogDto);
   }
 }
-

@@ -23,7 +23,9 @@ export class PackagesController {
 
   @Get('active')
   findActive() {
-    return this.packagesService.findAll().then((list) => list.filter((p) => p.isActive));
+    return this.packagesService
+      .findAll()
+      .then((list) => list.filter((p) => p.isActive));
   }
 
   @Get(':id')

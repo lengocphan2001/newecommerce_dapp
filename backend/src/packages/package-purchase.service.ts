@@ -1,7 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PackagePurchase, PackagePurchaseStatus } from './entities/package-purchase.entity';
+import {
+  PackagePurchase,
+  PackagePurchaseStatus,
+} from './entities/package-purchase.entity';
 import { Package } from './entities/package.entity';
 import { User } from '../user/entities/user.entity';
 import { PackagesService } from './packages.service';
@@ -46,7 +53,9 @@ export class PackagePurchaseService {
     });
   }
 
-  async findAllAdmin(status?: PackagePurchaseStatus): Promise<PackagePurchase[]> {
+  async findAllAdmin(
+    status?: PackagePurchaseStatus,
+  ): Promise<PackagePurchase[]> {
     const qb = this.purchaseRepository
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.package', 'package')
@@ -91,7 +100,11 @@ export class PackagePurchaseService {
   }
 
   /** User confirms their own purchase with wallet transaction hash (after paying USDT). */
-  async confirmPaymentByUser(userId: string, purchaseId: string, transactionHash: string): Promise<PackagePurchase> {
+  async confirmPaymentByUser(
+    userId: string,
+    purchaseId: string,
+    transactionHash: string,
+  ): Promise<PackagePurchase> {
     const purchase = await this.purchaseRepository.findOne({
       where: { id: purchaseId },
       relations: ['package', 'user'],

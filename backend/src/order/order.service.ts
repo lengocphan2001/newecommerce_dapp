@@ -1,4 +1,10 @@
-import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
@@ -27,18 +33,11 @@ export class OrderService {
     private packagesService: PackagesService,
     private googleSheetsService: GoogleSheetsService,
     private milestoneRewardService: MilestoneRewardService,
-  ) { }
+  ) {}
 
   async findAll(query: any) {
-    const where: any = {};
-    if (query.userId) {
-      where.userId = query.userId;
-    }
-    if (query.status) {
-      where.status = query.status;
-    }
-
-    const queryBuilder = this.orderRepository.createQueryBuilder('order')
+    const queryBuilder = this.orderRepository
+      .createQueryBuilder('order')
       .leftJoinAndSelect('order.user', 'user')
       .select([
         'order',
@@ -53,7 +52,30 @@ export class OrderService {
       queryBuilder.andWhere('order.userId = :userId', { userId: query.userId });
     }
     if (query.status) {
-      queryBuilder.andWhere('order.status = :status', { status: query.status });
+      // Backend stores status in lowercase enum values: pending/confirmed/...
+      const normalizedStatus =
+        typeof query.status === 'string'
+          ? query.status.toLowerCase()
+          : query.status;
+      queryBuilder.andWhere('order.status = :status', {
+        status: normalizedStatus,
+      });
+    }
+
+    // Full-text-ish search (best effort) for admin table.
+    // Supports: order id, user username/email, transaction hash.
+    if (query.q) {
+      const q = String(query.q).trim();
+      if (q) {
+        const like = `%${q.toLowerCase()}%`;
+        queryBuilder.andWhere(
+          `LOWER(order.id) LIKE :like
+           OR LOWER(user.username) LIKE :like
+           OR LOWER(user.email) LIKE :like
+           OR LOWER(order.transactionHash) LIKE :like`,
+          { like },
+        );
+      }
     }
 
     return queryBuilder.getMany();
@@ -114,7 +136,9 @@ export class OrderService {
 
       // Kiểm tra stock nhưng không trừ ngay (sẽ trừ khi admin duyệt)
       if (product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`);
+        throw new Error(
+          `Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
+        );
       }
     }
 
@@ -129,7 +153,9 @@ export class OrderService {
       if (!user) throw new NotFoundException('User not found');
       const balance = Number(user.walletBalance ?? 0);
       if (balance < finalTotal) {
-        throw new BadRequestException(`Số dư ví nạp tiền không đủ. Hiện tại: ${balance.toFixed(2)} USDT, cần: ${finalTotal.toFixed(2)} USDT`);
+        throw new BadRequestException(
+          `Số dư ví nạp tiền không đủ. Hiện tại: ${balance.toFixed(2)} USDT, cần: ${finalTotal.toFixed(2)} USDT`,
+        );
       }
       user.walletBalance = balance - finalTotal;
       await this.userRepository.save(user);
@@ -197,10 +223,15 @@ export class OrderService {
 
     // Sync to Google Sheets so the sheet gets the transaction hash
     try {
-      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: order.userId },
+      });
       this.googleSheetsService.syncOrder(savedOrder, user || undefined);
     } catch (error) {
-      console.error('Failed to sync to Google Sheets after confirmPayment:', error);
+      console.error(
+        'Failed to sync to Google Sheets after confirmPayment:',
+        error,
+      );
     }
 
     return savedOrder;
@@ -214,7 +245,9 @@ export class OrderService {
     const items = Array.isArray(order.items) ? order.items : [];
     for (const item of items) {
       if (!item?.productId || typeof item.quantity !== 'number') continue;
-      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+      });
       if (product) {
         await this.productRepository.update(product.id, {
           stock: Math.max(0, product.stock - item.quantity),
@@ -224,7 +257,9 @@ export class OrderService {
 
     // 2. Update buyer's total purchase amount, upgrade package type by threshold, & check reconsumption
     if (order.userId) {
-      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: order.userId },
+      });
       if (user) {
         const amount = Number(order.totalAmount);
         if (Number.isFinite(amount) && amount > 0) {
@@ -236,7 +271,9 @@ export class OrderService {
         }
 
         // 2b. Upgrade package type when totalPurchaseAmount reaches a package's price (TV → CTV → NPP by level)
-        const updatedUser = await this.userRepository.findOne({ where: { id: order.userId } });
+        const updatedUser = await this.userRepository.findOne({
+          where: { id: order.userId },
+        });
         if (updatedUser) {
           const total = Number(updatedUser.totalPurchaseAmount) || 0;
           const packages = await this.packagesService.findAll();
@@ -244,48 +281,72 @@ export class OrderService {
           for (const pkg of packages) {
             if (!pkg.isActive) continue;
             const price = Number(pkg.price) ?? 0;
-            if (total >= price && (highestQualified === null || pkg.level > highestQualified.level)) {
+            if (
+              total >= price &&
+              (highestQualified === null || pkg.level > highestQualified.level)
+            ) {
               highestQualified = { code: pkg.code, level: pkg.level };
             }
           }
-          if (highestQualified && updatedUser.packageType !== highestQualified.code) {
-            await this.userRepository.update(order.userId, { packageType: highestQualified.code });
+          if (
+            highestQualified &&
+            updatedUser.packageType !== highestQualified.code
+          ) {
+            await this.userRepository.update(order.userId, {
+              packageType: highestQualified.code,
+            });
           }
         }
 
-        const isReconsumption = await this.checkIfReconsumption(user, order.totalAmount);
+        const isReconsumption = await this.checkIfReconsumption(
+          user,
+          order.totalAmount,
+        );
 
         // Update Order flag
         if (isReconsumption) {
-          await this.orderRepository.update(order.id, { isReconsumption: true });
+          await this.orderRepository.update(order.id, {
+            isReconsumption: true,
+          });
         }
 
         // Update User Reconsumption total
         if (isReconsumption) {
           await this.userRepository.update(order.userId, {
-            totalReconsumptionAmount: Number(user.totalReconsumptionAmount) + Number(order.totalAmount),
+            totalReconsumptionAmount:
+              Number(user.totalReconsumptionAmount) + Number(order.totalAmount),
           });
         }
       }
     }
 
     // 3. Check Milestones for referrer (run here so milestones run even if commission fails)
-    const buyer = await this.userRepository.findOne({ where: { id: order.userId } });
+    const buyer = await this.userRepository.findOne({
+      where: { id: order.userId },
+    });
     if (buyer?.referralUserId) {
-      this.milestoneRewardService.checkAndProcessMilestones(buyer.referralUserId)
-        .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
+      this.milestoneRewardService
+        .checkAndProcessMilestones(buyer.referralUserId)
+        .catch((err) =>
+          console.error('[AUTO-CONFIRM] Error processing milestones:', err),
+        );
     }
 
     // 4. Trigger Commission Calculation & Payout (fire-and-forget)
     this.commissionService
       .calculateCommissions(order.id)
       .then(async () => {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         await this.commissionPayoutService.payoutOrderCommissions(order.id);
-        console.log(`[AUTO-CONFIRM] Processed commissions for order ${order.id}`);
+        console.log(
+          `[AUTO-CONFIRM] Processed commissions for order ${order.id}`,
+        );
       })
-      .catch(err => {
-        console.error(`[AUTO-CONFIRM] Error processing commissions for order ${order.id}:`, err);
+      .catch((err) => {
+        console.error(
+          `[AUTO-CONFIRM] Error processing commissions for order ${order.id}:`,
+          err,
+        );
       });
   }
 
@@ -295,7 +356,10 @@ export class OrderService {
     const newStatus = updateStatusDto.status as OrderStatus;
 
     // Nếu chuyển từ PENDING sang CONFIRMED (admin duyệt đơn hàng)
-    if (oldStatus === OrderStatus.PENDING && newStatus === OrderStatus.CONFIRMED) {
+    if (
+      oldStatus === OrderStatus.PENDING &&
+      newStatus === OrderStatus.CONFIRMED
+    ) {
       // Kiểm tra stock lại trước khi duyệt
       for (const item of order.items) {
         const product = await this.productRepository.findOne({
@@ -305,7 +369,9 @@ export class OrderService {
           throw new Error(`Product ${item.productId} not found`);
         }
         if (product.stock < item.quantity) {
-          throw new Error(`Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`);
+          throw new Error(
+            `Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
+          );
         }
       }
 
@@ -316,14 +382,19 @@ export class OrderService {
       await this.approveOrder(savedOrder);
 
       // Sync to Google Sheets
-      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: order.userId },
+      });
       this.googleSheetsService.syncOrder(savedOrder, user || undefined);
 
       return savedOrder;
     }
 
     // Nếu hủy đơn hàng, hoàn lại stock
-    if (newStatus === OrderStatus.CANCELLED && oldStatus !== OrderStatus.CANCELLED) {
+    if (
+      newStatus === OrderStatus.CANCELLED &&
+      oldStatus !== OrderStatus.CANCELLED
+    ) {
       for (const item of order.items) {
         const product = await this.productRepository.findOne({
           where: { id: item.productId },
@@ -341,10 +412,15 @@ export class OrderService {
 
     // Sync to Google Sheets
     try {
-      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: order.userId },
+      });
       this.googleSheetsService.syncOrder(finalSavedOrder, user || undefined);
     } catch (error) {
-      console.error('Failed to sync to Google Sheets after status update:', error);
+      console.error(
+        'Failed to sync to Google Sheets after status update:',
+        error,
+      );
     }
 
     return finalSavedOrder;
@@ -373,10 +449,15 @@ export class OrderService {
 
     // Sync to Google Sheets
     try {
-      const user = await this.userRepository.findOne({ where: { id: order.userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: order.userId },
+      });
       this.googleSheetsService.syncOrder(cancelledOrder, user || undefined);
     } catch (error) {
-      console.error('Failed to sync to Google Sheets after cancellation:', error);
+      console.error(
+        'Failed to sync to Google Sheets after cancellation:',
+        error,
+      );
     }
 
     return cancelledOrder;
@@ -403,7 +484,10 @@ export class OrderService {
           Number(user.totalPurchaseAmount),
           pkg,
         );
-        if (Number(user.totalCommissionReceived) >= effective && orderAmount >= pkg.price) {
+        if (
+          Number(user.totalCommissionReceived) >= effective &&
+          orderAmount >= pkg.price
+        ) {
           return true;
         }
       }
@@ -418,11 +502,13 @@ export class OrderService {
       Number(user.totalPurchaseAmount),
       pkg,
     );
-    if (Number(user.totalCommissionReceived) >= effective && orderAmount >= pkg.price) {
+    if (
+      Number(user.totalCommissionReceived) >= effective &&
+      orderAmount >= pkg.price
+    ) {
       return true;
     }
 
     return false;
   }
 }
-

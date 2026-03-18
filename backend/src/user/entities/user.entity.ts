@@ -14,8 +14,6 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-
-
   @Column({ type: 'text', nullable: true })
   avatar: string;
 
@@ -174,4 +172,3 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-

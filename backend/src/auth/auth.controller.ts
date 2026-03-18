@@ -1,6 +1,25 @@
-import { Controller, Post, Body, Get, Query, UseGuards, Request, Put, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Query,
+  UseGuards,
+  Request,
+  Put,
+  Param,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, WalletRegisterDto, WalletLoginDto, UsernameLoginDto, UsernameRegisterDto, ChangePasswordDto } from './dto';
+import {
+  LoginDto,
+  RegisterDto,
+  RefreshTokenDto,
+  WalletRegisterDto,
+  WalletLoginDto,
+  UsernameLoginDto,
+  UsernameRegisterDto,
+  ChangePasswordDto,
+} from './dto';
 import { JwtAuthGuard } from '../common/guards';
 import { PackagesService } from '../packages/packages.service';
 
@@ -9,7 +28,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly packagesService: PackagesService,
-  ) { }
+  ) {}
 
   @Put('profile')
   @UseGuards(JwtAuthGuard)
@@ -21,7 +40,11 @@ export class AuthController {
   @Post('change-password')
   @UseGuards(JwtAuthGuard)
   async changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
-    return this.authService.changePassword(req.user.sub, dto.currentPassword, dto.newPassword);
+    return this.authService.changePassword(
+      req.user.sub,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 
   @Post('login')
@@ -94,7 +117,10 @@ export class AuthController {
 
   @Post('verify-email')
   @UseGuards(JwtAuthGuard)
-  async verifyEmailByCode(@Request() req: any, @Body() body: { code?: string }) {
+  async verifyEmailByCode(
+    @Request() req: any,
+    @Body() body: { code?: string },
+  ) {
     return this.authService.verifyEmailByCode(req.user.sub, body?.code || '');
   }
 
@@ -112,7 +138,11 @@ export class AuthController {
 
   @Get('referral/children')
   @UseGuards(JwtAuthGuard)
-  async getChildren(@Request() req: any, @Query('userId') userId?: string, @Query('position') position?: 'left' | 'right') {
+  async getChildren(
+    @Request() req: any,
+    @Query('userId') userId?: string,
+    @Query('position') position?: 'left' | 'right',
+  ) {
     const targetUserId = userId || req.user.sub;
     return this.authService.getChildren(targetUserId, position);
   }
@@ -125,7 +155,9 @@ export class AuthController {
 
   @Get('commission-config/:packageType')
   async getCommissionConfig(@Param('packageType') packageType: string) {
-    const config = await this.packagesService.findByCode(packageType.toUpperCase());
+    const config = await this.packagesService.findByCode(
+      packageType.toUpperCase(),
+    );
 
     if (!config) {
       // Return defaults if not found
@@ -146,4 +178,3 @@ export class AuthController {
     return this.authService.checkReconsumptionStatus(req.user.sub);
   }
 }
-

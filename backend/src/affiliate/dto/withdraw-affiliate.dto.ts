@@ -6,4 +6,3 @@ export class WithdrawAffiliateDto {
   @Min(0.01)
   amount: number;
 }
-

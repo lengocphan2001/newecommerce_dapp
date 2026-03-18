@@ -1,4 +1,9 @@
-import { Injectable, Inject, forwardRef, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { User } from '../user/entities/user.entity';
@@ -34,7 +39,7 @@ export class AdminService {
     private affiliateService: AffiliateService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
-  ) { }
+  ) {}
 
   async getDashboard() {
     // Get total counts
@@ -109,7 +114,10 @@ export class AdminService {
     return { message: `Update user status ${id}` };
   }
 
-  async updateUserFakeReceivedCommission(userId: string, fakeReceivedCommission: number) {
+  async updateUserFakeReceivedCommission(
+    userId: string,
+    fakeReceivedCommission: number,
+  ) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -137,7 +145,10 @@ export class AdminService {
     const commissionStats = await this.commissionService.getStats(userId);
 
     // Get all commissions
-    const allCommissions = await this.commissionService.getCommissions(userId, {});
+    const allCommissions = await this.commissionService.getCommissions(
+      userId,
+      {},
+    );
 
     // Get orders
     const orders = await this.orderRepository.find({
@@ -204,24 +215,45 @@ export class AdminService {
     // Get F1, F2, F3 Referrals
     const f1Users = await this.userRepository.find({
       where: { referralUserId: userId },
-      select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+      select: [
+        'id',
+        'username',
+        'fullName',
+        'email',
+        'packageType',
+        'createdAt',
+      ],
     });
 
-    const f1Ids = f1Users.map(u => u.id);
+    const f1Ids = f1Users.map((u) => u.id);
     let f2Users: any[] = [];
     if (f1Ids.length > 0) {
       f2Users = await this.userRepository.find({
         where: { referralUserId: In(f1Ids) },
-        select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+        select: [
+          'id',
+          'username',
+          'fullName',
+          'email',
+          'packageType',
+          'createdAt',
+        ],
       });
     }
 
-    const f2Ids = f2Users.map(u => u.id);
+    const f2Ids = f2Users.map((u) => u.id);
     let f3Users: any[] = [];
     if (f2Ids.length > 0) {
       f3Users = await this.userRepository.find({
         where: { referralUserId: In(f2Ids) },
-        select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+        select: [
+          'id',
+          'username',
+          'fullName',
+          'email',
+          'packageType',
+          'createdAt',
+        ],
       });
     }
 
@@ -296,21 +328,46 @@ export class AdminService {
   async getFullTree(userId: string, maxDepth: number = 5): Promise<any> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'username', 'fullName', 'email', 'packageType', 'avatar', 'leftBranchTotal', 'rightBranchTotal', 'totalPurchaseAmount', 'createdAt'],
+      select: [
+        'id',
+        'username',
+        'fullName',
+        'email',
+        'packageType',
+        'avatar',
+        'leftBranchTotal',
+        'rightBranchTotal',
+        'totalPurchaseAmount',
+        'createdAt',
+      ],
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const buildTree = async (currentUserId: string, depth: number): Promise<any> => {
+    const buildTree = async (
+      currentUserId: string,
+      depth: number,
+    ): Promise<any> => {
       if (depth >= maxDepth) {
         return null;
       }
 
       const currentUser = await this.userRepository.findOne({
         where: { id: currentUserId },
-        select: ['id', 'username', 'fullName', 'email', 'packageType', 'avatar', 'leftBranchTotal', 'rightBranchTotal', 'totalPurchaseAmount', 'createdAt'],
+        select: [
+          'id',
+          'username',
+          'fullName',
+          'email',
+          'packageType',
+          'avatar',
+          'leftBranchTotal',
+          'rightBranchTotal',
+          'totalPurchaseAmount',
+          'createdAt',
+        ],
       });
 
       if (!currentUser) {
@@ -336,7 +393,9 @@ export class AdminService {
         avatar: currentUser.avatar,
         leftBranchTotal: parseFloat(String(currentUser.leftBranchTotal || 0)),
         rightBranchTotal: parseFloat(String(currentUser.rightBranchTotal || 0)),
-        totalPurchaseAmount: parseFloat(String(currentUser.totalPurchaseAmount || 0)),
+        totalPurchaseAmount: parseFloat(
+          String(currentUser.totalPurchaseAmount || 0),
+        ),
         createdAt: currentUser.createdAt,
         children: [],
       };
@@ -365,7 +424,9 @@ export class AdminService {
    * Get (or create default) banking config
    */
   async getBankingConfig(): Promise<BankingConfig> {
-    let config = await this.bankingConfigRepository.findOne({ where: { id: 1 } });
+    let config = await this.bankingConfigRepository.findOne({
+      where: { id: 1 },
+    });
     if (!config) {
       config = this.bankingConfigRepository.create({
         id: 1,
@@ -383,8 +444,12 @@ export class AdminService {
   /**
    * Upsert banking config (admin only)
    */
-  async upsertBankingConfig(dto: Partial<BankingConfig>): Promise<BankingConfig> {
-    let config = await this.bankingConfigRepository.findOne({ where: { id: 1 } });
+  async upsertBankingConfig(
+    dto: Partial<BankingConfig>,
+  ): Promise<BankingConfig> {
+    let config = await this.bankingConfigRepository.findOne({
+      where: { id: 1 },
+    });
     if (!config) {
       config = this.bankingConfigRepository.create({ id: 1, ...dto });
     } else {
@@ -397,7 +462,9 @@ export class AdminService {
    * Get system config as a plain object { minPayoutThreshold: number }
    */
   async getSystemConfig(): Promise<{ minPayoutThreshold: number }> {
-    const row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: 'minPayoutThreshold' },
+    });
     return {
       minPayoutThreshold: row ? parseFloat(row.value) : 50,
     };
@@ -406,11 +473,18 @@ export class AdminService {
   /**
    * Update system config values
    */
-  async updateSystemConfig(dto: { minPayoutThreshold?: number }): Promise<{ minPayoutThreshold: number }> {
+  async updateSystemConfig(dto: {
+    minPayoutThreshold?: number;
+  }): Promise<{ minPayoutThreshold: number }> {
     if (dto.minPayoutThreshold !== undefined) {
-      let row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
+      let row = await this.systemConfigRepository.findOne({
+        where: { key: 'minPayoutThreshold' },
+      });
       if (!row) {
-        row = this.systemConfigRepository.create({ key: 'minPayoutThreshold', value: String(dto.minPayoutThreshold) });
+        row = this.systemConfigRepository.create({
+          key: 'minPayoutThreshold',
+          value: String(dto.minPayoutThreshold),
+        });
       } else {
         row.value = String(dto.minPayoutThreshold);
       }
@@ -423,7 +497,9 @@ export class AdminService {
    * Get minPayoutThreshold as a raw number (used internally by payout service)
    */
   async getMinPayoutThreshold(): Promise<number> {
-    const row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: 'minPayoutThreshold' },
+    });
     return row ? parseFloat(row.value) : 50;
   }
 }

@@ -31,5 +31,4 @@ import { PackagesModule } from '../packages/packages.module';
   ],
   exports: [AffiliateService, CommissionService, CommissionPayoutService],
 })
-export class AffiliateModule { }
-
+export class AffiliateModule {}

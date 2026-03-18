@@ -34,7 +34,8 @@ export class WalletDepositRequest {
     nullable: true,
     transformer: {
       to: (value: number | null) => value,
-      from: (value: string | null) => (value != null ? parseFloat(value) : null),
+      from: (value: string | null) =>
+        value != null ? parseFloat(value) : null,
     },
   })
   amountVnd: number | null;
@@ -47,7 +48,8 @@ export class WalletDepositRequest {
     nullable: true,
     transformer: {
       to: (value: number | null) => value,
-      from: (value: string | null) => (value != null ? parseFloat(value) : null),
+      from: (value: string | null) =>
+        value != null ? parseFloat(value) : null,
     },
   })
   amount: number | null;

@@ -9,9 +9,7 @@ import { PackagePurchase } from './entities/package-purchase.entity';
 import { User } from '../user/entities/user.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Package, PackagePurchase, User]),
-  ],
+  imports: [TypeOrmModule.forFeature([Package, PackagePurchase, User])],
   controllers: [PackagesController, PackagePurchaseController],
   providers: [PackagesService, PackagePurchaseService],
   exports: [PackagesService, PackagePurchaseService],

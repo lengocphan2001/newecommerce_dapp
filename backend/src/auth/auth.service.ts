@@ -1,4 +1,11 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { StaffService } from '../staff/staff.service';
@@ -8,7 +15,13 @@ import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { PackagesService } from '../packages/packages.service';
 import { AdminService } from '../admin/admin.service';
 import { MailService } from '../mail/mail.service';
-import { LoginDto, RegisterDto, WalletRegisterDto, UsernameRegisterDto, ChangePasswordDto } from './dto';
+import {
+  LoginDto,
+  RegisterDto,
+  WalletRegisterDto,
+  UsernameRegisterDto,
+  ChangePasswordDto,
+} from './dto';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -25,7 +38,7 @@ export class AuthService {
     private packagesService: PackagesService,
     @Inject(forwardRef(() => AdminService))
     private adminService: AdminService,
-  ) { }
+  ) {}
 
   async login(loginDto: LoginDto) {
     const user = await this.userService.findByEmail(loginDto.email);
@@ -33,7 +46,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -54,7 +70,7 @@ export class AuthService {
 
   async adminLogin(loginDto: LoginDto) {
     // Try to find staff first
-    let staff = await this.staffService.findByEmail(loginDto.email);
+    const staff = await this.staffService.findByEmail(loginDto.email);
 
     if (staff) {
       // Staff login
@@ -62,7 +78,10 @@ export class AuthService {
         throw new UnauthorizedException('Account is not active');
       }
 
-      const isPasswordValid = await bcrypt.compare(loginDto.password, staff.password);
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        staff.password,
+      );
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -75,11 +94,15 @@ export class AuthService {
         type: 'staff',
       };
       const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
-      const token = this.jwtService.sign(payload, { expiresIn: expiresIn as any });
+      const token = this.jwtService.sign(payload, {
+        expiresIn: expiresIn as any,
+      });
 
       // Calculate expiration date
       const expiresAt = new Date();
-      const hours = expiresIn.includes('h') ? parseInt(expiresIn.replace('h', '')) : 24;
+      const hours = expiresIn.includes('h')
+        ? parseInt(expiresIn.replace('h', ''))
+        : 24;
       expiresAt.setHours(expiresAt.getHours() + hours);
 
       // Create session (if StaffSessionService is available)
@@ -107,7 +130,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -117,7 +143,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin, type: 'user' };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      type: 'user',
+    };
     const token = this.jwtService.sign(payload);
 
     return {
@@ -153,7 +184,11 @@ export class AuthService {
         throw new UnauthorizedException();
       }
 
-      const newPayload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+      const newPayload = {
+        sub: user.id,
+        email: user.email,
+        isAdmin: user.isAdmin,
+      };
       const token = this.jwtService.sign(newPayload);
 
       return {
@@ -168,12 +203,14 @@ export class AuthService {
     const user = await this.userService.findByWalletAddress(walletAddress);
     return {
       exists: !!user,
-      user: user ? {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        walletAddress: user.walletAddress,
-      } : null,
+      user: user
+        ? {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            walletAddress: user.walletAddress,
+          }
+        : null,
     };
   }
 
@@ -241,11 +278,13 @@ export class AuthService {
     const user = await this.userService.findByUsername(username);
     return {
       exists: !!user,
-      user: user ? {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-      } : null,
+      user: user
+        ? {
+            id: user.id,
+            username: user.username,
+            fullName: user.fullName,
+          }
+        : null,
     };
   }
 
@@ -263,19 +302,26 @@ export class AuthService {
     expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
     await this.userService.setEmailVerificationToken(userId, code, expiresAt);
 
-    const sent = this.mailService.isEnabled() &&
-      (await this.mailService.sendVerificationCode(user.email, code, expiresInMinutes));
+    const sent =
+      this.mailService.isEnabled() &&
+      (await this.mailService.sendVerificationCode(
+        user.email,
+        code,
+        expiresInMinutes,
+      ));
     if (!this.mailService.isEnabled() || !sent) {
       if (!this.mailService.isEnabled()) {
         return {
-          message: 'Verification code generated. Configure SMTP to send by email.',
+          message:
+            'Verification code generated. Configure SMTP to send by email.',
           code,
           expiresAt: expiresAt.toISOString(),
           expiresInMinutes,
         };
       }
       return {
-        message: 'Failed to send email. Please try again or use the code below.',
+        message:
+          'Failed to send email. Please try again or use the code below.',
         code,
         expiresAt: expiresAt.toISOString(),
         expiresInMinutes,
@@ -304,8 +350,13 @@ export class AuthService {
       throw new BadRequestException('Invalid verification code');
     }
     const now = new Date();
-    if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < now) {
-      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    if (
+      user.emailVerificationExpiresAt &&
+      user.emailVerificationExpiresAt < now
+    ) {
+      throw new BadRequestException(
+        'Verification code has expired. Please request a new one.',
+      );
     }
     await this.userService.setEmailVerified(user.id);
     return { message: 'Email verified successfully', email: user.email };
@@ -315,12 +366,17 @@ export class AuthService {
     if (!token || token.trim() === '') {
       throw new BadRequestException('Token is required');
     }
-    const user = await this.userService.findByEmailVerificationToken(token.trim());
+    const user = await this.userService.findByEmailVerificationToken(
+      token.trim(),
+    );
     if (!user) {
       throw new BadRequestException('Invalid or expired verification link');
     }
     const now = new Date();
-    if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < now) {
+    if (
+      user.emailVerificationExpiresAt &&
+      user.emailVerificationExpiresAt < now
+    ) {
       throw new BadRequestException('Verification link has expired');
     }
     await this.userService.setEmailVerified(user.id);
@@ -381,8 +437,11 @@ export class AuthService {
 
     // Generate referral links for left and right legs (use shopii.biz in production)
     const referralCode = user.username;
-    const baseUrl = process.env.FRONTEND_URL
-      || (process.env.NODE_ENV === 'production' ? 'https://shopii.biz' : 'http://localhost:3000');
+    const baseUrl =
+      process.env.FRONTEND_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'https://shopii.biz'
+        : 'http://localhost:3000');
     const referralLink = `${baseUrl}/register?ref=${referralCode}`;
     const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
     const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
@@ -406,65 +465,76 @@ export class AuthService {
     };
 
     // Get pending commissions for recent activity
-    const pendingCommissions = await this.commissionService.getCommissions(userId, { status: CommissionStatus.PENDING });
-    const recentCommissions = await this.commissionService.getCommissions(userId, {});
-    const recentActivity = await Promise.all(recentCommissions.slice(0, 20).map(async (c: any) => {
-      let fromUsername = c.fromUser?.username || c.fromUser?.fullName;
+    const pendingCommissions = await this.commissionService.getCommissions(
+      userId,
+      { status: CommissionStatus.PENDING },
+    );
+    const recentCommissions = await this.commissionService.getCommissions(
+      userId,
+      {},
+    );
+    const recentActivity = await Promise.all(
+      recentCommissions.slice(0, 20).map(async (c: any) => {
+        let fromUsername = c.fromUser?.username || c.fromUser?.fullName;
 
-      // Fallback if relation didn't load
-      if (!fromUsername && c.fromUserId) {
-        try {
-          const fromUser = await this.userService.findOne(c.fromUserId);
-          if (fromUser) {
-            fromUsername = fromUser.username || fromUser.fullName;
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
-
-      // Ensure createdAt is always a string (ISO format) for proper JSON serialization
-      let createdAtStr: string | null = null;
-
-      // Debug: log the commission to see what we have
-      if (!c.createdAt) {
-        console.warn('Commission missing createdAt:', c.id, c);
-      }
-
-      if (c.createdAt) {
-        if (c.createdAt instanceof Date) {
-          createdAtStr = c.createdAt.toISOString();
-        } else if (typeof c.createdAt === 'string') {
-          // Already a string, use it directly
-          createdAtStr = c.createdAt;
-        } else {
-          // Try to convert to Date first, then to ISO string
+        // Fallback if relation didn't load
+        if (!fromUsername && c.fromUserId) {
           try {
-            const date = new Date(c.createdAt as any);
-            if (!isNaN(date.getTime())) {
-              createdAtStr = date.toISOString();
+            const fromUser = await this.userService.findOne(c.fromUserId);
+            if (fromUser) {
+              fromUsername = fromUser.username || fromUser.fullName;
             }
           } catch (e) {
-            // If conversion fails, set to null
-            createdAtStr = null;
+            // Ignore
           }
         }
-      } else {
-        // If createdAt is null/undefined, try to get it from database directly
-        // This should not happen, but handle it gracefully
-        console.error('Commission createdAt is null/undefined for commission:', c.id);
-      }
 
-      return {
-        id: c.id,
-        type: c.type,
-        amount: formatDecimal(c.amount),
-        status: c.status,
-        createdAt: createdAtStr,
-        fromUserId: c.fromUserId,
-        fromUsername: fromUsername,
-      };
-    }));
+        // Ensure createdAt is always a string (ISO format) for proper JSON serialization
+        let createdAtStr: string | null = null;
+
+        // Debug: log the commission to see what we have
+        if (!c.createdAt) {
+          console.warn('Commission missing createdAt:', c.id, c);
+        }
+
+        if (c.createdAt) {
+          if (c.createdAt instanceof Date) {
+            createdAtStr = c.createdAt.toISOString();
+          } else if (typeof c.createdAt === 'string') {
+            // Already a string, use it directly
+            createdAtStr = c.createdAt;
+          } else {
+            // Try to convert to Date first, then to ISO string
+            try {
+              const date = new Date(c.createdAt);
+              if (!isNaN(date.getTime())) {
+                createdAtStr = date.toISOString();
+              }
+            } catch (e) {
+              // If conversion fails, set to null
+              createdAtStr = null;
+            }
+          }
+        } else {
+          // If createdAt is null/undefined, try to get it from database directly
+          // This should not happen, but handle it gracefully
+          console.error(
+            'Commission createdAt is null/undefined for commission:',
+            c.id,
+          );
+        }
+
+        return {
+          id: c.id,
+          type: c.type,
+          amount: formatDecimal(c.amount),
+          status: c.status,
+          createdAt: createdAtStr,
+          fromUserId: c.fromUserId,
+          fromUsername: fromUsername,
+        };
+      }),
+    );
 
     // Threshold hiệu lực (theo totalPurchaseAmount: mỗi lần mua >= giá gói thì cộng thêm một lần)
     let maxCommission = '0.00';
@@ -512,10 +582,13 @@ export class AuthService {
       maxCommission,
       packageType: user.packageType,
       totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
-      pendingRewards: formatDecimal(pendingCommissions.reduce((sum: number, c: any) => {
-        const amount = typeof c.amount === 'string' ? parseFloat(c.amount) : c.amount;
-        return sum + amount;
-      }, 0)),
+      pendingRewards: formatDecimal(
+        pendingCommissions.reduce((sum: number, c: any) => {
+          const amount =
+            typeof c.amount === 'string' ? parseFloat(c.amount) : c.amount;
+          return sum + amount;
+        }, 0),
+      ),
       minPayoutThreshold,
       recentActivity,
       avatar: user.avatar,
@@ -618,7 +691,10 @@ export class AuthService {
     const list = await this.userService.getF1ListWithPerformance(userId);
     return list.map((item) => ({
       ...item,
-      createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+      createdAt:
+        item.createdAt instanceof Date
+          ? item.createdAt.toISOString()
+          : item.createdAt,
     }));
   }
 
@@ -665,10 +741,16 @@ export class AuthService {
     return this.userService.update(userId, updateData);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const user = await this.userService.findOne(userId);
     if (!user || !user.password) {
-      throw new UnauthorizedException('User not found or password login not available');
+      throw new UnauthorizedException(
+        'User not found or password login not available',
+      );
     }
     const isCurrentValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentValid) {
@@ -697,7 +779,9 @@ export class AuthService {
     }
 
     // Check if username already exists
-    const existingUsername = await this.userService.findByUsername(walletRegisterDto.username);
+    const existingUsername = await this.userService.findByUsername(
+      walletRegisterDto.username,
+    );
     if (existingUsername) {
       throw new ConflictException('Username already exists');
     }
@@ -713,7 +797,9 @@ export class AuthService {
     let referralUserId: string | null = null; // Lưu ID của referral user (người giới thiệu ban đầu)
 
     if (walletRegisterDto.referralUser) {
-      const referralUser = await this.userService.findByUsername(walletRegisterDto.referralUser);
+      const referralUser = await this.userService.findByUsername(
+        walletRegisterDto.referralUser,
+      );
       if (!referralUser) {
         throw new ConflictException('Referral code (username) does not exist');
       }
@@ -721,11 +807,13 @@ export class AuthService {
       referralUserId = referralUser.id; // Lưu ID của người giới thiệu ban đầu
 
       // Debug: Log received leg value (already transformed by DTO)
-      // eslint-disable-next-line no-console
 
       // Check if leg is specified in DTO (from URL parameter ?leg=left or ?leg=right)
       // Value is already normalized by @Transform decorator in DTO
-      if (walletRegisterDto.leg === 'left' || walletRegisterDto.leg === 'right') {
+      if (
+        walletRegisterDto.leg === 'left' ||
+        walletRegisterDto.leg === 'right'
+      ) {
         // User chỉ định nhánh cụ thể, tìm vị trí ngoài cùng (extreme) của nhánh đó
         const slot = await this.userService.findExtremeSlotInBranch(
           referralUserId,
@@ -733,15 +821,16 @@ export class AuthService {
         );
         parentId = slot.parentId; // Parent trực tiếp trong tree
         position = slot.position;
-        // eslint-disable-next-line no-console
       } else {
         // Automatically place in weak leg (leg with fewer children) of referral user
         // But still use "Extreme" placement (bottom of the weak leg)
         const weakLeg = await this.userService.getWeakLeg(referralUserId);
-        const slot = await this.userService.findExtremeSlotInBranch(referralUserId, weakLeg);
+        const slot = await this.userService.findExtremeSlotInBranch(
+          referralUserId,
+          weakLeg,
+        );
         parentId = slot.parentId; // Parent trực tiếp trong tree
         position = slot.position;
-        // eslint-disable-next-line no-console
       }
     } else if (!isFirstUser) {
       // If not first user and no referral code provided, throw error
@@ -750,7 +839,7 @@ export class AuthService {
     // If isFirstUser and no referral code, parentId and position remain null (root user)
 
     // Create user without password
-    // Lưu ý: 
+    // Lưu ý:
     // - referralUser: username của người giới thiệu ban đầu (cho display)
     // - referralUserId: ID của người giới thiệu ban đầu (cho tính hoa hồng trực tiếp)
     // - parentId: ID của parent trực tiếp trong tree (có thể khác referralUserId nếu referral user đã đầy)
@@ -781,7 +870,8 @@ export class AuthService {
       if (walletRegisterDto.country) {
         addressParts.push(walletRegisterDto.country);
       }
-      const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : '';
+      const fullAddress =
+        addressParts.length > 0 ? addressParts.join(', ') : '';
 
       await this.userService.addAddress(user.id, {
         name: walletRegisterDto.fullName || 'Default Address',
@@ -797,7 +887,9 @@ export class AuthService {
     // Check and process milestone rewards for referrer (if exists)
     if (referralUserId) {
       try {
-        await this.milestoneRewardService.checkAndProcessMilestones(referralUserId);
+        await this.milestoneRewardService.checkAndProcessMilestones(
+          referralUserId,
+        );
       } catch (error) {
         // Log error but don't fail registration
         console.error('Error processing milestone rewards:', error);
@@ -827,7 +919,9 @@ export class AuthService {
     if (existingEmail) {
       throw new ConflictException('Email already exists');
     }
-    const existingUsername = await this.userService.findByUsername(dto.username.trim());
+    const existingUsername = await this.userService.findByUsername(
+      dto.username.trim(),
+    );
     if (existingUsername) {
       throw new ConflictException('Username already exists');
     }
@@ -840,18 +934,26 @@ export class AuthService {
     let referralUserId: string | null = null;
 
     if (dto.referralUser?.trim()) {
-      const referralUser = await this.userService.findByUsername(dto.referralUser.trim());
+      const referralUser = await this.userService.findByUsername(
+        dto.referralUser.trim(),
+      );
       if (!referralUser) {
         throw new ConflictException('Referral code (username) does not exist');
       }
       referralUserId = referralUser.id;
       if (dto.leg === 'left' || dto.leg === 'right') {
-        const slot = await this.userService.findExtremeSlotInBranch(referralUserId, dto.leg);
+        const slot = await this.userService.findExtremeSlotInBranch(
+          referralUserId,
+          dto.leg,
+        );
         parentId = slot.parentId;
         position = slot.position;
       } else {
         const weakLeg = await this.userService.getWeakLeg(referralUserId);
-        const slot = await this.userService.findExtremeSlotInBranch(referralUserId, weakLeg);
+        const slot = await this.userService.findExtremeSlotInBranch(
+          referralUserId,
+          weakLeg,
+        );
         parentId = slot.parentId;
         position = slot.position;
       }
@@ -887,7 +989,9 @@ export class AuthService {
 
     if (referralUserId) {
       try {
-        await this.milestoneRewardService.checkAndProcessMilestones(referralUserId);
+        await this.milestoneRewardService.checkAndProcessMilestones(
+          referralUserId,
+        );
       } catch (error) {
         console.error('Error processing milestone rewards:', error);
       }
@@ -906,4 +1010,3 @@ export class AuthService {
     };
   }
 }
-

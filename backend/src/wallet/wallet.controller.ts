@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../common/guards';
 import { CreateDepositRequestDto } from './dto';
@@ -19,7 +27,10 @@ export class WalletController {
   /** User tạo yêu cầu nạp tiền */
   @Post('deposit-requests')
   @UseGuards(JwtAuthGuard)
-  async createDepositRequest(@Request() req: any, @Body() dto: CreateDepositRequestDto) {
+  async createDepositRequest(
+    @Request() req: any,
+    @Body() dto: CreateDepositRequestDto,
+  ) {
     const userId = req.user.sub;
     return this.walletService.createDepositRequest(userId, dto);
   }
@@ -27,11 +38,15 @@ export class WalletController {
   /** User xem danh sách yêu cầu nạp tiền của mình */
   @Get('deposit-requests')
   @UseGuards(JwtAuthGuard)
-  async getMyDepositRequests(@Request() req: any, @Query('status') status?: string) {
+  async getMyDepositRequests(
+    @Request() req: any,
+    @Query('status') status?: string,
+  ) {
     const userId = req.user.sub;
-    const statusEnum = status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)
-      ? (status as WalletDepositStatus)
-      : undefined;
+    const statusEnum =
+      status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)
+        ? (status as WalletDepositStatus)
+        : undefined;
     return this.walletService.getMyDepositRequests(userId, statusEnum);
   }
 }

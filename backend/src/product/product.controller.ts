@@ -1,12 +1,27 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { ProductService } from './product.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('products')
 export class ProductController {
-  constructor(private readonly productService: ProductService) { }
+  constructor(private readonly productService: ProductService) {}
 
   @Get()
   async findAll(@Query() query: any) {
@@ -27,20 +42,30 @@ export class ProductController {
       'Sold Count',
       'Created At',
       'Use Product Commission',
-      'Direct % TV', 'Direct % CTV', 'Direct % NPP',
-      'Group % TV', 'Group % CTV', 'Group % NPP',
+      'Direct % TV',
+      'Direct % CTV',
+      'Direct % NPP',
+      'Group % TV',
+      'Group % CTV',
+      'Group % NPP',
       'Group Min Sales ($)',
-      'Management % TV', 'Management % CTV', 'Management % NPP',
-      'Management F1 (%)', 'Management F2 (%)', 'Management F3 (%)',
+      'Management % TV',
+      'Management % CTV',
+      'Management % NPP',
+      'Management F1 (%)',
+      'Management F2 (%)',
+      'Management F3 (%)',
       'Management Min Sales ($)',
-      'Reconsumption Threshold ($)', 'Reconsumption Required ($)',
+      'Reconsumption Threshold ($)',
+      'Reconsumption Required ($)',
       'Commission Config By Package (JSON)',
     ];
 
     const escapeCsv = (v: any): string => {
       if (v == null || v === '') return '';
       const s = String(v);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+      if (s.includes(',') || s.includes('"') || s.includes('\n'))
+        return `"${s.replace(/"/g, '""')}"`;
       return s;
     };
 
@@ -76,12 +101,40 @@ export class ProductController {
 
     const csvContent = [
       headers.join(','),
-      ...rows.map((row: any[]) => row.map((cell: any) => escapeCsv(cell)).join(',')),
+      ...rows.map((row: any[]) =>
+        row.map((cell: any) => escapeCsv(cell)).join(','),
+      ),
     ].join('\n');
 
     res.header('Content-Type', 'text/csv; charset=utf-8');
     res.header('Content-Disposition', 'attachment; filename="products.csv"');
     return res.send(csvContent);
+  }
+
+  @Post('import')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }),
+  )
+  async importProducts(@UploadedFile() file?: Express.Multer.File) {
+    if (!file?.buffer) {
+      throw new BadRequestException(
+        'Missing CSV file. Field name must be "file".',
+      );
+    }
+    const name = (file.originalname || '').toLowerCase();
+    if (name && !name.endsWith('.csv')) {
+      throw new BadRequestException('Only .csv files are supported.');
+    }
+    try {
+      return await this.productService.importFromExportedCsv(file.buffer);
+    } catch (e: any) {
+      throw new BadRequestException(
+        e?.message ? String(e.message) : 'Failed to import CSV',
+      );
+    }
   }
 
   @Get(':id')
@@ -103,7 +156,10 @@ export class ProductController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+  ) {
     return this.productService.update(id, updateProductDto);
   }
 
@@ -113,4 +169,3 @@ export class ProductController {
     return this.productService.remove(id);
   }
 }
-

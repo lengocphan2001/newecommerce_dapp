@@ -21,7 +21,10 @@ export class MailService {
     const port = this.configService.get<number>('SMTP_PORT');
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
-    this.from = this.configService.get<string>('SMTP_FROM') || user || 'noreply@localhost';
+    this.from =
+      this.configService.get<string>('SMTP_FROM') ||
+      user ||
+      'noreply@localhost';
 
     if (host && user && pass) {
       this.enabled = true;
@@ -57,7 +60,11 @@ export class MailService {
     }
   }
 
-  async sendVerificationCode(to: string, code: string, expiresInMinutes: number = 10): Promise<boolean> {
+  async sendVerificationCode(
+    to: string,
+    code: string,
+    expiresInMinutes: number = 10,
+  ): Promise<boolean> {
     const subject = 'Mã xác thực email - Email Verification Code';
     const text = `Mã xác thực của bạn là: ${code}. Mã có hiệu lực ${expiresInMinutes} phút. / Your verification code is: ${code}. It expires in ${expiresInMinutes} minutes.`;
     const html = `

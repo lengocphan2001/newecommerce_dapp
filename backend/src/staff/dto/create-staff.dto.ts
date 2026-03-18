@@ -1,4 +1,11 @@
-import { IsEmail, IsString, IsNotEmpty, IsOptional, IsArray, IsEnum } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 
 export class CreateStaffDto {
   @IsEmail()

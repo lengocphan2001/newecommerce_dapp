@@ -36,10 +36,11 @@ export class NotificationsGateway
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth?.token || 
-                    client.handshake.query?.token as string ||
-                    client.handshake.headers?.authorization?.replace('Bearer ', '');
-      
+      const token =
+        client.handshake.auth?.token ||
+        (client.handshake.query?.token as string) ||
+        client.handshake.headers?.authorization?.replace('Bearer ', '');
+
       if (!token) {
         console.log('No token provided, disconnecting');
         client.disconnect();
@@ -48,7 +49,8 @@ export class NotificationsGateway
 
       try {
         const payload = this.jwtService.verify(token, {
-          secret: this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
+          secret:
+            this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
         });
 
         // Only allow staff connections

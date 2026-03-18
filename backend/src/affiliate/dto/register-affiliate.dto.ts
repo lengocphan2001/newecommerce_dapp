@@ -5,4 +5,3 @@ export class RegisterAffiliateDto {
   @IsOptional()
   referralCode?: string;
 }
-

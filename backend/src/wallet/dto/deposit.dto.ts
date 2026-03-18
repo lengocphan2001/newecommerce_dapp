@@ -10,4 +10,3 @@ export class DepositDto {
   @IsNotEmpty()
   currency: string;
 }
-

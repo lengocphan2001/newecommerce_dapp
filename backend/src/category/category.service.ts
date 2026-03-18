@@ -60,7 +60,9 @@ export class CategoryService {
     if (createCategoryDto.parentId) {
       const depth = await this.getDepth(createCategoryDto.parentId);
       if (depth >= 2) {
-        throw new Error('Category tree max depth is 3. Parent already has 2 levels.');
+        throw new Error(
+          'Category tree max depth is 3. Parent already has 2 levels.',
+        );
       }
     }
     const category = this.categoryRepository.create(createCategoryDto);
@@ -69,10 +71,14 @@ export class CategoryService {
 
   private async getDepth(categoryId: string): Promise<number> {
     let d = 0;
-    let current = await this.categoryRepository.findOne({ where: { id: categoryId } });
+    let current = await this.categoryRepository.findOne({
+      where: { id: categoryId },
+    });
     while (current?.parentId) {
       d++;
-      current = await this.categoryRepository.findOne({ where: { id: current.parentId } });
+      current = await this.categoryRepository.findOne({
+        where: { id: current.parentId },
+      });
     }
     return d;
   }
@@ -81,21 +87,32 @@ export class CategoryService {
     const category = await this.findOne(id);
     const raw = updateCategoryDto as Record<string, unknown>;
     if (raw.parentId !== undefined) {
-      const newParentId = raw.parentId === null || raw.parentId === '' ? null : (raw.parentId as string);
+      const newParentId =
+        raw.parentId === null || raw.parentId === ''
+          ? null
+          : (raw.parentId as string);
       if (newParentId === id) {
         throw new Error('Category cannot be its own parent');
       }
       if (newParentId) {
         const depth = await this.getDepth(newParentId);
         if (depth >= 2) {
-          throw new Error('Category tree max depth is 3. Selected parent already has 2 levels.');
+          throw new Error(
+            'Category tree max depth is 3. Selected parent already has 2 levels.',
+          );
         }
       }
       category.parentId = newParentId ?? undefined;
     }
-    const merged = this.categoryRepository.merge(category, updateCategoryDto as DeepPartial<Category>);
+    const merged = this.categoryRepository.merge(
+      category,
+      updateCategoryDto as DeepPartial<Category>,
+    );
     if (raw.parentId !== undefined) {
-      (merged as any).parentId = raw.parentId === null || raw.parentId === '' ? null : (merged.parentId ?? null);
+      (merged as any).parentId =
+        raw.parentId === null || raw.parentId === ''
+          ? null
+          : (merged.parentId ?? null);
     }
     return this.categoryRepository.save(merged);
   }

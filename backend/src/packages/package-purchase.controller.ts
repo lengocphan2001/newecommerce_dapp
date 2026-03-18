@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, Request, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  Request,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { PackagePurchaseService } from './package-purchase.service';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 import { PackagePurchaseStatus } from './entities/package-purchase.entity';
@@ -47,11 +58,19 @@ export class PackagePurchaseController {
 
   @Post(':id/confirm-payment')
   @UseGuards(JwtAuthGuard)
-  async confirmPayment(@Request() req: any, @Param('id') id: string, @Body() body: { transactionHash: string }) {
+  async confirmPayment(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: { transactionHash: string },
+  ) {
     const userId = req.user?.userId ?? req.user?.id;
     if (!body.transactionHash?.trim()) {
       throw new BadRequestException('transactionHash is required');
     }
-    return this.purchaseService.confirmPaymentByUser(userId, id, body.transactionHash.trim());
+    return this.purchaseService.confirmPaymentByUser(
+      userId,
+      id,
+      body.transactionHash.trim(),
+    );
   }
 }

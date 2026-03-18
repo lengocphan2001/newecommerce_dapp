@@ -1,7 +1,7 @@
 /**
  * Script để backfill referralUserId cho các user hiện có
  * Chạy script này một lần sau khi thêm field referralUserId vào User entity
- * 
+ *
  * Usage:
  *   ts-node src/common/scripts/backfill-referral-user-id.ts
  */
@@ -16,17 +16,15 @@ dotenv.config();
 async function backfillReferralUserId() {
   const dbType = process.env.DB_TYPE || 'postgres';
   const defaultPort = dbType === 'mysql' ? 3306 : 5432;
-  
+
   const dataSource = new DataSource({
     type: dbType as any,
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : defaultPort,
     username:
-      process.env.DB_USERNAME ||
-      (dbType === 'mysql' ? 'root' : 'postgres'),
+      process.env.DB_USERNAME || (dbType === 'mysql' ? 'root' : 'postgres'),
     password:
-      process.env.DB_PASSWORD ||
-      (dbType === 'mysql' ? 'root' : 'postgres'),
+      process.env.DB_PASSWORD || (dbType === 'mysql' ? 'root' : 'postgres'),
     database: process.env.DB_NAME || 'ecommerce_dapp',
     entities: [User],
     synchronize: false, // Don't sync, just query
@@ -44,7 +42,6 @@ async function backfillReferralUserId() {
       .where('user.referralUser IS NOT NULL')
       .andWhere('(user.referralUserId IS NULL OR user.referralUserId = "")')
       .getMany();
-
 
     let updatedCount = 0;
     let skippedCount = 0;
@@ -74,7 +71,6 @@ async function backfillReferralUserId() {
         }
       }
     }
-
 
     await dataSource.destroy();
   } catch (error) {

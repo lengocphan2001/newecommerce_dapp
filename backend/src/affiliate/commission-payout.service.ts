@@ -1,12 +1,19 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, DataSource } from 'typeorm';
-import { Commission, CommissionStatus, CommissionType } from './entities/commission.entity';
+import {
+  Commission,
+  CommissionStatus,
+  CommissionType,
+} from './entities/commission.entity';
 import { User } from '../user/entities/user.entity';
 import { CommissionPayoutService as BlockchainPayoutService } from '../blockchain/commission-payout.service';
 import { BatchPayoutDto, PayoutRecipientDto } from './dto/batch-payout.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditLogAction, AuditLogEntityType } from '../audit-log/entities/audit-log.entity';
+import {
+  AuditLogAction,
+  AuditLogEntityType,
+} from '../audit-log/entities/audit-log.entity';
 import { AdminService } from '../admin/admin.service';
 
 /** Payout fee: 10% is withheld; user receives 90% of accumulated commission */
@@ -26,7 +33,11 @@ function getPayoutAmountAfterFee(grossAmount: number): string {
  */
 function isPayImmediately(commission: Commission): boolean {
   if (commission.type === CommissionType.DIRECT) return true;
-  if (commission.type === CommissionType.PRODUCT && commission.notes?.startsWith('Product direct')) return true;
+  if (
+    commission.type === CommissionType.PRODUCT &&
+    commission.notes?.startsWith('Product direct')
+  )
+    return true;
   return false;
 }
 
@@ -44,7 +55,7 @@ export class CommissionPayoutService {
     private auditLogService: AuditLogService,
     @Inject(forwardRef(() => AdminService))
     private adminService: AdminService,
-  ) { }
+  ) {}
 
   /**
    * Get pending commissions ready for payout
@@ -57,7 +68,9 @@ export class CommissionPayoutService {
     const query = this.commissionRepository
       .createQueryBuilder('commission')
       .leftJoinAndSelect('commission.user', 'user')
-      .where('commission.status = :status', { status: CommissionStatus.PENDING })
+      .where('commission.status = :status', {
+        status: CommissionStatus.PENDING,
+      })
       .orderBy('commission.createdAt', 'ASC')
       .limit(limit);
 
@@ -73,7 +86,9 @@ export class CommissionPayoutService {
    */
   async groupCommissionsByWallet(
     commissions: Commission[],
-  ): Promise<Map<string, { user: User; commissions: Commission[]; totalAmount: number }>> {
+  ): Promise<
+    Map<string, { user: User; commissions: Commission[]; totalAmount: number }>
+  > {
     const grouped = new Map<
       string,
       { user: User; commissions: Commission[]; totalAmount: number }
@@ -149,7 +164,9 @@ export class CommissionPayoutService {
 
     try {
       // Get specific commission IDs from recipients if available
-      const specificCommissionIds = dto.recipients.flatMap(r => r.commissionIds || []);
+      const specificCommissionIds = dto.recipients.flatMap(
+        (r) => r.commissionIds || [],
+      );
 
       let commissions: Commission[];
       if (specificCommissionIds.length > 0) {
@@ -172,7 +189,9 @@ export class CommissionPayoutService {
       }
 
       if (commissions.length === 0) {
-        throw new Error('No pending commissions found for the provided recipients');
+        throw new Error(
+          'No pending commissions found for the provided recipients',
+        );
       }
 
       // Always apply 10% payout fee before sending to blockchain (single place: so admin UI, auto-payout, and order-approval all send 90% to chain)
@@ -252,7 +271,10 @@ export class CommissionPayoutService {
             gasUsed: result.gasUsed?.toString(),
             commissionCount: commissions.length,
             recipientCount: dto.recipients.length,
-            totalAmount: dto.recipients.reduce((sum, r) => sum + parseFloat(r.amount), 0),
+            totalAmount: dto.recipients.reduce(
+              (sum, r) => sum + parseFloat(r.amount),
+              0,
+            ),
           },
         },
         userId,
@@ -308,7 +330,12 @@ export class CommissionPayoutService {
     username?: string,
     ipAddress?: string,
     userAgent?: string,
-  ): Promise<{ batchId: string; txHash: string; success: boolean; count: number }> {
+  ): Promise<{
+    batchId: string;
+    txHash: string;
+    success: boolean;
+    count: number;
+  }> {
     if (commissionIds.length === 0) {
       throw new Error('No commission IDs provided');
     }
@@ -324,7 +351,9 @@ export class CommissionPayoutService {
 
     const validCommissions = commissions.filter((c) => c.user?.walletAddress);
     if (validCommissions.length === 0) {
-      throw new Error('None of the selected commissions have a wallet address. Cannot payout.');
+      throw new Error(
+        'None of the selected commissions have a wallet address. Cannot payout.',
+      );
     }
 
     const { recipients } = await this.preparePayoutBatch(validCommissions);
@@ -366,7 +395,9 @@ export class CommissionPayoutService {
       });
 
       if (!commission) {
-        throw new Error(`No pending commission found for ${isMilestone ? 'milestoneRef' : 'orderId'}: ${orderId}`);
+        throw new Error(
+          `No pending commission found for ${isMilestone ? 'milestoneRef' : 'orderId'}: ${orderId}`,
+        );
       }
 
       // Verify amount matches
@@ -433,9 +464,8 @@ export class CommissionPayoutService {
     // Log auto payout execution
     try {
       // Prepare batch
-      const { recipients, commissionIds } = await this.preparePayoutBatch(
-        pendingCommissions,
-      );
+      const { recipients, commissionIds } =
+        await this.preparePayoutBatch(pendingCommissions);
 
       if (recipients.length === 0) {
         this.logger.warn('No valid recipients found');
@@ -447,7 +477,13 @@ export class CommissionPayoutService {
         recipients,
       };
 
-      const result = await this.executeBatchPayout(dto, 'system', 'system', undefined, undefined);
+      const result = await this.executeBatchPayout(
+        dto,
+        'system',
+        'system',
+        undefined,
+        undefined,
+      );
 
       return {
         batchId: result.batchId,
@@ -494,14 +530,18 @@ export class CommissionPayoutService {
     if (pendingCommissions.length === 0) return;
 
     const directPending = pendingCommissions.filter((c) => isPayImmediately(c));
-    const nonDirectPending = pendingCommissions.filter((c) => !isPayImmediately(c));
+    const nonDirectPending = pendingCommissions.filter(
+      (c) => !isPayImmediately(c),
+    );
 
     // 1) Pay all direct (package DIRECT + product direct) immediately (no threshold)
     if (directPending.length > 0) {
       const valid = directPending.filter((c) => c.user?.walletAddress);
       if (valid.length > 0) {
         const totalDirect = valid.reduce((sum, c) => sum + Number(c.amount), 0);
-        this.logger.log(`[THRESHOLD PAYOUT] User ${userId}: paying ${valid.length} direct commissions (total: ${totalDirect}) immediately`);
+        this.logger.log(
+          `[THRESHOLD PAYOUT] User ${userId}: paying ${valid.length} direct commissions (total: ${totalDirect}) immediately`,
+        );
         try {
           const { recipients } = await this.preparePayoutBatch(valid);
           if (recipients.length > 0) {
@@ -514,7 +554,10 @@ export class CommissionPayoutService {
             );
           }
         } catch (error: any) {
-          this.logger.error(`[THRESHOLD PAYOUT] Direct payout failed for user ${userId}: ${error.message}`, error.stack);
+          this.logger.error(
+            `[THRESHOLD PAYOUT] Direct payout failed for user ${userId}: ${error.message}`,
+            error.stack,
+          );
         }
       }
     }
@@ -522,21 +565,34 @@ export class CommissionPayoutService {
     // 2) Non-direct (group, product, management): pay only when total >= threshold
     if (nonDirectPending.length === 0) return;
 
-    const totalNonDirect = nonDirectPending.reduce((sum, c) => sum + Number(c.amount), 0);
-    this.logger.log(`[THRESHOLD PAYOUT] User ${userId}: non-direct pending=${totalNonDirect}, threshold=${minThreshold}`);
+    const totalNonDirect = nonDirectPending.reduce(
+      (sum, c) => sum + Number(c.amount),
+      0,
+    );
+    this.logger.log(
+      `[THRESHOLD PAYOUT] User ${userId}: non-direct pending=${totalNonDirect}, threshold=${minThreshold}`,
+    );
 
     if (totalNonDirect < minThreshold) {
-      this.logger.debug(`[THRESHOLD PAYOUT] User ${userId} has not reached threshold. Group/other will accumulate.`);
+      this.logger.debug(
+        `[THRESHOLD PAYOUT] User ${userId} has not reached threshold. Group/other will accumulate.`,
+      );
       return;
     }
 
-    const validNonDirect = nonDirectPending.filter((c) => c.user?.walletAddress);
+    const validNonDirect = nonDirectPending.filter(
+      (c) => c.user?.walletAddress,
+    );
     if (validNonDirect.length === 0) {
-      this.logger.warn(`[THRESHOLD PAYOUT] User ${userId} has no wallet. Skipping group payout.`);
+      this.logger.warn(
+        `[THRESHOLD PAYOUT] User ${userId} has no wallet. Skipping group payout.`,
+      );
       return;
     }
 
-    this.logger.log(`[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${validNonDirect.length} non-direct commissions (total: ${totalNonDirect})`);
+    this.logger.log(
+      `[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${validNonDirect.length} non-direct commissions (total: ${totalNonDirect})`,
+    );
     try {
       const { recipients } = await this.preparePayoutBatch(validNonDirect);
       if (recipients.length === 0) return;
@@ -548,7 +604,10 @@ export class CommissionPayoutService {
         undefined,
       );
     } catch (error: any) {
-      this.logger.error(`[THRESHOLD PAYOUT] Group payout failed for user ${userId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `[THRESHOLD PAYOUT] Group payout failed for user ${userId}: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -557,7 +616,9 @@ export class CommissionPayoutService {
    * - DIRECT commission: paid immediately (no threshold).
    * - GROUP (and other types): accumulated; pay only when user's total pending >= minPayoutThreshold.
    */
-  async payoutOrderCommissions(orderId: string): Promise<{ count: number } | null> {
+  async payoutOrderCommissions(
+    orderId: string,
+  ): Promise<{ count: number } | null> {
     this.logger.log(`[PAYOUT] Processing payout after order: ${orderId}`);
 
     const orderCommissions = await this.commissionRepository.find({
@@ -571,15 +632,24 @@ export class CommissionPayoutService {
     }
 
     const minThreshold = await this.adminService.getMinPayoutThreshold();
-    this.logger.log(`[PAYOUT] Min payout threshold (for group/other): $${minThreshold}`);
+    this.logger.log(
+      `[PAYOUT] Min payout threshold (for group/other): $${minThreshold}`,
+    );
 
     // 1) Pay direct commissions (package DIRECT + product direct) from this order immediately (no accumulation)
-    const directCommissions = orderCommissions.filter((c) => isPayImmediately(c));
+    const directCommissions = orderCommissions.filter((c) =>
+      isPayImmediately(c),
+    );
     if (directCommissions.length > 0) {
-      const byUser = new Map<string, { user: User; commissions: Commission[]; totalAmount: number }>();
+      const byUser = new Map<
+        string,
+        { user: User; commissions: Commission[]; totalAmount: number }
+      >();
       for (const c of directCommissions) {
         if (!c.user?.walletAddress) {
-          this.logger.warn(`[PAYOUT] Direct commission ${c.id} has no wallet, skipping`);
+          this.logger.warn(
+            `[PAYOUT] Direct commission ${c.id} has no wallet, skipping`,
+          );
           continue;
         }
         const key = c.user.walletAddress.toLowerCase();
@@ -588,7 +658,11 @@ export class CommissionPayoutService {
           existing.commissions.push(c);
           existing.totalAmount += c.amount;
         } else {
-          byUser.set(key, { user: c.user, commissions: [c], totalAmount: c.amount });
+          byUser.set(key, {
+            user: c.user,
+            commissions: [c],
+            totalAmount: c.amount,
+          });
         }
       }
       if (byUser.size > 0) {
@@ -596,7 +670,7 @@ export class CommissionPayoutService {
         for (const [, data] of byUser) {
           recipients.push({
             userId: data.user.id,
-            walletAddress: data.user.walletAddress!.toLowerCase(),
+            walletAddress: data.user.walletAddress.toLowerCase(),
             amount: data.totalAmount.toString(),
             commissionIds: data.commissions.map((c) => c.id),
           });
@@ -609,9 +683,14 @@ export class CommissionPayoutService {
             undefined,
             undefined,
           );
-          this.logger.log(`[PAYOUT] Paid direct commissions for order ${orderId}: ${recipients.length} users`);
+          this.logger.log(
+            `[PAYOUT] Paid direct commissions for order ${orderId}: ${recipients.length} users`,
+          );
         } catch (err: any) {
-          this.logger.error(`[PAYOUT] Direct payout failed for order ${orderId}: ${err.message}`, err.stack);
+          this.logger.error(
+            `[PAYOUT] Direct payout failed for order ${orderId}: ${err.message}`,
+            err.stack,
+          );
         }
       }
     }
@@ -651,7 +730,8 @@ export class CommissionPayoutService {
           .getRawOne(),
       ]);
 
-    const contractBalance = await this.blockchainPayoutService.getContractBalance();
+    const contractBalance =
+      await this.blockchainPayoutService.getContractBalance();
 
     return {
       pending: {
@@ -665,8 +745,10 @@ export class CommissionPayoutService {
         count: totalBlocked,
       },
       contractBalance: parseFloat(contractBalance),
-      contractAddress: (await this.blockchainPayoutService.getContractInfo()).contractAddress,
-      tokenAddress: (await this.blockchainPayoutService.getContractInfo()).tokenAddress,
+      contractAddress: (await this.blockchainPayoutService.getContractInfo())
+        .contractAddress,
+      tokenAddress: (await this.blockchainPayoutService.getContractInfo())
+        .tokenAddress,
     };
   }
 

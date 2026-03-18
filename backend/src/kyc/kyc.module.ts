@@ -10,5 +10,4 @@ import { Kyc } from './entities/kyc.entity';
   providers: [KycService],
   exports: [KycService],
 })
-export class KycModule { }
-
+export class KycModule {}

@@ -55,7 +55,8 @@ export class UpdateProductDto {
   @ArrayUnique()
   @Matches(/^https?:\/\/.+/, {
     each: true,
-    message: 'each value in detailImageUrls must be a valid URL (http:// or https://)',
+    message:
+      'each value in detailImageUrls must be a valid URL (http:// or https://)',
   })
   @IsOptional()
   detailImageUrls?: string[];
@@ -220,16 +221,18 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsObject()
-  commissionConfigByPackage?: Record<string, {
-    directCommissionRate?: number;
-    groupCommissionRate?: number;
-    groupCommissionMinSales?: number;
-    managementRateF1?: number;
-    managementRateF2?: number | null;
-    managementRateF3?: number | null;
-    managementMinSales?: number;
-    reconsumptionThreshold?: number;
-    reconsumptionRequired?: number;
-  }>;
+  commissionConfigByPackage?: Record<
+    string,
+    {
+      directCommissionRate?: number;
+      groupCommissionRate?: number;
+      groupCommissionMinSales?: number;
+      managementRateF1?: number;
+      managementRateF2?: number | null;
+      managementRateF3?: number | null;
+      managementMinSales?: number;
+      reconsumptionThreshold?: number;
+      reconsumptionRequired?: number;
+    }
+  >;
 }
-

@@ -1,8 +1,8 @@
 import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    UpdateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  UpdateDateColumn,
 } from 'typeorm';
 
 /**
@@ -11,15 +11,15 @@ import {
  */
 @Entity('system_config')
 export class SystemConfig {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ unique: true })
-    key: string;
+  @Column({ unique: true })
+  key: string;
 
-    @Column({ type: 'text' })
-    value: string;
+  @Column({ type: 'text' })
+  value: string;
 
-    @UpdateDateColumn()
-    updatedAt: Date;
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

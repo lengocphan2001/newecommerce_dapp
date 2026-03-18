@@ -1,4 +1,13 @@
-import { Controller, Get, Patch, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 import { WalletService } from '../wallet/wallet.service';
 import { ProcessDepositRequestDto } from '../wallet/dto/process-deposit-request.dto';
@@ -12,9 +21,10 @@ export class WalletDepositRequestController {
   /** Danh sách yêu cầu nạp tiền (lọc status: PENDING, APPROVED, REJECTED) */
   @Get()
   async list(@Query('status') status?: string) {
-    const statusEnum = status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)
-      ? (status as WalletDepositStatus)
-      : undefined;
+    const statusEnum =
+      status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status)
+        ? (status as WalletDepositStatus)
+        : undefined;
     return this.walletService.findAllDepositRequests(statusEnum);
   }
 

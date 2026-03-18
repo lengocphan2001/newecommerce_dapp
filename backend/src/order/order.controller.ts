@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
@@ -9,7 +19,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly notificationsGateway: NotificationsGateway,
-  ) { }
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -26,7 +36,10 @@ export class OrderController {
   async findOne(@Param('id') id: string, @Request() req: any) {
     const order = await this.orderService.findOne(id);
     // User chỉ có thể xem đơn hàng của mình (trừ admin)
-    if (!req.user.isAdmin && order.userId !== (req.user.userId || req.user.sub)) {
+    if (
+      !req.user.isAdmin &&
+      order.userId !== (req.user.userId || req.user.sub)
+    ) {
       throw new Error('Unauthorized');
     }
     return order;
@@ -46,7 +59,11 @@ export class OrderController {
 
   @Put(':id/status')
   @UseGuards(JwtAuthGuard)
-  async updateStatus(@Param('id') id: string, @Body() updateStatusDto: UpdateOrderStatusDto, @Request() req: any) {
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() updateStatusDto: UpdateOrderStatusDto,
+    @Request() req: any,
+  ) {
     // Only admin can update order status
     if (!req.user.isAdmin) {
       throw new Error('Unauthorized: Only admin can update order status');
@@ -63,7 +80,7 @@ export class OrderController {
   async confirmPayment(
     @Param('id') id: string,
     @Body('transactionHash') transactionHash: string,
-    @Request() req: any
+    @Request() req: any,
   ) {
     if (!transactionHash) {
       throw new Error('Transaction hash is required');
@@ -72,4 +89,3 @@ export class OrderController {
     return this.orderService.confirmPayment(id, transactionHash, userId);
   }
 }
-

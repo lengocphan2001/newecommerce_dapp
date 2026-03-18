@@ -1,1 +1,5 @@
-export { BatchPayoutDto, PayoutRecipientDto, BatchPayoutResponseDto } from '../../affiliate/dto/batch-payout.dto';
+export {
+  BatchPayoutDto,
+  PayoutRecipientDto,
+  BatchPayoutResponseDto,
+} from '../../affiliate/dto/batch-payout.dto';

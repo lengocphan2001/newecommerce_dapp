@@ -23,7 +23,16 @@ import { SystemConfig } from './entities/system-config.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, MilestoneRewardConfig, UserMilestone, Address, Order, Product, BankingConfig, SystemConfig]),
+    TypeOrmModule.forFeature([
+      User,
+      MilestoneRewardConfig,
+      UserMilestone,
+      Address,
+      Order,
+      Product,
+      BankingConfig,
+      SystemConfig,
+    ]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),
@@ -40,5 +49,4 @@ import { SystemConfig } from './entities/system-config.entity';
   providers: [AdminService, MilestoneRewardService],
   exports: [AdminService, MilestoneRewardService, TypeOrmModule],
 })
-export class AdminModule { }
-
+export class AdminModule {}

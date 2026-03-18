@@ -32,7 +32,9 @@ export class StaffSeedService {
         existingStaff.isSuperAdmin = true;
         existingStaff.status = 'ACTIVE';
         await this.staffRepository.save(existingStaff);
-        this.logger.log(`Staff promoted to super admin: ${DEFAULT_SUPER_ADMIN_EMAIL}`);
+        this.logger.log(
+          `Staff promoted to super admin: ${DEFAULT_SUPER_ADMIN_EMAIL}`,
+        );
       }
       return;
     }

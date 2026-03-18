@@ -36,7 +36,9 @@ export class Web3Service implements OnModuleInit {
   private async initializeWallet() {
     const privateKey = this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
     if (!privateKey) {
-      this.logger.warn('BLOCKCHAIN_PRIVATE_KEY not set. Some features may not work.');
+      this.logger.warn(
+        'BLOCKCHAIN_PRIVATE_KEY not set. Some features may not work.',
+      );
       return;
     }
 
@@ -57,7 +59,9 @@ export class Web3Service implements OnModuleInit {
    */
   getWallet(): Wallet {
     if (!this.wallet) {
-      throw new Error('Wallet not initialized. Please set BLOCKCHAIN_PRIVATE_KEY.');
+      throw new Error(
+        'Wallet not initialized. Please set BLOCKCHAIN_PRIVATE_KEY.',
+      );
     }
     return this.wallet;
   }
@@ -87,13 +91,19 @@ export class Web3Service implements OnModuleInit {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');
     }
-    return await this.provider.getTransactionCount(await this.wallet.getAddress(), 'pending');
+    return await this.provider.getTransactionCount(
+      await this.wallet.getAddress(),
+      'pending',
+    );
   }
 
   /**
    * Wait for transaction confirmation
    */
-  async waitForTransaction(txHash: string, confirmations: number = 1): Promise<any> {
+  async waitForTransaction(
+    txHash: string,
+    confirmations: number = 1,
+  ): Promise<any> {
     return await this.provider.waitForTransaction(txHash, confirmations);
   }
 

@@ -1,5 +1,8 @@
 import { IsString, IsNotEmpty, IsOptional, IsObject } from 'class-validator';
-import { AuditLogAction, AuditLogEntityType } from '../entities/audit-log.entity';
+import {
+  AuditLogAction,
+  AuditLogEntityType,
+} from '../entities/audit-log.entity';
 
 export class CreateAuditLogDto {
   @IsString()
@@ -22,4 +25,3 @@ export class CreateAuditLogDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
-

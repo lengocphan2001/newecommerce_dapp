@@ -1,4 +1,10 @@
-import { IsArray, IsNotEmpty, ValidateNested, IsString, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsNotEmpty,
+  ValidateNested,
+  IsString,
+  IsOptional,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class OrderItemDto {
@@ -42,4 +48,3 @@ export class CreateOrderDto {
   @IsOptional()
   paymentMethod?: string; // 'wallet' | 'banking' | 'deposit_wallet'
 }
-

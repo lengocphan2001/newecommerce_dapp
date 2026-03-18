@@ -30,13 +30,13 @@ async function bootstrap() {
 
   // Enable CORS
   const allowedOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
     : [
-      'https://vinmall.org',
-      'https://www.vinmall.org',
-      'http://localhost:3000',
-      'http://localhost:3001',
-    ];
+        'https://vinmall.org',
+        'https://www.vinmall.org',
+        'http://localhost:3000',
+        'http://localhost:3001',
+      ];
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -44,7 +44,10 @@ async function bootstrap() {
       if (!origin) return callback(null, true);
 
       // Check if origin is in allowed list
-      if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      if (
+        allowedOrigins.includes(origin) ||
+        process.env.NODE_ENV !== 'production'
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -71,19 +74,16 @@ async function bootstrap() {
     const staffSeedService = app.get(StaffSeedService);
     await staffSeedService.seed();
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('Failed to seed super admin staff:', error);
   }
 
   // Initialize default commission configs
-
 
   // Seed permissions
   try {
     const permissionService = app.get(PermissionService);
     await permissionService.seedPermissions();
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('Failed to seed permissions:', error);
   }
 

@@ -33,7 +33,7 @@ export class CommissionService {
     private productRepository: Repository<Product>,
     private dataSource: DataSource,
     private packagesService: PackagesService,
-  ) { }
+  ) {}
 
   /**
    * Get package config by code (with caching)
@@ -44,7 +44,10 @@ export class CommissionService {
     const now = Date.now();
 
     // Check cache
-    if (this.configCache.has(code) && (now - this.lastCacheUpdate) < this.cacheExpiry) {
+    if (
+      this.configCache.has(code) &&
+      now - this.lastCacheUpdate < this.cacheExpiry
+    ) {
       return this.configCache.get(code)!;
     }
 
@@ -69,7 +72,10 @@ export class CommissionService {
 
   private async getDefaultPackageConfig(): Promise<Package | null> {
     const now = Date.now();
-    if (this.defaultPackageCache && (now - this.defaultPackageCacheTime) < this.cacheExpiry) {
+    if (
+      this.defaultPackageCache &&
+      now - this.defaultPackageCacheTime < this.cacheExpiry
+    ) {
       return this.defaultPackageCache;
     }
     const all = await this.packagesService.findAll();
@@ -113,7 +119,9 @@ export class CommissionService {
       });
 
       if (existingCommissions.length > 0) {
-        this.logger.warn(`Commissions already exist for order ${orderId}, skipping calculation`);
+        this.logger.warn(
+          `Commissions already exist for order ${orderId}, skipping calculation`,
+        );
         return;
       }
 
@@ -127,7 +135,9 @@ export class CommissionService {
       }
 
       if (order.status !== OrderStatus.CONFIRMED) {
-        this.logger.warn(`Order ${orderId} status is ${order.status}, not CONFIRMED. Skipping commission calculation.`);
+        this.logger.warn(
+          `Order ${orderId} status is ${order.status}, not CONFIRMED. Skipping commission calculation.`,
+        );
         return;
       }
 
@@ -136,26 +146,36 @@ export class CommissionService {
       });
 
       if (!buyer) {
-        this.logger.warn(`Buyer with userId ${order.userId} not found for order ${orderId}`);
+        this.logger.warn(
+          `Buyer with userId ${order.userId} not found for order ${orderId}`,
+        );
         return;
       }
 
       const orderValue = this.getOrderValueForCommission(order);
-      this.logger.log(`Calculating commissions for order ${orderId}, buyer: ${buyer.id} (referralUserId: ${buyer.referralUserId}, parentId: ${buyer.parentId}), orderValue: ${orderValue} (excl. shipping)`);
+      this.logger.log(
+        `Calculating commissions for order ${orderId}, buyer: ${buyer.id} (referralUserId: ${buyer.referralUserId}, parentId: ${buyer.parentId}), orderValue: ${orderValue} (excl. shipping)`,
+      );
 
       // Package type is only set when user buys a package (not from product purchase).
 
       // BƯỚC 1: Tính hoa hồng trực tiếp cho người giới thiệu
-      this.logger.log(`Step 1: Calculating direct commission for order ${orderId}`);
+      this.logger.log(
+        `Step 1: Calculating direct commission for order ${orderId}`,
+      );
       await this.calculateDirectCommission(order, buyer);
 
       // BƯỚC 1b: Hoa hồng product – rate theo từng sản phẩm (admin set % TV/CTV/NPP trong product), trả cho referrer; cộng dồn tới ngưỡng như group/management
-      this.logger.log(`Step 1b: Calculating product commission for order ${orderId}`);
+      this.logger.log(
+        `Step 1b: Calculating product commission for order ${orderId}`,
+      );
       await this.calculateProductCommission(order, buyer);
 
       // BƯỚC 2: Tính hoa hồng nhóm (cân nhánh – khi có giao dịch từ nhánh yếu, không cần minSale)
       // Tính dựa trên volume hiện tại (trước khi cộng volume của đơn hàng này)
-      this.logger.log(`Step 2: Calculating group commission for order ${orderId}`);
+      this.logger.log(
+        `Step 2: Calculating group commission for order ${orderId}`,
+      );
       await this.calculateGroupCommission(order, buyer);
 
       // BƯỚC 3: Update volume cho TẤT CẢ ancestors
@@ -164,13 +184,18 @@ export class CommissionService {
       await this.updateBranchVolumes(order, buyer);
 
       // BƯỚC 4: Tính hoa hồng quản lý nhóm
-      this.logger.log(`Step 4: Calculating management commission for order ${orderId}`);
+      this.logger.log(
+        `Step 4: Calculating management commission for order ${orderId}`,
+      );
       await this.calculateManagementCommission(order, buyer);
 
       this.logger.log(`Commission calculation completed for order ${orderId}`);
     } catch (error: any) {
       // Log error để debug
-      this.logger.error(`Error calculating commissions for order ${orderId}:`, error.stack || error.message);
+      this.logger.error(
+        `Error calculating commissions for order ${orderId}:`,
+        error.stack || error.message,
+      );
       // Không throw để không block order update, nhưng log để debug
     }
   }
@@ -180,7 +205,10 @@ export class CommissionService {
     const items = Array.isArray(order.items) ? order.items : [];
     for (const item of items) {
       if (!item?.productId) continue;
-      const product = await this.productRepository.findOne({ where: { id: item.productId }, select: ['id', 'useProductCommission'] });
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+        select: ['id', 'useProductCommission'],
+      });
       if (product?.useProductCommission === true) return true;
     }
     return false;
@@ -195,7 +223,9 @@ export class CommissionService {
     buyer: User,
   ): Promise<void> {
     if (await this.orderHasAnyProductCommission(order)) {
-      this.logger.debug(`Order ${order.id} has product commission lines, skipping package direct`);
+      this.logger.debug(
+        `Order ${order.id} has product commission lines, skipping package direct`,
+      );
       return;
     }
 
@@ -205,7 +235,9 @@ export class CommissionService {
     });
 
     if (!freshBuyer || !freshBuyer.referralUserId) {
-      this.logger.debug(`Buyer ${buyer.id} has no referralUserId, skipping direct commission`);
+      this.logger.debug(
+        `Buyer ${buyer.id} has no referralUserId, skipping direct commission`,
+      );
       return;
     }
 
@@ -216,7 +248,9 @@ export class CommissionService {
     if (!referrer) return;
 
     if (!referrer.packageType || referrer.packageType === 'NONE') {
-      this.logger.debug(`Referrer ${referrer.id} has no package, skipping direct commission`);
+      this.logger.debug(
+        `Referrer ${referrer.id} has no package, skipping direct commission`,
+      );
       return;
     }
 
@@ -226,25 +260,39 @@ export class CommissionService {
     const items = Array.isArray(order.items) ? order.items : [];
     let packageOrderValue = 0;
     for (const item of items) {
-      if (!item?.productId || typeof item.quantity !== 'number' || typeof item.price !== 'number') continue;
-      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      if (
+        !item?.productId ||
+        typeof item.quantity !== 'number' ||
+        typeof item.price !== 'number'
+      )
+        continue;
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+      });
       if (!product) continue;
       if (product.useProductCommission === true) continue;
       packageOrderValue += Number(item.price) * item.quantity;
     }
 
     if (packageOrderValue <= 0) {
-      this.logger.debug(`No package-based order lines for direct commission, skipping`);
+      this.logger.debug(
+        `No package-based order lines for direct commission, skipping`,
+      );
       return;
     }
 
-    const canReceiveCommission = await this.checkReconsumption(referrer, config);
+    const canReceiveCommission = await this.checkReconsumption(
+      referrer,
+      config,
+    );
     const rawCommissionAmount = packageOrderValue * config.directCommissionRate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     if (commissionAmount <= 0) return;
 
-    this.logger.log(`Creating direct commission (package config): referrer ${referrer.id}, packageOrderValue: ${packageOrderValue}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`);
+    this.logger.log(
+      `Creating direct commission (package config): referrer ${referrer.id}, packageOrderValue: ${packageOrderValue}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`,
+    );
 
     try {
       const commission = this.commissionRepository.create({
@@ -252,18 +300,29 @@ export class CommissionService {
         orderId: order.id,
         fromUserId: buyer.id,
         type: CommissionType.DIRECT,
-        status: canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
+        status: canReceiveCommission
+          ? CommissionStatus.PENDING
+          : CommissionStatus.BLOCKED,
         amount: commissionAmount,
         orderAmount: packageOrderValue,
-        notes: canReceiveCommission ? undefined : 'Blocked: Reconsumption required',
+        notes: canReceiveCommission
+          ? undefined
+          : 'Blocked: Reconsumption required',
       });
       await this.commissionRepository.save(commission);
 
       if (canReceiveCommission) {
-        await this.updateUserCommissionAndCheckThreshold(referrer, commissionAmount, config);
+        await this.updateUserCommissionAndCheckThreshold(
+          referrer,
+          commissionAmount,
+          config,
+        );
       }
     } catch (error: any) {
-      this.logger.error(`Error creating direct commission for referrer ${referrer.id}:`, error.stack || error.message);
+      this.logger.error(
+        `Error creating direct commission for referrer ${referrer.id}:`,
+        error.stack || error.message,
+      );
       throw error;
     }
   }
@@ -286,7 +345,9 @@ export class CommissionService {
   } | null {
     const code = (packageCode || '').toUpperCase();
     if (!code || code === 'NONE') return null;
-    const byPkg = product.commissionConfigByPackage && product.commissionConfigByPackage[code];
+    const byPkg =
+      product.commissionConfigByPackage &&
+      product.commissionConfigByPackage[code];
     if (byPkg && typeof byPkg === 'object') {
       return {
         directCommissionRate: Number(byPkg.directCommissionRate ?? 0),
@@ -296,13 +357,23 @@ export class CommissionService {
         managementRateF2: Number(byPkg.managementRateF2 ?? 0),
         managementRateF3: Number(byPkg.managementRateF3 ?? 0),
         managementMinSales: Number(byPkg.managementMinSales ?? 0),
-        reconsumptionThreshold: Number(byPkg.reconsumptionThreshold ?? product.reconsumptionThreshold ?? 0),
-        reconsumptionRequired: Number(byPkg.reconsumptionRequired ?? product.reconsumptionRequired ?? 0),
+        reconsumptionThreshold: Number(
+          byPkg.reconsumptionThreshold ?? product.reconsumptionThreshold ?? 0,
+        ),
+        reconsumptionRequired: Number(
+          byPkg.reconsumptionRequired ?? product.reconsumptionRequired ?? 0,
+        ),
       };
     }
     const directPct = this.getProductCommissionPercent(product, packageCode);
-    const groupPct = this.getProductCommissionPercentGroup(product, packageCode);
-    const mgmtPct = this.getProductCommissionPercentManagement(product, packageCode);
+    const groupPct = this.getProductCommissionPercentGroup(
+      product,
+      packageCode,
+    );
+    const mgmtPct = this.getProductCommissionPercentManagement(
+      product,
+      packageCode,
+    );
     return {
       directCommissionRate: directPct / 100,
       groupCommissionRate: groupPct / 100,
@@ -317,7 +388,10 @@ export class CommissionService {
   }
 
   /** Direct: % theo gói người mua (TV/CTV/NPP). Fallback khi không dùng commissionConfigByPackage. */
-  private getProductCommissionPercent(product: Product, buyerPackageType: string): number {
+  private getProductCommissionPercent(
+    product: Product,
+    buyerPackageType: string,
+  ): number {
     if (!buyerPackageType || buyerPackageType === 'NONE') return 0;
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentTV) || 0;
@@ -327,7 +401,10 @@ export class CommissionService {
   }
 
   /** Group: % hoa hồng nhóm theo gói người mua. */
-  private getProductCommissionPercentGroup(product: Product, buyerPackageType: string): number {
+  private getProductCommissionPercentGroup(
+    product: Product,
+    buyerPackageType: string,
+  ): number {
     if (!buyerPackageType || buyerPackageType === 'NONE') return 0;
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentGroupTV) || 0;
@@ -337,12 +414,18 @@ export class CommissionService {
   }
 
   /** Management: % hoa hồng quản lý (F1/F2/F3) khi nguồn là product group, theo gói người mua. */
-  private getProductCommissionPercentManagement(product: Product, buyerPackageType: string): number {
+  private getProductCommissionPercentManagement(
+    product: Product,
+    buyerPackageType: string,
+  ): number {
     if (!buyerPackageType || buyerPackageType === 'NONE') return 0;
     const code = (buyerPackageType || '').toUpperCase();
-    if (code === 'TV') return Number(product.commissionPercentManagementTV) || 0;
-    if (code === 'CTV') return Number(product.commissionPercentManagementCTV) || 0;
-    if (code === 'NPP') return Number(product.commissionPercentManagementNPP) || 0;
+    if (code === 'TV')
+      return Number(product.commissionPercentManagementTV) || 0;
+    if (code === 'CTV')
+      return Number(product.commissionPercentManagementCTV) || 0;
+    if (code === 'NPP')
+      return Number(product.commissionPercentManagementNPP) || 0;
     return 0;
   }
 
@@ -351,13 +434,18 @@ export class CommissionService {
    * Cấu trúc mỗi sản phẩm: Direct (referrer), Group (ancestors cân nhánh), Management (F1/F2/F3 của người nhận product group).
    * Rate lấy từ từng product (TV/CTV/NPP %), base = (price × qty) của dòng đó.
    */
-  private async calculateProductCommission(order: Order, buyer: User): Promise<void> {
+  private async calculateProductCommission(
+    order: Order,
+    buyer: User,
+  ): Promise<void> {
     const freshBuyer = await this.userRepository.findOne({
       where: { id: buyer.id },
       select: ['id', 'referralUserId', 'packageType'],
     });
     if (!freshBuyer?.referralUserId) {
-      this.logger.debug(`[PRODUCT COMMISSION] Buyer ${buyer.id} has no referrer, skipping`);
+      this.logger.debug(
+        `[PRODUCT COMMISSION] Buyer ${buyer.id} has no referrer, skipping`,
+      );
       return;
     }
 
@@ -367,28 +455,43 @@ export class CommissionService {
     if (!referrer) return;
 
     if (!referrer.packageType || referrer.packageType === 'NONE') {
-      this.logger.debug(`[PRODUCT COMMISSION] Referrer ${referrer.id} has no package, skipping`);
+      this.logger.debug(
+        `[PRODUCT COMMISSION] Referrer ${referrer.id} has no package, skipping`,
+      );
       return;
     }
 
     const ancestors = await this.getAncestors(buyer);
     const items = Array.isArray(order.items) ? order.items : [];
     const productGroupAmountByAncestorId = new Map<string, number>();
-    let firstProductGroupMeta: { product: Product; buyerPkg: string } | null = null;
+    let firstProductGroupMeta: { product: Product; buyerPkg: string } | null =
+      null;
 
     // Mỗi dòng đơn (sản phẩm) tính hoa hồng riêng — config từ tab "Hoa hồng sản phẩm" khi useProductCommission = true
     for (const item of items) {
-      if (!item?.productId || typeof item.quantity !== 'number' || typeof item.price !== 'number') continue;
+      if (
+        !item?.productId ||
+        typeof item.quantity !== 'number' ||
+        typeof item.price !== 'number'
+      )
+        continue;
 
-      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+      });
       if (!product) continue;
       if (product.useProductCommission === false) {
-        this.logger.debug(`[PRODUCT COMMISSION] Product ${product.id} has useProductCommission=false, skipping (uses package commission only)`);
+        this.logger.debug(
+          `[PRODUCT COMMISSION] Product ${product.id} has useProductCommission=false, skipping (uses package commission only)`,
+        );
         continue;
       }
 
       const buyerPkg = freshBuyer.packageType || '';
-      const referrerProductConfig = this.getProductCommissionConfigForPackage(product, referrer.packageType || '');
+      const referrerProductConfig = this.getProductCommissionConfigForPackage(
+        product,
+        referrer.packageType || '',
+      );
       const directRate = referrerProductConfig
         ? referrerProductConfig.directCommissionRate
         : this.getProductCommissionPercent(product, buyerPkg) / 100;
@@ -397,12 +500,20 @@ export class CommissionService {
 
       // --- Product DIRECT: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
       if (directRate > 0) {
-        const referrerCanReceive = await this.checkReconsumptionWithProductConfig(referrer, referrerProductConfig);
+        const referrerCanReceive =
+          await this.checkReconsumptionWithProductConfig(
+            referrer,
+            referrerProductConfig,
+          );
         const rawDirect = itemAmount * directRate;
         const commissionAmount = this.roundCommission(rawDirect);
         if (commissionAmount > 0) {
-          const directStatus = referrerCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
-          this.logger.log(`[PRODUCT COMMISSION] Direct: Referrer ${referrer.id}, product ${product.name}, rate ${directRate} of ${itemAmount} = ${commissionAmount}, status=${directStatus}`);
+          const directStatus = referrerCanReceive
+            ? CommissionStatus.PENDING
+            : CommissionStatus.BLOCKED;
+          this.logger.log(
+            `[PRODUCT COMMISSION] Direct: Referrer ${referrer.id}, product ${product.name}, rate ${directRate} of ${itemAmount} = ${commissionAmount}, status=${directStatus}`,
+          );
 
           const directCommission = this.commissionRepository.create({
             userId: referrer.id,
@@ -412,12 +523,22 @@ export class CommissionService {
             status: directStatus,
             amount: commissionAmount,
             orderAmount: itemAmount,
-            notes: directStatus === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : `Product direct: ${productNote}`,
+            notes:
+              directStatus === CommissionStatus.BLOCKED
+                ? 'Blocked: Reconsumption required'
+                : `Product direct: ${productNote}`,
           });
           await this.commissionRepository.save(directCommission);
 
-          if (directStatus === CommissionStatus.PENDING && referrerProductConfig) {
-            await this.updateUserCommissionAndCheckThresholdWithProductConfig(referrer, commissionAmount, referrerProductConfig);
+          if (
+            directStatus === CommissionStatus.PENDING &&
+            referrerProductConfig
+          ) {
+            await this.updateUserCommissionAndCheckThresholdWithProductConfig(
+              referrer,
+              commissionAmount,
+              referrerProductConfig,
+            );
           }
         }
       }
@@ -425,7 +546,10 @@ export class CommissionService {
       // --- Product GROUP: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
       for (const ancestor of ancestors) {
         if (!ancestor.packageType || ancestor.packageType === 'NONE') continue;
-        const ancestorProductConfig = this.getProductCommissionConfigForPackage(product, ancestor.packageType);
+        const ancestorProductConfig = this.getProductCommissionConfigForPackage(
+          product,
+          ancestor.packageType,
+        );
         const groupRate = ancestorProductConfig
           ? ancestorProductConfig.groupCommissionRate
           : this.getProductCommissionPercentGroup(product, buyerPkg) / 100;
@@ -443,13 +567,25 @@ export class CommissionService {
         const buyerSide = await this.getBuyerSide(buyer, ancestor);
         const weakSide = await this.getWeakSide(ancestor.id);
 
-        if (Number(ancestor.leftBranchTotal) === 0 && Number(ancestor.rightBranchTotal) === 0) continue;
+        if (
+          Number(ancestor.leftBranchTotal) === 0 &&
+          Number(ancestor.rightBranchTotal) === 0
+        )
+          continue;
         if (weakSide !== null && buyerSide !== weakSide) continue;
 
-        const ancestorCanReceive = await this.checkReconsumptionWithProductConfig(ancestor, ancestorProductConfig);
-        const groupStatus = ancestorCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
+        const ancestorCanReceive =
+          await this.checkReconsumptionWithProductConfig(
+            ancestor,
+            ancestorProductConfig,
+          );
+        const groupStatus = ancestorCanReceive
+          ? CommissionStatus.PENDING
+          : CommissionStatus.BLOCKED;
 
-        this.logger.log(`[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`);
+        this.logger.log(
+          `[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`,
+        );
 
         const groupCommission = this.commissionRepository.create({
           userId: ancestor.id,
@@ -460,24 +596,38 @@ export class CommissionService {
           amount: groupCommissionAmount,
           orderAmount: itemAmount,
           side: buyerSide,
-          notes: groupStatus === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : `Product group: ${productNote}`,
+          notes:
+            groupStatus === CommissionStatus.BLOCKED
+              ? 'Blocked: Reconsumption required'
+              : `Product group: ${productNote}`,
         });
         await this.commissionRepository.save(groupCommission);
 
         const prev = productGroupAmountByAncestorId.get(ancestor.id) ?? 0;
-        productGroupAmountByAncestorId.set(ancestor.id, prev + groupCommissionAmount);
-        if (!firstProductGroupMeta) firstProductGroupMeta = { product, buyerPkg };
+        productGroupAmountByAncestorId.set(
+          ancestor.id,
+          prev + groupCommissionAmount,
+        );
+        if (!firstProductGroupMeta)
+          firstProductGroupMeta = { product, buyerPkg };
 
         if (groupStatus === CommissionStatus.PENDING && ancestorProductConfig) {
-          await this.updateUserCommissionAndCheckThresholdWithProductConfig(ancestor, groupCommissionAmount, ancestorProductConfig);
+          await this.updateUserCommissionAndCheckThresholdWithProductConfig(
+            ancestor,
+            groupCommissionAmount,
+            ancestorProductConfig,
+          );
         }
       }
     }
 
     // Hoa hồng quản lý từ product group: F1/F2/F3 của người nhận product group, theo % trong tab Hoa hồng sản phẩm
-    const earner = ancestors.find((a) => productGroupAmountByAncestorId.has(a.id));
+    const earner = ancestors.find((a) =>
+      productGroupAmountByAncestorId.has(a.id),
+    );
     if (earner && firstProductGroupMeta) {
-      const totalProductGroupAmount = productGroupAmountByAncestorId.get(earner.id) ?? 0;
+      const totalProductGroupAmount =
+        productGroupAmountByAncestorId.get(earner.id) ?? 0;
       if (totalProductGroupAmount > 0) {
         const syntheticSource = this.commissionRepository.create({
           userId: earner.id,
@@ -503,33 +653,38 @@ export class CommissionService {
   /**
    * Update volume cho TẤT CẢ ancestors trong binary tree
    */
-  private async updateBranchVolumes(
-    order: Order,
-    buyer: User,
-  ): Promise<void> {
+  private async updateBranchVolumes(order: Order, buyer: User): Promise<void> {
     if (!buyer.parentId) {
-      this.logger.debug(`Buyer ${buyer.id} has no parentId, skipping volume update`);
+      this.logger.debug(
+        `Buyer ${buyer.id} has no parentId, skipping volume update`,
+      );
       return;
     }
 
     // Tìm tất cả ancestors trong cây nhị phân
     const ancestors = await this.getAncestors(buyer);
-    this.logger.log(`Found ${ancestors.length} ancestors for buyer ${buyer.id}`);
+    this.logger.log(
+      `Found ${ancestors.length} ancestors for buyer ${buyer.id}`,
+    );
 
     for (const ancestor of ancestors) {
       // Xác định buyer thuộc nhánh nào của ancestor
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
 
       const orderValue = this.getOrderValueForCommission(order);
-      this.logger.log(`Updating volume for ancestor ${ancestor.id}: ${buyerSide} branch increase by ${orderValue}`);
+      this.logger.log(
+        `Updating volume for ancestor ${ancestor.id}: ${buyerSide} branch increase by ${orderValue}`,
+      );
 
       // Update volume bằng SQL Increment (Atomics) — based on order value excl. shipping
-      await this.userRepository.createQueryBuilder()
+      await this.userRepository
+        .createQueryBuilder()
         .update(User)
         .set({
-          [buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: () => `${buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} + ${orderValue}`
+          [buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: () =>
+            `${buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} + ${orderValue}`,
         })
-        .where("id = :id", { id: ancestor.id })
+        .where('id = :id', { id: ancestor.id })
         .execute();
     }
   }
@@ -542,31 +697,46 @@ export class CommissionService {
     buyer: User,
   ): Promise<void> {
     if (await this.orderHasAnyProductCommission(order)) {
-      this.logger.debug(`[GROUP COMMISSION] Order ${order.id} has product commission lines, skipping package group`);
+      this.logger.debug(
+        `[GROUP COMMISSION] Order ${order.id} has product commission lines, skipping package group`,
+      );
       return;
     }
 
     const items = Array.isArray(order.items) ? order.items : [];
     let packageOrderValue = 0;
     for (const item of items) {
-      if (!item?.productId || typeof item.quantity !== 'number' || typeof item.price !== 'number') continue;
-      const product = await this.productRepository.findOne({ where: { id: item.productId } });
+      if (
+        !item?.productId ||
+        typeof item.quantity !== 'number' ||
+        typeof item.price !== 'number'
+      )
+        continue;
+      const product = await this.productRepository.findOne({
+        where: { id: item.productId },
+      });
       if (!product) continue;
       if (product.useProductCommission === true) continue;
       packageOrderValue += Number(item.price) * item.quantity;
     }
 
     if (packageOrderValue <= 0) {
-      this.logger.debug(`[GROUP COMMISSION] No package-based order lines, skipping`);
+      this.logger.debug(
+        `[GROUP COMMISSION] No package-based order lines, skipping`,
+      );
       return;
     }
 
     const ancestors = await this.getAncestors(buyer);
-    this.logger.log(`[GROUP COMMISSION] Processing ${ancestors.length} ancestors for buyer ${buyer.id}, packageOrderValue: ${packageOrderValue}`);
+    this.logger.log(
+      `[GROUP COMMISSION] Processing ${ancestors.length} ancestors for buyer ${buyer.id}, packageOrderValue: ${packageOrderValue}`,
+    );
 
     for (const ancestor of ancestors) {
       if (!ancestor.packageType || ancestor.packageType === 'NONE') {
-        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} has no package, skipping`);
+        this.logger.debug(
+          `[GROUP COMMISSION] Ancestor ${ancestor.id} has no package, skipping`,
+        );
         continue;
       }
       const config = await this.getPackageConfig(ancestor.packageType);
@@ -574,7 +744,9 @@ export class CommissionService {
 
       const hasBothBranches = await this.hasBothBranches(ancestor.id);
       if (!hasBothBranches) {
-        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id} does not have both branches, skipping`);
+        this.logger.debug(
+          `[GROUP COMMISSION] Ancestor ${ancestor.id} does not have both branches, skipping`,
+        );
         continue;
       }
 
@@ -584,19 +756,26 @@ export class CommissionService {
       const weakSide = await this.getWeakSide(ancestor.id);
 
       if (weakSide !== null && buyerSide !== weakSide) {
-        this.logger.debug(`[GROUP COMMISSION] Ancestor ${ancestor.id}: order on strong side, skipping`);
+        this.logger.debug(
+          `[GROUP COMMISSION] Ancestor ${ancestor.id}: order on strong side, skipping`,
+        );
         continue;
       }
 
-      const canReceiveCommission = await this.checkReconsumption(ancestor, config);
+      const canReceiveCommission = await this.checkReconsumption(
+        ancestor,
+        config,
+      );
       await this.createGroupCommission(
         order,
         buyer,
         ancestor,
         buyerSide,
         packageOrderValue,
-        canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
-        config
+        canReceiveCommission
+          ? CommissionStatus.PENDING
+          : CommissionStatus.BLOCKED,
+        config,
       );
     }
   }
@@ -611,17 +790,21 @@ export class CommissionService {
     side: 'left' | 'right',
     baseAmount: number,
     status: CommissionStatus,
-    config: Package
+    config: Package,
   ): Promise<void> {
     const rawCommissionAmount = baseAmount * config.groupCommissionRate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     if (commissionAmount <= 0) {
-      this.logger.debug(`Group commission amount is 0 (groupCommissionRate or order value), skipping create for ancestor ${ancestor.id}`);
+      this.logger.debug(
+        `Group commission amount is 0 (groupCommissionRate or order value), skipping create for ancestor ${ancestor.id}`,
+      );
       return;
     }
 
-    this.logger.log(`Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`);
+    this.logger.log(
+      `Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`,
+    );
 
     const commission = this.commissionRepository.create({
       userId: ancestor.id,
@@ -632,13 +815,20 @@ export class CommissionService {
       amount: commissionAmount,
       orderAmount: baseAmount,
       side: side,
-      notes: status === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : undefined,
+      notes:
+        status === CommissionStatus.BLOCKED
+          ? 'Blocked: Reconsumption required'
+          : undefined,
     });
 
     await this.commissionRepository.save(commission);
 
     if (status === CommissionStatus.PENDING) {
-      await this.updateUserCommissionAndCheckThreshold(ancestor, commissionAmount, config);
+      await this.updateUserCommissionAndCheckThreshold(
+        ancestor,
+        commissionAmount,
+        config,
+      );
     }
   }
 
@@ -658,7 +848,9 @@ export class CommissionService {
 
     // Chỉ dùng 1 group earner → tối đa 3 management (F1, F2, F3) cho cả order
     const sourceCommission = groupCommissions[0];
-    const userA = await this.userRepository.findOne({ where: { id: sourceCommission.userId } });
+    const userA = await this.userRepository.findOne({
+      where: { id: sourceCommission.userId },
+    });
     if (!userA || !userA.parentId) return;
 
     await this.payManagementFromGroupEarner(order, userA, sourceCommission);
@@ -677,12 +869,18 @@ export class CommissionService {
     const ancestors = await this.getAncestors(userA); // [F1, F2, F3, ...] từ gần đến xa
     const baseAmount = Number(sourceCommission.amount);
 
-    for (let i = 0; i < Math.min(MANAGEMENT_MAX_LEVELS, ancestors.length); i++) {
+    for (
+      let i = 0;
+      i < Math.min(MANAGEMENT_MAX_LEVELS, ancestors.length);
+      i++
+    ) {
       const manager = ancestors[i];
       const level = i + 1; // 1 = F1, 2 = F2, 3 = F3
 
       // Luôn lấy gói từ DB (không cache) để dùng đúng managementMinSales mới nhất
-      const config = await this.packagesService.findByCode(manager.packageType || '');
+      const config = await this.packagesService.findByCode(
+        manager.packageType || '',
+      );
       if (!config) continue;
 
       // Bắt buộc: mỗi nhánh (trái và phải) của manager phải đạt doanh số >= managementMinSales (theo gói)
@@ -696,12 +894,17 @@ export class CommissionService {
         const leftTotal = Number(freshManager?.leftBranchTotal ?? 0);
         const rightTotal = Number(freshManager?.rightBranchTotal ?? 0);
         if (leftTotal < minSales || rightTotal < minSales) {
-          this.logger.log(`[MANAGEMENT] Manager ${manager.id} (F${level}) does not meet managementMinSales $${minSales} per branch (left: $${leftTotal}, right: $${rightTotal}), skipping`);
+          this.logger.log(
+            `[MANAGEMENT] Manager ${manager.id} (F${level}) does not meet managementMinSales $${minSales} per branch (left: $${leftTotal}, right: $${rightTotal}), skipping`,
+          );
           continue;
         }
       }
 
-      const canReceiveCommission = await this.checkReconsumption(manager, config);
+      const canReceiveCommission = await this.checkReconsumption(
+        manager,
+        config,
+      );
       let rate = 0;
       if (level === 1) rate = config.managementRateF1;
       else if (level === 2) rate = config.managementRateF2 ?? 0;
@@ -709,7 +912,9 @@ export class CommissionService {
 
       if (rate <= 0) continue;
 
-      const freshManager = await this.userRepository.findOne({ where: { id: manager.id } });
+      const freshManager = await this.userRepository.findOne({
+        where: { id: manager.id },
+      });
       if (!freshManager) continue;
 
       await this.createManagementCommission(
@@ -719,7 +924,9 @@ export class CommissionService {
         level,
         baseAmount,
         rate,
-        canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
+        canReceiveCommission
+          ? CommissionStatus.PENDING
+          : CommissionStatus.BLOCKED,
         config,
       );
     }
@@ -736,10 +943,15 @@ export class CommissionService {
     product: Product,
     buyerPackageType: string,
   ): Promise<void> {
-    const productConfig = this.getProductCommissionConfigForPackage(product, buyerPackageType);
+    const productConfig = this.getProductCommissionConfigForPackage(
+      product,
+      buyerPackageType,
+    );
     const ancestors = await this.getAncestors(userA);
     const baseAmount = Number(sourceCommission.amount);
-    const productMinSales = productConfig ? productConfig.managementMinSales : Number(product.managementMinSales ?? 0);
+    const productMinSales = productConfig
+      ? productConfig.managementMinSales
+      : Number(product.managementMinSales ?? 0);
 
     for (let i = 0; i < Math.min(3, ancestors.length); i++) {
       const manager = ancestors[i];
@@ -752,15 +964,26 @@ export class CommissionService {
         else rate = productConfig.managementRateF3;
       }
       if (rate <= 0) {
-        const percentByPkg = this.getProductCommissionPercentManagement(product, buyerPackageType);
+        const percentByPkg = this.getProductCommissionPercentManagement(
+          product,
+          buyerPackageType,
+        );
         rate = percentByPkg / 100;
       }
       if (rate <= 0) continue;
 
       // Chỉ dùng config sản phẩm (theo gói của manager), không dùng Package
-      const managerProductConfig = this.getProductCommissionConfigForPackage(product, manager.packageType || '');
+      const managerProductConfig = this.getProductCommissionConfigForPackage(
+        product,
+        manager.packageType || '',
+      );
 
-      const minSales = productMinSales > 0 ? productMinSales : (managerProductConfig ? managerProductConfig.managementMinSales : 0);
+      const minSales =
+        productMinSales > 0
+          ? productMinSales
+          : managerProductConfig
+            ? managerProductConfig.managementMinSales
+            : 0;
       if (minSales > 0) {
         const freshManager = await this.userRepository.findOne({
           where: { id: manager.id },
@@ -771,8 +994,14 @@ export class CommissionService {
         if (leftTotal < minSales || rightTotal < minSales) continue;
       }
 
-      const canReceiveCommission = await this.checkReconsumptionWithProductConfig(manager, managerProductConfig);
-      const freshManager = await this.userRepository.findOne({ where: { id: manager.id } });
+      const canReceiveCommission =
+        await this.checkReconsumptionWithProductConfig(
+          manager,
+          managerProductConfig,
+        );
+      const freshManager = await this.userRepository.findOne({
+        where: { id: manager.id },
+      });
       if (!freshManager) continue;
 
       await this.createManagementCommission(
@@ -782,9 +1011,14 @@ export class CommissionService {
         level,
         baseAmount,
         rate,
-        canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
+        canReceiveCommission
+          ? CommissionStatus.PENDING
+          : CommissionStatus.BLOCKED,
         null as any,
-        { fromProductGroup: true, productReconsumptionConfig: managerProductConfig },
+        {
+          fromProductGroup: true,
+          productReconsumptionConfig: managerProductConfig,
+        },
       );
     }
   }
@@ -821,20 +1055,34 @@ export class CommissionService {
     rate: number,
     status: CommissionStatus,
     config: Package | null,
-    options?: { fromProductGroup?: boolean; productReconsumptionConfig?: { reconsumptionThreshold: number; reconsumptionRequired: number } | null }
+    options?: {
+      fromProductGroup?: boolean;
+      productReconsumptionConfig?: {
+        reconsumptionThreshold: number;
+        reconsumptionRequired: number;
+      } | null;
+    },
   ): Promise<Commission | null> {
     const rawCommissionAmount = groupCommissionAmount * rate;
     const commissionAmount = this.roundCommission(rawCommissionAmount);
 
     if (commissionAmount <= 0) {
-      this.logger.debug(`Management commission amount is 0 (base or rate), skipping create for manager ${manager.id} F${level}`);
+      this.logger.debug(
+        `Management commission amount is 0 (base or rate), skipping create for manager ${manager.id} F${level}`,
+      );
       return null;
     }
 
     const orderValue = this.getOrderValueForCommission(order);
-    const baseNote = options?.fromProductGroup ? 'From product group' : undefined;
-    const blockedNote = status === CommissionStatus.BLOCKED ? 'Blocked: Reconsumption required' : undefined;
-    const notes = [baseNote, blockedNote].filter(Boolean).join('; ') || undefined;
+    const baseNote = options?.fromProductGroup
+      ? 'From product group'
+      : undefined;
+    const blockedNote =
+      status === CommissionStatus.BLOCKED
+        ? 'Blocked: Reconsumption required'
+        : undefined;
+    const notes =
+      [baseNote, blockedNote].filter(Boolean).join('; ') || undefined;
 
     const commission = this.commissionRepository.create({
       userId: manager.id,
@@ -852,9 +1100,17 @@ export class CommissionService {
 
     if (status === CommissionStatus.PENDING) {
       if (options?.fromProductGroup && options?.productReconsumptionConfig) {
-        await this.updateUserCommissionAndCheckThresholdWithProductConfig(manager, commissionAmount, options.productReconsumptionConfig);
+        await this.updateUserCommissionAndCheckThresholdWithProductConfig(
+          manager,
+          commissionAmount,
+          options.productReconsumptionConfig,
+        );
       } else if (config) {
-        await this.updateUserCommissionAndCheckThreshold(manager, commissionAmount, config);
+        await this.updateUserCommissionAndCheckThreshold(
+          manager,
+          commissionAmount,
+          config,
+        );
       }
     }
 
@@ -864,10 +1120,20 @@ export class CommissionService {
   /**
    * Cộng dồn hoa hồng và kiểm tra threshold hiệu lực (theo totalPurchaseAmount: mỗi lần mua >= giá gói thì threshold cộng thêm).
    */
-  private async updateUserCommissionAndCheckThreshold(user: User, amount: number, config: Package) {
-    await this.userRepository.increment({ id: user.id }, 'totalCommissionReceived', amount);
+  private async updateUserCommissionAndCheckThreshold(
+    user: User,
+    amount: number,
+    config: Package,
+  ) {
+    await this.userRepository.increment(
+      { id: user.id },
+      'totalCommissionReceived',
+      amount,
+    );
 
-    const updatedUser = await this.userRepository.findOne({ where: { id: user.id } });
+    const updatedUser = await this.userRepository.findOne({
+      where: { id: user.id },
+    });
     if (updatedUser) {
       const newTotalCommission = Number(updatedUser.totalCommissionReceived);
       const effectiveThreshold = this.packagesService.getEffectiveThreshold(
@@ -876,7 +1142,9 @@ export class CommissionService {
       );
       if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
         await this.userRepository.update(user.id, { packageType: 'NONE' });
-        this.logger.log(`User ${user.id} reached effective threshold ${effectiveThreshold}, packageType set to NONE`);
+        this.logger.log(
+          `User ${user.id} reached effective threshold ${effectiveThreshold}, packageType set to NONE`,
+        );
       }
     }
   }
@@ -884,7 +1152,10 @@ export class CommissionService {
   /**
    * Kiểm tra điều kiện tái tiêu dùng. So sánh với threshold hiệu lực (tính theo totalPurchaseAmount).
    */
-  private async checkReconsumption(user: User, config: Package): Promise<boolean> {
+  private async checkReconsumption(
+    user: User,
+    config: Package,
+  ): Promise<boolean> {
     if (user.packageType === 'NONE') {
       return true;
     }
@@ -916,10 +1187,17 @@ export class CommissionService {
    */
   private async checkReconsumptionWithProductConfig(
     user: User,
-    productConfig: { reconsumptionThreshold: number; reconsumptionRequired: number } | null,
+    productConfig: {
+      reconsumptionThreshold: number;
+      reconsumptionRequired: number;
+    } | null,
   ): Promise<boolean> {
     if (user.packageType === 'NONE') return true;
-    if (!productConfig || (Number(productConfig.reconsumptionThreshold) <= 0 && Number(productConfig.reconsumptionRequired) <= 0)) {
+    if (
+      !productConfig ||
+      (Number(productConfig.reconsumptionThreshold) <= 0 &&
+        Number(productConfig.reconsumptionRequired) <= 0)
+    ) {
       return true;
     }
     const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
@@ -936,13 +1214,26 @@ export class CommissionService {
   private async updateUserCommissionAndCheckThresholdWithProductConfig(
     user: User,
     amount: number,
-    productConfig: { reconsumptionThreshold: number; reconsumptionRequired: number } | null,
+    productConfig: {
+      reconsumptionThreshold: number;
+      reconsumptionRequired: number;
+    } | null,
   ): Promise<void> {
-    await this.userRepository.increment({ id: user.id }, 'totalCommissionReceived', amount);
-    if (!productConfig || (Number(productConfig.reconsumptionThreshold) <= 0 && Number(productConfig.reconsumptionRequired) <= 0)) {
+    await this.userRepository.increment(
+      { id: user.id },
+      'totalCommissionReceived',
+      amount,
+    );
+    if (
+      !productConfig ||
+      (Number(productConfig.reconsumptionThreshold) <= 0 &&
+        Number(productConfig.reconsumptionRequired) <= 0)
+    ) {
       return;
     }
-    const updatedUser = await this.userRepository.findOne({ where: { id: user.id } });
+    const updatedUser = await this.userRepository.findOne({
+      where: { id: user.id },
+    });
     if (updatedUser) {
       const newTotalCommission = Number(updatedUser.totalCommissionReceived);
       const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
@@ -951,7 +1242,9 @@ export class CommissionService {
       );
       if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
         await this.userRepository.update(user.id, { packageType: 'NONE' });
-        this.logger.log(`User ${user.id} reached product-config effective threshold ${effectiveThreshold}, packageType set to NONE`);
+        this.logger.log(
+          `User ${user.id} reached product-config effective threshold ${effectiveThreshold}, packageType set to NONE`,
+        );
       }
     }
   }
@@ -976,7 +1269,9 @@ export class CommissionService {
     const ancestors: User[] = [];
     let current = user;
     while (current && current.parentId) {
-      const parent = await this.userRepository.findOne({ where: { id: current.parentId } });
+      const parent = await this.userRepository.findOne({
+        where: { id: current.parentId },
+      });
       if (parent) {
         ancestors.push(parent);
         current = parent;
@@ -990,17 +1285,24 @@ export class CommissionService {
   private async hasBothBranches(userId: string): Promise<boolean> {
     // Check if user has both left and right children
     // This typically requires checking the 'position' of children
-    const children = await this.userRepository.find({ where: { parentId: userId } });
-    const hasLeft = children.some(c => c.position === 'left');
-    const hasRight = children.some(c => c.position === 'right');
+    const children = await this.userRepository.find({
+      where: { parentId: userId },
+    });
+    const hasLeft = children.some((c) => c.position === 'left');
+    const hasRight = children.some((c) => c.position === 'right');
     return hasLeft && hasRight;
   }
 
-  private async getBuyerSide(buyer: User, ancestor: User): Promise<'left' | 'right'> {
+  private async getBuyerSide(
+    buyer: User,
+    ancestor: User,
+  ): Promise<'left' | 'right'> {
     // Traverse up from buyer until we find the child of ancestor
     let current = buyer;
     while (current.parentId && current.parentId !== ancestor.id) {
-      const parent = await this.userRepository.findOne({ where: { id: current.parentId } });
+      const parent = await this.userRepository.findOne({
+        where: { id: current.parentId },
+      });
       if (!parent) break;
       current = parent;
     }
@@ -1032,8 +1334,24 @@ export class CommissionService {
    * Lấy stats commission cho nhiều user trong MỘT query (GROUP BY userId).
    * Dùng cho admin getAllStats để tránh N+1.
    */
-  async getStatsForUserIds(userIds: string[]): Promise<Map<string, { totalCommission: number; pendingCommission: number; commissions: { direct: number; group: number; management: number } }>> {
-    const map = new Map<string, { totalCommission: number; pendingCommission: number; commissions: { direct: number; group: number; management: number } }>();
+  async getStatsForUserIds(userIds: string[]): Promise<
+    Map<
+      string,
+      {
+        totalCommission: number;
+        pendingCommission: number;
+        commissions: { direct: number; group: number; management: number };
+      }
+    >
+  > {
+    const map = new Map<
+      string,
+      {
+        totalCommission: number;
+        pendingCommission: number;
+        commissions: { direct: number; group: number; management: number };
+      }
+    >();
     if (userIds.length === 0) return map;
 
     const num = (v: string | null | undefined): number =>
@@ -1042,15 +1360,40 @@ export class CommissionService {
     const qb = this.commissionRepository.createQueryBuilder('c');
     const rows = await qb
       .select('c.userId', 'userId')
-      .addSelect('COALESCE(SUM(CASE WHEN c.status = :paid THEN c.amount ELSE 0 END), 0)', 'totalCommission')
-      .addSelect('COALESCE(SUM(CASE WHEN c.status = :pending THEN c.amount ELSE 0 END), 0)', 'pendingCommission')
-      .addSelect("COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)", 'direct')
-      .addSelect("COALESCE(SUM(CASE WHEN c.type = 'group' AND c.status = :paid THEN c.amount ELSE 0 END), 0)", 'group')
-      .addSelect("COALESCE(SUM(CASE WHEN c.type = 'management' AND c.status = :paid THEN c.amount ELSE 0 END), 0)", 'management')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN c.status = :paid THEN c.amount ELSE 0 END), 0)',
+        'totalCommission',
+      )
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN c.status = :pending THEN c.amount ELSE 0 END), 0)',
+        'pendingCommission',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        'direct',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN c.type = 'group' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        'group',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN c.type = 'management' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        'management',
+      )
       .where('c.userId IN (:...userIds)', { userIds })
       .groupBy('c.userId')
-      .setParameters({ paid: CommissionStatus.PAID, pending: CommissionStatus.PENDING })
-      .getRawMany<{ userId: string; totalCommission: string; pendingCommission: string; direct: string; group: string; management: string }>();
+      .setParameters({
+        paid: CommissionStatus.PAID,
+        pending: CommissionStatus.PENDING,
+      })
+      .getRawMany<{
+        userId: string;
+        totalCommission: string;
+        pendingCommission: string;
+        direct: string;
+        group: string;
+        management: string;
+      }>();
 
     for (const row of rows) {
       map.set(row.userId, {
@@ -1090,7 +1433,10 @@ export class CommissionService {
         'management',
       )
       .where('c.userId = :userId', { userId })
-      .setParameters({ paid: CommissionStatus.PAID, pending: CommissionStatus.PENDING })
+      .setParameters({
+        paid: CommissionStatus.PAID,
+        pending: CommissionStatus.PENDING,
+      })
       .getRawOne<{
         totalCommission: string;
         pendingCommission: string;
@@ -1127,7 +1473,7 @@ export class CommissionService {
       relations: ['fromUser'],
     });
 
-    return commissions.map(c => ({
+    return commissions.map((c) => ({
       ...c,
       amount: this.roundCommission(Number(c.amount)),
     }));
@@ -1149,7 +1495,7 @@ export class CommissionService {
       relations: ['user', 'fromUser'],
     });
 
-    return commissions.map(c => ({
+    return commissions.map((c) => ({
       ...c,
       amount: this.roundCommission(Number(c.amount)),
     }));
@@ -1238,12 +1584,24 @@ export class CommissionService {
       if (user.packageType !== 'NONE') {
         const config = await this.getPackageConfig(user.packageType);
         if (config) {
-          await this.updateUserCommissionAndCheckThreshold(user, amount, config);
+          await this.updateUserCommissionAndCheckThreshold(
+            user,
+            amount,
+            config,
+          );
         } else {
-          await this.userRepository.increment({ id: userId }, 'totalCommissionReceived', amount);
+          await this.userRepository.increment(
+            { id: userId },
+            'totalCommissionReceived',
+            amount,
+          );
         }
       } else {
-        await this.userRepository.increment({ id: userId }, 'totalCommissionReceived', amount);
+        await this.userRepository.increment(
+          { id: userId },
+          'totalCommissionReceived',
+          amount,
+        );
       }
     }
 

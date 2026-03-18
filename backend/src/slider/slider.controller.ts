@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { SliderService } from './slider.service';
 import { CreateSliderDto, UpdateSliderDto } from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
@@ -26,7 +36,10 @@ export class SliderController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async update(@Param('id') id: string, @Body() updateSliderDto: UpdateSliderDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() updateSliderDto: UpdateSliderDto,
+  ) {
     return this.sliderService.update(id, updateSliderDto);
   }
 

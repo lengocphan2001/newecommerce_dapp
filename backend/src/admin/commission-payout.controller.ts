@@ -16,7 +16,10 @@ import { BatchPayoutDto, BatchPayoutResponseDto } from './dto/batch-payout.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { AuditLogEntityType, AuditLogAction } from '../audit-log/entities/audit-log.entity';
+import {
+  AuditLogEntityType,
+  AuditLogAction,
+} from '../audit-log/entities/audit-log.entity';
 import { SuperAdminGuard } from '../common/guards/super-admin.guard';
 
 @Controller('admin/commission-payout')
@@ -27,7 +30,7 @@ export class CommissionPayoutController {
     private readonly commissionPayoutService: CommissionPayoutService,
     private readonly blockchainPayoutService: BlockchainPayoutService,
     private readonly auditLogService: AuditLogService,
-  ) { }
+  ) {}
 
   /**
    * Get payout statistics
@@ -64,7 +67,8 @@ export class CommissionPayoutController {
   ): Promise<BatchPayoutResponseDto> {
     const userId = req.user?.id;
     const username = req.user?.username || req.user?.email;
-    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const ipAddress =
+      req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
     const result = await this.commissionPayoutService.executeBatchPayout(
@@ -131,7 +135,8 @@ export class CommissionPayoutController {
   ) {
     const userId = req.user?.id;
     const username = req.user?.username || req.user?.email;
-    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const ipAddress =
+      req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
     try {
@@ -152,7 +157,7 @@ export class CommissionPayoutController {
             amount: body.amount,
             txHash: result.txHash,
             blockNumber: result.blockNumber,
-            type: 'emergency_withdraw'
+            type: 'emergency_withdraw',
           },
         },
         userId,
@@ -175,7 +180,7 @@ export class CommissionPayoutController {
           metadata: {
             recipient: body.recipient,
             amount: body.amount,
-            error: error.message
+            error: error.message,
           },
         },
         userId,
@@ -199,11 +204,14 @@ export class CommissionPayoutController {
   ) {
     const userId = req.user?.id;
     const username = req.user?.username || req.user?.email;
-    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const ipAddress =
+      req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
     try {
-      const result = await this.blockchainPayoutService.deployContract(body.tokenAddress);
+      const result = await this.blockchainPayoutService.deployContract(
+        body.tokenAddress,
+      );
 
       await this.auditLogService.create(
         {
@@ -214,7 +222,7 @@ export class CommissionPayoutController {
           metadata: {
             contractAddress: result.contractAddress,
             txHash: result.txHash,
-            type: 'contract_deploy'
+            type: 'contract_deploy',
           },
         },
         userId,
@@ -277,7 +285,9 @@ export class CommissionPayoutController {
     @Request() req: any,
   ) {
     try {
-      const result = await this.blockchainPayoutService.transferOwnership(body.newOwner);
+      const result = await this.blockchainPayoutService.transferOwnership(
+        body.newOwner,
+      );
       return { success: true, txHash: result.txHash };
     } catch (error: any) {
       throw error;

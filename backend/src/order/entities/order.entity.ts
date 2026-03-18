@@ -57,7 +57,7 @@ export class Order {
     default: 0,
     transformer: {
       to: (value: number) => value,
-      from: (value: string) => value ? parseFloat(value) : 0,
+      from: (value: string) => (value ? parseFloat(value) : 0),
     },
   })
   shippingFee?: number;

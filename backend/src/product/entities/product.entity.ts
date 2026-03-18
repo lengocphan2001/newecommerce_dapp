@@ -51,7 +51,7 @@ export class Product {
     default: 0,
     transformer: {
       to: (value: number) => value,
-      from: (value: string) => value ? parseFloat(value) : 0,
+      from: (value: string) => (value ? parseFloat(value) : 0),
     },
   })
   shippingFee?: number;
@@ -134,7 +134,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentTV?: number;
 
@@ -144,7 +147,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentCTV?: number;
 
@@ -154,7 +160,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentNPP?: number;
 
@@ -165,7 +174,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentGroupTV?: number;
 
@@ -175,7 +187,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentGroupCTV?: number;
 
@@ -185,7 +200,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentGroupNPP?: number;
 
@@ -196,7 +214,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentManagementTV?: number;
 
@@ -206,7 +227,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentManagementCTV?: number;
 
@@ -216,7 +240,10 @@ export class Product {
     scale: 2,
     nullable: true,
     default: 0,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   commissionPercentManagementNPP?: number;
 
@@ -226,7 +253,10 @@ export class Product {
     precision: 10,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   groupCommissionMinSales?: number;
 
@@ -236,7 +266,10 @@ export class Product {
     precision: 5,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   managementRateF1?: number;
 
@@ -245,7 +278,10 @@ export class Product {
     precision: 5,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   managementRateF2?: number;
 
@@ -254,7 +290,10 @@ export class Product {
     precision: 5,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   managementRateF3?: number;
 
@@ -264,7 +303,10 @@ export class Product {
     precision: 10,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   managementMinSales?: number;
 
@@ -274,7 +316,10 @@ export class Product {
     precision: 10,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   reconsumptionThreshold?: number;
 
@@ -284,7 +329,10 @@ export class Product {
     precision: 10,
     scale: 2,
     nullable: true,
-    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
   })
   reconsumptionRequired?: number;
 
@@ -293,17 +341,20 @@ export class Product {
    * Key = package code (TV, CTV, NPP). Value = { directCommissionRate (0–1), groupCommissionRate, groupCommissionMinSales, managementRateF1/F2/F3, managementMinSales, reconsumptionThreshold, reconsumptionRequired }.
    */
   @Column({ type: 'simple-json', nullable: true })
-  commissionConfigByPackage?: Record<string, {
-    directCommissionRate?: number;
-    groupCommissionRate?: number;
-    groupCommissionMinSales?: number;
-    managementRateF1?: number;
-    managementRateF2?: number | null;
-    managementRateF3?: number | null;
-    managementMinSales?: number;
-    reconsumptionThreshold?: number;
-    reconsumptionRequired?: number;
-  }>;
+  commissionConfigByPackage?: Record<
+    string,
+    {
+      directCommissionRate?: number;
+      groupCommissionRate?: number;
+      groupCommissionMinSales?: number;
+      managementRateF1?: number;
+      managementRateF2?: number | null;
+      managementRateF3?: number | null;
+      managementMinSales?: number;
+      reconsumptionThreshold?: number;
+      reconsumptionRequired?: number;
+    }
+  >;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -311,5 +362,3 @@ export class Product {
   @UpdateDateColumn()
   updatedAt: Date;
 }
-
-

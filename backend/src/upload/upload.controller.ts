@@ -18,7 +18,8 @@ const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
 function fileFilter(_req: any, file: Express.Multer.File, cb: any) {
   const isImage = /^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype);
-  if (!isImage) return cb(new BadRequestException('Only image files are allowed'), false);
+  if (!isImage)
+    return cb(new BadRequestException('Only image files are allowed'), false);
   cb(null, true);
 }
 
@@ -34,7 +35,8 @@ export class UploadController {
       storage: diskStorage({
         destination: UPLOAD_DIR,
         filename: (_req, file, cb) => {
-          const safeExt = extname(file.originalname || '').toLowerCase() || '.png';
+          const safeExt =
+            extname(file.originalname || '').toLowerCase() || '.png';
           cb(null, `${randomUUID()}${safeExt}`);
         },
       }),
@@ -45,7 +47,8 @@ export class UploadController {
   uploadImage(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     if (!file) throw new BadRequestException('File is required');
     // Check for HTTPS via X-Forwarded-Proto header (set by reverse proxy) or req.secure
-    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const protocol =
+      req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
     const baseUrl = `${protocol}://${req.get('host')}`;
     return { url: `${baseUrl}/files/${file.filename}` };
   }
@@ -60,7 +63,8 @@ export class UploadController {
       storage: diskStorage({
         destination: UPLOAD_DIR,
         filename: (_req, file, cb) => {
-          const safeExt = extname(file.originalname || '').toLowerCase() || '.png';
+          const safeExt =
+            extname(file.originalname || '').toLowerCase() || '.png';
           cb(null, `${randomUUID()}${safeExt}`);
         },
       }),
@@ -71,7 +75,8 @@ export class UploadController {
   uploadImages(@UploadedFiles() files: Express.Multer.File[], @Req() req: any) {
     if (!files?.length) throw new BadRequestException('Files are required');
     // Check for HTTPS via X-Forwarded-Proto header (set by reverse proxy) or req.secure
-    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const protocol =
+      req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
     const baseUrl = `${protocol}://${req.get('host')}`;
     return { urls: files.map((f) => `${baseUrl}/files/${f.filename}`) };
   }
@@ -87,7 +92,8 @@ export class UploadController {
       storage: diskStorage({
         destination: UPLOAD_DIR,
         filename: (_req, file, cb) => {
-          const safeExt = extname(file.originalname || '').toLowerCase() || '.png';
+          const safeExt =
+            extname(file.originalname || '').toLowerCase() || '.png';
           cb(null, `${randomUUID()}${safeExt}`);
         },
       }),
@@ -98,7 +104,8 @@ export class UploadController {
   uploadAvatar(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     if (!file) throw new BadRequestException('File is required');
     // Check for HTTPS via X-Forwarded-Proto header (set by reverse proxy) or req.secure
-    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const protocol =
+      req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
     const baseUrl = `${protocol}://${req.get('host')}`;
     return { url: `${baseUrl}/files/${file.filename}` };
   }
@@ -114,7 +121,8 @@ export class UploadController {
       storage: diskStorage({
         destination: UPLOAD_DIR,
         filename: (_req, file, cb) => {
-          const safeExt = extname(file.originalname || '').toLowerCase() || '.png';
+          const safeExt =
+            extname(file.originalname || '').toLowerCase() || '.png';
           cb(null, `deposit-${randomUUID()}${safeExt}`);
         },
       }),
@@ -122,12 +130,14 @@ export class UploadController {
       limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     }),
   )
-  uploadDepositProof(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
+  uploadDepositProof(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
     if (!file) throw new BadRequestException('File is required');
-    const protocol = req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
+    const protocol =
+      req.get('X-Forwarded-Proto') || (req.secure ? 'https' : req.protocol);
     const baseUrl = `${protocol}://${req.get('host')}`;
     return { url: `${baseUrl}/files/${file.filename}` };
   }
 }
-
-

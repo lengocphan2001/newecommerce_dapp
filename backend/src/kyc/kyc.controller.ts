@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { KycService } from './kyc.service';
 import { SubmitKycDto, VerifyKycDto } from './dto';
@@ -15,7 +25,7 @@ const escapeCsv = (val: string | number | null | undefined): string => {
 
 @Controller('kyc')
 export class KycController {
-  constructor(private readonly kycService: KycService) { }
+  constructor(private readonly kycService: KycService) {}
 
   @UseGuards(JwtAuthGuard)
   @Post('submit')
@@ -80,7 +90,10 @@ export class KycController {
       escapeCsv(k.createdAt),
       escapeCsv(k.updatedAt),
     ]);
-    const csvContent = [headers.join(','), ...rows.map((row: string[]) => row.join(','))].join('\n');
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row: string[]) => row.join(',')),
+    ].join('\n');
     const BOM = '\uFEFF';
     res.header('Content-Type', 'text/csv; charset=utf-8');
     res.header('Content-Disposition', 'attachment; filename="kyc-export.csv"');

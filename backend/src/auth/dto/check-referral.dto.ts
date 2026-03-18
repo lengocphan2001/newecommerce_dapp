@@ -5,4 +5,3 @@ export class CheckReferralDto {
   @IsNotEmpty()
   username: string;
 }
-

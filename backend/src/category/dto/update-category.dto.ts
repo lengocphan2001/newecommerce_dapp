@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  Matches,
-  IsUUID,
-} from 'class-validator';
+import { IsString, IsOptional, Matches, IsUUID } from 'class-validator';
 
 export class UpdateCategoryDto {
   @IsString()

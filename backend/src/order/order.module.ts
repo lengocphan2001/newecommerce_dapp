@@ -22,5 +22,4 @@ import { PackagesModule } from '../packages/packages.module';
   providers: [OrderService],
   exports: [OrderService],
 })
-export class OrderModule { }
-
+export class OrderModule {}

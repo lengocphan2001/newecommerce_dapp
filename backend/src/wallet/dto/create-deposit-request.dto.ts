@@ -1,4 +1,10 @@
-import { IsNumber, IsNotEmpty, Min, IsString, IsOptional } from 'class-validator';
+import {
+  IsNumber,
+  IsNotEmpty,
+  Min,
+  IsString,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateDepositRequestDto {
   /** Số tiền đã chuyển (VND). Admin sẽ dùng tỉ giá Banking Settings để quy đổi USDT khi duyệt. */

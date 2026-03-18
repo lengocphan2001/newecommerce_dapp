@@ -13,11 +13,11 @@ export class SliderService {
 
   async findAll(activeOnly: boolean = false) {
     const queryBuilder = this.sliderRepository.createQueryBuilder('slider');
-    
+
     if (activeOnly) {
       queryBuilder.where('slider.isActive = :isActive', { isActive: true });
     }
-    
+
     return queryBuilder
       .orderBy('slider.order', 'ASC')
       .addOrderBy('slider.createdAt', 'DESC')

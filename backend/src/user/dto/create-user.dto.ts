@@ -13,4 +13,3 @@ export class CreateUserDto {
   @IsOptional()
   phone?: string;
 }
-

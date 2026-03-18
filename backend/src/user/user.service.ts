@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike, In } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -24,7 +30,7 @@ export class UserService {
     private milestoneRepository: Repository<UserMilestone>,
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
-  ) { }
+  ) {}
 
   async findAll(search?: string) {
     const where: any = {};
@@ -42,12 +48,28 @@ export class UserService {
           { id: ILike(`%${search}%`) },
           { walletAddress: ILike(`%${search}%`) },
         ],
-        select: ['id', 'email', 'fullName', 'phone', 'status', 'isAdmin', 'createdAt'],
+        select: [
+          'id',
+          'email',
+          'fullName',
+          'phone',
+          'status',
+          'isAdmin',
+          'createdAt',
+        ],
       });
     }
 
     return this.userRepository.find({
-      select: ['id', 'email', 'fullName', 'phone', 'status', 'isAdmin', 'createdAt'],
+      select: [
+        'id',
+        'email',
+        'fullName',
+        'phone',
+        'status',
+        'isAdmin',
+        'createdAt',
+      ],
     });
   }
 
@@ -100,7 +122,10 @@ export class UserService {
    * Đếm số direct children (chỉ con trực tiếp, không phải toàn bộ downline)
    * Mỗi node chỉ có tối đa 1 left direct child và 1 right direct child
    */
-  async countChildren(parentId: string, position: 'left' | 'right'): Promise<number> {
+  async countChildren(
+    parentId: string,
+    position: 'left' | 'right',
+  ): Promise<number> {
     return this.userRepository.count({
       where: { parentId, position },
     });
@@ -123,11 +148,11 @@ export class UserService {
   /**
    * Tìm node đầu tiên trong nhánh chỉ định còn slot trống (chưa đủ 2 direct children)
    * Sử dụng BFS (Breadth First Search) để tìm slot trống từ trên xuống
-   * 
+   *
    * Logic:
    * - Mỗi node chỉ có tối đa 1 left direct child và 1 right direct child
    * - Nếu node đã đủ 2 direct children, tìm trong downline (con của các direct children)
-   * 
+   *
    * @param startUserId - User ID bắt đầu tìm kiếm (referral user)
    * @param targetPosition - Nhánh cần tìm ('left' hoặc 'right')
    * @returns { parentId: string, position: 'left' | 'right' } - Thông tin parent và position để đặt user mới
@@ -138,7 +163,10 @@ export class UserService {
   ): Promise<{ parentId: string; position: 'left' | 'right' }> {
     // Kiểm tra node bắt đầu có slot trống ở nhánh chỉ định không
     // Mỗi node chỉ có tối đa 1 left và 1 right direct child
-    const directChildCount = await this.countChildren(startUserId, targetPosition);
+    const directChildCount = await this.countChildren(
+      startUserId,
+      targetPosition,
+    );
 
     if (directChildCount === 0) {
       // Node này chưa có direct child ở nhánh chỉ định, có thể đặt trực tiếp
@@ -192,7 +220,7 @@ export class UserService {
       }
     }
 
-    // Nếu không tìm thấy slot (không nên xảy ra trong thực tế), 
+    // Nếu không tìm thấy slot (không nên xảy ra trong thực tế),
     // trả về direct child với nhánh yếu của nó
     const weakLeg = await this.getWeakLeg(directChild.id);
     return { parentId: directChild.id, position: weakLeg };
@@ -232,7 +260,18 @@ export class UserService {
     }
     return this.userRepository.find({
       where,
-      select: ['id', 'username', 'fullName', 'position', 'createdAt', 'totalPurchaseAmount', 'packageType', 'avatar', 'leftBranchTotal', 'rightBranchTotal'],
+      select: [
+        'id',
+        'username',
+        'fullName',
+        'position',
+        'createdAt',
+        'totalPurchaseAmount',
+        'packageType',
+        'avatar',
+        'leftBranchTotal',
+        'rightBranchTotal',
+      ],
       order: { createdAt: 'ASC' },
     });
   }
@@ -241,18 +280,27 @@ export class UserService {
    * Lấy danh sách F1 (người được giới thiệu trực tiếp bởi userId) kèm hiệu suất:
    * mỗi F1 có thêm directReferralCount = số người mà F1 đó giới thiệu trực tiếp.
    */
-  async getF1ListWithPerformance(userId: string): Promise<Array<{
-    id: string;
-    username: string | null;
-    fullName: string;
-    email: string;
-    packageType: string;
-    createdAt: Date;
-    directReferralCount: number;
-  }>> {
+  async getF1ListWithPerformance(userId: string): Promise<
+    Array<{
+      id: string;
+      username: string | null;
+      fullName: string;
+      email: string;
+      packageType: string;
+      createdAt: Date;
+      directReferralCount: number;
+    }>
+  > {
     const f1Users = await this.userRepository.find({
       where: { referralUserId: userId },
-      select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
+      select: [
+        'id',
+        'username',
+        'fullName',
+        'email',
+        'packageType',
+        'createdAt',
+      ],
       order: { createdAt: 'ASC' },
     });
 
@@ -305,9 +353,25 @@ export class UserService {
   /**
    * Lấy tất cả thành viên trong một nhánh (đệ quy)
    */
-  private async getAllDescendants(parentId: string, position?: 'left' | 'right', currentDepth: number = 1): Promise<any[]> {
-    const query = this.userRepository.createQueryBuilder('user')
-      .select(['user.id', 'user.username', 'user.fullName', 'user.avatar', 'user.packageType', 'user.position', 'user.leftBranchTotal', 'user.rightBranchTotal', 'user.totalPurchaseAmount', 'user.createdAt'])
+  private async getAllDescendants(
+    parentId: string,
+    position?: 'left' | 'right',
+    currentDepth: number = 1,
+  ): Promise<any[]> {
+    const query = this.userRepository
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.username',
+        'user.fullName',
+        'user.avatar',
+        'user.packageType',
+        'user.position',
+        'user.leftBranchTotal',
+        'user.rightBranchTotal',
+        'user.totalPurchaseAmount',
+        'user.createdAt',
+      ])
       .where('user.parentId = :parentId', { parentId });
 
     if (position) {
@@ -321,7 +385,11 @@ export class UserService {
       const member = { ...child, depth: currentDepth };
       descendants.push(member);
 
-      const subDescendants = await this.getAllDescendants(child.id, undefined, currentDepth + 1);
+      const subDescendants = await this.getAllDescendants(
+        child.id,
+        undefined,
+        currentDepth + 1,
+      );
       descendants = [...descendants, ...subDescendants];
     }
 
@@ -331,8 +399,12 @@ export class UserService {
   /**
    * Đếm tất cả thành viên trong một nhánh (đệ quy)
    */
-  private async countAllDescendants(parentId: string, position?: 'left' | 'right'): Promise<number> {
-    const query = this.userRepository.createQueryBuilder('user')
+  private async countAllDescendants(
+    parentId: string,
+    position?: 'left' | 'right',
+  ): Promise<number> {
+    const query = this.userRepository
+      .createQueryBuilder('user')
       .where('user.parentId = :parentId', { parentId });
 
     if (position) {
@@ -413,7 +485,7 @@ export class UserService {
       where: { userId: id },
       select: ['id'],
     });
-    const orderIds = userOrders.map(o => o.id);
+    const orderIds = userOrders.map((o) => o.id);
 
     // 3. Delete all commissions associated with this user's orders
     if (orderIds.length > 0) {
@@ -435,7 +507,10 @@ export class UserService {
     await this.auditLogRepository.delete({ userId: id });
 
     // 8. Update children in the referral tree (orphan them)
-    await this.userRepository.update({ parentId: id }, { parentId: null as any });
+    await this.userRepository.update(
+      { parentId: id },
+      { parentId: null as any },
+    );
 
     // 9. Finally delete the user
     return this.userRepository.delete(id);
@@ -444,7 +519,10 @@ export class UserService {
   /**
    * Subtract branch volume from all ancestors when an order is "deleted" along with its user
    */
-  private async subtractBranchVolumes(order: Order, buyer: User): Promise<void> {
+  private async subtractBranchVolumes(
+    order: Order,
+    buyer: User,
+  ): Promise<void> {
     if (!buyer.parentId) return;
 
     const ancestors = await this.getAncestorsForVolumeAdjustment(buyer);
@@ -454,13 +532,14 @@ export class UserService {
       const buyerSide = await this.findBuyerSideForAncestor(buyer, ancestor);
 
       // Subtract volume using Atomical update
-      await this.userRepository.createQueryBuilder()
+      await this.userRepository
+        .createQueryBuilder()
         .update(User)
         .set({
           [buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: () =>
-            `${buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} - ${order.totalAmount}`
+            `${buyerSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} - ${order.totalAmount}`,
         })
-        .where("id = :id", { id: ancestor.id })
+        .where('id = :id', { id: ancestor.id })
         .execute();
     }
   }
@@ -469,7 +548,9 @@ export class UserService {
     const ancestors: User[] = [];
     let current = user;
     while (current && current.parentId) {
-      const parent = await this.userRepository.findOne({ where: { id: current.parentId } });
+      const parent = await this.userRepository.findOne({
+        where: { id: current.parentId },
+      });
       if (parent) {
         ancestors.push(parent);
         current = parent;
@@ -480,10 +561,15 @@ export class UserService {
     return ancestors;
   }
 
-  private async findBuyerSideForAncestor(buyer: User, ancestor: User): Promise<'left' | 'right'> {
+  private async findBuyerSideForAncestor(
+    buyer: User,
+    ancestor: User,
+  ): Promise<'left' | 'right'> {
     let current = buyer;
     while (current.parentId && current.parentId !== ancestor.id) {
-      const parent = await this.userRepository.findOne({ where: { id: current.parentId } });
+      const parent = await this.userRepository.findOne({
+        where: { id: current.parentId },
+      });
       if (!parent) break;
       current = parent;
     }
@@ -513,7 +599,10 @@ export class UserService {
     if (data.isDefault) {
       await this.addressRepository.update({ userId }, { isDefault: false });
     }
-    const updateResult = await this.addressRepository.update({ id: addressId, userId }, data);
+    const updateResult = await this.addressRepository.update(
+      { id: addressId, userId },
+      data,
+    );
     if (updateResult.affected === 0) {
       throw new NotFoundException(`Address with ID ${addressId} not found`);
     }

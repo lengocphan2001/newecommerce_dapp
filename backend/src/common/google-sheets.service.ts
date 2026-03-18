@@ -12,8 +12,12 @@ export class GoogleSheetsService {
 
   constructor(private configService: ConfigService) {
     this.spreadsheetId = this.configService.get<string>('GOOGLE_SHEET_ID');
-    const clientEmail = this.configService.get<string>('GOOGLE_SERVICE_ACCOUNT_EMAIL');
-    const privateKey = this.configService.get<string>('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+    const clientEmail = this.configService.get<string>(
+      'GOOGLE_SERVICE_ACCOUNT_EMAIL',
+    );
+    const privateKey = this.configService
+      .get<string>('GOOGLE_PRIVATE_KEY')
+      ?.replace(/\\n/g, '\n');
 
     if (this.spreadsheetId && clientEmail && privateKey) {
       this.client = new JWT({
@@ -23,7 +27,9 @@ export class GoogleSheetsService {
       });
       this.logger.log('Google Sheets service initialized (Lightweight mode)');
     } else {
-      this.logger.warn('Google Sheets configuration missing. Service will not sync data.');
+      this.logger.warn(
+        'Google Sheets configuration missing. Service will not sync data.',
+      );
     }
   }
 
@@ -41,9 +47,19 @@ export class GoogleSheetsService {
 
     try {
       const headers = [
-        'Order ID', 'User ID', 'Username', 'Full Name', 'Phone Number', 'Total Amount',
-        'Status', 'Items', 'Product IDs', 'Shipping Address', 'Transaction Hash',
-        'Created At', 'Updated At'
+        'Order ID',
+        'User ID',
+        'Username',
+        'Full Name',
+        'Phone Number',
+        'Total Amount',
+        'Status',
+        'Items',
+        'Product IDs',
+        'Shipping Address',
+        'Transaction Hash',
+        'Created At',
+        'Updated At',
       ];
 
       // Check if sheet exists
@@ -51,7 +67,10 @@ export class GoogleSheetsService {
       try {
         response = await this.request('GET', '/values/Orders!A:A');
       } catch (error: any) {
-        if (error.message?.includes('range') || error.response?.status === 400) {
+        if (
+          error.message?.includes('range') ||
+          error.response?.status === 400
+        ) {
           this.logger.log('Orders sheet not found, creating it...');
           await this.request('POST', ':batchUpdate', {
             requests: [{ addSheet: { properties: { title: 'Orders' } } }],
@@ -67,32 +86,44 @@ export class GoogleSheetsService {
 
       // Add headers if empty
       if (rows.length === 0) {
-        await this.request('POST', '/values/Orders!A1:append?valueInputOption=RAW', {
-          values: [headers],
-        });
+        await this.request(
+          'POST',
+          '/values/Orders!A1:append?valueInputOption=RAW',
+          {
+            values: [headers],
+          },
+        );
       } else if (rows[0].length < headers.length) {
         // Existing sheet has fewer columns (e.g. missing Transaction Hash); ensure header row is complete
         const colLetterH = String.fromCharCode(64 + headers.length);
-        await this.request('PUT', `/values/Orders!A1:${colLetterH}1?valueInputOption=RAW`, {
-          values: [headers],
-        });
-        this.logger.log('Orders sheet header updated to include all columns (e.g. Transaction Hash)');
+        await this.request(
+          'PUT',
+          `/values/Orders!A1:${colLetterH}1?valueInputOption=RAW`,
+          {
+            values: [headers],
+          },
+        );
+        this.logger.log(
+          'Orders sheet header updated to include all columns (e.g. Transaction Hash)',
+        );
       }
 
       const colLetter = String.fromCharCode(64 + headers.length);
 
       // Prepare data row with properties
-      const itemsString = order.items.map(item => {
-        let itemStr = `${item.productName} (x${item.quantity})`;
-        // Add properties if they exist
-        if (item.properties && Object.keys(item.properties).length > 0) {
-          const propsStr = Object.entries(item.properties)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(', ');
-          itemStr += ` [${propsStr}]`;
-        }
-        return itemStr;
-      }).join(', ');
+      const itemsString = order.items
+        .map((item) => {
+          let itemStr = `${item.productName} (x${item.quantity})`;
+          // Add properties if they exist
+          if (item.properties && Object.keys(item.properties).length > 0) {
+            const propsStr = Object.entries(item.properties)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ');
+            itemStr += ` [${propsStr}]`;
+          }
+          return itemStr;
+        })
+        .join(', ');
 
       const productIdsString = (order.items || [])
         .map((item: { productId?: string }) => item.productId || '')
@@ -124,9 +155,13 @@ export class GoogleSheetsService {
         });
         this.logger.log(`Order ${order.id} updated in Google Sheets`);
       } else {
-        await this.request('POST', `/values/Orders!A:${colLetter}:append?valueInputOption=RAW`, {
-          values: [row],
-        });
+        await this.request(
+          'POST',
+          `/values/Orders!A:${colLetter}:append?valueInputOption=RAW`,
+          {
+            values: [row],
+          },
+        );
         this.logger.log(`Order ${order.id} appended to Google Sheets`);
       }
     } catch (error: any) {

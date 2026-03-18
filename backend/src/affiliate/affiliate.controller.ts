@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Body, Param, Query, Request, UseGuards, Put } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Request,
+  UseGuards,
+  Put,
+} from '@nestjs/common';
 import { AffiliateService } from './affiliate.service';
-import { RegisterAffiliateDto, WithdrawAffiliateDto, ApproveCommissionDto, ApproveSingleCommissionDto } from './dto';
+import {
+  RegisterAffiliateDto,
+  WithdrawAffiliateDto,
+  ApproveCommissionDto,
+  ApproveSingleCommissionDto,
+} from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('affiliate')
@@ -33,7 +48,11 @@ export class AffiliateController {
   }
 
   @Get('commissions/:userId')
-  async getCommissions(@Param('userId') userId: string, @Query() query: any, @Request() req: any) {
+  async getCommissions(
+    @Param('userId') userId: string,
+    @Query() query: any,
+    @Request() req: any,
+  ) {
     // User chỉ có thể xem commissions của mình (trừ admin)
     if (!req.user.isAdmin && userId !== (req.user.userId || req.user.sub)) {
       throw new Error('Unauthorized');
@@ -42,7 +61,10 @@ export class AffiliateController {
   }
 
   @Post('withdraw')
-  async withdraw(@Body() withdrawDto: WithdrawAffiliateDto, @Request() req: any) {
+  async withdraw(
+    @Body() withdrawDto: WithdrawAffiliateDto,
+    @Request() req: any,
+  ) {
     // User chỉ có thể rút tiền của mình
     const userId = req.user.userId || req.user.sub;
     return this.affiliateService.withdraw({ ...withdrawDto, userId });
@@ -72,7 +94,10 @@ export class AffiliateController {
     const ctx = {
       userId: req.user?.id ?? req.user?.userId ?? req.user?.sub,
       username: req.user?.username ?? req.user?.email,
-      ipAddress: req.ip ?? req.headers?.['x-forwarded-for'] ?? req.connection?.remoteAddress,
+      ipAddress:
+        req.ip ??
+        req.headers?.['x-forwarded-for'] ??
+        req.connection?.remoteAddress,
       userAgent: req.headers?.['user-agent'],
     };
     return this.affiliateService.approveCommission(id, approveDto.notes, ctx);
@@ -80,14 +105,22 @@ export class AffiliateController {
 
   @Post('admin/commissions/approve-batch')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async approveCommissions(@Body() approveDto: ApproveCommissionDto, @Request() req: any) {
+  async approveCommissions(
+    @Body() approveDto: ApproveCommissionDto,
+    @Request() req: any,
+  ) {
     const ctx = {
       userId: req.user?.id ?? req.user?.userId ?? req.user?.sub,
       username: req.user?.username ?? req.user?.email,
-      ipAddress: req.ip ?? req.headers?.['x-forwarded-for'] ?? req.connection?.remoteAddress,
+      ipAddress:
+        req.ip ??
+        req.headers?.['x-forwarded-for'] ??
+        req.connection?.remoteAddress,
       userAgent: req.headers?.['user-agent'],
     };
-    return this.affiliateService.approveCommissions(approveDto.commissionIds, ctx);
+    return this.affiliateService.approveCommissions(
+      approveDto.commissionIds,
+      ctx,
+    );
   }
 }
-

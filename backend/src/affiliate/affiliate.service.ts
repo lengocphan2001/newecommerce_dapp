@@ -21,12 +21,14 @@ export class AffiliateService {
     private readonly commissionPayoutService: CommissionPayoutService,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) { }
+  ) {}
 
   async register(registerDto: any) {
     // Đăng ký affiliate được xử lý khi user đăng ký với referral code
     // Không cần logic riêng ở đây
-    return { message: 'Affiliate registration handled during user registration' };
+    return {
+      message: 'Affiliate registration handled during user registration',
+    };
   }
 
   async getStats(userId: string) {
@@ -116,7 +118,11 @@ export class AffiliateService {
    * Duyệt commission (chỉ admin) = thực hiện payout on-chain rồi mới đánh dấu PAID.
    * Trả về batchId, txHash để admin xem trên BSCScan.
    */
-  async approveCommission(commissionId: string, notes?: string, ctx?: ApproveCommissionContext) {
+  async approveCommission(
+    commissionId: string,
+    notes?: string,
+    ctx?: ApproveCommissionContext,
+  ) {
     const result = await this.commissionPayoutService.payoutCommissionsByIds(
       [commissionId],
       ctx?.userId,
@@ -124,13 +130,19 @@ export class AffiliateService {
       ctx?.ipAddress,
       ctx?.userAgent,
     );
-    return { ...result, message: 'Commission approved and paid on-chain successfully' };
+    return {
+      ...result,
+      message: 'Commission approved and paid on-chain successfully',
+    };
   }
 
   /**
    * Duyệt nhiều commissions (chỉ admin) = payout on-chain cho các commission đã chọn.
    */
-  async approveCommissions(commissionIds: string[], ctx?: ApproveCommissionContext) {
+  async approveCommissions(
+    commissionIds: string[],
+    ctx?: ApproveCommissionContext,
+  ) {
     const result = await this.commissionPayoutService.payoutCommissionsByIds(
       commissionIds,
       ctx?.userId,
@@ -143,9 +155,10 @@ export class AffiliateService {
       failed: commissionIds.length - result.count,
       batchId: result.batchId,
       txHash: result.txHash,
-      message: result.count > 0
-        ? `${result.count} commission(s) paid on-chain successfully`
-        : 'No commissions could be paid',
+      message:
+        result.count > 0
+          ? `${result.count} commission(s) paid on-chain successfully`
+          : 'No commissions could be paid',
     };
   }
 
@@ -156,4 +169,3 @@ export class AffiliateService {
     return this.commissionService.getCommissionDetail(commissionId);
   }
 }
-

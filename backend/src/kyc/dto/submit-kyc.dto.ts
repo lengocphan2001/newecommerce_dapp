@@ -33,4 +33,3 @@ export class SubmitKycDto {
   @IsOptional()
   bankBranch?: string;
 }
-

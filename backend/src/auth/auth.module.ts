@@ -37,4 +37,4 @@ import { PackagesModule } from '../packages/packages.module';
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

@@ -10,4 +10,3 @@ import { PermissionsGuard } from './guards/permissions.guard';
   exports: [AdminSeedModule, GoogleSheetsService, PermissionsGuard],
 })
 export class CommonModule {}
-

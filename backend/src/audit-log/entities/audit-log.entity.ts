@@ -12,17 +12,17 @@ export enum AuditLogAction {
   PAYOUT_EXECUTED = 'payout_executed',
   PAYOUT_FAILED = 'payout_failed',
   PAYOUT_CANCELLED = 'payout_cancelled',
-  
+
   // Admin Actions
   ADMIN_LOGIN = 'admin_login',
   ADMIN_LOGOUT = 'admin_logout',
   ADMIN_ACTION = 'admin_action',
-  
+
   // User Actions
   USER_CREATED = 'user_created',
   USER_UPDATED = 'user_updated',
   USER_DELETED = 'user_deleted',
-  
+
   // Order Actions
   ORDER_CREATED = 'order_created',
   ORDER_UPDATED = 'order_updated',

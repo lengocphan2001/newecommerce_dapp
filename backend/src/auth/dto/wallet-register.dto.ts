@@ -1,4 +1,14 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, IsPhoneNumber, IsIn, Matches, MinLength, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsPhoneNumber,
+  IsIn,
+  Matches,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class WalletRegisterDto {
@@ -15,7 +25,8 @@ export class WalletRegisterDto {
   @MinLength(3, { message: 'Username must be at least 3 characters' })
   @MaxLength(20, { message: 'Username must not exceed 20 characters' })
   @Matches(/^[a-zA-Z0-9]+$/, {
-    message: 'Username can only contain letters and numbers (no spaces or special characters)'
+    message:
+      'Username can only contain letters and numbers (no spaces or special characters)',
   })
   username: string;
 

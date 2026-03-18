@@ -10,5 +10,3 @@ import { StaffSeedService } from './staff-seed.service';
   exports: [StaffSeedService],
 })
 export class AdminSeedModule {}
-
-

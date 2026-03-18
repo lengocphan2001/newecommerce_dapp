@@ -9,4 +9,3 @@ export class VerifyKycDto {
   @IsOptional()
   notes?: string;
 }
-
