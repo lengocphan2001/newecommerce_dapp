@@ -15,7 +15,7 @@ sudo apt update && sudo apt upgrade -y
 ### 1.2 Cài đặt Node.js (LTS, khuyến nghị v20)
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 node -v   # v20.x.x
 npm -v
@@ -33,23 +33,23 @@ sudo npm install -g pm2
 sudo apt install -y nginx
 ```
 
-### 1.5 Cài đặt cơ sở dữ liệu (chọn một)
+### 1.5 Cài đặt cơ sở dữ liệu (MySQL cho Backend)
 
-**PostgreSQL (mặc định trong code):**
+**MySQL (dùng cho Backend):**
+
+```bash
+sudo apt install -y mysql-server
+sudo mysql -e "CREATE USER 'shopiibiztest'@'localhost' IDENTIFIED BY 'paswotr123';"
+sudo mysql -e "CREATE DATABASE shopiibiztest;"
+sudo mysql -e "GRANT ALL ON shopiibiztest.* TO 'shopiibiztest'@'localhost'; FLUSH PRIVILEGES;"
+```
+
+**Hoặc PostgreSQL:**
 
 ```bash
 sudo apt install -y postgresql postgresql-contrib
 sudo -u postgres createuser -P your_db_user
 sudo -u postgres createdb -O your_db_user ecommerce_dapp
-```
-
-**Hoặc MySQL:**
-
-```bash
-sudo apt install -y mysql-server
-sudo mysql -e "CREATE USER 'your_db_user'@'localhost' IDENTIFIED BY 'your_password';"
-sudo mysql -e "CREATE DATABASE ecommerce_dapp;"
-sudo mysql -e "GRANT ALL ON ecommerce_dapp.* TO 'your_db_user'@'localhost'; FLUSH PRIVILEGES;"
 ```
 
 ### 1.6 (Tùy chọn) Cài đặt Certbot (SSL)
@@ -80,6 +80,7 @@ git clone <URL_REPO_CUA_BAN> .
 ├── backend/          # NestJS API
 ├── admin/            # React Admin (build ra admin/build)
 ├── (root)/           # Next.js Frontend (build ra .next hoặc out nếu static)
+├── ecosystem.config.js   # PM2: Backend + Frontend (khuyến nghị)
 ├── .env              # env cho FE (Next)
 ├── backend/.env      # env cho Backend
 └── admin/.env.production  # env cho Admin build
@@ -102,19 +103,19 @@ Nội dung mẫu (chỉnh theo VPS của bạn):
 NODE_ENV=production
 PORT=3002
 
-# Database (PostgreSQL mặc định)
-DB_TYPE=postgres
+# Database (MySQL)
+DB_TYPE=mysql
 DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=your_db_user
-DB_PASSWORD=your_db_password
-DB_NAME=ecommerce_dapp
+DB_PORT=3306
+DB_USERNAME=shopiibiztest
+DB_PASSWORD=paswotr123
+DB_NAME=shopiibiztest
 
 # JWT (tạo chuỗi bí mật mạnh)
 JWT_SECRET=your_super_secret_jwt_key_change_this
 
-# CORS – thêm domain thật của bạn
-CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com,https://yourdomain.com/admin
+# CORS – domain của bạn
+CORS_ORIGINS=https://shopiibiztest.top,https://www.shopiibiztest.top,https://shopiibiztest.top/admin
 
 # (Tùy chọn) Redis nếu dùng queue/cache
 # REDIS_HOST=localhost
@@ -143,12 +144,58 @@ Tạo thư mục upload (nếu chưa có):
 mkdir -p uploads
 ```
 
-Chạy bằng PM2:
+Chạy bằng PM2: dùng file **ecosystem** (mục 3.3 bên dưới) để tránh lỗi `MODULE_NOT_FOUND` do sai `cwd`.
+
+### 3.3 PM2 ecosystem (Backend + Frontend)
+
+Tạo **một file** ecosystem tại thư mục gốc repo, khai báo cả API và FE:
 
 ```bash
-pm2 start dist/main.js --name "shopii-api"
-# hoặc dùng script trong package.json:
-pm2 start npm --name "shopii-api" -- run start:prod
+cd /var/www/shopii
+cat > ecosystem.config.js <<'EOF'
+module.exports = {
+  apps: [
+    {
+      name: 'shopii-api',
+      script: 'npm',
+      args: 'run start:prod',
+      cwd: '/var/www/shopii/backend',
+      env: { NODE_ENV: 'production' }
+    },
+    {
+      name: 'shopii-fe',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -p 3000',
+      cwd: '/var/www/shopii',
+      env: { NODE_ENV: 'production' }
+    }
+  ]
+};
+EOF
+```
+
+**Lưu ý:** **Admin** không nằm trong ecosystem vì là ứng dụng React build ra file tĩnh (`admin/build/`). Nginx serve trực tiếp thư mục đó tại path `/admin`, không cần process Node/PM2.
+
+**Lần đầu:** phải build Backend và Frontend trước, rồi mới chạy PM2 (nếu chưa build sẽ báo `Script not found: .../backend/dist/main.js`):
+
+```bash
+# Bước 1: Build Backend (bắt buộc trước khi start PM2)
+# Build ra dist/src/main.js (không phải dist/main.js)
+cd /var/www/shopii/backend
+npm ci
+npm run build
+
+# Bước 2: Build Frontend (nếu dùng next start)
+cd /var/www/shopii
+npm ci
+npm run build
+
+# Bước 3: Khởi động PM2
+cd /var/www/shopii
+pm2 delete shopii-api shopii-fe 2>/dev/null || true
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
 ```
 
 Kiểm tra:
@@ -182,8 +229,8 @@ nano .env
 Ví dụ:
 
 ```env
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
-NEXT_PUBLIC_SITE_URL=https://yourdomain.com
+NEXT_PUBLIC_API_URL=https://shopiibiztest.top/api
+NEXT_PUBLIC_SITE_URL=https://shopiibiztest.top
 NEXT_PUBLIC_PAYMENT_WALLET=0xYourPaymentWalletAddress
 ```
 
@@ -201,7 +248,9 @@ NEXT_PUBLIC_STATIC_EXPORT=true
 cd /var/www/shopii
 npm ci
 npm run build
-pm2 start npm --name "shopii-fe" -- start
+# Khởi động bằng ecosystem (đã cấu hình ở mục 3.3)
+pm2 start ecosystem.config.js --only shopii-fe
+# Hoặc khởi động cả API + FE: pm2 start ecosystem.config.js
 ```
 
 **Cách 2: Static export (chỉ HTML/JS/CSS, Nginx serve)**
@@ -218,7 +267,7 @@ npm run build:static
 
 ## 5. Deploy Admin (React)
 
-Admin là ứng dụng React (CRA), build ra thư mục `admin/build`. Có thể serve qua Nginx tại path `/admin`.
+Admin là ứng dụng React (CRA), build ra thư mục `admin/build`. **Không dùng PM2:** Nginx serve trực tiếp thư mục tĩnh tại path `/admin` (xem mục 6.2).
 
 ### 5.1 File `admin/.env.production`
 
@@ -230,8 +279,7 @@ nano .env.production
 Ví dụ:
 
 ```env
-REACT_APP_API_URL=https://api.yourdomain.com
-# Hoặc cùng domain với backend: https://yourdomain.com/api
+REACT_APP_API_URL=https://shopiibiztest.top/api
 ```
 
 `homepage` trong `admin/package.json` đã là `"/admin"`, nên build sẽ dùng base path `/admin`.
@@ -246,15 +294,46 @@ npm run build:prod
 
 Sau bước này, file static nằm trong `admin/build/`.
 
+**Nếu build bị thoát sớm / "exited too early":** thường do VPS hết RAM (OOM). Thử theo thứ tự:
+
+1. **Tăng swap** (khuyến nghị trên VPS RAM thấp):
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+2. **Giới hạn bộ nhớ Node** rồi build lại:
+
+```bash
+cd /var/www/shopii/admin
+NODE_OPTIONS=--max-old-space-size=2048 npm run build:prod
+# VPS 512MB: dùng 1536; 1GB: 2048; 2GB: 3072
+```
+
+3. **Build trên máy local** rồi đẩy thư mục `build` lên VPS:
+
+```bash
+# Trên máy local (Windows/Mac), trong repo:
+cd admin
+npm ci
+npm run build:prod
+# Đẩy admin/build lên VPS:
+scp -r build root@your-vps-ip:/var/www/shopii/admin/
+```
+
 ---
 
 ## 6. Cấu hình Nginx
 
 Giả sử:
 
-- Domain chính (FE): `https://yourdomain.com`
-- Admin: `https://yourdomain.com/admin`
-- API Backend: `https://api.yourdomain.com` (hoặc `https://yourdomain.com/api`)
+- Domain chính (FE): `https://shopiibiztest.top`
+- Admin: `https://shopiibiztest.top/admin`
+- API Backend: `https://shopiibiztest.top/api` (cùng domain, path `/api`)
 
 ### 6.1 Backend (API) – subdomain hoặc path
 
@@ -264,31 +343,9 @@ Tạo file cấu hình:
 sudo nano /etc/nginx/sites-available/shopii
 ```
 
-**Ví dụ 1: API qua subdomain `api.yourdomain.com`**
+**API qua path `https://shopiibiztest.top/api`** (cùng domain với FE) – khuyến nghị
 
-```nginx
-# Backend API
-server {
-    listen 80;
-    server_name api.yourdomain.com;
-    location / {
-        proxy_pass http://127.0.0.1:3002;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        client_max_body_size 50M;
-    }
-}
-```
-
-**Ví dụ 2: API qua path `https://yourdomain.com/api`** (cùng domain với FE)
-
-Dùng trong block `server` của `yourdomain.com` (xem 6.2):
+Thêm vào block `server` của `shopiibiztest.top` (xem 6.2):
 
 ```nginx
 location /api {
@@ -303,7 +360,7 @@ location /api {
 }
 ```
 
-Khi đó `NEXT_PUBLIC_API_URL` và `REACT_APP_API_URL` có thể là `https://yourdomain.com/api`.
+`NEXT_PUBLIC_API_URL` và `REACT_APP_API_URL` đặt là `https://shopiibiztest.top/api` (đã cấu hình ở mục 4.1 và 5.1).
 
 ### 6.2 Frontend + Admin (cùng domain)
 
@@ -312,7 +369,18 @@ Khi đó `NEXT_PUBLIC_API_URL` và `REACT_APP_API_URL` có thể là `https://yo
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name shopiibiztest.top www.shopiibiztest.top;
+
+    location /api {
+        rewrite ^/api/?(.*) /$1 break;
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 50M;
+    }
 
     location /admin {
         alias /var/www/shopii/admin/build;
@@ -338,8 +406,19 @@ server {
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name shopiibiztest.top www.shopiibiztest.top;
     root /var/www/shopii/out;
+
+    location /api {
+        rewrite ^/api/?(.*) /$1 break;
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 50M;
+    }
 
     location /admin {
         alias /var/www/shopii/admin/build;
@@ -363,7 +442,7 @@ sudo systemctl reload nginx
 ### 6.4 SSL với Certbot
 
 ```bash
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com -d api.yourdomain.com
+sudo certbot --nginx -d shopiibiztest.top -d www.shopiibiztest.top
 sudo certbot renew --dry-run
 ```
 
@@ -379,19 +458,22 @@ cd /var/www/shopii/backend
 git pull
 npm ci
 npm run build
-pm2 restart shopii-api
 
 # 2. Frontend (nếu dùng next start)
 cd /var/www/shopii
 git pull
 npm ci
 npm run build
-pm2 restart shopii-fe
 
-# Hoặc static:
+# 3. Khởi động lại cả API + FE qua ecosystem (một lệnh)
+cd /var/www/shopii
+pm2 reload ecosystem.config.js
+# Hoặc chỉ một app: pm2 reload ecosystem.config.js --only shopii-api
+
+# Hoặc static FE:
 # npm run build:static  → Nginx đã trỏ root tới out/
 
-# 3. Admin
+# 4. Admin
 cd /var/www/shopii/admin
 git pull
 npm ci
@@ -409,15 +491,17 @@ npm run build:prod
 | Frontend | `.env` (root)           | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` |
 | Admin    | `admin/.env.production` | `REACT_APP_API_URL` |
 
-Đảm bảo `CORS_ORIGINS` ở Backend có đủ domain FE và Admin (ví dụ `https://yourdomain.com`, `https://yourdomain.com/admin` nếu cùng origin).
+Đảm bảo `CORS_ORIGINS` ở Backend có đủ domain FE và Admin (ví dụ `https://shopiibiztest.top`, `https://shopiibiztest.top/admin` nếu cùng origin).
 
 ---
 
 ## 9. Xử lý sự cố nhanh
 
+- **Admin build "exited too early" / thoát sớm:** VPS thiếu RAM. Thêm swap (mục 5.2), hoặc chạy `NODE_OPTIONS=--max-old-space-size=2048 npm run build:prod`, hoặc build Admin trên máy local rồi scp thư mục `admin/build` lên VPS.
+- **`Script not found: .../backend/dist/main.js` / API không start:** Backend build ra `dist/src/main.js` (không phải `dist/main.js`). Đảm bảo `package.json` có `"start:prod": "node dist/src/main.js"`. Sau khi sửa: `cd /var/www/shopii/backend && npm run build && ls dist/src/main.js`, rồi `pm2 restart shopii-api`.
 - **API 502:** Kiểm tra Backend có chạy: `pm2 status`, `pm2 logs shopii-api`. Kiểm tra `backend/.env` (DB, PORT).
 - **FE/Admin trắng hoặc 404:** Kiểm tra Nginx `root`/`alias`, đường dẫn `out/` và `admin/build/`. Base path Admin phải là `/admin`.
 - **CORS:** Thêm đúng domain vào `CORS_ORIGINS` trong `backend/.env` và restart Backend.
 - **Upload file:** Backend serve upload tại `/files`. Đảm bảo thư mục `backend/uploads` tồn tại và Nginx không chặn body size (`client_max_body_size 50M;`).
 
-Nếu bạn dùng domain/path khác (ví dụ API tại `https://yourdomain.com/api`), chỉ cần chỉnh lại `proxy_pass` và các biến `*_API_URL` cho đúng.
+Nếu bạn dùng domain/path khác (ví dụ API tại `https://shopiibiztest.top/api`), chỉ cần chỉnh lại `proxy_pass` và các biến `*_API_URL` cho đúng.
