@@ -30,6 +30,7 @@ import { Permission } from '../src/permission/entities/permission.entity';
 import { Package } from '../src/packages/entities/package.entity';
 import { PackagePurchase } from '../src/packages/entities/package-purchase.entity';
 import { Kyc } from '../src/kyc/entities/kyc.entity';
+import { WalletDepositRequest } from '../src/wallet/entities/wallet-deposit-request.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -61,7 +62,7 @@ async function initializeDatabase() {
 
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, SystemConfig, Staff, StaffSession, Role, Permission, Package, PackagePurchase, Kyc],
+    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, SystemConfig, Staff, StaffSession, Role, Permission, Package, PackagePurchase, Kyc, WalletDepositRequest],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
   });

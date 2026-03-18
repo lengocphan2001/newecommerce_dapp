@@ -165,7 +165,7 @@ module.exports = {
     {
       name: 'shopii-fe',
       script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3000',
+      args: 'start -p 3001',
       cwd: '/var/www/shopii',
       env: { NODE_ENV: 'production' }
     }
@@ -335,6 +335,45 @@ Giả sử:
 - Admin: `https://shopiibiztest.top/admin`
 - API Backend: `https://shopiibiztest.top/api` (cùng domain, path `/api`)
 
+### 6.0 Nhiều domain trên cùng VPS (shopiibiztest.top bị trùng nội dung domain khác)
+
+Khi bạn đã có một domain khác chạy trên VPS, truy cập **shopiibiztest.top** có thể thấy nội dung của domain kia vì:
+
+- Nginx dùng **`server_name`** để chọn server block. Nếu không có block nào khớp `shopiibiztest.top`, Nginx dùng **default server** (block có `listen 80 default_server` hoặc block đọc đầu tiên).
+- Cần có **một file cấu hình riêng** cho Shopii, **chỉ** `server_name shopiibiztest.top www.shopiibiztest.top`, không trùng với domain kia.
+
+**Cách xử lý:**
+
+1. **Xem site nào đang là default và các file đang bật:**
+   ```bash
+   ls -la /etc/nginx/sites-enabled/
+   sudo nginx -T 2>/dev/null | grep -E "server_name|listen|default_server"
+   ```
+   Ghi nhớ domain nào đang dùng `default_server` (nếu có).
+
+2. **Tạo file cấu hình chỉ cho Shopii** (tên file riêng, ví dụ `shopiibiztest` hoặc `shopii`):
+   ```bash
+   sudo nano /etc/nginx/sites-available/shopiibiztest
+   ```
+   Dán **đúng** một trong hai block `server` ở mục 6.2 (PM2 port 3001 hoặc static `out/`). Trong block đó **bắt buộc** có:
+   ```nginx
+   server_name shopiibiztest.top www.shopiibiztest.top;
+   ```
+   Không thêm domain khác vào dòng này.
+
+3. **Bật site Shopii và kiểm tra:**
+   ```bash
+   sudo ln -sf /etc/nginx/sites-available/shopiibiztest /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+4. **Nếu domain kia đang dùng `default_server`:** mở file config của domain đó (trong `sites-available`), tìm `listen 80 default_server;` và **bỏ** `default_server` (chỉ để `listen 80;`), đồng thời đảm bảo trong đó có `server_name domain-kia.com www.domain-kia.com;`. Reload Nginx lại. Như vậy mỗi domain chỉ nhận đúng host của nó.
+
+5. **Kiểm tra DNS:** `shopiibiztest.top` và `www.shopiibiztest.top` phải trỏ A record về đúng IP VPS.
+
+Sau khi sửa, truy cập `http://shopiibiztest.top` sẽ vào đúng FE Shopii, không còn hiện nội dung domain kia.
+
 ### 6.1 Backend (API) – subdomain hoặc path
 
 Tạo file cấu hình:
@@ -364,7 +403,7 @@ location /api {
 
 ### 6.2 Frontend + Admin (cùng domain)
 
-**Nếu FE chạy bằng `next start` (PM2) – ví dụ port 3000:**
+**Nếu FE chạy bằng `next start` (PM2) – port 3001:**
 
 ```nginx
 server {
@@ -388,7 +427,7 @@ server {
     }
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -433,8 +472,13 @@ server {
 
 ### 6.3 Bật site và reload Nginx
 
+Dùng đúng tên file bạn đã tạo (ví dụ `shopii` hoặc `shopiibiztest`):
+
 ```bash
 sudo ln -sf /etc/nginx/sites-available/shopii /etc/nginx/sites-enabled/
+# Hoặc nếu bạn đặt tên file shopiibiztest:
+# sudo ln -sf /etc/nginx/sites-available/shopiibiztest /etc/nginx/sites-enabled/
+
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -500,6 +544,7 @@ npm run build:prod
 - **Admin build "exited too early" / thoát sớm:** VPS thiếu RAM. Thêm swap (mục 5.2), hoặc chạy `NODE_OPTIONS=--max-old-space-size=2048 npm run build:prod`, hoặc build Admin trên máy local rồi scp thư mục `admin/build` lên VPS.
 - **`Script not found: .../backend/dist/main.js` / API không start:** Backend build ra `dist/src/main.js` (không phải `dist/main.js`). Đảm bảo `package.json` có `"start:prod": "node dist/src/main.js"`. Sau khi sửa: `cd /var/www/shopii/backend && npm run build && ls dist/src/main.js`, rồi `pm2 restart shopii-api`.
 - **API 502:** Kiểm tra Backend có chạy: `pm2 status`, `pm2 logs shopii-api`. Kiểm tra `backend/.env` (DB, PORT).
+- **shopiibiztest.top hiện nội dung domain khác:** Cần server block riêng chỉ với `server_name shopiibiztest.top www.shopiibiztest.top` (mục 6.0). Kiểm tra `sites-enabled`, bỏ `default_server` khỏi config domain kia nếu cần.
 - **FE/Admin trắng hoặc 404:** Kiểm tra Nginx `root`/`alias`, đường dẫn `out/` và `admin/build/`. Base path Admin phải là `/admin`.
 - **CORS:** Thêm đúng domain vào `CORS_ORIGINS` trong `backend/.env` và restart Backend.
 - **Upload file:** Backend serve upload tại `/files`. Đảm bảo thư mục `backend/uploads` tồn tại và Nginx không chặn body size (`client_max_body_size 50M;`).
