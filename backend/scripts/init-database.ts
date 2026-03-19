@@ -76,6 +76,36 @@ async function initializeDatabase() {
     await dataSource.synchronize();
     console.log('Database tables created successfully!');
 
+    // Ensure default banking_config row exists (id=1) with latest fields.
+    const bankingRepo = dataSource.getRepository(BankingConfig);
+    let bankingConfig = await bankingRepo.findOne({ where: { id: 1 } });
+    if (!bankingConfig) {
+      bankingConfig = bankingRepo.create({
+        id: 1,
+        bankName: '',
+        accountNumber: '',
+        accountName: '',
+        bankId: '',
+        qrImageUrl: '',
+        isEnabled: false,
+        usdtPriceVnd: null,
+        usdtEnabled: false,
+        usdtWalletAddress: '',
+        usdtNetwork: 'TRC20',
+        usdtQrImageUrl: '',
+      });
+      await bankingRepo.save(bankingConfig);
+      console.log('Initialized default banking_config row (id=1).');
+    } else {
+      // Backfill new fields for older databases.
+      bankingConfig.usdtEnabled = bankingConfig.usdtEnabled ?? false;
+      bankingConfig.usdtWalletAddress = bankingConfig.usdtWalletAddress ?? '';
+      bankingConfig.usdtNetwork = bankingConfig.usdtNetwork ?? 'TRC20';
+      bankingConfig.usdtQrImageUrl = bankingConfig.usdtQrImageUrl ?? '';
+      await bankingRepo.save(bankingConfig);
+      console.log('Backfilled banking_config with latest fields.');
+    }
+
     await dataSource.destroy();
     console.log('Database connection closed.');
   } catch (error) {
