@@ -36,6 +36,8 @@ const Users: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
+  const [f1PurchaseModalVisible, setF1PurchaseModalVisible] = useState(false);
+  const [selectedF1ForPurchases, setSelectedF1ForPurchases] = useState<any>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -157,6 +159,35 @@ const Users: React.FC = () => {
     } finally {
       setSavingFakeCommission(false);
     }
+  };
+
+  const formatUSDT = (amount: any): string => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
+    if (!isFinite(num)) return '0.00';
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  };
+
+  const getCommissionStatusColor = (status: string) => {
+    if (status === 'paid') return 'green';
+    if (status === 'pending') return 'orange';
+    if (status === 'blocked') return 'red';
+    return 'default';
+  };
+
+  const getCommissionTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      direct: 'Direct',
+      group: 'Group',
+      management: 'Management',
+      product: 'Product',
+      milestone: 'Milestone',
+    };
+    return map[type] || type || '-';
+  };
+
+  const handleViewF1Purchases = (f1: any) => {
+    setSelectedF1ForPurchases(f1);
+    setF1PurchaseModalVisible(true);
   };
 
   const columns = [
@@ -539,6 +570,22 @@ const Users: React.FC = () => {
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
                   { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Mua bao lần',
+                    dataIndex: 'purchaseCount',
+                    key: 'purchaseCount',
+                    render: (count: number) => count || 0,
+                  },
+                  {
+                    title: 'Actions',
+                    key: 'actions',
+                    width: 160,
+                    render: (_: any, f1: any) => (
+                      <Button type="link" onClick={() => handleViewF1Purchases(f1)}>
+                        Xem lịch mua
+                      </Button>
+                    ),
+                  },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
                 ]}
                 style={{ marginBottom: 24 }}
@@ -624,6 +671,73 @@ const Users: React.FC = () => {
             </TabPane>
           </Tabs>
         )}
+      </Modal>
+      {/* F1 purchase history & commissions for userId in question */}
+      <Modal
+        title={
+          selectedF1ForPurchases
+            ? `F1: ${selectedF1ForPurchases.fullName || selectedF1ForPurchases.username || selectedF1ForPurchases.id} - Purchases & Commissions`
+            : 'F1 Purchases & Commissions'
+        }
+        open={f1PurchaseModalVisible}
+        onCancel={() => {
+          setF1PurchaseModalVisible(false);
+          setSelectedF1ForPurchases(null);
+        }}
+        footer={[
+          <Button
+            key="close"
+            onClick={() => {
+              setF1PurchaseModalVisible(false);
+              setSelectedF1ForPurchases(null);
+            }}
+          >
+            Close
+          </Button>,
+        ]}
+        width={950}
+      >
+        <Table
+          rowKey="orderId"
+          pagination={false}
+          dataSource={selectedF1ForPurchases?.purchases || []}
+          columns={[
+            {
+              title: 'Order ID',
+              dataIndex: 'orderId',
+              key: 'orderId',
+              render: (id: string) => (
+                <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                  {id}
+                </span>
+              ),
+            },
+            {
+              title: 'Thời gian mua hàng',
+              dataIndex: 'purchasedAt',
+              key: 'purchasedAt',
+              render: (date: string | Date) => new Date(date).toLocaleString(),
+            },
+            {
+              title: 'Hoa hồng của user đang xem',
+              dataIndex: 'commissions',
+              key: 'commissions',
+              render: (commissions: any[]) => {
+                const list = Array.isArray(commissions) ? commissions : [];
+                if (list.length === 0) return '-';
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {list.map((c) => (
+                      <Tag key={c.id} color={getCommissionStatusColor(c.status)}>
+                        {getCommissionTypeLabel(c.type)}: ${formatUSDT(c.amount)}
+                      </Tag>
+                    ))}
+                  </div>
+                );
+              },
+            },
+          ]}
+        />
       </Modal>
     </div >
   );

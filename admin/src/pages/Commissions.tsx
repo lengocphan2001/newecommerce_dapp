@@ -263,14 +263,18 @@ const CommissionsPage: React.FC = () => {
       ),
     },
     {
-      title: 'Referral ID',
-      dataIndex: 'userId',
-      key: 'userId',
+      title: 'Buyer (ai mua)',
+      key: 'fromUser',
       width: 280,
-      render: (userId: string) => (
-        <span style={{ fontFamily: 'monospace', fontSize: '12px' }} title={userId}>
-          {userId || '-'}
-        </span>
+      render: (_: any, record: Commission) => (
+        <div>
+          <div style={{ fontWeight: 'bold' }}>
+            {record.fromUser?.fullName || record.fromUser?.username || 'N/A'}
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {record.fromUser?.email || record.fromUserId || 'N/A'}
+          </div>
+        </div>
       ),
     },
     {
@@ -297,6 +301,20 @@ const CommissionsPage: React.FC = () => {
       key: 'orderAmount',
       width: 150,
       render: (amount: number | string) => `$${formatPrice(amount)}`,
+    },
+    {
+      title: 'Order ID',
+      dataIndex: 'orderId',
+      key: 'orderId',
+      width: 200,
+      render: (orderId: string | null) =>
+        orderId ? (
+          <span style={{ fontFamily: 'monospace', fontSize: '12px' }} title={orderId}>
+            {orderId}
+          </span>
+        ) : (
+          '-'
+        ),
     },
     {
       title: 'Status',
@@ -484,8 +502,16 @@ const CommissionsPage: React.FC = () => {
               <Descriptions.Item label="Email">
                 {selectedCommission.user?.email || 'N/A'}
               </Descriptions.Item>
-              <Descriptions.Item label="Referral ID" span={2}>
-                <span style={{ fontFamily: 'monospace' }}>{selectedCommission.userId || '-'}</span>
+              <Descriptions.Item label="Buyer" span={2}>
+                <div>
+                  <div style={{ fontWeight: 'bold' }}>
+                    {selectedCommission.fromUser?.fullName ||
+                      selectedCommission.fromUser?.username ||
+                      selectedCommission.fromUserId ||
+                      '-'}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>{selectedCommission.fromUser?.email || '-'}</div>
+                </div>
               </Descriptions.Item>
               <Descriptions.Item label="Type">{getTypeTag(selectedCommission.type, selectedCommission.notes)}</Descriptions.Item>
               <Descriptions.Item label="Status">{getStatusTag(selectedCommission.status)}</Descriptions.Item>
@@ -498,7 +524,7 @@ const CommissionsPage: React.FC = () => {
                 ${formatPrice(selectedCommission.orderAmount)}
               </Descriptions.Item>
               <Descriptions.Item label="Order ID" span={2}>
-                <span style={{ fontFamily: 'monospace' }}>{selectedCommission.orderId}</span>
+                <span style={{ fontFamily: 'monospace' }}>{selectedCommission.orderId || '-'}</span>
               </Descriptions.Item>
               {selectedCommission.level && (
                 <Descriptions.Item label="Level">F{selectedCommission.level}</Descriptions.Item>

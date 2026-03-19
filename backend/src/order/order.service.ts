@@ -34,9 +34,9 @@ export class OrderService {
     if (query.userId) {
       where.userId = query.userId;
     }
-    if (query.status) {
-      where.status = query.status;
-    }
+    const normalizedStatus =
+      typeof query?.status === 'string' ? query.status.toLowerCase() : query?.status;
+    if (query.status) where.status = normalizedStatus;
 
     const queryBuilder = this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.user', 'user')
@@ -53,7 +53,23 @@ export class OrderService {
       queryBuilder.andWhere('order.userId = :userId', { userId: query.userId });
     }
     if (query.status) {
-      queryBuilder.andWhere('order.status = :status', { status: query.status });
+      queryBuilder.andWhere('order.status = :status', { status: normalizedStatus });
+    }
+
+    // Search by: order.id, user.username, user.email, order.transactionHash
+    if (query?.q !== undefined) {
+      const q = String(query.q).trim();
+      if (q) {
+        const like = `%${q.toLowerCase()}%`;
+        queryBuilder.andWhere(
+          `LOWER(order.id) LIKE :like
+           OR LOWER(order.userId) LIKE :like
+           OR LOWER(user.username) LIKE :like
+           OR LOWER(user.email) LIKE :like
+           OR LOWER(COALESCE(order.transactionHash, '')) LIKE :like`,
+          { like },
+        );
+      }
     }
 
     return queryBuilder.getMany();

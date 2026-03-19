@@ -9,8 +9,14 @@ export interface Commission {
     email: string;
     fullName: string;
   };
-  orderId: string;
+  orderId: string | null;
   fromUserId?: string;
+  fromUser?: {
+    id: string;
+    username: string | null;
+    email: string | null;
+    fullName: string | null;
+  };
   type: 'direct' | 'group' | 'management' | 'product' | 'milestone';
   status: 'pending' | 'paid' | 'blocked';
   amount: number | string;

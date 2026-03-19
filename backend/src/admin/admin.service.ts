@@ -208,7 +208,7 @@ export class AdminService {
     }
 
     // Get F1, F2, F3 Referrals
-    const f1Users = await this.userRepository.find({
+    let f1Users = await this.userRepository.find({
       where: { referralUserId: userId },
       select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
     });
@@ -229,6 +229,86 @@ export class AdminService {
         where: { referralUserId: In(f2Ids) },
         select: ['id', 'username', 'fullName', 'email', 'packageType', 'createdAt'],
       });
+    }
+
+    // Enrich F1 with purchase history + commissions generated for `userId` from those purchases.
+    // UI requirement:
+    // - "Mỗi F1 mua bao lần" → purchaseCount (confirmed orders)
+    // - "mỗi lần được hoa hồng gì, bao nhiêu, thời gian mua hàng" → purchases[] (per order)
+    if (f1Ids.length > 0) {
+      // Exact purchase count per F1 (confirmed orders only).
+      const countRows = await this.orderRepository
+        .createQueryBuilder('o')
+        .select('o.userId', 'userId')
+        .addSelect('COUNT(*)', 'count')
+        .where('o.userId IN (:...f1Ids)', { f1Ids })
+        .andWhere('o.status = :status', { status: OrderStatus.CONFIRMED })
+        .groupBy('o.userId')
+        .getRawMany<{ userId: string; count: string }>();
+
+      const purchaseCountMap = new Map<string, number>(
+        countRows.map((r) => [r.userId, parseInt(r.count, 10) || 0]),
+      );
+
+      // Load latest N orders per F1 for display.
+      const ordersByF1 = await Promise.all(
+        f1Users.map(async (f1) => {
+          const orders = await this.orderRepository.find({
+            where: { userId: f1.id, status: OrderStatus.CONFIRMED },
+            order: { createdAt: 'DESC' },
+            take: 20,
+            select: ['id', 'createdAt', 'userId'],
+          });
+          return { f1Id: f1.id, orders };
+        }),
+      );
+
+      const allOrderIds = ordersByF1.flatMap((x) => x.orders.map((o) => o.id));
+      const commissions = allOrderIds.length
+        ? await this.commissionService.getCommissionsForRecipientFromUsersOrders({
+          recipientUserId: userId,
+          fromUserIds: f1Ids,
+          orderIds: allOrderIds,
+        })
+        : [];
+
+      const commissionsByOrderId = new Map<string, any[]>();
+      for (const c of commissions as any[]) {
+        if (!c.orderId) continue;
+        const list = commissionsByOrderId.get(c.orderId) || [];
+        list.push(c);
+        commissionsByOrderId.set(c.orderId, list);
+      }
+
+      const ordersByF1Map = new Map<string, any[]>(
+        ordersByF1.map((x) => [x.f1Id, x.orders]),
+      );
+
+      f1Users = f1Users.map((f1) => {
+        const orders = ordersByF1Map.get(f1.id) || [];
+        return {
+          ...f1,
+          purchaseCount: purchaseCountMap.get(f1.id) || 0,
+          purchases: orders.map((o) => ({
+            orderId: o.id,
+            purchasedAt: o.createdAt,
+            commissions: (commissionsByOrderId.get(o.id) || []).map((c) => ({
+              id: c.id,
+              type: c.type,
+              amount: c.amount,
+              status: c.status,
+              notes: c.notes,
+            })),
+          })),
+        };
+      });
+    } else {
+      // Keep consistent shape for the UI.
+      f1Users = f1Users.map((f1) => ({
+        ...f1,
+        purchaseCount: 0,
+        purchases: [],
+      }));
     }
 
     // Format decimal numbers

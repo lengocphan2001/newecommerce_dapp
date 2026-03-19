@@ -1,6 +1,6 @@
 import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import {
@@ -1152,6 +1152,40 @@ export class CommissionService {
     return commissions.map(c => ({
       ...c,
       amount: this.roundCommission(Number(c.amount)),
+    }));
+  }
+
+  /**
+   * Lấy commissions phát sinh từ các order của một tập buyer (fromUserIds)
+   * nhưng chỉ dành cho recipientUserId đang được admin xem.
+   * Dùng cho UI: hiển thị lịch mua của F1 và hoa hồng tương ứng.
+   */
+  async getCommissionsForRecipientFromUsersOrders(params: {
+    recipientUserId: string;
+    fromUserIds: string[];
+    orderIds: string[];
+  }): Promise<Commission[]> {
+    const { recipientUserId, fromUserIds, orderIds } = params;
+
+    if (!recipientUserId) return [];
+    if (!fromUserIds?.length) return [];
+    if (!orderIds?.length) return [];
+
+    const where: any = {
+      userId: recipientUserId,
+      fromUserId: In(fromUserIds),
+      orderId: In(orderIds),
+    };
+
+    const commissions = await this.commissionRepository.find({
+      where,
+      order: { createdAt: 'DESC' },
+    });
+
+    return commissions.map((c) => ({
+      ...c,
+      amount: this.roundCommission(Number(c.amount)),
+      orderAmount: this.roundCommission(Number(c.orderAmount)),
     }));
   }
 
