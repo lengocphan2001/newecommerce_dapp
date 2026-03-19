@@ -26,6 +26,7 @@ import Login from './pages/Login';
 import Packages from './pages/Packages';
 import PackagePurchases from './pages/PackagePurchases';
 import BankingSettings from './pages/BankingSettings';
+import RuntimeEnvSettings from './pages/RuntimeEnvSettings';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -268,6 +269,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <BankingSettings />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/runtime-env-settings"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <RuntimeEnvSettings />
                   </AdminLayout>
                 </PrivateRoute>
               }

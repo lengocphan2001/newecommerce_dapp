@@ -113,6 +113,12 @@ export class AdminController {
     return this.adminService.getBankingConfig();
   }
 
+  /** Public endpoint — wallet receiving address for checkout transfers */
+  @Get('payment-wallet')
+  async getPaymentWallet() {
+    return this.adminService.getPublicPaymentWallet();
+  }
+
   /** Admin-only — update banking config */
   @Put('banking-config')
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -131,6 +137,20 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async updateSystemConfig(@Body() dto: any) {
     return this.adminService.updateSystemConfig(dto);
+  }
+
+  /** Admin-only — get runtime env config (sensitive values masked) */
+  @Get('runtime-env-config')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getRuntimeEnvConfig() {
+    return this.adminService.getRuntimeEnvConfig();
+  }
+
+  /** Admin-only — update runtime env config keys */
+  @Patch('runtime-env-config')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateRuntimeEnvConfig(@Body() dto: any) {
+    return this.adminService.updateRuntimeEnvConfig(dto);
   }
 }
 

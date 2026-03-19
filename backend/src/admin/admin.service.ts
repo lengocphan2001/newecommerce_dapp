@@ -1,6 +1,8 @@
-import { Injectable, Inject, forwardRef, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { User } from '../user/entities/user.entity';
 import { Address } from '../user/entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
@@ -11,6 +13,8 @@ import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
+import { Web3Service } from '../blockchain/web3.service';
+import { CommissionPayoutService as BlockchainCommissionPayoutService } from '../blockchain/commission-payout.service';
 
 @Injectable()
 export class AdminService {
@@ -34,6 +38,8 @@ export class AdminService {
     private affiliateService: AffiliateService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
+    private web3Service: Web3Service,
+    private blockchainCommissionPayoutService: BlockchainCommissionPayoutService,
   ) { }
 
   async getDashboard() {
@@ -425,5 +431,137 @@ export class AdminService {
   async getMinPayoutThreshold(): Promise<number> {
     const row = await this.systemConfigRepository.findOne({ where: { key: 'minPayoutThreshold' } });
     return row ? parseFloat(row.value) : 50;
+  }
+
+  private getBackendEnvPath(): string {
+    return resolve(process.cwd(), '.env');
+  }
+
+  private readEnvValue(envPath: string, key: string): string {
+    if (!existsSync(envPath)) return '';
+    const content = readFileSync(envPath, 'utf8');
+    const lines = content.split(/\r?\n/);
+    const line = lines.find((l) => l.startsWith(`${key}=`));
+    if (!line) return '';
+    return line.slice(`${key}=`.length).trim();
+  }
+
+  private upsertEnvValue(envPath: string, key: string, value: string): void {
+    let content = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
+    const lines = content ? content.split(/\r?\n/) : [];
+    const targetPrefix = `${key}=`;
+    const idx = lines.findIndex((l) => l.startsWith(targetPrefix));
+    const nextLine = `${key}=${value}`;
+    if (idx >= 0) {
+      lines[idx] = nextLine;
+    } else {
+      lines.push(nextLine);
+    }
+    content = `${lines.join('\n').replace(/\n{3,}/g, '\n\n')}\n`;
+    writeFileSync(envPath, content);
+    if (value) {
+      process.env[key] = value;
+    } else {
+      delete process.env[key];
+    }
+  }
+
+  private maskSecret(secret: string): string {
+    if (!secret) return '';
+    if (secret.length <= 10) return '********';
+    return `${secret.slice(0, 6)}...${secret.slice(-4)}`;
+  }
+
+  async getRuntimeEnvConfig(): Promise<{
+    nextPublicPaymentWallet: string;
+    blockchainPrivateKeyMasked: string;
+    hasBlockchainPrivateKey: boolean;
+    privateKeyMasked: string;
+    hasPrivateKey: boolean;
+  }> {
+    const backendEnvPath = this.getBackendEnvPath();
+
+    const nextPublicPaymentWallet =
+      this.readEnvValue(backendEnvPath, 'NEXT_PUBLIC_PAYMENT_WALLET') ||
+      process.env.NEXT_PUBLIC_PAYMENT_WALLET ||
+      '';
+
+    const blockchainPrivateKey =
+      this.readEnvValue(backendEnvPath, 'BLOCKCHAIN_PRIVATE_KEY') ||
+      process.env.BLOCKCHAIN_PRIVATE_KEY ||
+      '';
+    const privateKey =
+      this.readEnvValue(backendEnvPath, 'PRIVATE_KEY') ||
+      process.env.PRIVATE_KEY ||
+      '';
+
+    return {
+      nextPublicPaymentWallet,
+      blockchainPrivateKeyMasked: this.maskSecret(blockchainPrivateKey),
+      hasBlockchainPrivateKey: !!blockchainPrivateKey,
+      privateKeyMasked: this.maskSecret(privateKey),
+      hasPrivateKey: !!privateKey,
+    };
+  }
+
+  async updateRuntimeEnvConfig(dto: {
+    nextPublicPaymentWallet?: string;
+    blockchainPrivateKey?: string;
+    privateKey?: string;
+  }): Promise<{
+    nextPublicPaymentWallet: string;
+    blockchainPrivateKeyMasked: string;
+    hasBlockchainPrivateKey: boolean;
+    privateKeyMasked: string;
+    hasPrivateKey: boolean;
+    requiresRestart: boolean;
+  }> {
+    const backendEnvPath = this.getBackendEnvPath();
+    let requiresRestart = false;
+
+    if (dto.nextPublicPaymentWallet !== undefined) {
+      const wallet = dto.nextPublicPaymentWallet.trim();
+      if (wallet && !/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+        throw new BadRequestException('NEXT_PUBLIC_PAYMENT_WALLET must be a valid EVM address');
+      }
+      // Store in backend env only; frontend should read this via API at runtime.
+      this.upsertEnvValue(backendEnvPath, 'NEXT_PUBLIC_PAYMENT_WALLET', wallet);
+    }
+
+    if (dto.blockchainPrivateKey !== undefined) {
+      const privateKey = dto.blockchainPrivateKey.trim();
+      if (privateKey && !/^(0x)?[a-fA-F0-9]{64}$/.test(privateKey)) {
+        throw new BadRequestException('BLOCKCHAIN_PRIVATE_KEY must be a valid 64-hex private key');
+      }
+      this.upsertEnvValue(backendEnvPath, 'BLOCKCHAIN_PRIVATE_KEY', privateKey);
+      // Hot-reload signer and contract binding so backend keeps working without restart.
+      await this.web3Service.reloadWalletFromPrivateKey(privateKey || undefined);
+      this.blockchainCommissionPayoutService.refreshRuntimeBinding();
+      requiresRestart = false;
+    }
+
+    if (dto.privateKey !== undefined) {
+      const privateKey = dto.privateKey.trim();
+      if (privateKey && !/^(0x)?[a-fA-F0-9]{64}$/.test(privateKey)) {
+        throw new BadRequestException('PRIVATE_KEY must be a valid 64-hex private key');
+      }
+      this.upsertEnvValue(backendEnvPath, 'PRIVATE_KEY', privateKey);
+    }
+
+    const latest = await this.getRuntimeEnvConfig();
+    return {
+      ...latest,
+      // Private key requires backend restart to re-init wallet.
+      requiresRestart,
+    };
+  }
+
+  async getPublicPaymentWallet(): Promise<{ paymentWallet: string }> {
+    const backendEnvPath = this.getBackendEnvPath();
+    const paymentWallet =
+      this.readEnvValue(backendEnvPath, 'NEXT_PUBLIC_PAYMENT_WALLET') ||
+      process.env.NEXT_PUBLIC_PAYMENT_WALLET ||
+      '';
+    return { paymentWallet };
   }
 }

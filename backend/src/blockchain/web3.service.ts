@@ -34,8 +34,9 @@ export class Web3Service implements OnModuleInit {
   }
 
   private async initializeWallet() {
-    const privateKey = this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
+    const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
     if (!privateKey) {
+      this.wallet = undefined as any;
       this.logger.warn('BLOCKCHAIN_PRIVATE_KEY not set. Some features may not work.');
       return;
     }
@@ -43,6 +44,22 @@ export class Web3Service implements OnModuleInit {
     this.wallet = new Wallet(privateKey, this.provider);
     const address = await this.wallet.getAddress();
     this.logger.log(`Initialized wallet: ${address}`);
+  }
+
+  /**
+   * Reload wallet signer at runtime after BLOCKCHAIN_PRIVATE_KEY changes.
+   * This avoids having to restart the backend process.
+   */
+  async reloadWalletFromPrivateKey(privateKey?: string): Promise<void> {
+    const key = privateKey || process.env.BLOCKCHAIN_PRIVATE_KEY || this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
+    if (!key) {
+      this.wallet = undefined as any;
+      this.logger.warn('BLOCKCHAIN_PRIVATE_KEY removed. Wallet signer cleared.');
+      return;
+    }
+    this.wallet = new Wallet(key, this.provider);
+    const address = await this.wallet.getAddress();
+    this.logger.log(`Reloaded wallet signer: ${address}`);
   }
 
   /**

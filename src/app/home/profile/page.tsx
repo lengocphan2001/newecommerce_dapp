@@ -109,6 +109,8 @@ export default function ProfilePage() {
       // Try to get info from API
       if (typeof api !== 'undefined') {
         try {
+          // Profile page should always show latest commission/reconsumption numbers.
+          invalidateCache("referralInfo");
           const info = await api.getReferralInfo();
           // Get local avatar as fallback
           const localAvatar = localStorage.getItem("userAvatar");
@@ -332,16 +334,30 @@ export default function ProfilePage() {
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Số lần tái tiêu dùng</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
-                        const total = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
-                        const price = Number(reconsumptionStatus?.packageValue) || 0;
-                        if (price <= 0) return "0 lần";
-                        return `${Math.floor(total / price)} lần`;
+                        const totalAmountPurchase = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
+                        const highestPackageValue = packages.reduce((max, pkg) => {
+                          const price = Number(pkg?.price) || 0;
+                          return price > max ? price : max;
+                        }, 0);
+                        if (highestPackageValue <= 0) return "0 lần";
+                        return `${Math.floor(totalAmountPurchase / highestPackageValue)} lần`;
                       })()}
                     </p>
                   </div>
                   <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Đã tái tiêu dùng</p>
-                    <p className="text-base font-black text-slate-900">${userInfo?.totalReconsumptionAmount ? parseFloat(userInfo.totalReconsumptionAmount).toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"}</p>
+                    <p className="text-base font-black text-slate-900">
+                      ${(() => {
+                        const totalAmountPurchase = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
+                        const highestPackageValue = packages.reduce((max, pkg) => {
+                          const price = Number(pkg?.price) || 0;
+                          return price > max ? price : max;
+                        }, 0);
+                        if (highestPackageValue <= 0) return "0.00";
+                        const reconsumedAmount = Math.floor(totalAmountPurchase / highestPackageValue) * highestPackageValue;
+                        return reconsumedAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+                      })()}
+                    </p>
                   </div>
                 </div>
               </div>

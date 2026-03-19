@@ -91,6 +91,7 @@ export default function CheckoutPage() {
   const [bankingOrderId, setBankingOrderId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | null>(null);
   const [usdtToVnd, setUsdtToVnd] = useState<number | null>(null);
+  const [paymentWallet, setPaymentWallet] = useState<string>("");
 
   const userWalletAddress = walletAddress || (typeof window !== "undefined" ? localStorage.getItem("walletAddress") : null);
 
@@ -169,6 +170,7 @@ export default function CheckoutPage() {
     loadCheckoutUser();
     calculateShippingFee();
     api.getBankingConfig().then((c) => setBankingConfig(c)).catch(() => setBankingConfig(null));
+    api.getPaymentWallet().then((res) => setPaymentWallet(res.paymentWallet || "")).catch(() => setPaymentWallet(""));
 
     // Listen for address changes when returning from address page
     const handleStorageChange = () => {
@@ -515,11 +517,11 @@ export default function CheckoutPage() {
       const formattedTotal = parseFloat(finalTotal.toFixed(4)).toString();
       const amount = parseUnits(formattedTotal, decimals);
 
-      // Use a fallback address if env is missing to prevent sending to 0x0
-      const recipientAddress = process.env.NEXT_PUBLIC_PAYMENT_WALLET;
+      // Read recipient address from backend runtime config.
+      const recipientAddress = paymentWallet;
 
       if (!recipientAddress || recipientAddress === "0x0000000000000000000000000000000000000000") {
-        throw new Error("Cửa hàng chưa thiết lập ví nhận thanh toán (NEXT_PUBLIC_PAYMENT_WALLET)");
+        throw new Error("Cửa hàng chưa thiết lập ví nhận thanh toán");
       }
 
       // 1. Create Order (PENDING)

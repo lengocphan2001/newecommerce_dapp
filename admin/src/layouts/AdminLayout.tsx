@@ -161,6 +161,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       label: 'Banking Settings',
       permission: null, // accessible to all admins
     },
+    {
+      key: '/runtime-env-settings',
+      icon: <SettingOutlined />,
+      label: 'Runtime Env Settings',
+      permission: null, // accessible to all admins
+    },
   ];
 
   // Filter menu items based on permissions

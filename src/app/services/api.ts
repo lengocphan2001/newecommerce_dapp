@@ -273,6 +273,19 @@ export const api = {
     return data;
   },
 
+  /** Public: get checkout payment wallet from backend runtime config. */
+  async getPaymentWallet(): Promise<{ paymentWallet: string }> {
+    const cached = apiCache.get<{ paymentWallet: string }>('paymentWallet');
+    if (cached) return cached;
+    const response = await fetch(`${API_BASE_URL}/admin/payment-wallet`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch payment wallet');
+    }
+    const data = await response.json();
+    apiCache.set('paymentWallet', data);
+    return data;
+  },
+
   async createOrder(
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,

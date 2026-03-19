@@ -95,6 +95,18 @@ export class CommissionPayoutService {
   }
 
   /**
+   * Refresh cached contract/signer binding after runtime env updates.
+   * Next call to getContract() will re-create with latest signer/address.
+   */
+  refreshRuntimeBinding() {
+    this.contractAddress =
+      process.env.COMMISSION_PAYOUT_CONTRACT_ADDRESS ||
+      this.configService.get<string>('COMMISSION_PAYOUT_CONTRACT_ADDRESS') ||
+      '';
+    this.contract = null;
+  }
+
+  /**
    * Helper function to update the .env file with the new contract address
    */
   private updateEnvFile(newAddress: string) {
@@ -128,6 +140,8 @@ export class CommissionPayoutService {
     try {
       this.logger.log('Starting contract deployment...');
       const wallet = this.web3Service.getWallet();
+      const walletAddress = await wallet.getAddress();
+      const provider = this.web3Service.getProvider();
 
       // Determine token address
       const useTokenAddress = tokenAddress ||
@@ -156,7 +170,40 @@ export class CommissionPayoutService {
       const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, wallet);
 
       const gasPrice = await this.web3Service.getGasPrice();
-      this.logger.log(`Deploying with token address ${useTokenAddress}, gas price: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`);
+      this.logger.log(
+        `Deploying with token address ${useTokenAddress}, wallet ${walletAddress}, gas price: ${ethers.formatUnits(gasPrice, 'gwei')} gwei`,
+      );
+
+      // Pre-check deployer balance and estimated fee to provide actionable error messages.
+      let estimatedGas: bigint = BigInt(0);
+      let estimatedFeeWei: bigint = BigInt(0);
+      try {
+        const deployRequest = await factory.getDeployTransaction(useTokenAddress);
+        estimatedGas = await provider.estimateGas({
+          ...deployRequest,
+          from: walletAddress,
+        });
+        estimatedFeeWei = estimatedGas * gasPrice;
+        const balanceWei = await provider.getBalance(walletAddress);
+
+        this.logger.log(
+          `[DEPLOY PRECHECK] wallet=${walletAddress}, balance=${ethers.formatEther(balanceWei)} BNB, estimatedGas=${estimatedGas.toString()}, estimatedFee≈${ethers.formatEther(estimatedFeeWei)} BNB`,
+        );
+
+        if (balanceWei < estimatedFeeWei) {
+          throw new Error(
+            `Insufficient BNB for deployment. Deployer wallet: ${walletAddress}. Balance: ${ethers.formatEther(balanceWei)} BNB. Estimated fee: ~${ethers.formatEther(estimatedFeeWei)} BNB (gas: ${estimatedGas.toString()}, gasPrice: ${ethers.formatUnits(gasPrice, 'gwei')} gwei). Please fund this wallet and try again.`,
+          );
+        }
+      } catch (precheckError: any) {
+        // If this is our own explicit precheck error, rethrow; otherwise continue to deploy.
+        if (String(precheckError?.message || '').includes('Insufficient BNB for deployment')) {
+          throw precheckError;
+        }
+        this.logger.warn(
+          `[DEPLOY PRECHECK] Could not estimate deploy gas/fee, proceeding with deploy: ${precheckError?.message || precheckError}`,
+        );
+      }
 
       // Send deployment transaction
       const deployTx = await factory.deploy(useTokenAddress, {
@@ -184,6 +231,11 @@ export class CommissionPayoutService {
       };
     } catch (error: any) {
       this.logger.error('Contract deployment failed', error);
+      if (String(error?.message || '').includes('INSUFFICIENT_FUNDS')) {
+        throw new Error(
+          `Deployment failed: insufficient BNB for gas in deployer wallet. Please verify BLOCKCHAIN_PRIVATE_KEY wallet balance on ${this.configService.get<string>('BSC_NETWORK') || 'configured'} network.`,
+        );
+      }
       throw new Error(`Deployment failed: ${error.message}`);
     }
   }

@@ -7,6 +7,8 @@ const CACHE_TTL_MS = {
   referralInfo: 90 * 1000,
   /** Banking config: 5 min (admin rarely changes) */
   bankingConfig: 5 * 60 * 1000,
+  /** Payment wallet: short TTL so admin changes apply quickly */
+  paymentWallet: 30 * 1000,
   /** Categories: 10 min */
   categories: 10 * 60 * 1000,
   /** Sliders: 10 min */

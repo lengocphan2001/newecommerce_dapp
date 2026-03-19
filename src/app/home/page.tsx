@@ -632,8 +632,9 @@ export default function HomePage() {
                     </div>
                     {(() => {
                       const useProductCommission = product.useProductCommission === true;
+                      const nppDirectRate = product.commissionConfigByPackage?.NPP?.directCommissionRate;
                       const displayPercent = useProductCommission
-                        ? (typeof product.commissionPercentNPP === 'number' ? product.commissionPercentNPP : (product.commissionConfigByPackage?.NPP?.directCommissionRate != null ? Number(product.commissionConfigByPackage.NPP.directCommissionRate) * 100 : 0))
+                        ? (nppDirectRate != null ? Number(nppDirectRate) * 100 : (typeof product.commissionPercentNPP === 'number' ? product.commissionPercentNPP : 0))
                         : (typeof product.commissionPercentTV === 'number' ? product.commissionPercentTV : 0);
                       if (typeof displayPercent !== 'number' || displayPercent <= 0) return null;
                       return (
