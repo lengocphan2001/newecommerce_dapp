@@ -48,6 +48,18 @@ export class Web3Service implements OnModuleInit {
   }
 
   /**
+   * Reload wallet from latest env/config at runtime.
+   * Useful after admin updates BLOCKCHAIN_PRIVATE_KEY.
+   */
+  async reloadWalletFromEnv(): Promise<string> {
+    await this.initializeWallet();
+    if (!this.wallet) {
+      throw new Error('Wallet not initialized after reload');
+    }
+    return await this.wallet.getAddress();
+  }
+
+  /**
    * Get the provider instance
    */
   getProvider(): JsonRpcProvider {

@@ -166,4 +166,16 @@ export class AdminController {
   async updateSystemConfig(@Body() dto: any) {
     return this.adminService.updateSystemConfig(dto);
   }
+
+  @Get('blockchain-config')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getBlockchainConfig() {
+    return this.adminService.getBlockchainConfig();
+  }
+
+  @Patch('blockchain-config')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateBlockchainConfig(@Body() dto: any) {
+    return this.adminService.updateBlockchainConfig(dto);
+  }
 }

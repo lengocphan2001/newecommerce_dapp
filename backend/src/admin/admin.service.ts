@@ -3,9 +3,12 @@ import {
   Inject,
   forwardRef,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import { User } from '../user/entities/user.entity';
 import { Address } from '../user/entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
@@ -16,9 +19,12 @@ import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
+import { Web3Service } from '../blockchain/web3.service';
 
 @Injectable()
 export class AdminService {
+  private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
@@ -39,6 +45,7 @@ export class AdminService {
     private affiliateService: AffiliateService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
+    private web3Service: Web3Service,
   ) {}
 
   async getDashboard() {
@@ -564,5 +571,126 @@ export class AdminService {
       where: { key: 'minPayoutThreshold' },
     });
     return row ? parseFloat(row.value) : 50;
+  }
+
+  async getBlockchainConfig(): Promise<{
+    blockchainPrivateKeyMasked: string;
+    privateKeyMasked: string;
+    hasBlockchainPrivateKey: boolean;
+    hasPrivateKey: boolean;
+    tokenAddress: string;
+  }> {
+    const blockchainPrivateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '';
+    const privateKey = process.env.PRIVATE_KEY || '';
+    const mask = (value: string) => {
+      if (!value) return '';
+      if (value.length <= 10) return '**********';
+      return `${value.slice(0, 6)}...${value.slice(-4)}`;
+    };
+    return {
+      blockchainPrivateKeyMasked: mask(blockchainPrivateKey),
+      privateKeyMasked: mask(privateKey),
+      hasBlockchainPrivateKey: Boolean(blockchainPrivateKey),
+      hasPrivateKey: Boolean(privateKey),
+      tokenAddress: process.env.TOKEN_ADDRESS || '',
+    };
+  }
+
+  async updateBlockchainConfig(dto: {
+    blockchainPrivateKey?: string;
+    privateKey?: string;
+    tokenAddress?: string;
+  }): Promise<{
+    blockchainPrivateKeyMasked: string;
+    privateKeyMasked: string;
+    hasBlockchainPrivateKey: boolean;
+    hasPrivateKey: boolean;
+    tokenAddress: string;
+  }> {
+    let content = '';
+    try {
+      content = await fs.readFile(this.backendEnvPath, 'utf8');
+    } catch {
+      content = '';
+    }
+
+    const normalize = (v: string | undefined) =>
+      (v ?? '').replace(/\r?\n/g, '').trim();
+    const isValidPrivateKey = (value: string) =>
+      /^(0x)?[a-fA-F0-9]{64}$/.test(value);
+
+    if (
+      dto.blockchainPrivateKey !== undefined &&
+      normalize(dto.blockchainPrivateKey) &&
+      !isValidPrivateKey(normalize(dto.blockchainPrivateKey))
+    ) {
+      throw new BadRequestException(
+        'BLOCKCHAIN_PRIVATE_KEY is invalid (must be 64 hex chars, optional 0x)',
+      );
+    }
+
+    if (
+      dto.privateKey !== undefined &&
+      normalize(dto.privateKey) &&
+      !isValidPrivateKey(normalize(dto.privateKey))
+    ) {
+      throw new BadRequestException(
+        'PRIVATE_KEY is invalid (must be 64 hex chars, optional 0x)',
+      );
+    }
+
+    if (dto.blockchainPrivateKey !== undefined) {
+      content = this.upsertEnvValue(
+        content,
+        'BLOCKCHAIN_PRIVATE_KEY',
+        normalize(dto.blockchainPrivateKey),
+      );
+    }
+    if (dto.privateKey !== undefined) {
+      content = this.upsertEnvValue(
+        content,
+        'PRIVATE_KEY',
+        normalize(dto.privateKey),
+      );
+    }
+    if (dto.tokenAddress !== undefined) {
+      content = this.upsertEnvValue(
+        content,
+        'TOKEN_ADDRESS',
+        normalize(dto.tokenAddress),
+      );
+    }
+
+    await fs.writeFile(this.backendEnvPath, content, 'utf8');
+
+    // Keep process.env in sync for current process
+    if (dto.blockchainPrivateKey !== undefined) {
+      process.env.BLOCKCHAIN_PRIVATE_KEY = normalize(dto.blockchainPrivateKey);
+    }
+    if (dto.privateKey !== undefined) {
+      process.env.PRIVATE_KEY = normalize(dto.privateKey);
+    }
+    if (dto.tokenAddress !== undefined) {
+      process.env.TOKEN_ADDRESS = normalize(dto.tokenAddress);
+    }
+
+    // Apply new blockchain key immediately for current runtime.
+    if (dto.blockchainPrivateKey !== undefined) {
+      await this.web3Service.reloadWalletFromEnv();
+    }
+
+    return this.getBlockchainConfig();
+  }
+
+  private upsertEnvValue(content: string, key: string, value: string): string {
+    const lines = content ? content.split(/\r?\n/) : [];
+    const nextLine = `${key}=${value}`;
+    const idx = lines.findIndex((line) => line.startsWith(`${key}=`));
+    if (idx >= 0) {
+      lines[idx] = nextLine;
+    } else {
+      lines.push(nextLine);
+    }
+    return lines.join('\n');
   }
 }

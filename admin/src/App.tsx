@@ -27,6 +27,7 @@ import Packages from './pages/Packages';
 import PackagePurchases from './pages/PackagePurchases';
 import BankingSettings from './pages/BankingSettings';
 import WalletDepositRequests from './pages/WalletDepositRequests';
+import BlockchainSettings from './pages/BlockchainSettings';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -279,6 +280,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <WalletDepositRequests />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/blockchain-settings"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <BlockchainSettings />
                   </AdminLayout>
                 </PrivateRoute>
               }

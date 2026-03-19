@@ -130,6 +130,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       label: 'Commission Payout',
       permission: 'commissions.payout',
     },
+    {
+      key: '/blockchain-settings',
+      icon: <SettingOutlined />,
+      label: 'Blockchain Settings',
+      permission: 'commissions.payout',
+    },
 
     {
       key: '/milestone-reward',
