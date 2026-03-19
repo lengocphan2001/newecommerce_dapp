@@ -118,9 +118,11 @@ const Orders: React.FC = () => {
       width: 100,
       render: (method: string) => {
         const isBanking = method === 'banking';
+        const isUsdt = method === 'usdt';
+        const isDepositWallet = method === 'deposit_wallet';
         return (
-          <Tag color={isBanking ? 'blue' : 'purple'}>
-            {isBanking ? '🏦 Banking' : '💎 Wallet'}
+          <Tag color={isDepositWallet ? 'green' : isBanking ? 'blue' : isUsdt ? 'gold' : 'purple'}>
+            {isDepositWallet ? '💼 Deposit Wallet' : isBanking ? '🏦 Banking' : isUsdt ? '₮ USDT Transfer' : '💎 Wallet'}
           </Tag>
         );
       },
@@ -248,8 +250,22 @@ const Orders: React.FC = () => {
               })}
             </Descriptions.Item>
             <Descriptions.Item label="Payment Method">
-              <Tag color={selectedOrder.paymentMethod === 'banking' ? 'blue' : 'purple'}>
-                {selectedOrder.paymentMethod === 'banking' ? '🏦 Bank Transfer' : '💎 Crypto Wallet'}
+              <Tag color={
+                selectedOrder.paymentMethod === 'deposit_wallet'
+                  ? 'green'
+                  : selectedOrder.paymentMethod === 'banking'
+                    ? 'blue'
+                    : selectedOrder.paymentMethod === 'usdt'
+                      ? 'gold'
+                      : 'purple'
+              }>
+                {selectedOrder.paymentMethod === 'deposit_wallet'
+                  ? '💼 Deposit Wallet'
+                  : selectedOrder.paymentMethod === 'banking'
+                    ? '🏦 Bank Transfer'
+                    : selectedOrder.paymentMethod === 'usdt'
+                      ? '₮ USDT Transfer'
+                      : '💎 Crypto Wallet'}
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Transaction Hash">

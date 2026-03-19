@@ -38,6 +38,7 @@ const BankingSettings: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [savingPayout, setSavingPayout] = useState(false);
     const [qrPreview, setQrPreview] = useState<string | undefined>(undefined);
+    const [usdtQrPreview, setUsdtQrPreview] = useState<string | undefined>(undefined);
     const [bankList, setBankList] = useState<VietQRBank[]>([]);
     const [banksLoading, setBanksLoading] = useState(true);
 
@@ -70,8 +71,12 @@ const BankingSettings: React.FC = () => {
                 bankId: config.bankId || '',
                 isEnabled: config.isEnabled ?? true,
                 usdtPriceVnd: config.usdtPriceVnd ?? undefined,
+                usdtEnabled: config.usdtEnabled ?? false,
+                usdtWalletAddress: config.usdtWalletAddress || '',
+                usdtNetwork: config.usdtNetwork || 'TRC20',
             });
             setQrPreview(config.qrImageUrl);
+            setUsdtQrPreview(config.usdtQrImageUrl);
         } catch (error) {
             message.error('Failed to load banking config');
         } finally {
@@ -113,6 +118,7 @@ const BankingSettings: React.FC = () => {
             await bankingService.updateConfig({
                 ...values,
                 qrImageUrl: qrPreview,
+                usdtQrImageUrl: usdtQrPreview,
                 usdtPriceVnd: values.usdtPriceVnd != null && values.usdtPriceVnd !== '' ? Number(values.usdtPriceVnd) : null,
             });
             message.success('Banking config saved successfully');
@@ -121,6 +127,23 @@ const BankingSettings: React.FC = () => {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleUploadUsdtQR = async (file: File): Promise<boolean> => {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await api.post<{ url: string }>('/uploads/image', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            if (res.data?.url) {
+                setUsdtQrPreview(res.data.url);
+                message.success('USDT QR image uploaded');
+            }
+        } catch {
+            message.error('Failed to upload USDT QR image');
+        }
+        return false;
     };
 
     const handleSavePayout = async (values: any) => {
@@ -216,6 +239,57 @@ const BankingSettings: React.FC = () => {
                             placeholder="e.g. 25000 (leave empty = use CoinGecko)"
                             addonAfter="VNĐ"
                         />
+                    </Form.Item>
+
+                    <Divider />
+                    <Title level={5} style={{ marginTop: 0 }}>USDT Transfer Checkout</Title>
+
+                    <Form.Item name="usdtEnabled" label="Enable USDT Payment Tab" valuePropName="checked">
+                        <Switch checkedChildren="Enabled" unCheckedChildren="Disabled" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="usdtWalletAddress"
+                        label="USDT Receiver Wallet Address"
+                    >
+                        <Input placeholder="e.g. T... (TRC20) or 0x... (ERC20/BEP20)" />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="usdtNetwork"
+                        label="USDT Network"
+                    >
+                        <Input placeholder="e.g. TRC20, BEP20, ERC20" />
+                    </Form.Item>
+
+                    <Form.Item label="USDT QR Code Image (Optional)">
+                        <Upload
+                            accept="image/*"
+                            beforeUpload={(file) => {
+                                handleUploadUsdtQR(file);
+                                return false;
+                            }}
+                            showUploadList={false}
+                        >
+                            <Button icon={<UploadOutlined />}>Upload USDT QR Image</Button>
+                        </Upload>
+                        {usdtQrPreview && (
+                            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                                <Image
+                                    src={usdtQrPreview}
+                                    width={160}
+                                    style={{ borderRadius: 8, border: '1px solid #ddd' }}
+                                    alt="USDT QR Code"
+                                />
+                                <Button
+                                    danger
+                                    size="small"
+                                    onClick={() => setUsdtQrPreview(undefined)}
+                                >
+                                    Remove
+                                </Button>
+                            </div>
+                        )}
                     </Form.Item>
 
                     <Form.Item label="QR Code Image">

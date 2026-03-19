@@ -45,6 +45,22 @@ export class BankingConfig {
   })
   usdtPriceVnd?: number | null;
 
+  /** Enable USDT transfer payment tab on checkout. */
+  @Column({ default: false })
+  usdtEnabled: boolean;
+
+  /** Receiver wallet address for USDT transfer (set by admin). */
+  @Column({ default: '', nullable: true })
+  usdtWalletAddress?: string;
+
+  /** USDT network label shown to users (e.g. TRC20, BEP20, ERC20). */
+  @Column({ default: 'TRC20', nullable: true })
+  usdtNetwork?: string;
+
+  /** Optional QR image for USDT wallet transfer. */
+  @Column({ nullable: true })
+  usdtQrImageUrl?: string;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

@@ -412,7 +412,7 @@ const Users: React.FC = () => {
             <TabPane tab="Addresses" key="addresses">
               <Table
                 dataSource={userDetail.addresses || []}
-                rowKey="id"
+                rowKey={(row: any) => row.id || row.userId}
                 pagination={false}
                 columns={[
                   { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -531,7 +531,7 @@ const Users: React.FC = () => {
             <TabPane tab="Referral Levels" key="referrals">
               <Title level={5}>F1 Members (Direct) ({userDetail.f1?.length || 0})</Title>
               <Table
-                dataSource={userDetail.f1 || []}
+                dataSource={userDetail.f1PurchaseDetails || userDetail.f1 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
                 columns={[
@@ -539,8 +539,77 @@ const Users: React.FC = () => {
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
                   { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  {
+                    title: 'Total Purchases',
+                    dataIndex: 'totalPurchases',
+                    key: 'totalPurchases',
+                    render: (v: number) => (typeof v === 'number' ? v : 0),
+                  },
+                  {
+                    title: 'Total Commission From F1',
+                    dataIndex: 'totalCommissionFromF1',
+                    key: 'totalCommissionFromF1',
+                    render: (v: number) =>
+                      `$${(typeof v === 'number' ? v : 0).toLocaleString('en-US', {
+                        maximumFractionDigits: 4,
+                      })}`,
+                  },
                 ]}
+                expandable={{
+                  expandedRowRender: (record: any) => (
+                    <Table
+                      dataSource={record.purchases || []}
+                      rowKey={(row: any) => row.orderId}
+                      pagination={false}
+                      size="small"
+                      columns={[
+                        { title: 'Order ID', dataIndex: 'orderId', key: 'orderId' },
+                        {
+                          title: 'Purchase Time',
+                          dataIndex: 'purchasedAt',
+                          key: 'purchasedAt',
+                          render: (date: string) => (date ? new Date(date).toLocaleString() : '-'),
+                        },
+                        {
+                          title: 'Order Amount',
+                          dataIndex: 'orderAmount',
+                          key: 'orderAmount',
+                          render: (amount: number) =>
+                            `$${(Number(amount) || 0).toLocaleString('en-US', {
+                              maximumFractionDigits: 4,
+                            })}`,
+                        },
+                        {
+                          title: 'Commission Received',
+                          dataIndex: 'totalCommissionFromOrder',
+                          key: 'totalCommissionFromOrder',
+                          render: (amount: number) =>
+                            `$${(Number(amount) || 0).toLocaleString('en-US', {
+                              maximumFractionDigits: 4,
+                            })}`,
+                        },
+                        {
+                          title: 'Commission Types',
+                          key: 'commissionTypes',
+                          render: (_: any, row: any) =>
+                            (row.commissions || []).length > 0 ? (
+                              <Space wrap>
+                                {(row.commissions || []).map((cm: any) => (
+                                  <Tag key={cm.id} color={cm.status === 'paid' ? 'green' : cm.status === 'blocked' ? 'red' : 'orange'}>
+                                    {`${String(cm.type).toUpperCase()}: $${(Number(cm.amount) || 0).toLocaleString('en-US', { maximumFractionDigits: 4 })}`}
+                                  </Tag>
+                                ))}
+                              </Space>
+                            ) : (
+                              <Text type="secondary">No commission from this order</Text>
+                            ),
+                        },
+                      ]}
+                    />
+                  ),
+                  rowExpandable: (record: any) =>
+                    Array.isArray(record?.purchases) && record.purchases.length > 0,
+                }}
                 style={{ marginBottom: 24 }}
               />
 

@@ -11,6 +11,10 @@ export interface BankingConfig {
     isEnabled: boolean;
     /** Admin-set USDT price in VND. When set, checkout uses this for banking instead of CoinGecko. */
     usdtPriceVnd?: number | null;
+    usdtEnabled?: boolean;
+    usdtWalletAddress?: string;
+    usdtNetwork?: string;
+    usdtQrImageUrl?: string;
     updatedAt?: string;
 }
 

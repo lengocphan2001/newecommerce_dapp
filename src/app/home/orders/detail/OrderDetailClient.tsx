@@ -325,7 +325,13 @@ export default function OrderDetailClient() {
                                 {order.paymentMethod === "banking" && (
                                   <span className="text-slate-900 text-sm font-bold">Chuyển khoản ngân hàng</span>
                                 )}
-                                {order.paymentMethod !== "deposit_wallet" && order.paymentMethod !== "banking" && (
+                                {order.paymentMethod === "usdt" && (
+                                  <>
+                                    <span className="text-slate-900 text-sm font-bold">Chuyển USDT thủ công</span>
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">Chờ duyệt</span>
+                                  </>
+                                )}
+                                {order.paymentMethod !== "deposit_wallet" && order.paymentMethod !== "banking" && order.paymentMethod !== "usdt" && (
                                   <>
                                     <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
                                     <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>

@@ -1283,14 +1283,16 @@ export class CommissionService {
   }
 
   private async hasBothBranches(userId: string): Promise<boolean> {
-    // Check if user has both left and right children
-    // This typically requires checking the 'position' of children
-    const children = await this.userRepository.find({
-      where: { parentId: userId },
+    // Hoa hồng nhóm chỉ tính khi CẢ HAI nhánh đều đã có doanh số.
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
     });
-    const hasLeft = children.some((c) => c.position === 'left');
-    const hasRight = children.some((c) => c.position === 'right');
-    return hasLeft && hasRight;
+    if (!user) return false;
+
+    const leftTotal = Number(user.leftBranchTotal ?? 0);
+    const rightTotal = Number(user.rightBranchTotal ?? 0);
+    return leftTotal > 0 && rightTotal > 0;
   }
 
   private async getBuyerSide(

@@ -46,6 +46,18 @@ export default function WalletsPage() {
   const walletAddress = referralInfo?.walletAddress || "";
   const walletBalance = parseFloat(referralInfo?.walletBalance || "0") || 0;
 
+  const parseVndAmount = (value: string): number => {
+    const digitsOnly = (value || "").replace(/[^\d]/g, "");
+    if (!digitsOnly) return 0;
+    return parseInt(digitsOnly, 10);
+  };
+
+  const formatVndInput = (value: string): string => {
+    const amount = parseVndAmount(value);
+    if (!amount) return "";
+    return amount.toLocaleString("vi-VN");
+  };
+
   useEffect(() => {
     fetchWalletData();
     fetchOrders();
@@ -73,7 +85,7 @@ export default function WalletsPage() {
     const template = "compact2";
     const base = `https://img.vietqr.io/image/${bankId}-${accountNumber}-${template}.png`;
     const params = new URLSearchParams();
-    const vndAmount = Math.round(parseFloat(depositForm.amountVnd) || 0);
+    const vndAmount = parseVndAmount(depositForm.amountVnd);
     if (vndAmount > 0) params.set("amount", String(vndAmount));
     const addInfo = `${referralInfo?.username || "user"} nap tien vao vi`.replace(/[^a-zA-Z0-9\s]/g, " ").replace(/\s+/g, " ").trim().slice(0, 25);
     params.set("addInfo", addInfo || "nap tien vao vi");
@@ -133,7 +145,7 @@ export default function WalletsPage() {
 
   const handleSubmitDeposit = async () => {
     setDepositError("");
-    const amountVnd = Math.round(parseFloat(depositForm.amountVnd) || 0);
+    const amountVnd = parseVndAmount(depositForm.amountVnd);
     if (!depositForm.amountVnd || isNaN(amountVnd) || amountVnd < 1000) {
       setDepositError("Nhập số tiền đã chuyển (VND) tối thiểu 1.000");
       return;
@@ -443,7 +455,7 @@ export default function WalletsPage() {
 
         {/* Modal Nạp tiền */}
         {showDepositModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto py-8" onClick={() => !depositSubmitting && setShowDepositModal(false)}>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 overflow-y-auto py-8" onClick={() => !depositSubmitting && setShowDepositModal(false)}>
             <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 my-auto" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-bold text-text-dark mb-4">Nạp tiền vào ví</h3>
 
@@ -451,13 +463,17 @@ export default function WalletsPage() {
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số tiền muốn nạp (VND) *</label>
                 <input
-                  type="number"
-                  min="1000"
-                  step="1000"
+                  type="text"
+                  inputMode="numeric"
                   value={depositForm.amountVnd}
-                  onChange={(e) => setDepositForm((f) => ({ ...f, amountVnd: e.target.value }))}
+                  onChange={(e) =>
+                    setDepositForm((f) => ({
+                      ...f,
+                      amountVnd: formatVndInput(e.target.value),
+                    }))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
-                  placeholder="VD: 500000"
+                  placeholder="VD: 500.000"
                 />
                 <p className="text-xs text-slate-500 mt-1">Sau khi nhập, mã QR sẽ hiển thị bên dưới để bạn chuyển khoản đúng số tiền.</p>
               </div>
@@ -501,7 +517,7 @@ export default function WalletsPage() {
                     </div>
                     <p className="font-semibold text-slate-900 break-all">{depositTransferContent}</p>
                   </div>
-                  {depositVietQrUrl && parseFloat(depositForm.amountVnd) >= 1000 ? (
+                  {depositVietQrUrl && parseVndAmount(depositForm.amountVnd) >= 1000 ? (
                     <div className="flex flex-col items-center mb-4">
                       <p className="text-xs text-slate-600 mb-2">Quét mã QR để chuyển khoản (số tiền + nội dung đã điền sẵn)</p>
                       <img src={depositVietQrUrl} alt="VietQR nạp ví" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
@@ -518,7 +534,7 @@ export default function WalletsPage() {
                     </div>
                   ) : null}
                   <div className="border-t border-slate-200 pt-4 mt-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-3">3. Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> bên dưới (có thể đính kèm ảnh chứng từ). Admin sẽ duyệt và cộng USDT vào ví theo tỉ giá Banking Settings.</p>
+                    <p className="text-sm font-semibold text-slate-700 mb-3">3. Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> bên dưới (có thể đính kèm ảnh chứng từ).</p>
                   </div>
                 </>
               ) : (

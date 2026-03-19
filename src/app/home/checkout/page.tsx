@@ -25,12 +25,16 @@ export default function CheckoutPage() {
     qrImageUrl?: string;
     isEnabled: boolean;
     usdtPriceVnd?: number | null;
+    usdtEnabled?: boolean;
+    usdtWalletAddress?: string;
+    usdtNetwork?: string;
+    usdtQrImageUrl?: string;
   } | null>(null);
   const [bankingOrderId, setBankingOrderId] = useState<string | null>(null);
-  const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | null>(null);
+  const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | "walletAddress" | null>(null);
   const [usdtToVnd, setUsdtToVnd] = useState<number | null>(null);
-  /** Tab thanh toán: 'deposit_wallet' = Ví nạp tiền, 'banking' = Chuyển khoản */
-  const [paymentTab, setPaymentTab] = useState<"deposit_wallet" | "banking">("deposit_wallet");
+  /** Tab thanh toán: 'deposit_wallet' = Ví nạp tiền, 'banking' = Chuyển khoản NH, 'usdt' = chuyển USDT */
+  const [paymentTab, setPaymentTab] = useState<"deposit_wallet" | "banking" | "usdt">("deposit_wallet");
   /** Số dư ví nạp tiền (từ referral info hoặc wallet/balance) */
   const [depositBalance, setDepositBalance] = useState<number | null>(null);
 
@@ -54,7 +58,7 @@ export default function CheckoutPage() {
     return () => { cancelled = true; };
   }, [bankingConfig?.usdtPriceVnd]);
 
-  const copyToClipboard = async (text: string, field: "bankName" | "accountNumber" | "accountName" | "content") => {
+  const copyToClipboard = async (text: string, field: "bankName" | "accountNumber" | "accountName" | "content" | "walletAddress") => {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
@@ -266,9 +270,49 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleUsdtOrder = async () => {
+    if (!shippingAddress.trim()) {
+      setError("Vui lòng nhập địa chỉ giao hàng");
+      return;
+    }
+    if (!bankingConfig?.usdtEnabled || !bankingConfig?.usdtWalletAddress?.trim()) {
+      setError("Phương thức USDT chưa được cấu hình. Vui lòng liên hệ admin.");
+      return;
+    }
+    setProcessingStep("creating_order");
+    setError("");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Vui lòng đăng nhập");
+      }
+      const orderData = await api.createOrder(
+        items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          properties: item.properties,
+        })),
+        undefined,
+        shippingAddress,
+        "usdt",
+        { shippingPhone: checkoutUser?.phone, shippingName: checkoutUser?.fullName }
+      );
+      setBankingOrderId(orderData.id);
+      setProcessingStep("success");
+      clearCart();
+      setTimeout(() => {
+        router.push(`/home/orders?success=true&orderId=${orderData.id}&usdt=1`);
+      }, 4000);
+    } catch (err: any) {
+      setError(err.message || "Đặt hàng thất bại");
+      setProcessingStep("error");
+    }
+  };
+
   const handlePayment = async () => {
     if (paymentTab === "deposit_wallet") await handleDepositWalletOrder();
-    else await handleBankingOrder();
+    else if (paymentTab === "banking") await handleBankingOrder();
+    else await handleUsdtOrder();
   };
 
   const canPayWithDepositWallet = (depositBalance ?? 0) >= finalTotal;
@@ -348,30 +392,45 @@ export default function CheckoutPage() {
 
           {/* Tabs: Ví nạp tiền | Chuyển khoản */}
           <div className="bg-white rounded-2xl shadow-card border border-purple-100 overflow-hidden">
-            <div className="flex border-b border-slate-100">
+            <div className="grid grid-cols-3 border-b border-slate-100">
               <button
                 type="button"
                 onClick={() => setPaymentTab("deposit_wallet")}
-                className={`flex-1 py-3.5 px-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${
                   paymentTab === "deposit_wallet"
                     ? "bg-primary/10 text-primary border-b-2 border-primary"
                     : "text-slate-500 hover:bg-slate-50"
                 }`}
+                title="Ví nạp tiền"
               >
-                <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
-                Ví nạp tiền
+                <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                Ví nạp
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentTab("banking")}
-                className={`flex-1 py-3.5 px-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${
                   paymentTab === "banking"
                     ? "bg-primary/10 text-primary border-b-2 border-primary"
                     : "text-slate-500 hover:bg-slate-50"
                 }`}
+                title="Chuyển khoản ngân hàng"
               >
-                <span className="material-symbols-outlined text-[20px]">receipt_long</span>
-                Chuyển khoản
+                <span className="material-symbols-outlined text-[18px]">account_balance</span>
+                CK NH
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentTab("usdt")}
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${
+                  paymentTab === "usdt"
+                    ? "bg-primary/10 text-primary border-b-2 border-primary"
+                    : "text-slate-500 hover:bg-slate-50"
+                }`}
+                title="USDT"
+              >
+                <span className="material-symbols-outlined text-[18px]">currency_bitcoin</span>
+                USDT
               </button>
             </div>
 
@@ -521,6 +580,64 @@ export default function CheckoutPage() {
           )}
               </>
             )}
+            {paymentTab === "usdt" && (
+              <>
+                {!bankingConfig?.usdtEnabled && (
+                  <div className="p-4 text-center text-slate-500 text-sm">
+                    Thanh toán USDT tạm thời không khả dụng. Vui lòng liên hệ admin.
+                  </div>
+                )}
+                {bankingConfig?.usdtEnabled && (
+                  <div className="p-4 space-y-4">
+                    <p className="text-sm text-slate-600">
+                      Chuyển đúng số USDT đến ví bên dưới. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận.
+                    </p>
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                      <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền USDT cần chuyển</p>
+                      <p className="font-bold text-slate-900 text-lg">{formatPrice(finalTotal)} USDT</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-xs text-slate-500 font-medium">Network</p>
+                        <p className="font-bold text-slate-900">{bankingConfig.usdtNetwork || "TRC20"}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-slate-500 font-medium">Địa chỉ ví USDT</p>
+                        <div className="flex items-start gap-2">
+                          <code className="flex-1 min-w-0 font-mono text-xs sm:text-sm text-slate-900 break-all">
+                            {bankingConfig.usdtWalletAddress || "—"}
+                          </code>
+                          {!!bankingConfig.usdtWalletAddress && (
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(bankingConfig.usdtWalletAddress || "", "walletAddress")}
+                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                            >
+                              {copiedField === "walletAddress" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {bankingConfig.usdtQrImageUrl && (
+                      <div className="flex flex-col items-center pt-2">
+                        <span className="text-xs text-text-sub font-medium mb-2">Quét QR để chuyển USDT</span>
+                        <img src={bankingConfig.usdtQrImageUrl} alt="QR USDT" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
+                        <a
+                          href={bankingConfig.usdtQrImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">download</span>
+                          Mở / tải ảnh QR
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
 
@@ -573,7 +690,8 @@ export default function CheckoutPage() {
             disabled={
               processingStep !== "idle" ||
               (paymentTab === "deposit_wallet" && !canPayWithDepositWallet) ||
-              (paymentTab === "banking" && !bankingConfig?.isEnabled)
+              (paymentTab === "banking" && !bankingConfig?.isEnabled) ||
+              (paymentTab === "usdt" && (!bankingConfig?.usdtEnabled || !bankingConfig?.usdtWalletAddress))
             }
             className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl h-12 flex items-center justify-center gap-2 shadow-float transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -593,7 +711,7 @@ export default function CheckoutPage() {
         error={error}
         onClose={() => setProcessingStep("idle")}
         bankingSuccess={
-          processingStep === "success" && bankingOrderId && paymentTab === "banking"
+          processingStep === "success" && bankingOrderId && (paymentTab === "banking" || paymentTab === "usdt")
             ? {
                 orderId: bankingOrderId,
                 transferContent: checkoutUser?.username || "",

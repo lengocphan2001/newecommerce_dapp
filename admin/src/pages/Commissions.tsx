@@ -274,6 +274,32 @@ const CommissionsPage: React.FC = () => {
       ),
     },
     {
+      title: 'Buyer (From User)',
+      key: 'fromUser',
+      width: 220,
+      render: (_: any, record: Commission) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>
+            {record.fromUser?.fullName || record.fromUser?.username || 'N/A'}
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {record.fromUser?.email || record.fromUserId || '-'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Order ID',
+      dataIndex: 'orderId',
+      key: 'orderId',
+      width: 220,
+      render: (orderId: string) => (
+        <span style={{ fontFamily: 'monospace', fontSize: '12px' }} title={orderId}>
+          {orderId || '-'}
+        </span>
+      ),
+    },
+    {
       title: 'Type',
       dataIndex: 'type',
       key: 'type',
@@ -486,6 +512,12 @@ const CommissionsPage: React.FC = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Referral ID" span={2}>
                 <span style={{ fontFamily: 'monospace' }}>{selectedCommission.userId || '-'}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Buyer (From User)">
+                {selectedCommission.fromUser?.fullName || selectedCommission.fromUser?.username || 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Buyer ID">
+                <span style={{ fontFamily: 'monospace' }}>{selectedCommission.fromUserId || '-'}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Type">{getTypeTag(selectedCommission.type, selectedCommission.notes)}</Descriptions.Item>
               <Descriptions.Item label="Status">{getStatusTag(selectedCommission.status)}</Descriptions.Item>

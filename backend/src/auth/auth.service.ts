@@ -638,6 +638,7 @@ export class AuthService {
           needsReconsumption: true,
           threshold,
           packageValue,
+          totalPurchaseAmount: Number(user.totalPurchaseAmount) || 0,
           currentCommission: user.totalCommissionReceived,
           message: `Bạn đã đạt ngưỡng hoa hồng ${threshold} USDT. Vui lòng mua thêm (>= ${packageValue} USDT) để nâng threshold và tiếp tục nhận hoa hồng.`,
         };
@@ -645,6 +646,7 @@ export class AuthService {
 
       return {
         needsReconsumption: false,
+        totalPurchaseAmount: Number(user.totalPurchaseAmount) || 0,
         message: 'Bạn chưa đạt ngưỡng hoa hồng.',
       };
     }
@@ -669,6 +671,8 @@ export class AuthService {
       return {
         needsReconsumption: false,
         threshold: effectiveThreshold,
+        packageValue,
+        totalPurchaseAmount: Number(user.totalPurchaseAmount) || 0,
         currentCommission: user.totalCommissionReceived,
         remaining: effectiveThreshold - Number(user.totalCommissionReceived),
         message: `Bạn cần nhận thêm ${(effectiveThreshold - Number(user.totalCommissionReceived)).toFixed(5)} USDT để đạt ngưỡng.`,
@@ -679,6 +683,7 @@ export class AuthService {
       needsReconsumption: true,
       threshold: effectiveThreshold,
       packageValue,
+      totalPurchaseAmount: Number(user.totalPurchaseAmount) || 0,
       currentCommission: user.totalCommissionReceived,
       message: `Bạn đã đạt ngưỡng hoa hồng ${effectiveThreshold} USDT. Vui lòng mua thêm (>= ${packageValue} USDT) để nâng threshold và tiếp tục nhận hoa hồng.`,
     };

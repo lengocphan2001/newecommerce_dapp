@@ -298,6 +298,10 @@ export const api = {
     qrImageUrl?: string;
     isEnabled: boolean;
     usdtPriceVnd?: number | null;
+    usdtEnabled?: boolean;
+    usdtWalletAddress?: string;
+    usdtNetwork?: string;
+    usdtQrImageUrl?: string;
     updatedAt?: string;
   }> {
     const cached = apiCache.get<Awaited<ReturnType<typeof api.getBankingConfig>>>('bankingConfig');
@@ -316,7 +320,7 @@ export const api = {
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet',
+    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt',
     options?: { shippingPhone?: string; shippingName?: string }
   ) {
     const token = localStorage.getItem('token');

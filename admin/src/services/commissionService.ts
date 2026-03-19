@@ -11,6 +11,12 @@ export interface Commission {
   };
   orderId: string;
   fromUserId?: string;
+  fromUser?: {
+    id: string;
+    username?: string;
+    email?: string;
+    fullName?: string;
+  };
   type: 'direct' | 'group' | 'management' | 'product' | 'milestone';
   status: 'pending' | 'paid' | 'blocked';
   amount: number | string;

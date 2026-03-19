@@ -257,6 +257,64 @@ export class AdminService {
       });
     }
 
+    // F1 purchase details: mỗi F1 mua bao lần, mỗi lần user này nhận hoa hồng gì/bao nhiêu/thời gian nào
+    const f1Orders =
+      f1Ids.length > 0
+        ? await this.orderRepository.find({
+            where: { userId: In(f1Ids) },
+            select: ['id', 'userId', 'totalAmount', 'status', 'createdAt'],
+            order: { createdAt: 'DESC' },
+          })
+        : [];
+    const commissionsByF1Order = new Map<string, any[]>();
+    for (const c of allCommissions || []) {
+      if (!c?.fromUserId || !c?.orderId) continue;
+      if (!f1Ids.includes(c.fromUserId)) continue;
+      const key = `${c.fromUserId}:${c.orderId}`;
+      if (!commissionsByF1Order.has(key)) commissionsByF1Order.set(key, []);
+      commissionsByF1Order.get(key)!.push(c);
+    }
+    const f1PurchaseDetails = f1Users.map((f1) => {
+      const orders = f1Orders.filter((o) => o.userId === f1.id);
+      const purchases = orders.map((o) => {
+        const key = `${f1.id}:${o.id}`;
+        const orderCommissions = commissionsByF1Order.get(key) || [];
+        const totalCommissionFromOrder = orderCommissions.reduce(
+          (sum, item) => sum + (Number(item.amount) || 0),
+          0,
+        );
+        return {
+          orderId: o.id,
+          orderAmount: Number(o.totalAmount) || 0,
+          orderStatus: o.status,
+          purchasedAt: o.createdAt,
+          totalCommissionFromOrder,
+          commissions: orderCommissions.map((item) => ({
+            id: item.id,
+            type: item.type,
+            amount: Number(item.amount) || 0,
+            status: item.status,
+            createdAt: item.createdAt,
+            notes: item.notes,
+          })),
+        };
+      });
+      const totalCommissionFromF1 = purchases.reduce(
+        (sum, p) => sum + (Number(p.totalCommissionFromOrder) || 0),
+        0,
+      );
+      return {
+        userId: f1.id,
+        username: f1.username,
+        fullName: f1.fullName,
+        email: f1.email,
+        packageType: f1.packageType,
+        totalPurchases: purchases.length,
+        totalCommissionFromF1,
+        purchases,
+      };
+    });
+
     // Format decimal numbers
     const formatDecimal = (value: number | string): string => {
       if (value === null || value === undefined || value === 0) return '0.00';
@@ -317,6 +375,7 @@ export class AdminService {
       parentInfo,
       referrerInfo,
       f1: f1Users,
+      f1PurchaseDetails,
       f2: f2Users,
       f3: f3Users,
     };
@@ -435,6 +494,10 @@ export class AdminService {
         accountName: '',
         isEnabled: false,
         usdtPriceVnd: null,
+        usdtEnabled: false,
+        usdtWalletAddress: '',
+        usdtNetwork: 'TRC20',
+        usdtQrImageUrl: undefined,
       });
       config = await this.bankingConfigRepository.save(config);
     }

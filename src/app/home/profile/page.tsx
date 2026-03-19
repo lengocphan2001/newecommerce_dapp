@@ -30,6 +30,7 @@ export default function ProfilePage() {
     threshold?: number;
     packageValue?: number;
     currentCommission?: number;
+    totalPurchaseAmount?: number;
   } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [packages, setPackages] = useState<Array<{ id: string; name: string; code: string; price: number; description?: string; directCommissionRate: number; groupCommissionRate: number; managementRateF1: number }>>([]);
@@ -332,16 +333,50 @@ export default function ProfilePage() {
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Số lần tái tiêu dùng</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
-                        const total = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
-                        const price = Number(reconsumptionStatus?.packageValue) || 0;
+                        const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
+                        const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
+                        const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
+                        const packageValueFromStatus = Number(reconsumptionStatus?.packageValue) || 0;
+                        const packageValueFromCurrentPackage =
+                          Number(
+                            packages.find((p) => p.code === userInfo?.packageType)?.price || 0
+                          ) || 0;
+                        const price =
+                          packageValueFromStatus > 0
+                            ? packageValueFromStatus
+                            : packageValueFromCurrentPackage;
                         if (price <= 0) return "0 lần";
-                        return `${Math.floor(total / price)} lần`;
+                        // Không tính lần mua đầu tiên và hiển thị số nguyên.
+                        const reconsumptionTimes = Math.max(0, Math.floor(total / price) - 1);
+                        return `${reconsumptionTimes} lần`;
                       })()}
                     </p>
                   </div>
                   <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Đã tái tiêu dùng</p>
-                    <p className="text-base font-black text-slate-900">${userInfo?.totalReconsumptionAmount ? parseFloat(userInfo.totalReconsumptionAmount).toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"}</p>
+                    <p className="text-base font-black text-slate-900">
+                      {(() => {
+                        const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
+                        const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
+                        const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
+                        const packageValueFromStatus = Number(reconsumptionStatus?.packageValue) || 0;
+                        const packageValueFromCurrentPackage =
+                          Number(
+                            packages.find((p) => p.code === userInfo?.packageType)?.price || 0
+                          ) || 0;
+                        const price =
+                          packageValueFromStatus > 0
+                            ? packageValueFromStatus
+                            : packageValueFromCurrentPackage;
+                        if (price <= 0) return "$0";
+                        // Không tính lần mua đầu tiên: đã tái tiêu dùng = totalPurchase - value gói.
+                        const reconsumptionAmount = Math.max(0, total - price);
+                        return `$${reconsumptionAmount.toLocaleString("en-US", {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 4,
+                        })}`;
+                      })()}
+                    </p>
                   </div>
                 </div>
               </div>

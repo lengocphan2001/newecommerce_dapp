@@ -86,7 +86,7 @@ export class Order {
   @Column({ default: false })
   isReconsumption: boolean; // Đánh dấu đơn hàng tái tiêu dùng
 
-  /** Payment method: 'wallet' (crypto USDT) | 'banking' (bank transfer) | 'deposit_wallet' (ví nạp tiền) */
+  /** Payment method: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' */
   @Column({ nullable: true, default: 'wallet' })
   paymentMethod: string;
 
