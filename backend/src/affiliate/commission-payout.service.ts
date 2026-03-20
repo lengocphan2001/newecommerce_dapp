@@ -399,82 +399,10 @@ export class CommissionPayoutService {
     batchSize: number = 50,
     minAmount?: number,
   ): Promise<{ batchId: string; txHash: string; count: number }> {
-    this.logger.log(`Starting auto payout. Batch size: ${batchSize}`);
-
-    // Get pending commissions
-    const pendingCommissions = await this.getPendingCommissions(
-      batchSize,
-      minAmount,
+    this.logger.warn(
+      `[AUTO PAYOUT DISABLED] Requested auto payout (batchSize=${batchSize}, minAmount=${minAmount ?? 'none'})`,
     );
-
-    if (pendingCommissions.length === 0) {
-      this.logger.log('No pending commissions to payout');
-      return { batchId: '', txHash: '', count: 0 };
-    }
-
-    // Log auto payout start
-    await this.auditLogService.create(
-      {
-        action: AuditLogAction.PAYOUT_CREATED,
-        entityType: AuditLogEntityType.COMMISSION_PAYOUT,
-        description: `Auto payout started. Batch size: ${batchSize}, Min amount: ${minAmount || 'none'}`,
-        metadata: {
-          batchSize,
-          minAmount,
-          trigger: 'scheduled',
-        },
-      },
-      'system',
-      'system',
-      undefined,
-      undefined,
-    );
-
-    // Log auto payout execution
-    try {
-      // Prepare batch
-      const { recipients, commissionIds } = await this.preparePayoutBatch(
-        pendingCommissions,
-      );
-
-      if (recipients.length === 0) {
-        this.logger.warn('No valid recipients found');
-        return { batchId: '', txHash: '', count: 0 };
-      }
-
-      // Execute payout
-      const dto: BatchPayoutDto = {
-        recipients,
-      };
-
-      const result = await this.executeBatchPayout(dto, 'system', 'system', undefined, undefined);
-
-      return {
-        batchId: result.batchId,
-        txHash: result.txHash,
-        count: commissionIds.length,
-      };
-    } catch (error: any) {
-      // Log auto payout failure
-      await this.auditLogService.create(
-        {
-          action: AuditLogAction.PAYOUT_FAILED,
-          entityType: AuditLogEntityType.COMMISSION_PAYOUT,
-          description: `Auto payout failed: ${error.message}`,
-          metadata: {
-            error: error.message,
-            batchSize,
-            minAmount,
-            trigger: 'scheduled',
-          },
-        },
-        'system',
-        'system',
-        undefined,
-        undefined,
-      );
-      throw error;
-    }
+    return { batchId: '', txHash: '', count: 0 };
   }
 
   /**
@@ -558,73 +486,10 @@ export class CommissionPayoutService {
    * - GROUP (and other types): accumulated; pay only when user's total pending >= minPayoutThreshold.
    */
   async payoutOrderCommissions(orderId: string): Promise<{ count: number } | null> {
-    this.logger.log(`[PAYOUT] Processing payout after order: ${orderId}`);
-
-    const orderCommissions = await this.commissionRepository.find({
-      where: { orderId, status: CommissionStatus.PENDING },
-      relations: ['user'],
-    });
-
-    if (orderCommissions.length === 0) {
-      this.logger.warn(`[PAYOUT] No pending commissions for order ${orderId}`);
-      return null;
-    }
-
-    const minThreshold = await this.adminService.getMinPayoutThreshold();
-    this.logger.log(`[PAYOUT] Min payout threshold (for group/other): $${minThreshold}`);
-
-    // 1) Pay direct commissions (package DIRECT + product direct) from this order immediately (no accumulation)
-    const directCommissions = orderCommissions.filter((c) => isPayImmediately(c));
-    if (directCommissions.length > 0) {
-      const byUser = new Map<string, { user: User; commissions: Commission[]; totalAmount: number }>();
-      for (const c of directCommissions) {
-        if (!c.user?.walletAddress) {
-          this.logger.warn(`[PAYOUT] Direct commission ${c.id} has no wallet, skipping`);
-          continue;
-        }
-        const key = c.user.walletAddress.toLowerCase();
-        const existing = byUser.get(key);
-        if (existing) {
-          existing.commissions.push(c);
-          existing.totalAmount += c.amount;
-        } else {
-          byUser.set(key, { user: c.user, commissions: [c], totalAmount: c.amount });
-        }
-      }
-      if (byUser.size > 0) {
-        const recipients: PayoutRecipientDto[] = [];
-        for (const [, data] of byUser) {
-          recipients.push({
-            userId: data.user.id,
-            walletAddress: data.user.walletAddress!.toLowerCase(),
-            amount: data.totalAmount.toString(),
-            commissionIds: data.commissions.map((c) => c.id),
-          });
-        }
-        try {
-          await this.executeBatchPayout(
-            { recipients },
-            'system',
-            'system',
-            undefined,
-            undefined,
-          );
-          this.logger.log(`[PAYOUT] Paid direct commissions for order ${orderId}: ${recipients.length} users`);
-        } catch (err: any) {
-          this.logger.error(`[PAYOUT] Direct payout failed for order ${orderId}: ${err.message}`, err.stack);
-        }
-      }
-    }
-
-    // 2) For GROUP (and other non-direct): accumulate; pay when total pending >= threshold
-    const affectedUserIds = [...new Set(orderCommissions.map((c) => c.userId))];
-    let payoutCount = 0;
-    for (const userId of affectedUserIds) {
-      await this.checkAndPayoutUser(userId, minThreshold);
-      payoutCount++;
-    }
-
-    return { count: payoutCount };
+    this.logger.warn(
+      `[AUTO PAYOUT DISABLED] Ignored payoutOrderCommissions for order ${orderId}. Commissions stay PENDING for admin manual approval.`,
+    );
+    return { count: 0 };
   }
 
   /**

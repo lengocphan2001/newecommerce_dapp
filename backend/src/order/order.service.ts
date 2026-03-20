@@ -6,7 +6,6 @@ import { Product } from '../product/entities/product.entity';
 import { User } from '../user/entities/user.entity';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { CommissionService } from '../affiliate/commission.service';
-import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { PackagesService } from '../packages/packages.service';
 import { GoogleSheetsService } from '../common/google-sheets.service';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
@@ -22,8 +21,6 @@ export class OrderService {
     private userRepository: Repository<User>,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
-    @Inject(forwardRef(() => CommissionPayoutService))
-    private commissionPayoutService: CommissionPayoutService,
     private packagesService: PackagesService,
     private googleSheetsService: GoogleSheetsService,
     private milestoneRewardService: MilestoneRewardService,
@@ -276,13 +273,14 @@ export class OrderService {
         .catch(err => console.error('[AUTO-CONFIRM] Error processing milestones:', err));
     }
 
-    // 4. Trigger Commission Calculation & Payout (fire-and-forget)
+    // 4. Trigger Commission Calculation only.
+    // Payout is now manual-only by admin approval (no auto payout).
     this.commissionService
       .calculateCommissions(order.id)
-      .then(async () => {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await this.commissionPayoutService.payoutOrderCommissions(order.id);
-        console.log(`[AUTO-CONFIRM] Processed commissions for order ${order.id}`);
+      .then(() => {
+        console.log(
+          `[AUTO-CONFIRM] Calculated commissions for order ${order.id}. Payout requires admin manual approval.`,
+        );
       })
       .catch(err => {
         console.error(`[AUTO-CONFIRM] Error processing commissions for order ${order.id}:`, err);

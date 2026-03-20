@@ -272,7 +272,7 @@ const CommissionsPage: React.FC = () => {
             {record.fromUser?.fullName || record.fromUser?.username || 'N/A'}
           </div>
           <div style={{ fontSize: '12px', color: '#666' }}>
-            {record.fromUser?.email || record.fromUserId || 'N/A'}
+            {record.fromUser?.username || record.fromUserId || 'N/A'}
           </div>
         </div>
       ),
@@ -510,7 +510,9 @@ const CommissionsPage: React.FC = () => {
                       selectedCommission.fromUserId ||
                       '-'}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>{selectedCommission.fromUser?.email || '-'}</div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>
+                    {selectedCommission.fromUser?.username || selectedCommission.fromUserId || '-'}
+                  </div>
                 </div>
               </Descriptions.Item>
               <Descriptions.Item label="Type">{getTypeTag(selectedCommission.type, selectedCommission.notes)}</Descriptions.Item>
