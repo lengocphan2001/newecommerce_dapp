@@ -1283,7 +1283,7 @@ export class CommissionService {
   }
 
   private async hasBothBranches(userId: string): Promise<boolean> {
-    // Hoa hồng nhóm chỉ tính khi CẢ HAI nhánh đều đã có doanh số.
+    // Hoa hồng nhóm chỉ cần ÍT NHẤT MỘT nhánh có doanh số.
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
@@ -1292,7 +1292,7 @@ export class CommissionService {
 
     const leftTotal = Number(user.leftBranchTotal ?? 0);
     const rightTotal = Number(user.rightBranchTotal ?? 0);
-    return leftTotal > 0 && rightTotal > 0;
+    return leftTotal > 0 || rightTotal > 0;
   }
 
   private async getBuyerSide(
