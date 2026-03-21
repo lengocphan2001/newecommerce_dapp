@@ -875,8 +875,9 @@ export class CommissionService {
         config,
       );
       if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
-        await this.userRepository.update(user.id, { packageType: 'NONE' });
-        this.logger.log(`User ${user.id} reached effective threshold ${effectiveThreshold}, packageType set to NONE`);
+        this.logger.log(
+          `User ${user.id} reached effective threshold ${effectiveThreshold}, keeping current packageType`,
+        );
       }
     }
   }
@@ -950,8 +951,9 @@ export class CommissionService {
         productConfig,
       );
       if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
-        await this.userRepository.update(user.id, { packageType: 'NONE' });
-        this.logger.log(`User ${user.id} reached product-config effective threshold ${effectiveThreshold}, packageType set to NONE`);
+        this.logger.log(
+          `User ${user.id} reached product-config effective threshold ${effectiveThreshold}, keeping current packageType`,
+        );
       }
     }
   }
