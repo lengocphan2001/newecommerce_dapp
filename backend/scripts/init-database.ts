@@ -1,10 +1,12 @@
 /**
- * Script to initialize database tables
- * This script temporarily enables synchronize to create tables
- * 
- * Usage: 
+ * Script to initialize database tables (TypeORM synchronize + seed defaults).
+ *
+ * Bao gồm toàn bộ entity giống `app.module.ts`, trong đó bảng `users` có thêm:
+ * - `loginOtpCode`, `loginOtpExpiresAt` — OTP email đăng nhập Web2 (username/password).
+ *
+ * Usage:
  *   npm run db:init
- * 
+ *
  * Or directly:
  *   ts-node -r tsconfig-paths/register scripts/init-database.ts
  */
@@ -37,6 +39,42 @@ import { UserBankAccount } from '../src/wallet/entities/user-bank-account.entity
 // Load environment variables from .env file
 dotenv.config();
 
+/** Đảm bảo cột OTP đăng nhập Web2 tồn tại (DB cũ / edge cases sau synchronize). */
+async function ensureUsersLoginOtpColumns(
+  dataSource: DataSource,
+  isMySQL: boolean,
+): Promise<void> {
+  if (isMySQL) {
+    const rows = await dataSource.query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('loginOtpCode', 'loginOtpExpiresAt')`,
+    );
+    const have = new Set(
+      (rows as { COLUMN_NAME: string }[]).map((r) => r.COLUMN_NAME),
+    );
+    if (!have.has('loginOtpCode')) {
+      await dataSource.query(
+        `ALTER TABLE \`users\` ADD COLUMN \`loginOtpCode\` varchar(255) NULL`,
+      );
+      console.log('Added column users.loginOtpCode (MySQL).');
+    }
+    if (!have.has('loginOtpExpiresAt')) {
+      await dataSource.query(
+        `ALTER TABLE \`users\` ADD COLUMN \`loginOtpExpiresAt\` datetime(6) NULL`,
+      );
+      console.log('Added column users.loginOtpExpiresAt (MySQL).');
+    }
+    return;
+  }
+
+  await dataSource.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpCode" character varying;
+  `);
+  await dataSource.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpExpiresAt" TIMESTAMP NULL;
+  `);
+}
+
 async function initializeDatabase() {
   // Environment variables are loaded from .env file
   // Make sure .env file exists in backend directory
@@ -64,11 +102,10 @@ async function initializeDatabase() {
 
   const dataSource = new DataSource({
     ...dbConfig,
+    // Thứ tự giống backend/src/app.module.ts (TypeORM entities)
     entities: [
       User,
       Address,
-      Category,
-      Slider,
       Product,
       Order,
       Commission,
@@ -77,6 +114,8 @@ async function initializeDatabase() {
       UserMilestone,
       BankingConfig,
       SystemConfig,
+      Category,
+      Slider,
       Staff,
       StaffSession,
       Role,
@@ -100,6 +139,11 @@ async function initializeDatabase() {
     console.log('Synchronizing database schema...');
     await dataSource.synchronize();
     console.log('Database tables created successfully!');
+
+    await ensureUsersLoginOtpColumns(dataSource, isMySQL);
+    console.log(
+      'Ensured users.loginOtpCode / users.loginOtpExpiresAt (Web2 email OTP).',
+    );
 
     // Ensure default banking_config row exists (id=1) with latest fields.
     const bankingRepo = dataSource.getRepository(BankingConfig);
