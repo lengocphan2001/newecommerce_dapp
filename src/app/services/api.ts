@@ -66,7 +66,7 @@ export const api = {
     return response.json();
   },
 
-  /** Web2: đăng nhập bằng username + password */
+  /** Web2 bước 1: username + password → gửi mã email (requiresEmailOtp) */
   async usernameLogin(username: string, password: string) {
     const response = await fetch(`${API_BASE_URL}/auth/username-login`, {
       method: 'POST',
@@ -79,6 +79,28 @@ export const api = {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.message || 'Invalid username or password');
+    }
+
+    return response.json();
+  },
+
+  /** Web2 bước 2: nhập mã 6 số từ email → JWT */
+  async usernameLoginVerify(username: string, password: string, code: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/username-login/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username.trim(),
+        password,
+        code: code.trim(),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Xác thực thất bại');
     }
 
     return response.json();

@@ -130,6 +130,13 @@ CORS_ORIGINS=https://shopiibiztest.top,https://www.shopiibiztest.top,https://sho
 
 **Lưu ý:** Trên production nên đặt `FORCE_SYNC=false` hoặc không set (synchronize DB sẽ tắt khi `NODE_ENV=production` trong code).
 
+**Đăng nhập Web2 (username/password):** Sau khi nhập đúng mật khẩu, API gửi **mã 6 số** tới **email thật** của user; cần cấu hình SMTP ở trên. User chỉ có email dạng `...@user.local` hoặc `...@wallet` sẽ không nhận được mã — cần cập nhật email thật (admin/hỗ trợ) hoặc đăng nhập bằng ví.
+
+Nếu DB production **không** dùng synchronize, thêm cột OTP (một lần):
+
+- **PostgreSQL:** `ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpCode" varchar NULL; ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpExpiresAt" TIMESTAMP NULL;`
+- **MySQL:** `ALTER TABLE users ADD COLUMN loginOtpCode VARCHAR(255) NULL, ADD COLUMN loginOtpExpiresAt DATETIME(6) NULL;` (bỏ qua nếu cột đã tồn tại).
+
 ### 3.2 Cài đặt, build và chạy
 
 ```bash

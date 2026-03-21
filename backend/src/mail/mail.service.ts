@@ -80,4 +80,26 @@ export class MailService {
     `;
     return this.send({ to, subject, text, html });
   }
+
+  /** Mã OTP đăng nhập (Web2 username/password). */
+  async sendLoginOtpCode(
+    to: string,
+    code: string,
+    expiresInMinutes: number = 10,
+  ): Promise<boolean> {
+    const subject = 'Mã đăng nhập - Login code';
+    const text = `Mã đăng nhập của bạn là: ${code}. Mã có hiệu lực ${expiresInMinutes} phút. Không chia sẻ mã này. / Your login code is: ${code}. It expires in ${expiresInMinutes} minutes. Do not share this code.`;
+    const html = `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="color: #333;">Mã đăng nhập</h2>
+        <p style="font-size: 24px; letter-spacing: 4px; font-weight: bold; color: #7c3aed;">${code}</p>
+        <p style="color: #666;">Mã có hiệu lực <strong>${expiresInMinutes} phút</strong>. Không chia sẻ mã này với bất kỳ ai.</p>
+        <hr style="border: none; border-top: 1px solid #eee;" />
+        <h2 style="color: #333;">Login code</h2>
+        <p style="font-size: 24px; letter-spacing: 4px; font-weight: bold; color: #7c3aed;">${code}</p>
+        <p style="color: #666;">This code expires in <strong>${expiresInMinutes} minutes</strong>. Do not share it with anyone.</p>
+      </div>
+    `;
+    return this.send({ to, subject, text, html });
+  }
 }

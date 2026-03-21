@@ -179,6 +179,13 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   emailVerificationExpiresAt?: Date;
 
+  /** Mã OTP đăng nhập Web2 (6 chữ số), tạm thời cho đến khi hết hạn. */
+  @Column({ nullable: true })
+  loginOtpCode?: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  loginOtpExpiresAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

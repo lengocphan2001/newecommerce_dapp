@@ -114,6 +114,24 @@ export class UserService {
     });
   }
 
+  async setLoginOtp(
+    userId: string,
+    code: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userRepository.update(userId, {
+      loginOtpCode: code,
+      loginOtpExpiresAt: expiresAt,
+    });
+  }
+
+  async clearLoginOtp(userId: string): Promise<void> {
+    await this.userRepository.update(userId, {
+      loginOtpCode: null as any,
+      loginOtpExpiresAt: null as any,
+    });
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id } });
   }

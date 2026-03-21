@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { User } from '../user/entities/user.entity';
 import { StaffService } from '../staff/staff.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionStatus } from '../affiliate/entities/commission.entity';
@@ -23,6 +24,7 @@ import {
   ChangePasswordDto,
 } from './dto';
 import * as bcrypt from 'bcryptjs';
+import { randomInt } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -245,19 +247,123 @@ export class AuthService {
     };
   }
 
-  /**
-   * Web2 login: đăng nhập bằng username + password (cho user đã được set password qua script).
-   */
-  async loginByUsername(username: string, password: string) {
+  /** Email hệ thống không gửi được mã OTP (username@user.local, ví @wallet). */
+  private isNonDeliverableLoginEmail(email: string | null | undefined): boolean {
+    if (!email || !String(email).trim()) {
+      return true;
+    }
+    const e = String(email).trim().toLowerCase();
+    return e.endsWith('@user.local') || e.endsWith('@wallet');
+  }
+
+  private maskEmailForLoginResponse(email: string): string {
+    const trimmed = email.trim();
+    const at = trimmed.indexOf('@');
+    if (at <= 0) {
+      return '***';
+    }
+    const local = trimmed.slice(0, at);
+    const domain = trimmed.slice(at + 1);
+    const visible =
+      local.length <= 1 ? '*' : `${local[0]}***`;
+    return `${visible}@${domain}`;
+  }
+
+  private async assertUsernamePassword(
+    username: string,
+    password: string,
+  ): Promise<User> {
     const user = await this.userService.findByUsername(username.trim());
     if (!user) {
       throw new UnauthorizedException('Invalid username or password');
     }
-
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid username or password');
     }
+    return user;
+  }
+
+  /**
+   * Web2 bước 1: đúng username/password → gửi mã 6 số tới email (SMTP).
+   */
+  async initiateUsernameLogin(username: string, password: string) {
+    const user = await this.assertUsernamePassword(username, password);
+
+    if (this.isNonDeliverableLoginEmail(user.email)) {
+      throw new BadRequestException(
+        'Tài khoản chưa có email thật để nhận mã đăng nhập. Vui lòng liên hệ hỗ trợ để cập nhật email, hoặc đăng nhập bằng ví.',
+      );
+    }
+
+    const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const expiresInMinutes = 10;
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + expiresInMinutes);
+    await this.userService.setLoginOtp(user.id, code, expiresAt);
+
+    const sent =
+      this.mailService.isEnabled() &&
+      (await this.mailService.sendLoginOtpCode(
+        user.email,
+        code,
+        expiresInMinutes,
+      ));
+
+    const base = {
+      requiresEmailOtp: true as const,
+      maskedEmail: this.maskEmailForLoginResponse(user.email),
+      expiresAt: expiresAt.toISOString(),
+      expiresInMinutes,
+    };
+
+    if (!this.mailService.isEnabled()) {
+      return {
+        ...base,
+        message:
+          'Mã đăng nhập đã được tạo. Cấu hình SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) để gửi qua email.',
+        code,
+      };
+    }
+    if (!sent) {
+      return {
+        ...base,
+        message:
+          'Gửi email thất bại. Vui lòng thử lại sau hoặc kiểm tra cấu hình SMTP.',
+        code,
+      };
+    }
+
+    return {
+      ...base,
+      message: 'Đã gửi mã 6 chữ số tới email của bạn.',
+    };
+  }
+
+  /**
+   * Web2 bước 2: xác thực mã email → cấp JWT.
+   */
+  async completeUsernameLogin(
+    username: string,
+    password: string,
+    code: string,
+  ) {
+    const user = await this.assertUsernamePassword(username, password);
+    const trimmed = (code || '').trim();
+    if (!/^\d{6}$/.test(trimmed)) {
+      throw new BadRequestException('Vui lòng nhập đúng mã 6 chữ số');
+    }
+    if (!user.loginOtpCode || user.loginOtpCode !== trimmed) {
+      throw new BadRequestException('Mã xác thực không đúng');
+    }
+    const now = new Date();
+    if (user.loginOtpExpiresAt && user.loginOtpExpiresAt < now) {
+      throw new BadRequestException(
+        'Mã đã hết hạn. Vui lòng đăng nhập lại để nhận mã mới.',
+      );
+    }
+
+    await this.userService.clearLoginOtp(user.id);
 
     const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
     const token = this.jwtService.sign(payload);

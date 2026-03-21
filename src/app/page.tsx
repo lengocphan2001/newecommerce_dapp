@@ -13,29 +13,67 @@ export default function HomePage() {
 
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [otpStep, setOtpStep] = useState<"credentials" | "otp">("credentials");
+  const [maskedEmail, setMaskedEmail] = useState<string>("");
+  const [otpInfo, setOtpInfo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+
+  const sendLoginOtp = useCallback(async () => {
+    setError("");
+    const u = username.trim();
+    if (!u) {
+      setError(t("username") ? `${t("username")} is required` : "Username is required");
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError(
+        t("passwordLabel")
+          ? `${t("passwordLabel")} must be at least 6 characters`
+          : "Password must be at least 6 characters"
+      );
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await api.usernameLogin(u, password);
+      if (res.requiresEmailOtp) {
+        setMaskedEmail(res.maskedEmail || "");
+        setOtpInfo(
+          [res.message, res.code ? `(Dev: mã ${res.code})` : ""].filter(Boolean).join(" ")
+        );
+        setOtpStep("otp");
+        setOtpCode("");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [username, password, t]);
 
   const handleUsernameLogin = useCallback(
     async (e?: React.FormEvent) => {
       e?.preventDefault();
+      await sendLoginOtp();
+    },
+    [sendLoginOtp]
+  );
+
+  const handleVerifyOtp = useCallback(
+    async (e?: React.FormEvent) => {
+      e?.preventDefault();
       setError("");
       const u = username.trim();
-      if (!u) {
-        setError(t("username") ? `${t("username")} is required` : "Username is required");
-        return;
-      }
-      if (!password || password.length < 6) {
-        setError(
-          t("passwordLabel")
-            ? `${t("passwordLabel")} must be at least 6 characters`
-            : "Password must be at least 6 characters"
-        );
+      const c = otpCode.trim();
+      if (!/^\d{6}$/.test(c)) {
+        setError("Vui lòng nhập đúng mã 6 chữ số từ email.");
         return;
       }
       setIsSubmitting(true);
       try {
-        const res = await api.usernameLogin(u, password);
+        const res = await api.usernameLoginVerify(u, password, c);
         if (res.token) {
           localStorage.setItem("token", res.token);
           if (res.user?.walletAddress) {
@@ -47,13 +85,13 @@ export default function HomePage() {
           }
           router.push("/home");
         }
-      } catch (err: any) {
-        setError(err?.message || "Login failed");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Xác thực thất bại");
       } finally {
         setIsSubmitting(false);
       }
     },
-    [username, password, router, t]
+    [username, password, otpCode, router]
   );
 
   return (
@@ -90,47 +128,109 @@ export default function HomePage() {
             </p>
           </div>
 
-          <form onSubmit={handleUsernameLogin} className="w-full space-y-4 mb-4">
-            <div>
-              <label htmlFor="login-username" className="block text-sm font-medium text-slate-700 mb-1">
-                {t("username")}
-              </label>
-              <input
-                id="login-username"
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={t("enterUsername") || "Username"}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-              />
-            </div>
-            <div>
-              <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-1">
-                {t("passwordLabel")}
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary-dark hover:to-purple-600 active:scale-[0.98] text-purple-950 h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(147,51,234,0.4)] border border-purple-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-950/60 border-t-purple-950" />
-              ) : (
-                t("loginButton")
-              )}
-            </button>
-          </form>
+          {otpStep === "credentials" ? (
+            <form onSubmit={handleUsernameLogin} className="w-full space-y-4 mb-4">
+              <div>
+                <label htmlFor="login-username" className="block text-sm font-medium text-slate-700 mb-1">
+                  {t("username")}
+                </label>
+                <input
+                  id="login-username"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={t("enterUsername") || "Username"}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                />
+              </div>
+              <div>
+                <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 mb-1">
+                  {t("passwordLabel")}
+                </label>
+                <input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary-dark hover:to-purple-600 active:scale-[0.98] text-purple-950 h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(147,51,234,0.4)] border border-purple-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-950/60 border-t-purple-950" />
+                ) : (
+                  t("loginButton")
+                )}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="w-full space-y-4 mb-4">
+              <p className="text-sm text-slate-600 text-center">
+                Đã gửi mã 6 chữ số tới email{" "}
+                {maskedEmail ? <span className="font-semibold text-slate-800">{maskedEmail}</span> : ""}.
+              </p>
+              {otpInfo ? (
+                <p className="text-xs text-slate-500 text-center">{otpInfo}</p>
+              ) : null}
+              <div>
+                <label htmlFor="login-otp" className="block text-sm font-medium text-slate-700 mb-1">
+                  Mã xác thực email
+                </label>
+                <input
+                  id="login-otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-center text-2xl tracking-[0.4em] font-mono placeholder:text-slate-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary-dark hover:to-purple-600 active:scale-[0.98] text-purple-950 h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(147,51,234,0.4)] border border-purple-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-950/60 border-t-purple-950" />
+                ) : (
+                  "Xác nhận và đăng nhập"
+                )}
+              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => void sendLoginOtp()}
+                  className="w-full py-2 text-sm font-semibold text-primary hover:text-primary-dark"
+                >
+                  Gửi lại mã
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setOtpStep("credentials");
+                    setOtpCode("");
+                    setError("");
+                    setOtpInfo("");
+                  }}
+                  className="w-full py-2 text-sm text-slate-600 hover:text-slate-800"
+                >
+                  ← Quay lại
+                </button>
+              </div>
+            </form>
+          )}
 
           {error && (
             <div className="mb-4 w-full rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">

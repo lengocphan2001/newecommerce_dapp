@@ -3,7 +3,7 @@
  * - User đã có username: giữ nguyên username, tạo password ngẫu nhiên mới.
  * - User chưa có username: tự generate username unique + tạo password ngẫu nhiên.
  *
- * Sau khi chạy, user có thể login bằng username + password (route username-login).
+ * Sau khi chạy, user có thể login bằng username + password (OTP email: username-login + username-login/verify).
  *
  * Usage (từ thư mục backend):
  *   npm run script:set-passwords

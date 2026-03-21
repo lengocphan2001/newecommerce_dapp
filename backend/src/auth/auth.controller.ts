@@ -17,6 +17,7 @@ import {
   WalletRegisterDto,
   WalletLoginDto,
   UsernameLoginDto,
+  UsernameLoginVerifyDto,
   UsernameRegisterDto,
   ChangePasswordDto,
 } from './dto';
@@ -88,10 +89,23 @@ export class AuthController {
     return this.authService.walletLogin(walletLoginDto.walletAddress);
   }
 
-  /** Web2: đăng nhập bằng username + password */
+  /** Web2 bước 2: nhập mã email → nhận JWT (khai báo trước route `username-login`) */
+  @Post('username-login/verify')
+  async usernameLoginVerify(@Body() dto: UsernameLoginVerifyDto) {
+    return this.authService.completeUsernameLogin(
+      dto.username,
+      dto.password,
+      dto.code,
+    );
+  }
+
+  /**
+   * Web2 bước 1: xác thực username/password, gửi mã 6 số tới email.
+   * Bước 2: POST auth/username-login/verify
+   */
   @Post('username-login')
   async usernameLogin(@Body() dto: UsernameLoginDto) {
-    return this.authService.loginByUsername(dto.username, dto.password);
+    return this.authService.initiateUsernameLogin(dto.username, dto.password);
   }
 
   @Post('refresh')

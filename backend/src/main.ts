@@ -8,6 +8,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import * as express from 'express';
+import rateLimit from 'express-rate-limit';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -18,6 +19,66 @@ async function bootstrap() {
   // Increase body size limit for JSON (to handle base64 avatar uploads)
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Basic anti-spam / brute-force protection by endpoint risk level.
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      message: 'Too many auth requests, please try again later.',
+    },
+  });
+  const authLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      message: 'Too many login attempts, please try again later.',
+    },
+  });
+  const walletMutationLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 25,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      message: 'Too many wallet actions, please try again later.',
+    },
+  });
+  const uploadLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      message: 'Too many upload requests, please try again later.',
+    },
+  });
+  const adminSensitiveLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      message: 'Too many sensitive admin actions, please try again later.',
+    },
+  });
+
+  app.use('/auth', authLimiter);
+  app.use('/auth/login', authLoginLimiter);
+  app.use('/auth/admin/login', authLoginLimiter);
+  app.use('/auth/wallet/login', authLoginLimiter);
+  app.use('/auth/username-login', authLoginLimiter);
+  app.use('/wallet/deposit-requests', walletMutationLimiter);
+  app.use('/wallet/withdraw-requests', walletMutationLimiter);
+  app.use('/uploads', uploadLimiter);
+  app.use(
+    '/admin/users/export-login-credentials',
+    adminSensitiveLimiter,
+  );
 
   // Serve uploaded files
   const uploadDir = join(process.cwd(), 'uploads');
