@@ -11,6 +11,8 @@ export const adminService = {
   getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
   withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
   exportUsers: () => api.get('/admin/users/export', { responseType: 'blob' }),
+  exportLoginCredentials: () =>
+    api.post('/admin/users/export-login-credentials', {}, { responseType: 'blob' }),
   getBlockchainConfig: () => api.get('/admin/blockchain-config'),
   updateBlockchainConfig: (data: {
     blockchainPrivateKey?: string;

@@ -89,9 +89,17 @@ const BankingSettings: React.FC = () => {
             const config = await systemConfigService.get();
             payoutForm.setFieldsValue({
                 minPayoutThreshold: config.minPayoutThreshold ?? 50,
+                commissionDepositWalletPercent:
+                  config.commissionDepositWalletPercent ?? 10,
+                commissionWithdrawWalletPercent:
+                  config.commissionWithdrawWalletPercent ?? 80,
             });
         } catch {
-            payoutForm.setFieldsValue({ minPayoutThreshold: 50 });
+            payoutForm.setFieldsValue({
+              minPayoutThreshold: 50,
+              commissionDepositWalletPercent: 10,
+              commissionWithdrawWalletPercent: 80,
+            });
         }
     };
 
@@ -147,9 +155,19 @@ const BankingSettings: React.FC = () => {
     };
 
     const handleSavePayout = async (values: any) => {
+        const depositPercent = Number(values.commissionDepositWalletPercent ?? 0);
+        const withdrawPercent = Number(values.commissionWithdrawWalletPercent ?? 0);
+        if (depositPercent + withdrawPercent > 100) {
+            message.error('Deposit % + Withdraw % must be <= 100');
+            return;
+        }
         setSavingPayout(true);
         try {
-            await systemConfigService.update({ minPayoutThreshold: values.minPayoutThreshold });
+            await systemConfigService.update({
+              minPayoutThreshold: values.minPayoutThreshold,
+              commissionDepositWalletPercent: depositPercent,
+              commissionWithdrawWalletPercent: withdrawPercent,
+            });
             message.success('Payout settings saved successfully');
         } catch {
             message.error('Failed to save payout settings');
@@ -348,6 +366,7 @@ const BankingSettings: React.FC = () => {
             <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
                 Commissions accumulate as PENDING until a user's total reaches the minimum threshold below.
                 Once reached, all their pending commissions are paid out automatically.
+                Paid commissions are split into Deposit Wallet and Withdraw Wallet by the configured percentages.
             </Text>
 
             <Card>
@@ -364,6 +383,37 @@ const BankingSettings: React.FC = () => {
                             step={10}
                             precision={2}
                             addonBefore="$"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="commissionDepositWalletPercent"
+                        label="Commission to Deposit Wallet (%)"
+                        rules={[{ required: true, message: 'Please enter deposit wallet percent' }]}
+                    >
+                        <InputNumber
+                            style={{ width: 220 }}
+                            min={0}
+                            max={100}
+                            step={1}
+                            precision={2}
+                            addonAfter="%"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="commissionWithdrawWalletPercent"
+                        label="Commission to Withdraw Wallet (%)"
+                        rules={[{ required: true, message: 'Please enter withdraw wallet percent' }]}
+                        tooltip="Total of Deposit % and Withdraw % must be <= 100. The remainder is platform fee."
+                    >
+                        <InputNumber
+                            style={{ width: 220 }}
+                            min={0}
+                            max={100}
+                            step={1}
+                            precision={2}
+                            addonAfter="%"
                         />
                     </Form.Item>
 

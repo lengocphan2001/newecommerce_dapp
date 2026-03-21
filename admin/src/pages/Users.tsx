@@ -16,6 +16,7 @@ import {
   Card,
   Typography,
   Divider,
+  Alert,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
@@ -36,6 +37,7 @@ const Users: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
+  const [generatingCredentials, setGeneratingCredentials] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -127,6 +129,38 @@ const Users: React.FC = () => {
       console.error(error);
       message.error('Failed to export users');
     }
+  };
+
+  const handleGenerateLoginCredentials = async () => {
+    Modal.confirm({
+      title: 'Generate user login credentials?',
+      content:
+        'This will reset/generate username + password for users and download a CSV file. Share it securely with users.',
+      okText: 'Generate & Download',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setGeneratingCredentials(true);
+        try {
+          const response = await adminService.exportLoginCredentials();
+          const blob = new Blob([response.data as any], { type: 'text/csv;charset=utf-8;' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `user-login-credentials-${new Date().toISOString().slice(0, 10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          link.parentNode?.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          message.success('Credentials file generated and downloaded');
+        } catch (error) {
+          console.error(error);
+          message.error('Failed to generate credentials file');
+        } finally {
+          setGeneratingCredentials(false);
+        }
+      },
+    });
   };
 
   const handleViewDetail = async (userId: string) => {
@@ -252,11 +286,24 @@ const Users: React.FC = () => {
           <Button icon={<DownloadOutlined />} onClick={handleExport}>
             Export Users
           </Button>
+          <Button
+            danger
+            loading={generatingCredentials}
+            onClick={handleGenerateLoginCredentials}
+          >
+            Generate Login Credentials
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             Add User
           </Button>
         </Space>
       </div>
+      <Alert
+        style={{ marginBottom: 12 }}
+        type="warning"
+        showIcon
+        message="Generate Login Credentials will reset/generate username + password for users."
+      />
       <Table
         columns={columns}
         dataSource={users}

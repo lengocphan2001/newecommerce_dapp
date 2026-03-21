@@ -16,16 +16,9 @@ import {
 } from '../audit-log/entities/audit-log.entity';
 import { AdminService } from '../admin/admin.service';
 
-/** Payout fee: 10% is withheld; user receives 90% of accumulated commission */
-const PAYOUT_FEE_PERCENT = 10;
-
-/**
- * Returns the amount to actually send to the user after deducting the payout fee (90% of gross).
- * Used so we don't pay 100% of commission — 10% is kept as fee.
- */
-function getPayoutAmountAfterFee(grossAmount: number): string {
-  const netAmount = grossAmount * (1 - PAYOUT_FEE_PERCENT / 100);
-  return Number(netAmount.toFixed(18)).toFixed(18);
+function roundMoney(num: number): number {
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num * 100) / 100;
 }
 
 /**
@@ -95,21 +88,21 @@ export class CommissionPayoutService {
     >();
 
     for (const commission of commissions) {
-      if (!commission.user?.walletAddress) {
+      if (!commission.user?.id) {
         this.logger.warn(
-          `Commission ${commission.id} has no wallet address, skipping`,
+          `Commission ${commission.id} has no user relation, skipping`,
         );
         continue;
       }
 
-      const walletAddress = commission.user.walletAddress.toLowerCase();
-      const existing = grouped.get(walletAddress);
+      const recipientKey = commission.user.id;
+      const existing = grouped.get(recipientKey);
 
       if (existing) {
         existing.commissions.push(commission);
         existing.totalAmount += commission.amount;
       } else {
-        grouped.set(walletAddress, {
+        grouped.set(recipientKey, {
           user: commission.user,
           commissions: [commission],
           totalAmount: commission.amount,
@@ -130,14 +123,15 @@ export class CommissionPayoutService {
     const recipients: PayoutRecipientDto[] = [];
     const commissionIds: string[] = [];
 
-    for (const [walletAddress, data] of grouped.entries()) {
+    for (const [, data] of grouped.entries()) {
       const grossAmount = Number(data.totalAmount).toFixed(18);
       this.logger.debug(
-        `Payout ${walletAddress}: gross=${data.totalAmount} (fee ${PAYOUT_FEE_PERCENT}% applied at execute)`,
+        `Payout user ${data.user.id}: gross=${data.totalAmount} (internal wallet distribution applied at execute)`,
       );
       recipients.push({
         userId: data.user.id,
-        walletAddress: walletAddress,
+        walletAddress: (data.user.walletAddress || `internal:${data.user.id}`)
+          .toLowerCase(),
         amount: grossAmount,
         commissionIds: data.commissions.map((c) => c.id),
       });
@@ -194,58 +188,65 @@ export class CommissionPayoutService {
         );
       }
 
-      // Always apply 10% payout fee before sending to blockchain (single place: so admin UI, auto-payout, and order-approval all send 90% to chain)
-      const blockchainRecipients = dto.recipients.map((r) => {
-        const gross = parseFloat(r.amount);
-        const netAmount = getPayoutAmountAfterFee(isNaN(gross) ? 0 : gross);
-        this.logger.debug(
-          `Payout fee: ${r.walletAddress} gross=${gross} -> net=${netAmount} (${PAYOUT_FEE_PERCENT}% withheld)`,
-        );
-        return {
-          address: r.walletAddress,
-          amount: netAmount,
-        };
-      });
+      const { depositPercent, withdrawPercent } =
+        await this.adminService.getCommissionWalletDistribution();
+      const feePercent = Math.max(0, 100 - (depositPercent + withdrawPercent));
+      this.logger.log(
+        `Internal payout distribution: deposit=${depositPercent}%, withdraw=${withdrawPercent}%, fee=${feePercent}%`,
+      );
 
-      // Generate batch ID if not provided
       const batchId =
         dto.batchId ||
         this.blockchainPayoutService.generateBatchId(
-          blockchainRecipients.map((r) => r.address),
-          blockchainRecipients.map((r) => r.amount),
+          dto.recipients.map((r) => r.walletAddress),
+          dto.recipients.map((r) => r.amount),
         );
-
-      // Execute blockchain payout
-      this.logger.log(`Executing batch payout with batchId: ${batchId}`);
-      const result = await this.blockchainPayoutService.batchPayout(
-        blockchainRecipients,
-        batchId,
-      );
 
       // Update commissions in database (only those that were actually paid)
       const commissionMap = new Map<string, Commission[]>();
       for (const commission of commissions) {
-        if (!commission.user?.walletAddress) continue;
-        const walletAddress = commission.user.walletAddress.toLowerCase();
-        if (!commissionMap.has(walletAddress)) {
-          commissionMap.set(walletAddress, []);
+        if (!commission.userId) continue;
+        if (!commissionMap.has(commission.userId)) {
+          commissionMap.set(commission.userId, []);
         }
-        commissionMap.get(walletAddress)!.push(commission);
+        commissionMap.get(commission.userId)!.push(commission);
       }
 
-      // Update each commission
+      // Update each commission and credit 2 internal wallets by configured percentages
       for (const recipient of dto.recipients) {
-        const walletAddress = recipient.walletAddress.toLowerCase();
-        const userCommissions = commissionMap.get(walletAddress) || [];
+        const userCommissions = commissionMap.get(recipient.userId) || [];
+        const user = await queryRunner.manager.findOne(User, {
+          where: { id: recipient.userId },
+          select: ['id', 'walletBalance', 'withdrawWalletBalance'],
+        });
+        if (!user) continue;
+
+        const gross = userCommissions.reduce(
+          (sum, c) => sum + Number(c.amount || 0),
+          0,
+        );
+        const depositAmount = roundMoney((gross * depositPercent) / 100);
+        const withdrawAmount = roundMoney((gross * withdrawPercent) / 100);
+        const currentDeposit = Number(user.walletBalance || 0);
+        const currentWithdraw = Number(user.withdrawWalletBalance || 0);
+        await queryRunner.manager.update(User, user.id, {
+          walletBalance: currentDeposit + depositAmount,
+          withdrawWalletBalance: currentWithdraw + withdrawAmount,
+        });
 
         for (const commission of userCommissions) {
           commission.status = CommissionStatus.PAID;
           commission.payoutBatchId = batchId;
-          commission.payoutTxHash = result.txHash;
-          if (result.blockNumber !== undefined) {
-            commission.payoutBlockNumber = result.blockNumber;
-          }
+          commission.payoutTxHash = null as any;
+          commission.payoutBlockNumber = null as any;
           commission.payoutDate = new Date();
+          const parts = [
+            commission.notes,
+            `Distributed internal wallets (deposit ${depositPercent}%, withdraw ${withdrawPercent}%)`,
+          ]
+            .filter(Boolean)
+            .join('; ');
+          commission.notes = parts || commission.notes;
 
           await queryRunner.manager.save(Commission, commission);
         }
@@ -254,7 +255,7 @@ export class CommissionPayoutService {
       await queryRunner.commitTransaction();
 
       this.logger.log(
-        `Batch payout successful. BatchId: ${batchId}, TxHash: ${result.txHash}, Commissions: ${commissions.length}`,
+        `Batch payout successful. BatchId: ${batchId}, Commissions: ${commissions.length}`,
       );
 
       // Log successful payout
@@ -263,14 +264,19 @@ export class CommissionPayoutService {
           action: AuditLogAction.PAYOUT_EXECUTED,
           entityType: AuditLogEntityType.COMMISSION_PAYOUT,
           entityId: batchId,
-          description: `Batch payout executed successfully. ${commissions.length} commissions paid`,
+          description: `Batch payout distributed to internal wallets. ${commissions.length} commissions paid`,
           metadata: {
             batchId,
-            txHash: result.txHash,
-            blockNumber: result.blockNumber,
-            gasUsed: result.gasUsed?.toString(),
+            txHash: null,
+            blockNumber: null,
+            gasUsed: null,
             commissionCount: commissions.length,
             recipientCount: dto.recipients.length,
+            distribution: {
+              depositPercent,
+              withdrawPercent,
+              feePercent,
+            },
             totalAmount: dto.recipients.reduce(
               (sum, r) => sum + parseFloat(r.amount),
               0,
@@ -285,7 +291,7 @@ export class CommissionPayoutService {
 
       return {
         batchId,
-        txHash: result.txHash,
+        txHash: '',
         success: true,
       };
     } catch (error: any) {
@@ -349,14 +355,7 @@ export class CommissionPayoutService {
       throw new Error('No pending commissions found for the given IDs');
     }
 
-    const validCommissions = commissions.filter((c) => c.user?.walletAddress);
-    if (validCommissions.length === 0) {
-      throw new Error(
-        'None of the selected commissions have a wallet address. Cannot payout.',
-      );
-    }
-
-    const { recipients } = await this.preparePayoutBatch(validCommissions);
+    const { recipients } = await this.preparePayoutBatch(commissions);
     const result = await this.executeBatchPayout(
       { recipients },
       userId,
@@ -364,7 +363,7 @@ export class CommissionPayoutService {
       ipAddress,
       userAgent,
     );
-    return { ...result, count: validCommissions.length };
+    return { ...result, count: commissions.length };
   }
 
   /**
@@ -536,14 +535,16 @@ export class CommissionPayoutService {
 
     // 1) Pay all direct (package DIRECT + product direct) immediately (no threshold)
     if (directPending.length > 0) {
-      const valid = directPending.filter((c) => c.user?.walletAddress);
-      if (valid.length > 0) {
-        const totalDirect = valid.reduce((sum, c) => sum + Number(c.amount), 0);
+      if (directPending.length > 0) {
+        const totalDirect = directPending.reduce(
+          (sum, c) => sum + Number(c.amount),
+          0,
+        );
         this.logger.log(
-          `[THRESHOLD PAYOUT] User ${userId}: paying ${valid.length} direct commissions (total: ${totalDirect}) immediately`,
+          `[THRESHOLD PAYOUT] User ${userId}: paying ${directPending.length} direct commissions (total: ${totalDirect}) immediately`,
         );
         try {
-          const { recipients } = await this.preparePayoutBatch(valid);
+          const { recipients } = await this.preparePayoutBatch(directPending);
           if (recipients.length > 0) {
             await this.executeBatchPayout(
               { recipients },
@@ -580,21 +581,11 @@ export class CommissionPayoutService {
       return;
     }
 
-    const validNonDirect = nonDirectPending.filter(
-      (c) => c.user?.walletAddress,
-    );
-    if (validNonDirect.length === 0) {
-      this.logger.warn(
-        `[THRESHOLD PAYOUT] User ${userId} has no wallet. Skipping group payout.`,
-      );
-      return;
-    }
-
     this.logger.log(
-      `[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${validNonDirect.length} non-direct commissions (total: ${totalNonDirect})`,
+      `[THRESHOLD PAYOUT] User ${userId} reached threshold. Paying ${nonDirectPending.length} non-direct commissions (total: ${totalNonDirect})`,
     );
     try {
-      const { recipients } = await this.preparePayoutBatch(validNonDirect);
+      const { recipients } = await this.preparePayoutBatch(nonDirectPending);
       if (recipients.length === 0) return;
       await this.executeBatchPayout(
         { recipients },
@@ -641,40 +632,8 @@ export class CommissionPayoutService {
       isPayImmediately(c),
     );
     if (directCommissions.length > 0) {
-      const byUser = new Map<
-        string,
-        { user: User; commissions: Commission[]; totalAmount: number }
-      >();
-      for (const c of directCommissions) {
-        if (!c.user?.walletAddress) {
-          this.logger.warn(
-            `[PAYOUT] Direct commission ${c.id} has no wallet, skipping`,
-          );
-          continue;
-        }
-        const key = c.user.walletAddress.toLowerCase();
-        const existing = byUser.get(key);
-        if (existing) {
-          existing.commissions.push(c);
-          existing.totalAmount += c.amount;
-        } else {
-          byUser.set(key, {
-            user: c.user,
-            commissions: [c],
-            totalAmount: c.amount,
-          });
-        }
-      }
-      if (byUser.size > 0) {
-        const recipients: PayoutRecipientDto[] = [];
-        for (const [, data] of byUser) {
-          recipients.push({
-            userId: data.user.id,
-            walletAddress: data.user.walletAddress.toLowerCase(),
-            amount: data.totalAmount.toString(),
-            commissionIds: data.commissions.map((c) => c.id),
-          });
-        }
+      const { recipients } = await this.preparePayoutBatch(directCommissions);
+      if (recipients.length > 0) {
         try {
           await this.executeBatchPayout(
             { recipients },

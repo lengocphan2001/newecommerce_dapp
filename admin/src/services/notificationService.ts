@@ -35,6 +35,14 @@ class NotificationService {
       this.emit('new-order', data);
     });
 
+    this.socket.on('new-deposit-request', (data: any) => {
+      this.emit('new-deposit-request', data);
+    });
+
+    this.socket.on('new-withdraw-request', (data: any) => {
+      this.emit('new-withdraw-request', data);
+    });
+
     this.socket.on('connect_error', (error: Error) => {
       console.error('Connection error:', error);
     });

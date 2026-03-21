@@ -217,7 +217,7 @@ export default function ActivityPage() {
           description: description,
           amount: netAmount,
           amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
-          status: `Về ví (đã trừ ${feePercent}% phí)`,
+          status: ``,
           statusColor: 'text-primary',
           icon: activityType === 'GROUP' ? 'account_tree' : 'card_membership',
           iconColor: activityType === 'GROUP' ? 'text-amber-500' : 'text-amber-500',

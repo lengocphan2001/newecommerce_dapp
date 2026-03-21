@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import * as bcrypt from 'bcryptjs';
 import { User } from '../user/entities/user.entity';
 import { Address } from '../user/entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
@@ -24,6 +25,9 @@ import { Web3Service } from '../blockchain/web3.service';
 @Injectable()
 export class AdminService {
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
+  private readonly defaultMinPayoutThreshold = 50;
+  private readonly defaultCommissionDepositWalletPercent = 10;
+  private readonly defaultCommissionWithdrawWalletPercent = 80;
 
   constructor(
     @InjectRepository(User)
@@ -109,6 +113,93 @@ export class AdminService {
     });
 
     return users;
+  }
+
+  private escapeCsv(val: string | number | null | undefined): string {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  private normalizeUsernameSeed(input: string): string {
+    const noDiacritics = (input || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    return noDiacritics
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 16);
+  }
+
+  private generateRandomPassword(length = 12): string {
+    const alphabet =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+    return result;
+  }
+
+  private async ensureUniqueUsername(desired: string): Promise<string> {
+    const base = (desired && desired.trim()) || 'user';
+    let candidate = base;
+    let suffix = 0;
+    while (true) {
+      const existing = await this.userRepository.findOne({
+        where: { username: candidate },
+        select: ['id'],
+      });
+      if (!existing) return candidate;
+      suffix += 1;
+      candidate = `${base}${suffix}`.slice(0, 24);
+    }
+  }
+
+  /**
+   * Generate/update username+password for users and return CSV content.
+   * CSV can be opened directly by Excel.
+   */
+  async generateUserLoginCredentialsCsv(): Promise<string> {
+    const users = await this.userRepository.find({
+      order: { createdAt: 'DESC' },
+      select: ['id', 'username', 'email', 'fullName', 'walletAddress'],
+    });
+
+    const rows: string[][] = [['username', 'email', 'fullName', 'password']];
+
+    for (const user of users) {
+      let username = (user.username || '').trim();
+      if (!username) {
+        const seed =
+          this.normalizeUsernameSeed(user.fullName || '') ||
+          this.normalizeUsernameSeed((user.email || '').split('@')[0] || '') ||
+          this.normalizeUsernameSeed(user.walletAddress || '') ||
+          `user${user.id.replace(/-/g, '').slice(0, 6)}`;
+        username = await this.ensureUniqueUsername(seed);
+      }
+
+      const plainPassword = this.generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);
+      await this.userRepository.update(user.id, {
+        username,
+        password: hashedPassword,
+      });
+
+      rows.push([
+        this.escapeCsv(username),
+        this.escapeCsv(user.email || ''),
+        this.escapeCsv(user.fullName || ''),
+        this.escapeCsv(plainPassword),
+      ]);
+    }
+
+    const csvContent = rows.map((r) => r.join(',')).join('\n');
+    const BOM = '\uFEFF';
+    return BOM + csvContent;
   }
 
   async getOrders(query: any) {
@@ -531,12 +622,33 @@ export class AdminService {
   /**
    * Get system config as a plain object { minPayoutThreshold: number }
    */
-  async getSystemConfig(): Promise<{ minPayoutThreshold: number }> {
-    const row = await this.systemConfigRepository.findOne({
-      where: { key: 'minPayoutThreshold' },
-    });
+  async getSystemConfig(): Promise<{
+    minPayoutThreshold: number;
+    commissionDepositWalletPercent: number;
+    commissionWithdrawWalletPercent: number;
+  }> {
+    const [thresholdRow, depositPercentRow, withdrawPercentRow] =
+      await Promise.all([
+        this.systemConfigRepository.findOne({
+          where: { key: 'minPayoutThreshold' },
+        }),
+        this.systemConfigRepository.findOne({
+          where: { key: 'commissionDepositWalletPercent' },
+        }),
+        this.systemConfigRepository.findOne({
+          where: { key: 'commissionWithdrawWalletPercent' },
+        }),
+      ]);
     return {
-      minPayoutThreshold: row ? parseFloat(row.value) : 50,
+      minPayoutThreshold: thresholdRow
+        ? parseFloat(thresholdRow.value)
+        : this.defaultMinPayoutThreshold,
+      commissionDepositWalletPercent: depositPercentRow
+        ? parseFloat(depositPercentRow.value)
+        : this.defaultCommissionDepositWalletPercent,
+      commissionWithdrawWalletPercent: withdrawPercentRow
+        ? parseFloat(withdrawPercentRow.value)
+        : this.defaultCommissionWithdrawWalletPercent,
     };
   }
 
@@ -545,7 +657,44 @@ export class AdminService {
    */
   async updateSystemConfig(dto: {
     minPayoutThreshold?: number;
-  }): Promise<{ minPayoutThreshold: number }> {
+    commissionDepositWalletPercent?: number;
+    commissionWithdrawWalletPercent?: number;
+  }): Promise<{
+    minPayoutThreshold: number;
+    commissionDepositWalletPercent: number;
+    commissionWithdrawWalletPercent: number;
+  }> {
+    if (dto.commissionDepositWalletPercent !== undefined) {
+      const value = Number(dto.commissionDepositWalletPercent);
+      if (!Number.isFinite(value) || value < 0 || value > 100) {
+        throw new BadRequestException(
+          'commissionDepositWalletPercent must be between 0 and 100',
+        );
+      }
+    }
+    if (dto.commissionWithdrawWalletPercent !== undefined) {
+      const value = Number(dto.commissionWithdrawWalletPercent);
+      if (!Number.isFinite(value) || value < 0 || value > 100) {
+        throw new BadRequestException(
+          'commissionWithdrawWalletPercent must be between 0 and 100',
+        );
+      }
+    }
+
+    const nextDepositPercent =
+      dto.commissionDepositWalletPercent !== undefined
+        ? Number(dto.commissionDepositWalletPercent)
+        : (await this.getSystemConfig()).commissionDepositWalletPercent;
+    const nextWithdrawPercent =
+      dto.commissionWithdrawWalletPercent !== undefined
+        ? Number(dto.commissionWithdrawWalletPercent)
+        : (await this.getSystemConfig()).commissionWithdrawWalletPercent;
+    if (nextDepositPercent + nextWithdrawPercent > 100) {
+      throw new BadRequestException(
+        'commissionDepositWalletPercent + commissionWithdrawWalletPercent must be <= 100',
+      );
+    }
+
     if (dto.minPayoutThreshold !== undefined) {
       let row = await this.systemConfigRepository.findOne({
         where: { key: 'minPayoutThreshold' },
@@ -560,6 +709,34 @@ export class AdminService {
       }
       await this.systemConfigRepository.save(row);
     }
+    if (dto.commissionDepositWalletPercent !== undefined) {
+      let row = await this.systemConfigRepository.findOne({
+        where: { key: 'commissionDepositWalletPercent' },
+      });
+      if (!row) {
+        row = this.systemConfigRepository.create({
+          key: 'commissionDepositWalletPercent',
+          value: String(dto.commissionDepositWalletPercent),
+        });
+      } else {
+        row.value = String(dto.commissionDepositWalletPercent);
+      }
+      await this.systemConfigRepository.save(row);
+    }
+    if (dto.commissionWithdrawWalletPercent !== undefined) {
+      let row = await this.systemConfigRepository.findOne({
+        where: { key: 'commissionWithdrawWalletPercent' },
+      });
+      if (!row) {
+        row = this.systemConfigRepository.create({
+          key: 'commissionWithdrawWalletPercent',
+          value: String(dto.commissionWithdrawWalletPercent),
+        });
+      } else {
+        row.value = String(dto.commissionWithdrawWalletPercent);
+      }
+      await this.systemConfigRepository.save(row);
+    }
     return this.getSystemConfig();
   }
 
@@ -570,7 +747,35 @@ export class AdminService {
     const row = await this.systemConfigRepository.findOne({
       where: { key: 'minPayoutThreshold' },
     });
-    return row ? parseFloat(row.value) : 50;
+    return row ? parseFloat(row.value) : this.defaultMinPayoutThreshold;
+  }
+
+  /**
+   * Tỷ lệ chia hoa hồng vào ví nội bộ.
+   * - depositPercent: vào ví nạp tiền
+   * - withdrawPercent: vào ví rút tiền
+   */
+  async getCommissionWalletDistribution(): Promise<{
+    depositPercent: number;
+    withdrawPercent: number;
+  }> {
+    const [depositPercentRow, withdrawPercentRow] = await Promise.all([
+      this.systemConfigRepository.findOne({
+        where: { key: 'commissionDepositWalletPercent' },
+      }),
+      this.systemConfigRepository.findOne({
+        where: { key: 'commissionWithdrawWalletPercent' },
+      }),
+    ]);
+
+    const depositPercent = depositPercentRow
+      ? parseFloat(depositPercentRow.value)
+      : this.defaultCommissionDepositWalletPercent;
+    const withdrawPercent = withdrawPercentRow
+      ? parseFloat(withdrawPercentRow.value)
+      : this.defaultCommissionWithdrawWalletPercent;
+
+    return { depositPercent, withdrawPercent };
   }
 
   async getBlockchainConfig(): Promise<{

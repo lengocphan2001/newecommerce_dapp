@@ -13,6 +13,19 @@ import { User } from '../user/entities/user.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
 import { CreateDepositRequestDto } from './dto/create-deposit-request.dto';
 import { ProcessDepositRequestDto } from './dto/process-deposit-request.dto';
+import {
+  WalletWithdrawMethod,
+  WalletWithdrawRequest,
+  WalletWithdrawStatus,
+} from './entities/wallet-withdraw-request.entity';
+import { UserBankAccount } from './entities/user-bank-account.entity';
+import {
+  CreateBankAccountDto,
+  UpdateBankAccountDto,
+} from './dto/bank-account.dto';
+import { CreateWithdrawRequestDto } from './dto/create-withdraw-request.dto';
+import { ProcessWithdrawRequestDto } from './dto/process-withdraw-request.dto';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class WalletService {
@@ -23,17 +36,34 @@ export class WalletService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(BankingConfig)
     private readonly bankingConfigRepo: Repository<BankingConfig>,
+    @InjectRepository(WalletWithdrawRequest)
+    private readonly withdrawRequestRepo: Repository<WalletWithdrawRequest>,
+    @InjectRepository(UserBankAccount)
+    private readonly userBankAccountRepo: Repository<UserBankAccount>,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   /** Số dư ví nạp tiền của user */
-  async getBalance(userId: string): Promise<{ balance: number }> {
+  async getBalance(
+    userId: string,
+  ): Promise<{ balance: number; withdrawBalance: number }> {
     const user = await this.userRepo.findOne({
       where: { id: userId },
-      select: ['id', 'walletBalance'],
+      select: ['id', 'walletBalance', 'withdrawWalletBalance'],
     });
     if (!user) throw new NotFoundException('User not found');
     const balance = Number(user.walletBalance ?? 0);
-    return { balance };
+    const withdrawBalance = Number(user.withdrawWalletBalance ?? 0);
+    return { balance, withdrawBalance };
+  }
+
+  async getWithdrawBalance(userId: string): Promise<{ withdrawBalance: number }> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'withdrawWalletBalance'],
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return { withdrawBalance: Number(user.withdrawWalletBalance ?? 0) };
   }
 
   /** User tạo yêu cầu nạp tiền (số tiền VND đã chuyển). Admin duyệt sẽ dùng tỉ giá Banking Settings để cộng USDT. */
@@ -46,7 +76,18 @@ export class WalletService {
       proofImageUrl: dto.proofImageUrl,
       transferNote: dto.transferNote,
     });
-    return this.depositRequestRepo.save(request);
+    const saved = await this.depositRequestRepo.save(request);
+    this.notificationsGateway.server.emit('new-deposit-request', {
+      type: 'new-deposit-request',
+      request: {
+        id: saved.id,
+        userId: saved.userId,
+        amountVnd: saved.amountVnd,
+        createdAt: saved.createdAt,
+      },
+      message: `New deposit request #${saved.id.substring(0, 8)} received`,
+    });
+    return saved;
   }
 
   /** User xem danh sách yêu cầu nạp tiền của mình */
@@ -130,6 +171,224 @@ export class WalletService {
     }
 
     await this.depositRequestRepo.save(request);
+    return request;
+  }
+
+  async getMyBankAccounts(userId: string): Promise<UserBankAccount[]> {
+    return this.userBankAccountRepo.find({
+      where: { userId },
+      order: { isDefault: 'DESC', createdAt: 'DESC' },
+    });
+  }
+
+  async createBankAccount(userId: string, dto: CreateBankAccountDto) {
+    if (dto.isDefault) {
+      await this.userBankAccountRepo.update({ userId }, { isDefault: false });
+    }
+    const account = this.userBankAccountRepo.create({
+      userId,
+      bankName: dto.bankName.trim(),
+      accountNumber: dto.accountNumber.trim(),
+      accountName: dto.accountName.trim(),
+      bankCode: dto.bankCode?.trim() || null,
+      isDefault: Boolean(dto.isDefault),
+    });
+    const saved = await this.userBankAccountRepo.save(account);
+
+    if (!dto.isDefault) {
+      const count = await this.userBankAccountRepo.count({ where: { userId } });
+      if (count === 1) {
+        await this.userBankAccountRepo.update(saved.id, { isDefault: true });
+      }
+    }
+    return this.userBankAccountRepo.findOne({ where: { id: saved.id } });
+  }
+
+  async updateBankAccount(
+    userId: string,
+    bankAccountId: string,
+    dto: UpdateBankAccountDto,
+  ) {
+    const account = await this.userBankAccountRepo.findOne({
+      where: { id: bankAccountId, userId },
+    });
+    if (!account) throw new NotFoundException('Bank account not found');
+
+    if (dto.isDefault) {
+      await this.userBankAccountRepo.update({ userId }, { isDefault: false });
+    }
+
+    Object.assign(account, {
+      bankName: dto.bankName?.trim() ?? account.bankName,
+      accountNumber: dto.accountNumber?.trim() ?? account.accountNumber,
+      accountName: dto.accountName?.trim() ?? account.accountName,
+      bankCode:
+        dto.bankCode !== undefined
+          ? dto.bankCode?.trim() || null
+          : account.bankCode,
+      isDefault: dto.isDefault ?? account.isDefault,
+    });
+
+    return this.userBankAccountRepo.save(account);
+  }
+
+  async deleteBankAccount(userId: string, bankAccountId: string) {
+    const account = await this.userBankAccountRepo.findOne({
+      where: { id: bankAccountId, userId },
+    });
+    if (!account) throw new NotFoundException('Bank account not found');
+
+    await this.userBankAccountRepo.delete({ id: bankAccountId, userId });
+    if (account.isDefault) {
+      const fallback = await this.userBankAccountRepo.findOne({
+        where: { userId },
+        order: { createdAt: 'ASC' },
+      });
+      if (fallback) {
+        await this.userBankAccountRepo.update(fallback.id, { isDefault: true });
+      }
+    }
+    return { success: true };
+  }
+
+  async createWithdrawRequest(userId: string, dto: CreateWithdrawRequestDto) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: ['id', 'walletAddress', 'withdrawWalletBalance'],
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const amount = Number(dto.amount || 0);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid withdraw amount');
+    }
+    const currentBalance = Number(user.withdrawWalletBalance ?? 0);
+    if (amount > currentBalance) {
+      throw new BadRequestException('Insufficient withdraw wallet balance');
+    }
+
+    let usdtWalletAddress: string | null = null;
+    let bankName: string | null = null;
+    let bankAccountNumber: string | null = null;
+    let bankAccountName: string | null = null;
+
+    if (dto.method === WalletWithdrawMethod.USDT) {
+      const walletAddress = (user.walletAddress || '').trim();
+      if (!walletAddress) {
+        throw new BadRequestException(
+          'MISSING_USDT_WALLET: Please configure your USDT wallet address first',
+        );
+      }
+      usdtWalletAddress = walletAddress;
+    } else if (dto.method === WalletWithdrawMethod.BANKING) {
+      if (!dto.bankAccountId) {
+        throw new BadRequestException('bankAccountId is required for BANKING');
+      }
+      const bankAccount = await this.userBankAccountRepo.findOne({
+        where: { id: dto.bankAccountId, userId },
+      });
+      if (!bankAccount) {
+        throw new NotFoundException('Bank account not found');
+      }
+      bankName = bankAccount.bankName;
+      bankAccountNumber = bankAccount.accountNumber;
+      bankAccountName = bankAccount.accountName;
+    } else {
+      throw new BadRequestException('Invalid withdraw method');
+    }
+
+    await this.userRepo.update(userId, {
+      withdrawWalletBalance: currentBalance - amount,
+    });
+
+    const request = this.withdrawRequestRepo.create({
+      userId,
+      amount,
+      method: dto.method,
+      usdtWalletAddress,
+      bankName,
+      bankAccountNumber,
+      bankAccountName,
+      note: dto.note?.trim() || null,
+      status: WalletWithdrawStatus.PENDING,
+    });
+    const saved = await this.withdrawRequestRepo.save(request);
+    this.notificationsGateway.server.emit('new-withdraw-request', {
+      type: 'new-withdraw-request',
+      request: {
+        id: saved.id,
+        userId: saved.userId,
+        amount: saved.amount,
+        method: saved.method,
+        createdAt: saved.createdAt,
+      },
+      message: `New withdraw request #${saved.id.substring(0, 8)} received`,
+    });
+    return saved;
+  }
+
+  async getMyWithdrawRequests(
+    userId: string,
+    status?: WalletWithdrawStatus,
+  ): Promise<WalletWithdrawRequest[]> {
+    const qb = this.withdrawRequestRepo
+      .createQueryBuilder('r')
+      .where('r.userId = :userId', { userId })
+      .orderBy('r.createdAt', 'DESC');
+    if (status) qb.andWhere('r.status = :status', { status });
+    return qb.getMany();
+  }
+
+  async findAllWithdrawRequests(status?: WalletWithdrawStatus) {
+    const qb = this.withdrawRequestRepo
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.user', 'user')
+      .addSelect([
+        'user.id',
+        'user.username',
+        'user.fullName',
+        'user.email',
+        'user.phone',
+      ])
+      .orderBy('r.createdAt', 'DESC');
+    if (status) qb.andWhere('r.status = :status', { status });
+    return qb.getMany();
+  }
+
+  async processWithdrawRequest(
+    requestId: string,
+    dto: ProcessWithdrawRequestDto,
+    processedBy: string,
+  ) {
+    const request = await this.withdrawRequestRepo.findOne({
+      where: { id: requestId },
+      relations: ['user'],
+    });
+    if (!request)
+      throw new NotFoundException('Yêu cầu rút tiền không tồn tại');
+    if (request.status !== WalletWithdrawStatus.PENDING) {
+      throw new BadRequestException('Yêu cầu này đã được xử lý');
+    }
+
+    request.adminNote = dto.adminNote ?? null;
+    request.processedAt = new Date();
+    request.processedBy = processedBy;
+    request.status = dto.status as WalletWithdrawStatus;
+
+    if (dto.status === WalletWithdrawStatus.REJECTED) {
+      const user = await this.userRepo.findOne({
+        where: { id: request.userId },
+        select: ['id', 'withdrawWalletBalance'],
+      });
+      if (user) {
+        const current = Number(user.withdrawWalletBalance ?? 0);
+        await this.userRepo.update(request.userId, {
+          withdrawWalletBalance: current + Number(request.amount || 0),
+        });
+      }
+    }
+
+    await this.withdrawRequestRepo.save(request);
     return request;
   }
 }

@@ -100,6 +100,19 @@ export class AdminController {
     return res.send(csvContent);
   }
 
+  @Post('users/export-login-credentials')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async exportLoginCredentials(@Res() res: Response) {
+    const csvContent = await this.adminService.generateUserLoginCredentialsCsv();
+    const fileName = `user-login-credentials-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.header('Content-Type', 'text/csv; charset=utf-8');
+    res.header(
+      'Content-Disposition',
+      `attachment; filename="${fileName}"`,
+    );
+    return res.send(csvContent);
+  }
+
   @Get('users/:id/detail')
   async getUserDetail(@Param('id') id: string) {
     return this.adminService.getUserDetail(id);

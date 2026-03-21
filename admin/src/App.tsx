@@ -27,6 +27,7 @@ import Packages from './pages/Packages';
 import PackagePurchases from './pages/PackagePurchases';
 import BankingSettings from './pages/BankingSettings';
 import WalletDepositRequests from './pages/WalletDepositRequests';
+import WalletWithdrawRequests from './pages/WalletWithdrawRequests';
 import BlockchainSettings from './pages/BlockchainSettings';
 import './App.css';
 
@@ -280,6 +281,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <WalletDepositRequests />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/wallet-withdraw-requests"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <WalletWithdrawRequests />
                   </AdminLayout>
                 </PrivateRoute>
               }

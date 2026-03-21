@@ -75,7 +75,11 @@ const playNotificationSound = () => {
 const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
   const [permissionGranted, setPermissionGranted] = useState(false);
   const permissionGrantedRef = useRef(false);
-  const handlerRef = useRef<((data: any) => void) | null>(null);
+  const handlersRef = useRef<{
+    order?: (data: any) => void;
+    deposit?: (data: any) => void;
+    withdraw?: (data: any) => void;
+  }>({});
 
   // Handle notification permission separately
   useEffect(() => {
@@ -95,10 +99,19 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
   useEffect(() => {
     if (!token) {
       notificationService.disconnect();
-      if (handlerRef.current) {
-        notificationService.off('new-order', handlerRef.current);
-        handlerRef.current = null;
-      }
+      if (handlersRef.current.order)
+        notificationService.off('new-order', handlersRef.current.order);
+      if (handlersRef.current.deposit)
+        notificationService.off(
+          'new-deposit-request',
+          handlersRef.current.deposit,
+        );
+      if (handlersRef.current.withdraw)
+        notificationService.off(
+          'new-withdraw-request',
+          handlersRef.current.withdraw,
+        );
+      handlersRef.current = {};
       return;
     }
 
@@ -106,7 +119,7 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
     notificationService.connect(token);
 
     // Only register listener once per token
-    if (!handlerRef.current) {
+    if (!handlersRef.current.order) {
       // Create handler function that uses ref for permissionGranted
       const handleNewOrder = (data: any) => {
         const { order, message } = data;
@@ -149,15 +162,62 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
         }
       };
 
-      handlerRef.current = handleNewOrder;
+      const handleNewDepositRequest = (data: any) => {
+        const req = data?.request || {};
+        playNotificationSound();
+        notification.info({
+          key: `deposit-${req.id || Date.now()}`,
+          message: 'New Deposit Request',
+          description:
+            data?.message ||
+            `Deposit request #${String(req.id || '').substring(0, 8)} received`,
+          duration: 5,
+          placement: 'topRight',
+          onClick: () => {
+            window.location.href = `/admin/wallet-deposit-requests`;
+          },
+        });
+      };
+
+      const handleNewWithdrawRequest = (data: any) => {
+        const req = data?.request || {};
+        playNotificationSound();
+        notification.info({
+          key: `withdraw-${req.id || Date.now()}`,
+          message: 'New Withdraw Request',
+          description:
+            data?.message ||
+            `Withdraw request #${String(req.id || '').substring(0, 8)} received`,
+          duration: 5,
+          placement: 'topRight',
+          onClick: () => {
+            window.location.href = `/admin/wallet-withdraw-requests`;
+          },
+        });
+      };
+
+      handlersRef.current.order = handleNewOrder;
+      handlersRef.current.deposit = handleNewDepositRequest;
+      handlersRef.current.withdraw = handleNewWithdrawRequest;
       notificationService.on('new-order', handleNewOrder);
+      notificationService.on('new-deposit-request', handleNewDepositRequest);
+      notificationService.on('new-withdraw-request', handleNewWithdrawRequest);
     }
 
     return () => {
-      if (handlerRef.current) {
-        notificationService.off('new-order', handlerRef.current);
-        handlerRef.current = null;
-      }
+      if (handlersRef.current.order)
+        notificationService.off('new-order', handlersRef.current.order);
+      if (handlersRef.current.deposit)
+        notificationService.off(
+          'new-deposit-request',
+          handlersRef.current.deposit,
+        );
+      if (handlersRef.current.withdraw)
+        notificationService.off(
+          'new-withdraw-request',
+          handlersRef.current.withdraw,
+        );
+      handlersRef.current = {};
     };
   }, [token]); // Only depend on token
 

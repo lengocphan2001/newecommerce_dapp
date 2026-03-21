@@ -505,6 +505,17 @@ export const api = {
     return response.json();
   },
 
+  /** Ví rút tiền: số dư */
+  async getWithdrawWalletBalance() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/withdraw-balance`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get withdraw wallet balance');
+    return response.json();
+  },
+
   /** Ví nạp tiền: danh sách yêu cầu nạp của tôi */
   async getMyDepositRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
     const token = localStorage.getItem('token');
@@ -543,6 +554,103 @@ export const api = {
       body: formData,
     });
     if (!response.ok) throw new Error('Upload ảnh thất bại');
+    return response.json();
+  },
+
+  async getMyBankAccounts() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/bank-accounts`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get bank accounts');
+    return response.json();
+  },
+
+  async createBankAccount(data: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode?: string;
+    isDefault?: boolean;
+  }) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/bank-accounts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create bank account');
+    }
+    return response.json();
+  },
+
+  async updateBankAccount(id: string, data: {
+    bankName?: string;
+    accountNumber?: string;
+    accountName?: string;
+    bankCode?: string;
+    isDefault?: boolean;
+  }) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/bank-accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to update bank account');
+    }
+    return response.json();
+  },
+
+  async deleteBankAccount(id: string) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/bank-accounts/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to delete bank account');
+    }
+    return response.json();
+  },
+
+  async createWithdrawRequest(data: {
+    amount: number;
+    method: 'USDT' | 'BANKING';
+    bankAccountId?: string;
+    note?: string;
+  }) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/withdraw-requests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to create withdraw request');
+    }
+    return response.json();
+  },
+
+  async getMyWithdrawRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const url = status
+      ? `${API_BASE_URL}/wallet/withdraw-requests?status=${status}`
+      : `${API_BASE_URL}/wallet/withdraw-requests`;
+    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Failed to get withdraw requests');
     return response.json();
   },
 

@@ -3,12 +3,22 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { WalletController } from './wallet.controller';
 import { WalletService } from './wallet.service';
 import { WalletDepositRequest } from './entities/wallet-deposit-request.entity';
+import { WalletWithdrawRequest } from './entities/wallet-withdraw-request.entity';
+import { UserBankAccount } from './entities/user-bank-account.entity';
 import { User } from '../user/entities/user.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([WalletDepositRequest, User, BankingConfig]),
+    NotificationsModule,
+    TypeOrmModule.forFeature([
+      WalletDepositRequest,
+      WalletWithdrawRequest,
+      UserBankAccount,
+      User,
+      BankingConfig,
+    ]),
   ],
   controllers: [WalletController],
   providers: [WalletService],

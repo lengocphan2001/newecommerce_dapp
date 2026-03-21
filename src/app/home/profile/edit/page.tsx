@@ -21,6 +21,17 @@ export default function EditProfilePage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [bankForm, setBankForm] = useState({
+    id: '',
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+    bankCode: '',
+    isDefault: false,
+  });
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankMessage, setBankMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -32,6 +43,7 @@ export default function EditProfilePage() {
 
   useEffect(() => {
     loadUserData();
+    loadBankAccounts();
   }, []);
 
   const loadUserData = async () => {
@@ -64,6 +76,15 @@ export default function EditProfilePage() {
         avatar: storedAvatar || prev.avatar,
       }));
     } catch (error) {}
+  };
+
+  const loadBankAccounts = async () => {
+    try {
+      const list = await api.getMyBankAccounts();
+      setBankAccounts(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setBankAccounts([]);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -235,6 +256,70 @@ export default function EditProfilePage() {
       setPasswordMessage({ type: 'error', text: err.message || 'Đổi mật khẩu thất bại' });
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const resetBankForm = () => {
+    setBankForm({
+      id: '',
+      bankName: '',
+      accountNumber: '',
+      accountName: '',
+      bankCode: '',
+      isDefault: bankAccounts.length === 0,
+    });
+  };
+
+  const handleEditBank = (item: any) => {
+    setBankForm({
+      id: item.id || '',
+      bankName: item.bankName || '',
+      accountNumber: item.accountNumber || '',
+      accountName: item.accountName || '',
+      bankCode: item.bankCode || '',
+      isDefault: Boolean(item.isDefault),
+    });
+  };
+
+  const handleSaveBank = async () => {
+    setBankMessage(null);
+    if (!bankForm.bankName || !bankForm.accountNumber || !bankForm.accountName) {
+      setBankMessage({ type: 'error', text: 'Vui lòng nhập đầy đủ tên ngân hàng, số tài khoản, chủ tài khoản' });
+      return;
+    }
+    setBankLoading(true);
+    try {
+      const payload = {
+        bankName: bankForm.bankName,
+        accountNumber: bankForm.accountNumber,
+        accountName: bankForm.accountName,
+        bankCode: bankForm.bankCode || undefined,
+        isDefault: bankForm.isDefault,
+      };
+      if (bankForm.id) {
+        await api.updateBankAccount(bankForm.id, payload);
+      } else {
+        await api.createBankAccount(payload);
+      }
+      await loadBankAccounts();
+      resetBankForm();
+      setBankMessage({ type: 'success', text: 'Đã lưu tài khoản ngân hàng' });
+    } catch (err: any) {
+      setBankMessage({ type: 'error', text: err?.message || 'Lưu tài khoản ngân hàng thất bại' });
+    } finally {
+      setBankLoading(false);
+    }
+  };
+
+  const handleDeleteBank = async (id: string) => {
+    if (!confirm('Xóa tài khoản ngân hàng này?')) return;
+    try {
+      await api.deleteBankAccount(id);
+      await loadBankAccounts();
+      if (bankForm.id === id) resetBankForm();
+      setBankMessage({ type: 'success', text: 'Đã xóa tài khoản ngân hàng' });
+    } catch (err: any) {
+      setBankMessage({ type: 'error', text: err?.message || 'Xóa tài khoản thất bại' });
     }
   };
 
@@ -412,6 +497,95 @@ export default function EditProfilePage() {
               {passwordLoading && <span className="material-symbols-outlined animate-spin text-xl">progress_activity</span>}
               {passwordLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
             </button>
+          </div>
+
+          {/* Cấu hình ngân hàng nhận rút tiền */}
+          <div className="flex flex-col w-full py-3 mt-4 border-t border-[#cfd7e7]">
+            <div className="flex items-center justify-between pb-3">
+              <p className="text-[#0d121b] text-sm font-semibold leading-normal ml-1">Tài khoản ngân hàng nhận rút tiền</p>
+              <button
+                type="button"
+                onClick={resetBankForm}
+                className="text-xs text-primary-dark font-medium"
+              >
+                + Thêm mới
+              </button>
+            </div>
+
+            {bankAccounts.length > 0 ? (
+              <div className="space-y-2 mb-3">
+                {bankAccounts.map((b: any) => (
+                  <div key={b.id} className="rounded-xl border border-[#cfd7e7] bg-white p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {b.bankName} {b.isDefault ? '(Mặc định)' : ''}
+                        </p>
+                        <p className="text-xs text-slate-600">{b.accountName} - {b.accountNumber}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button type="button" onClick={() => handleEditBank(b)} className="text-xs text-primary-dark font-medium">
+                          Sửa
+                        </button>
+                        <button type="button" onClick={() => handleDeleteBank(b.id)} className="text-xs text-red-600 font-medium">
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 pb-3 ml-1">Bạn chưa thêm tài khoản ngân hàng nào.</p>
+            )}
+
+            <div className="space-y-2">
+              <input
+                value={bankForm.bankName}
+                onChange={(e) => setBankForm((f) => ({ ...f, bankName: e.target.value }))}
+                className="form-input w-full rounded-xl border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                placeholder="Tên ngân hàng"
+              />
+              <input
+                value={bankForm.accountNumber}
+                onChange={(e) => setBankForm((f) => ({ ...f, accountNumber: e.target.value }))}
+                className="form-input w-full rounded-xl border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                placeholder="Số tài khoản"
+              />
+              <input
+                value={bankForm.accountName}
+                onChange={(e) => setBankForm((f) => ({ ...f, accountName: e.target.value }))}
+                className="form-input w-full rounded-xl border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                placeholder="Chủ tài khoản"
+              />
+              <input
+                value={bankForm.bankCode}
+                onChange={(e) => setBankForm((f) => ({ ...f, bankCode: e.target.value }))}
+                className="form-input w-full rounded-xl border border-[#cfd7e7] bg-white h-12 px-3 text-base"
+                placeholder="Mã ngân hàng (tùy chọn)"
+              />
+              <label className="flex items-center gap-2 text-sm text-slate-700 px-1">
+                <input
+                  type="checkbox"
+                  checked={bankForm.isDefault}
+                  onChange={(e) => setBankForm((f) => ({ ...f, isDefault: e.target.checked }))}
+                />
+                Đặt làm mặc định
+              </label>
+              {bankMessage && (
+                <div className={`p-3 rounded-xl text-sm font-medium ${bankMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {bankMessage.text}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveBank}
+                disabled={bankLoading}
+                className="w-full rounded-xl border-2 border-[#135bec] text-[#135bec] font-bold py-3 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {bankLoading ? 'Đang lưu...' : bankForm.id ? 'Cập nhật tài khoản ngân hàng' : 'Lưu tài khoản ngân hàng'}
+              </button>
+            </div>
           </div>
 
           {/* Message Toast */}

@@ -1,9 +1,9 @@
 /**
- * Script tạo mật khẩu đăng nhập cho toàn bộ user hiện có (Web2 migration).
- * Mỗi user có username sẽ được gán một mật khẩu ngẫu nhiên (12 ký tự), hash lưu DB,
- * và file CSV được xuất ra để admin gửi cho user (username, email, password).
+ * Script tạo thông tin đăng nhập Web2 cho toàn bộ user hiện có.
+ * - User đã có username: giữ nguyên username, tạo password ngẫu nhiên mới.
+ * - User chưa có username: tự generate username unique + tạo password ngẫu nhiên.
  *
- * Chạy một lần sau khi chuyển sang Web2. User đăng nhập bằng username + password.
+ * Sau khi chạy, user có thể login bằng username + password (route username-login).
  *
  * Usage (từ thư mục backend):
  *   npm run script:set-passwords
@@ -14,7 +14,7 @@
  * Output: backend/scripts/output-existing-users-passwords.csv
  */
 
-import { DataSource } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import * as dotenv from 'dotenv';
 import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
@@ -43,6 +43,34 @@ function escapeCsv(val: string | null | undefined): string {
   return s;
 }
 
+function normalizeUsernameSeed(input: string): string {
+  const noDiacritics = input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return noDiacritics
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 16);
+}
+
+async function ensureUniqueUsername(
+  userRepo: Repository<User>,
+  desired: string,
+): Promise<string> {
+  const base = (desired && desired.trim()) || 'user';
+  let candidate = base;
+  let suffix = 0;
+  while (true) {
+    const existing = await userRepo.findOne({
+      where: { username: candidate },
+      select: ['id'],
+    });
+    if (!existing) return candidate;
+    suffix += 1;
+    candidate = `${base}${suffix}`.slice(0, 24);
+  }
+}
+
 async function main() {
   const dbType = (process.env.DB_TYPE || 'postgres') as any;
   const isMySQL = dbType === 'mysql';
@@ -65,27 +93,38 @@ async function main() {
 
     const users = await userRepo.find({
       where: [],
-      select: ['id', 'username', 'email', 'fullName'],
+      select: ['id', 'username', 'email', 'fullName', 'walletAddress'],
     });
 
-    const withUsername = users.filter((u) => u.username && String(u.username).trim());
-    if (withUsername.length === 0) {
-      console.log('No users with username found. Exiting.');
+    if (users.length === 0) {
+      console.log('No users found. Exiting.');
       await dataSource.destroy();
       return;
     }
 
-    console.log(`Found ${withUsername.length} users with username. Generating passwords...`);
+    console.log(
+      `Found ${users.length} users. Generating username/password for Web2 login...`,
+    );
 
     const rows: string[][] = [['username', 'email', 'fullName', 'password']];
 
-    for (const user of withUsername) {
+    for (const user of users) {
+      let username = (user.username || '').trim();
+      if (!username) {
+        const seed =
+          normalizeUsernameSeed(user.fullName || '') ||
+          normalizeUsernameSeed((user.email || '').split('@')[0] || '') ||
+          normalizeUsernameSeed(user.walletAddress || '') ||
+          `user${user.id.replace(/-/g, '').slice(0, 6)}`;
+        username = await ensureUniqueUsername(userRepo, seed);
+      }
+
       const plainPassword = generateRandomPassword();
       const hashed = await bcrypt.hash(plainPassword, 10);
-      await userRepo.update(user.id, { password: hashed });
+      await userRepo.update(user.id, { username, password: hashed });
 
       rows.push([
-        escapeCsv(user.username ?? ''),
+        escapeCsv(username),
         escapeCsv(user.email ?? ''),
         escapeCsv(user.fullName ?? ''),
         escapeCsv(plainPassword),
@@ -97,7 +136,7 @@ async function main() {
     const BOM = '\uFEFF';
     fs.writeFileSync(outPath, BOM + csvContent, 'utf8');
 
-    console.log(`Done. Passwords updated in DB. CSV written to: ${outPath}`);
+    console.log(`Done. Usernames/passwords updated in DB. CSV written to: ${outPath}`);
     console.log('Send this file to users (or import and email them). Keep the file secure and delete after distribution.');
 
     await dataSource.destroy();

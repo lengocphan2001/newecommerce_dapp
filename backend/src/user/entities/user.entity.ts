@@ -157,6 +157,19 @@ export class User {
   })
   walletBalance: number;
 
+  /** Số dư ví rút tiền (nhận hoa hồng để user rút). */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  withdrawWalletBalance: number;
+
   @Column({ default: false })
   emailVerified: boolean;
 

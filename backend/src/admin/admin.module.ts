@@ -6,6 +6,7 @@ import { CommissionPayoutController } from './commission-payout.controller';
 import { MilestoneRewardService } from './milestone-reward.service';
 import { MilestoneRewardController } from './milestone-reward.controller';
 import { WalletDepositRequestController } from './wallet-deposit-request.controller';
+import { WalletWithdrawRequestController } from './wallet-withdraw-request.controller';
 import { User } from '../user/entities/user.entity';
 import { MilestoneRewardConfig } from './entities/milestone-reward-config.entity';
 import { UserMilestone } from './entities/user-milestone.entity';
@@ -45,6 +46,7 @@ import { SystemConfig } from './entities/system-config.entity';
     CommissionPayoutController,
     MilestoneRewardController,
     WalletDepositRequestController,
+    WalletWithdrawRequestController,
   ],
   providers: [AdminService, MilestoneRewardService],
   exports: [AdminService, MilestoneRewardService, TypeOrmModule],

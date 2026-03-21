@@ -552,10 +552,13 @@ export class AuthService {
     // Get min payout threshold from system config
     const minPayoutThreshold = await this.adminService.getMinPayoutThreshold();
 
-    // Payout fee: 10% withheld; số tiền thực nhận về ví = 90% (phải khớp với commission-payout.service PAYOUT_FEE_PERCENT)
-    const PAYOUT_FEE_PERCENT = 10;
+    const walletDistribution =
+      await this.adminService.getCommissionWalletDistribution();
+    const depositPercent = Number(walletDistribution.depositPercent) || 0;
+    const withdrawPercent = Number(walletDistribution.withdrawPercent) || 0;
     const grossCommission = Number(user.totalCommissionReceived) || 0;
-    const netCommission = grossCommission * (1 - PAYOUT_FEE_PERCENT / 100);
+    const distributedCommission =
+      grossCommission * ((depositPercent + withdrawPercent) / 100);
 
     return {
       referralCode,
@@ -568,16 +571,19 @@ export class AuthService {
       walletAddress: user.walletAddress,
       /** Số dư ví nạp tiền (banking) - admin duyệt nạp rồi cộng vào đây */
       walletBalance: formatDecimal(user.walletBalance ?? 0),
+      /** Số dư ví rút tiền - nhận hoa hồng theo tỷ lệ cấu hình */
+      withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
       phone: user.phone,
       phoneNumber: user.phone, // Alias for compatibility
       address: user.address,
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
-      /** Số tiền thực nhận về ví (sau khi trừ phí 10%) */
-      bonusCommissionNet: formatDecimal(netCommission),
-      /** Phần trăm phí khi rút (10%) */
-      payoutFeePercent: PAYOUT_FEE_PERCENT,
+      /** Tổng phần hoa hồng đã được phân bổ vào 2 ví nội bộ theo cấu hình */
+      bonusCommissionNet: formatDecimal(distributedCommission),
+      payoutFeePercent: Math.max(0, 100 - (depositPercent + withdrawPercent)),
+      commissionDepositWalletPercent: depositPercent,
+      commissionWithdrawWalletPercent: withdrawPercent,
       fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
       maxCommission,
       packageType: user.packageType,

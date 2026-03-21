@@ -162,24 +162,20 @@ const CommissionPayout: React.FC = () => {
       return;
     }
 
-    // Group selected commissions by user
+    // Group selected commissions by user (internal wallet distribution, no on-chain wallet required)
     const selected = pendingCommissions.filter((c) => selectedCommissions.includes(c.id));
     const grouped = new Map<string, { user: any; commissions: PendingCommission[]; total: number }>();
 
     selected.forEach((commission) => {
-      if (!commission.user?.walletAddress) {
-        message.warning(`Commission ${commission.id} has no wallet address`);
-        return;
-      }
-
-      const wallet = commission.user.walletAddress.toLowerCase();
-      const existing = grouped.get(wallet);
+      const userKey = commission.user?.id || commission.userId;
+      if (!userKey) return;
+      const existing = grouped.get(userKey);
 
       if (existing) {
         existing.commissions.push(commission);
         existing.total += commission.amount;
       } else {
-        grouped.set(wallet, {
+        grouped.set(userKey, {
           user: commission.user,
           commissions: [commission],
           total: commission.amount,
@@ -194,7 +190,7 @@ const CommissionPayout: React.FC = () => {
 
     const recipients: BatchPayoutRequest['recipients'] = Array.from(grouped.values()).map((data) => ({
       userId: data.user.id,
-      walletAddress: data.user.walletAddress,
+      walletAddress: data.user.walletAddress || `internal:${data.user.id}`,
       amount: data.total.toFixed(18),
     }));
 
@@ -601,10 +597,7 @@ const CommissionPayout: React.FC = () => {
                 Selected: <strong>{selectedCommissions.length}</strong> commission(s)
                 {selectedCommissions.length > 0 && (
                   <span style={{ color: '#666', marginLeft: 8 }}>
-                    ({selectedCommissions.filter(id => {
-                      const comm = pendingCommissions.find(c => c.id === id);
-                      return comm?.user?.walletAddress;
-                    }).length} payable)
+                    ({selectedCommissions.length} payable)
                   </span>
                 )}
               </Text>
@@ -614,10 +607,7 @@ const CommissionPayout: React.FC = () => {
                 icon={<DollarOutlined />}
                 onClick={handleManualPayout}
                 loading={payoutLoading}
-                disabled={selectedCommissions.length === 0 || selectedCommissions.filter(id => {
-                  const comm = pendingCommissions.find(c => c.id === id);
-                  return comm?.user?.walletAddress;
-                }).length === 0}
+                disabled={selectedCommissions.length === 0}
               >
                 Payout Selected
               </Button>
@@ -650,7 +640,7 @@ const CommissionPayout: React.FC = () => {
                 selectedRowKeys: selectedCommissions,
                 onChange: (keys) => setSelectedCommissions(keys as string[]),
                 getCheckboxProps: (record: PendingCommission) => ({
-                  disabled: !record.user?.walletAddress || record.status !== 'PENDING',
+                  disabled: record.status !== 'PENDING',
                 }),
               }}
               columns={pendingColumns}

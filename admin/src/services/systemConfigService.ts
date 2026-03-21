@@ -2,6 +2,8 @@ import api from './api';
 
 export interface SystemConfig {
     minPayoutThreshold: number;
+    commissionDepositWalletPercent: number;
+    commissionWithdrawWalletPercent: number;
 }
 
 export const systemConfigService = {

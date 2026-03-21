@@ -44,6 +44,8 @@ import { PackagePurchase } from './packages/entities/package-purchase.entity';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { Kyc } from './kyc/entities/kyc.entity';
 import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.entity';
+import { WalletWithdrawRequest } from './wallet/entities/wallet-withdraw-request.entity';
+import { UserBankAccount } from './wallet/entities/user-bank-account.entity';
 
 @Module({
   imports: [
@@ -95,6 +97,8 @@ import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.e
           PackagePurchase,
           Kyc,
           WalletDepositRequest,
+          WalletWithdrawRequest,
+          UserBankAccount,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
