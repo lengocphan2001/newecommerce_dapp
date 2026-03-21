@@ -31,6 +31,8 @@ import { Package } from '../src/packages/entities/package.entity';
 import { PackagePurchase } from '../src/packages/entities/package-purchase.entity';
 import { Kyc } from '../src/kyc/entities/kyc.entity';
 import { WalletDepositRequest } from '../src/wallet/entities/wallet-deposit-request.entity';
+import { WalletWithdrawRequest } from '../src/wallet/entities/wallet-withdraw-request.entity';
+import { UserBankAccount } from '../src/wallet/entities/user-bank-account.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -62,7 +64,30 @@ async function initializeDatabase() {
 
   const dataSource = new DataSource({
     ...dbConfig,
-    entities: [User, Address, Category, Slider, Product, Order, Commission, AuditLog, MilestoneRewardConfig, UserMilestone, BankingConfig, SystemConfig, Staff, StaffSession, Role, Permission, Package, PackagePurchase, Kyc, WalletDepositRequest],
+    entities: [
+      User,
+      Address,
+      Category,
+      Slider,
+      Product,
+      Order,
+      Commission,
+      AuditLog,
+      MilestoneRewardConfig,
+      UserMilestone,
+      BankingConfig,
+      SystemConfig,
+      Staff,
+      StaffSession,
+      Role,
+      Permission,
+      Package,
+      PackagePurchase,
+      Kyc,
+      WalletDepositRequest,
+      WalletWithdrawRequest,
+      UserBankAccount,
+    ],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
   });
@@ -104,6 +129,23 @@ async function initializeDatabase() {
       bankingConfig.usdtQrImageUrl = bankingConfig.usdtQrImageUrl ?? '';
       await bankingRepo.save(bankingConfig);
       console.log('Backfilled banking_config with latest fields.');
+    }
+
+    // Ensure default system config rows exist for payout + commission distribution.
+    const systemConfigRepo = dataSource.getRepository(SystemConfig);
+    const defaults: Array<{ key: string; value: string }> = [
+      { key: 'minPayoutThreshold', value: '50' },
+      { key: 'commissionDepositWalletPercent', value: '10' },
+      { key: 'commissionWithdrawWalletPercent', value: '80' },
+    ];
+    for (const item of defaults) {
+      const existed = await systemConfigRepo.findOne({ where: { key: item.key } });
+      if (!existed) {
+        await systemConfigRepo.save(
+          systemConfigRepo.create({ key: item.key, value: item.value }),
+        );
+        console.log(`Initialized system_config ${item.key}=${item.value}`);
+      }
     }
 
     await dataSource.destroy();
