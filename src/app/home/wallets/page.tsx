@@ -62,6 +62,7 @@ export default function WalletsPage() {
     qrImageUrl?: string;
     isEnabled?: boolean;
     usdtPriceVnd?: number | null;
+    usdtWithdrawPriceVnd?: number | null;
   } | null>(null);
   const [copiedDeposit, setCopiedDeposit] = useState<string | null>(null);
 
@@ -361,18 +362,20 @@ export default function WalletsPage() {
     }).format(num);
   };
 
-  const usdtRateVnd =
-    bankingConfig?.usdtPriceVnd != null && Number(bankingConfig.usdtPriceVnd) > 0
-      ? Number(bankingConfig.usdtPriceVnd)
+  /** Tỷ giá chỉ cho modal rút ví — tách với tỷ giá nạp/checkout (`usdtPriceVnd`). */
+  const usdtWithdrawRateVnd =
+    bankingConfig?.usdtWithdrawPriceVnd != null &&
+    Number(bankingConfig.usdtWithdrawPriceVnd) > 0
+      ? Number(bankingConfig.usdtWithdrawPriceVnd)
       : 0;
   const withdrawAmountUsdt = parseUsdtAmount(withdrawForm.amount);
   const withdrawApproxVnd =
-    usdtRateVnd > 0 && withdrawAmountUsdt > 0
-      ? Math.round(withdrawAmountUsdt * usdtRateVnd)
+    usdtWithdrawRateVnd > 0 && withdrawAmountUsdt > 0
+      ? Math.round(withdrawAmountUsdt * usdtWithdrawRateVnd)
       : null;
   const balanceApproxVnd =
-    usdtRateVnd > 0 && withdrawWalletBalance > 0
-      ? Math.round(withdrawWalletBalance * usdtRateVnd)
+    usdtWithdrawRateVnd > 0 && withdrawWalletBalance > 0
+      ? Math.round(withdrawWalletBalance * usdtWithdrawRateVnd)
       : null;
 
   const copyAddress = async (e?: React.MouseEvent) => {
@@ -854,6 +857,7 @@ export default function WalletsPage() {
                       </span>
                     )}
                   </p>
+                  
                   {withdrawApproxVnd != null && (
                     <p className="text-xs text-emerald-700 mt-1">
                       Số nhập tương đương khoảng {withdrawApproxVnd.toLocaleString("vi-VN")} ₫

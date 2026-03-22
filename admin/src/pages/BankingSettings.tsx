@@ -71,6 +71,7 @@ const BankingSettings: React.FC = () => {
                 bankId: config.bankId || '',
                 isEnabled: config.isEnabled ?? true,
                 usdtPriceVnd: config.usdtPriceVnd ?? undefined,
+                usdtWithdrawPriceVnd: config.usdtWithdrawPriceVnd ?? undefined,
                 usdtEnabled: config.usdtEnabled ?? false,
                 usdtWalletAddress: config.usdtWalletAddress || '',
                 usdtNetwork: config.usdtNetwork || 'TRC20',
@@ -128,6 +129,10 @@ const BankingSettings: React.FC = () => {
                 qrImageUrl: qrPreview,
                 usdtQrImageUrl: usdtQrPreview,
                 usdtPriceVnd: values.usdtPriceVnd != null && values.usdtPriceVnd !== '' ? Number(values.usdtPriceVnd) : null,
+                usdtWithdrawPriceVnd:
+                    values.usdtWithdrawPriceVnd != null && values.usdtWithdrawPriceVnd !== ''
+                        ? Number(values.usdtWithdrawPriceVnd)
+                        : null,
             });
             message.success('Banking config saved successfully');
         } catch (error) {
@@ -247,15 +252,29 @@ const BankingSettings: React.FC = () => {
 
                     <Form.Item
                         name="usdtPriceVnd"
-                        label="USDT Price (VND)"
-                        tooltip="When set, checkout will use this rate for bank transfer (1 USDT = X VND) instead of fetching from CoinGecko. Leave empty to use live rate."
+                        label="Tỷ giá USDT (VND) — nạp / thanh toán chuyển khoản"
+                        tooltip="1 USDT = X VND. Dùng cho checkout CK và quy đổi khi duyệt nạp tiền. Để trống = lấy giá live (CoinGecko) nếu app hỗ trợ."
                     >
                         <InputNumber
                             style={{ width: 200 }}
                             min={0}
                             step={100}
-                            placeholder="e.g. 25000 (leave empty = use CoinGecko)"
-                            addonAfter="VNĐ"
+                            placeholder="VD: 25000"
+                            addonAfter="VNĐ / USDT"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="usdtWithdrawPriceVnd"
+                        label="Tỷ giá USDT (VND) — rút ví (chỉ hiển thị)"
+                        tooltip="Tách biệt với tỷ giá nạp/checkout. Dùng để hiển thị quy đổi VND trong modal rút tiền ví. Để trống = không hiện ước tính VND khi rút."
+                    >
+                        <InputNumber
+                            style={{ width: 200 }}
+                            min={0}
+                            step={100}
+                            placeholder="VD: 24800 (khác tỷ giá nạp nếu cần)"
+                            addonAfter="VNĐ / USDT"
                         />
                     </Form.Item>
 

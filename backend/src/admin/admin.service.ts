@@ -592,6 +592,7 @@ export class AdminService {
         accountName: '',
         isEnabled: false,
         usdtPriceVnd: null,
+        usdtWithdrawPriceVnd: null,
         usdtEnabled: false,
         usdtWalletAddress: '',
         usdtNetwork: 'TRC20',

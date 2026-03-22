@@ -348,6 +348,8 @@ export const api = {
     qrImageUrl?: string;
     isEnabled: boolean;
     usdtPriceVnd?: number | null;
+    /** USDT→VND for withdraw UI only (admin Banking Settings). */
+    usdtWithdrawPriceVnd?: number | null;
     usdtEnabled?: boolean;
     usdtWalletAddress?: string;
     usdtNetwork?: string;

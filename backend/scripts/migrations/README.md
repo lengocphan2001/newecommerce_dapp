@@ -17,3 +17,11 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-system
 Or connect to MySQL and run the contents of `create-system-config-table.sql` manually.
 
 Replace `YOUR_DB_USER` and `YOUR_DB_NAME` with your actual MySQL user and database name (e.g. `ecommerce_dapp`).
+
+## Add `usdtWithdrawPriceVnd` on `banking_config`
+
+Withdraw-wallet VND estimate uses a **separate** rate from deposit/checkout (`usdtPriceVnd`). If `synchronize` is off and the column is missing:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-usdt-withdraw-price-vnd.sql
+```

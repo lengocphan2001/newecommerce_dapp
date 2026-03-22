@@ -45,6 +45,23 @@ export class BankingConfig {
   })
   usdtPriceVnd?: number | null;
 
+  /**
+   * USDT→VND rate for withdraw UI / reference only (separate from `usdtPriceVnd` used for deposit & checkout).
+   */
+  @Column({
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+    default: null,
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) =>
+        v != null && v !== '' ? parseFloat(v) : null,
+    },
+  })
+  usdtWithdrawPriceVnd?: number | null;
+
   /** Enable USDT transfer payment tab on checkout. */
   @Column({ default: false })
   usdtEnabled: boolean;

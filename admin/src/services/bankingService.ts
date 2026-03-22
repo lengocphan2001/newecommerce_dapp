@@ -9,8 +9,10 @@ export interface BankingConfig {
     bankId?: string;
     qrImageUrl?: string;
     isEnabled: boolean;
-    /** Admin-set USDT price in VND. When set, checkout uses this for banking instead of CoinGecko. */
+    /** Admin-set USDT price in VND. When set, checkout / deposit conversion uses this instead of CoinGecko. */
     usdtPriceVnd?: number | null;
+    /** USDT→VND for withdraw-wallet UI only (not used for checkout or deposit). */
+    usdtWithdrawPriceVnd?: number | null;
     usdtEnabled?: boolean;
     usdtWalletAddress?: string;
     usdtNetwork?: string;

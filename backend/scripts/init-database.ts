@@ -169,6 +169,7 @@ async function initializeDatabase() {
         qrImageUrl: '',
         isEnabled: false,
         usdtPriceVnd: null,
+        usdtWithdrawPriceVnd: null,
         usdtEnabled: false,
         usdtWalletAddress: '',
         usdtNetwork: 'TRC20',
