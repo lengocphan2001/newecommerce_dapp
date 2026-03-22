@@ -117,6 +117,10 @@ JWT_SECRET=your_super_secret_jwt_key_change_this
 # CORS – domain của bạn
 CORS_ORIGINS=https://shopiibiztest.top,https://www.shopiibiztest.top,https://shopiibiztest.top/admin
 
+# CHỈ local/dev: tắt toàn bộ express rate limit trên API (auth, wallet, uploads, export CSV…)
+# Production không set hoặc để false
+# DISABLE_RATE_LIMIT=true
+
 # (Tùy chọn) Redis nếu dùng queue/cache
 # REDIS_HOST=localhost
 # REDIS_PORT=6379
@@ -136,6 +140,8 @@ Nếu DB production **không** dùng synchronize, thêm cột OTP (một lần):
 
 - **PostgreSQL:** `ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpCode" varchar NULL; ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpExpiresAt" TIMESTAMP NULL;`
 - **MySQL:** `ALTER TABLE users ADD COLUMN loginOtpCode VARCHAR(255) NULL, ADD COLUMN loginOtpExpiresAt DATETIME(6) NULL;` (bỏ qua nếu cột đã tồn tại).
+
+**Matrix reward pool (cây nhị phân theo level, tách affiliate):** Bảng `matrix_reward_trees`, `matrix_reward_nodes`, `matrix_reward_ledger`, `matrix_tree_exclusions`, `matrix_reward_order_processed`. Chạy `npm run db:init` (synchronize) hoặc migration tương đương. Cấu hình trong `system_config`: `matrixRewardMinOrderUsd`, `matrixRewardPerSlotUsd`, `matrixRewardMaxEarnPerTreeUsd`, `matrixRewardMaxUplines` (init-database seed mặc định). Admin: menu **Matrix pool** (`/matrix-pool`). User app: `/home/matrix-pool` (link từ Affiliate).
 
 ### 3.2 Cài đặt, build và chạy
 

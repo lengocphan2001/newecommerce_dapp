@@ -216,6 +216,15 @@ export default function AffiliatePage() {
     ).length;
   }, [referralInfo]);
 
+  /** Hoạt động gần đây: chỉ hoa hồng Direct (type direct), không hiển thị group/management/product… */
+  const directRecentActivity = useMemo(() => {
+    const list = referralInfo?.recentActivity;
+    if (!list?.length) return [];
+    return list.filter(
+      (a) => String(a.type || "").toLowerCase() === "direct",
+    );
+  }, [referralInfo?.recentActivity]);
+
   if (loading) {
     return (
       <div className="flex flex-col bg-background-gray">
@@ -333,6 +342,22 @@ export default function AffiliatePage() {
                 </p>
               </div>
             </div>
+
+            <Link
+              href="/home/matrix-pool"
+              className="flex items-center justify-between gap-3 p-4 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 shadow-sm active:scale-[0.99] transition"
+            >
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-violet-600 text-2xl">account_tree</span>
+                <div>
+                  <p className="font-bold text-violet-900 text-sm">Matrix pool</p>
+                  <p className="text-xs text-violet-700/90">
+                    Thưởng cây nhị phân theo đơn — tách biệt cây giới thiệu
+                  </p>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-violet-500">chevron_right</span>
+            </Link>
           </div>
 
           {/* Pending Payout Progress Widget */}
@@ -670,9 +695,8 @@ export default function AffiliatePage() {
             </div>
 
             <div className="space-y-3">
-              {referralInfo.recentActivity &&
-                referralInfo.recentActivity.length > 0 ? (
-                referralInfo.recentActivity.map((activity) => {
+              {directRecentActivity.length > 0 ? (
+                directRecentActivity.map((activity) => {
                   const getActivityIcon = (type: string) => {
                     switch (type) {
                       case "DIRECT":

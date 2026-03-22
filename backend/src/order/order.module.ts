@@ -9,12 +9,14 @@ import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AdminModule } from '../admin/admin.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PackagesModule } from '../packages/packages.module';
+import { MatrixRewardModule } from '../matrix-reward/matrix-reward.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, Product, User]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => AdminModule),
+    forwardRef(() => MatrixRewardModule),
     NotificationsModule,
     PackagesModule,
   ],

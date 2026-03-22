@@ -46,6 +46,12 @@ import { Kyc } from './kyc/entities/kyc.entity';
 import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.entity';
 import { WalletWithdrawRequest } from './wallet/entities/wallet-withdraw-request.entity';
 import { UserBankAccount } from './wallet/entities/user-bank-account.entity';
+import { MatrixRewardTree } from './matrix-reward/entities/matrix-reward-tree.entity';
+import { MatrixRewardNode } from './matrix-reward/entities/matrix-reward-node.entity';
+import { MatrixRewardLedger } from './matrix-reward/entities/matrix-reward-ledger.entity';
+import { MatrixTreeExclusion } from './matrix-reward/entities/matrix-tree-exclusion.entity';
+import { MatrixRewardOrderProcessed } from './matrix-reward/entities/matrix-reward-order-processed.entity';
+import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
 
 @Module({
   imports: [
@@ -99,6 +105,11 @@ import { UserBankAccount } from './wallet/entities/user-bank-account.entity';
           WalletDepositRequest,
           WalletWithdrawRequest,
           UserBankAccount,
+          MatrixRewardTree,
+          MatrixRewardNode,
+          MatrixRewardLedger,
+          MatrixTreeExclusion,
+          MatrixRewardOrderProcessed,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
@@ -126,6 +137,7 @@ import { UserBankAccount } from './wallet/entities/user-bank-account.entity';
     NotificationsModule,
     PackagesModule,
     AnalyticsModule,
+    MatrixRewardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

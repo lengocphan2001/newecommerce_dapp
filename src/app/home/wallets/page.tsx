@@ -81,15 +81,41 @@ export default function WalletsPage() {
     return amount.toLocaleString("vi-VN");
   };
 
+  /** Số tiền rút ví — USDT (khớp withdrawWalletBalance & API). */
+  const parseUsdtAmount = (value: string): number => {
+    const cleaned = (value || "").replace(/,/g, "").trim();
+    if (!cleaned) return 0;
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const sanitizeUsdtInput = (raw: string): string => {
+    let v = raw.replace(/,/g, "").replace(/[^\d.]/g, "");
+    const dot = v.indexOf(".");
+    if (dot !== -1) {
+      const intp = v.slice(0, dot + 1);
+      let dec = v.slice(dot + 1).replace(/\./g, "");
+      dec = dec.slice(0, 8);
+      v = intp + dec;
+    }
+    return v;
+  };
+
+  const usdtToMaxInputString = (n: number): string => {
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const s = n.toFixed(8).replace(/\.?0+$/, "");
+    return s || "0";
+  };
+
   useEffect(() => {
     fetchWalletData();
     fetchOrders();
   }, []);
 
   useEffect(() => {
-    if (!showDepositModal) return;
+    if (!showDepositModal && !showWithdrawModal) return;
     api.getBankingConfig().then((c) => setBankingConfig(c)).catch(() => setBankingConfig(null));
-  }, [showDepositModal]);
+  }, [showDepositModal, showWithdrawModal]);
 
   const copyDeposit = async (text: string, field: string) => {
     if (!text) return;
@@ -208,12 +234,12 @@ export default function WalletsPage() {
 
   const handleSubmitWithdraw = async () => {
     setWithdrawError("");
-    const amount = parseVndAmount(withdrawForm.amount || "");
+    const amount = parseUsdtAmount(withdrawForm.amount || "");
     if (!amount || amount <= 0) {
-      setWithdrawError("Nhập số tiền rút hợp lệ");
+      setWithdrawError("Nhập số USDT rút hợp lệ");
       return;
     }
-    if (amount > withdrawWalletBalance) {
+    if (amount > withdrawWalletBalance + 1e-10) {
       setWithdrawError("Số dư ví rút không đủ");
       return;
     }
@@ -334,6 +360,20 @@ export default function WalletsPage() {
       maximumFractionDigits: 4,
     }).format(num);
   };
+
+  const usdtRateVnd =
+    bankingConfig?.usdtPriceVnd != null && Number(bankingConfig.usdtPriceVnd) > 0
+      ? Number(bankingConfig.usdtPriceVnd)
+      : 0;
+  const withdrawAmountUsdt = parseUsdtAmount(withdrawForm.amount);
+  const withdrawApproxVnd =
+    usdtRateVnd > 0 && withdrawAmountUsdt > 0
+      ? Math.round(withdrawAmountUsdt * usdtRateVnd)
+      : null;
+  const balanceApproxVnd =
+    usdtRateVnd > 0 && withdrawWalletBalance > 0
+      ? Math.round(withdrawWalletBalance * usdtRateVnd)
+      : null;
 
   const copyAddress = async (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -775,21 +815,50 @@ export default function WalletsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền rút (VND)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={withdrawForm.amount}
-                    onChange={(e) =>
-                      setWithdrawForm((f) => ({
-                        ...f,
-                        amount: formatVndInput(e.target.value),
-                      }))
-                    }
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5"
-                    placeholder="VD: 100.000"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Số dư khả dụng: {Number(withdrawWalletBalance || 0).toLocaleString("vi-VN")} VND</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền rút (USDT)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={withdrawForm.amount}
+                      onChange={(e) =>
+                        setWithdrawForm((f) => ({
+                          ...f,
+                          amount: sanitizeUsdtInput(e.target.value),
+                        }))
+                      }
+                      className="flex-1 min-w-0 rounded-xl border border-gray-300 px-4 py-2.5 font-mono"
+                      placeholder="VD: 10.5"
+                    />
+                    <button
+                      type="button"
+                      disabled={withdrawSubmitting || withdrawWalletBalance <= 0}
+                      onClick={() =>
+                        setWithdrawForm((f) => ({
+                          ...f,
+                          amount: usdtToMaxInputString(withdrawWalletBalance),
+                        }))
+                      }
+                      className="shrink-0 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary-dark disabled:opacity-50"
+                    >
+                      Max
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Số dư khả dụng:{" "}
+                    <span className="font-mono text-gray-700">${formatUSDT(withdrawWalletBalance)}</span> USDT
+                    {balanceApproxVnd != null && (
+                      <span className="text-gray-600">
+                        {" "}
+                        (≈ {balanceApproxVnd.toLocaleString("vi-VN")} ₫)
+                      </span>
+                    )}
+                  </p>
+                  {withdrawApproxVnd != null && (
+                    <p className="text-xs text-emerald-700 mt-1">
+                      Số nhập tương đương khoảng {withdrawApproxVnd.toLocaleString("vi-VN")} ₫
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Phương thức rút</label>

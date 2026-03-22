@@ -162,6 +162,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: 'tree.view',
     },
     {
+      key: '/matrix-pool',
+      icon: <TeamOutlined />,
+      label: 'Matrix pool',
+      permission: null,
+    },
+    {
       key: '/staffs',
       icon: <UsergroupAddOutlined />,
       label: 'Staff',

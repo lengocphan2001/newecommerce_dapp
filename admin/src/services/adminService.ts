@@ -26,5 +26,17 @@ export const adminService = {
   getOrderChart: (days?: number) => api.get('/analytics/order-chart', { params: { days } }),
   getUserGrowth: (days?: number) => api.get('/analytics/user-growth', { params: { days } }),
   getTopProducts: (limit?: number) => api.get('/analytics/top-products', { params: { limit } }),
+
+  // Matrix reward pool (binary trees by level)
+  getMatrixRewardConfig: () => api.get('/admin/matrix-reward/config'),
+  updateMatrixRewardConfig: (data: {
+    minOrderUsd?: number;
+    perSlotUsd?: number;
+    maxEarnPerTreeUsd?: number;
+    maxUplines?: number;
+  }) => api.put('/admin/matrix-reward/config', data),
+  getMatrixRewardLevels: () => api.get('/admin/matrix-reward/trees/levels'),
+  getMatrixRewardTreeView: (level: number) =>
+    api.get(`/admin/matrix-reward/trees/${level}/view`),
 };
 

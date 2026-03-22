@@ -235,6 +235,34 @@ export const api = {
     return data;
   },
 
+  /** Matrix reward pool — cấu hình công khai (cần đăng nhập). */
+  async getMatrixRewardConfig() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/matrix-reward/config`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to load matrix config');
+    }
+    return response.json();
+  },
+
+  /** Vị trí của user trên các cây matrix + tổng nhận theo từng cây. */
+  async getMatrixRewardMe() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/matrix-reward/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to load matrix positions');
+    }
+    return response.json();
+  },
+
   async checkReconsumption() {
     const token = localStorage.getItem('token');
     if (!token) {

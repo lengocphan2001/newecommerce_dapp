@@ -3,6 +3,7 @@
  *
  * Bao gồm toàn bộ entity giống `app.module.ts`, trong đó bảng `users` có thêm:
  * - `loginOtpCode`, `loginOtpExpiresAt` — OTP email đăng nhập Web2 (username/password).
+ * - Matrix reward pool: `matrix_reward_*`, `matrix_tree_exclusions`, `matrix_reward_order_processed`.
  *
  * Usage:
  *   npm run db:init
@@ -35,6 +36,11 @@ import { Kyc } from '../src/kyc/entities/kyc.entity';
 import { WalletDepositRequest } from '../src/wallet/entities/wallet-deposit-request.entity';
 import { WalletWithdrawRequest } from '../src/wallet/entities/wallet-withdraw-request.entity';
 import { UserBankAccount } from '../src/wallet/entities/user-bank-account.entity';
+import { MatrixRewardTree } from '../src/matrix-reward/entities/matrix-reward-tree.entity';
+import { MatrixRewardNode } from '../src/matrix-reward/entities/matrix-reward-node.entity';
+import { MatrixRewardLedger } from '../src/matrix-reward/entities/matrix-reward-ledger.entity';
+import { MatrixTreeExclusion } from '../src/matrix-reward/entities/matrix-tree-exclusion.entity';
+import { MatrixRewardOrderProcessed } from '../src/matrix-reward/entities/matrix-reward-order-processed.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -126,6 +132,11 @@ async function initializeDatabase() {
       WalletDepositRequest,
       WalletWithdrawRequest,
       UserBankAccount,
+      MatrixRewardTree,
+      MatrixRewardNode,
+      MatrixRewardLedger,
+      MatrixTreeExclusion,
+      MatrixRewardOrderProcessed,
     ],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
@@ -181,6 +192,10 @@ async function initializeDatabase() {
       { key: 'minPayoutThreshold', value: '50' },
       { key: 'commissionDepositWalletPercent', value: '10' },
       { key: 'commissionWithdrawWalletPercent', value: '80' },
+      { key: 'matrixRewardMinOrderUsd', value: '100' },
+      { key: 'matrixRewardPerSlotUsd', value: '0.5' },
+      { key: 'matrixRewardMaxEarnPerTreeUsd', value: '1500' },
+      { key: 'matrixRewardMaxUplines', value: '11' },
     ];
     for (const item of defaults) {
       const existed = await systemConfigRepo.findOne({ where: { key: item.key } });

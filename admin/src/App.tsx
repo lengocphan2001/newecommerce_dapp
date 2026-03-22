@@ -20,6 +20,7 @@ import Analytics from './pages/Analytics';
 import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
 import TreeView from './pages/TreeView';
+import MatrixPool from './pages/MatrixPool';
 import Staffs from './pages/Staffs';
 import Roles from './pages/Roles';
 import Login from './pages/Login';
@@ -221,6 +222,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <TreeView />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/matrix-pool"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <MatrixPool />
                   </AdminLayout>
                 </PrivateRoute>
               }

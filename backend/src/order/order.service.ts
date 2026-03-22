@@ -16,6 +16,7 @@ import { CommissionPayoutService } from '../affiliate/commission-payout.service'
 import { PackagesService } from '../packages/packages.service';
 import { GoogleSheetsService } from '../common/google-sheets.service';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
+import { MatrixRewardService } from '../matrix-reward/matrix-reward.service';
 
 @Injectable()
 export class OrderService {
@@ -33,6 +34,8 @@ export class OrderService {
     private packagesService: PackagesService,
     private googleSheetsService: GoogleSheetsService,
     private milestoneRewardService: MilestoneRewardService,
+    @Inject(forwardRef(() => MatrixRewardService))
+    private matrixRewardService: MatrixRewardService,
   ) {}
 
   async findAll(query: any) {
@@ -348,6 +351,13 @@ export class OrderService {
           err,
         );
       });
+
+    // 5. Matrix reward pool (binary trees per level) — đơn ≥ config USDT
+    this.matrixRewardService
+      .processOrderIfEligible(order.id)
+      .catch((err) =>
+        console.error(`[MATRIX] Error processing order ${order.id}:`, err),
+      );
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto) {
