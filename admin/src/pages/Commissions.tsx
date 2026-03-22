@@ -18,6 +18,7 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   SearchOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { commissionService, Commission } from '../services/commissionService';
 
@@ -102,6 +103,124 @@ const CommissionsPage: React.FC = () => {
     if (value == null || value === '') return '-';
     const d = value instanceof Date ? value : new Date(value as string | number);
     return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+  };
+
+  const escapeCsvCell = (val: string | number | Date | null | undefined): string => {
+    if (val === null || val === undefined) return '';
+    const s =
+      val instanceof Date
+        ? isNaN(val.getTime())
+          ? ''
+          : val.toISOString()
+        : String(val);
+    if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const getTypeLabelForCsv = (record: Commission): string => {
+    const { type, notes } = record;
+    if (type === 'product' && notes) {
+      if (notes.startsWith('Product direct')) return 'Product (Direct)';
+      if (notes.startsWith('Product group')) return 'Product (Group)';
+    }
+    if (type === 'management') {
+      if (notes?.includes('From product group')) return 'Management (Product)';
+      return 'Management (Package)';
+    }
+    const map: Record<string, string> = {
+      direct: 'Direct',
+      group: 'Group',
+      management: 'Management',
+      product: 'Product',
+      milestone: 'Milestone',
+    };
+    return map[type] || type;
+  };
+
+  const handleExportCsv = () => {
+    if (filteredCommissions.length === 0) {
+      message.warning('No commissions to export');
+      return;
+    }
+
+    const headers = [
+      'ID',
+      'Recipient User ID',
+      'Recipient Name',
+      'Recipient Email',
+      'Recipient Username',
+      'Buyer User ID',
+      'Buyer Name',
+      'Buyer Username',
+      'Buyer Email',
+      'Type',
+      'Status',
+      'Amount',
+      'Order Amount',
+      'Order ID',
+      'Level',
+      'Side',
+      'Notes',
+      'Created At',
+      'Payout Tx Hash',
+      'Payout Date',
+    ];
+
+    const rows = filteredCommissions.map((c) => {
+      const created =
+        c.createdAt != null && c.createdAt !== ''
+          ? new Date(c.createdAt as string | number)
+          : null;
+      const payoutDate =
+        c.payoutDate != null && c.payoutDate !== ''
+          ? new Date(c.payoutDate as string | number)
+          : null;
+
+      return [
+        escapeCsvCell(c.id),
+        escapeCsvCell(c.userId),
+        escapeCsvCell(c.user?.fullName),
+        escapeCsvCell(c.user?.email),
+        escapeCsvCell(c.user?.username),
+        escapeCsvCell(c.fromUserId),
+        escapeCsvCell(c.fromUser?.fullName),
+        escapeCsvCell(c.fromUser?.username),
+        escapeCsvCell(c.fromUser?.email),
+        escapeCsvCell(getTypeLabelForCsv(c)),
+        escapeCsvCell(c.status),
+        escapeCsvCell(
+          c.amount === null || c.amount === undefined ? '' : Number(c.amount as string | number),
+        ),
+        escapeCsvCell(
+          c.orderAmount === null || c.orderAmount === undefined
+            ? ''
+            : Number(c.orderAmount as string | number),
+        ),
+        escapeCsvCell(c.orderId),
+        escapeCsvCell(c.level ?? ''),
+        escapeCsvCell(c.side ?? ''),
+        escapeCsvCell(c.notes),
+        escapeCsvCell(created && !isNaN(created.getTime()) ? created.toISOString() : ''),
+        escapeCsvCell(c.payoutTxHash),
+        escapeCsvCell(payoutDate && !isNaN(payoutDate.getTime()) ? payoutDate.toISOString() : ''),
+      ].join(',');
+    });
+
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    link.setAttribute('download', `commissions-${stamp}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    message.success(`Exported ${filteredCommissions.length} row(s)`);
   };
 
   const formatPrice = (amount: number | string) => {
@@ -393,6 +512,9 @@ const CommissionsPage: React.FC = () => {
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2}>Commissions Management</Title>
         <Space>
+          <Button icon={<DownloadOutlined />} onClick={handleExportCsv}>
+            Export CSV
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={fetchCommissions}>
             Refresh
           </Button>

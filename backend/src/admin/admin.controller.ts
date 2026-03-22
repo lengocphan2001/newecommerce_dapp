@@ -139,6 +139,26 @@ export class AdminController {
     return this.adminService.updateSystemConfig(dto);
   }
 
+  /** Admin-only — factory JSON template for demo analytics (editor reset) */
+  @Get('fake-analytics/default')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getFakeAnalyticsDashboardDefault() {
+    return this.adminService.getDefaultFakeAnalyticsDashboard();
+  }
+
+  /** Admin-only — demo analytics dashboard (configurable fake data, same UI as /analytics) */
+  @Get('fake-analytics')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getFakeAnalyticsDashboard() {
+    return this.adminService.getFakeAnalyticsDashboard();
+  }
+
+  @Put('fake-analytics')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateFakeAnalyticsDashboard(@Body() body: any) {
+    return this.adminService.updateFakeAnalyticsDashboard(body);
+  }
+
   /** Admin-only — get runtime env config (sensitive values masked) */
   @Get('runtime-env-config')
   @UseGuards(JwtAuthGuard, AdminGuard)

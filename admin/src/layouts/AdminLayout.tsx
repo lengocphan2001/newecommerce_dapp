@@ -22,6 +22,7 @@ import {
   GiftOutlined,
   RiseOutlined,
   BankOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,6 +52,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <RiseOutlined />,
       label: 'Analytics',
       permission: null, // Analytics is accessible to admins (or add permission if needed)
+    },
+    {
+      key: '/analytics-demo',
+      icon: <BarChartOutlined />,
+      label: 'Analytics',
+      permission: null,
     },
     {
       key: '/users',
