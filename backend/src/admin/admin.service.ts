@@ -16,6 +16,11 @@ import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
 import { SystemConfig } from './entities/system-config.entity';
+import { FakeAnalyticsDashboardPayload } from './dto/fake-analytics-dashboard.dto';
+import {
+  FAKE_ANALYTICS_DASHBOARD_KEY,
+  getDefaultFakeAnalyticsDashboardPayload,
+} from './fake-analytics-defaults';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
@@ -739,6 +744,112 @@ export class AdminService {
       await this.systemConfigRepository.save(row);
     }
     return this.getSystemConfig();
+  }
+
+  /** Factory template for demo analytics (not persisted until admin saves). */
+  getDefaultFakeAnalyticsDashboard(): FakeAnalyticsDashboardPayload {
+    return getDefaultFakeAnalyticsDashboardPayload();
+  }
+
+  private assertFakeAnalyticsPayload(o: any): FakeAnalyticsDashboardPayload {
+    if (!o || typeof o !== 'object') {
+      throw new BadRequestException('Body must be a JSON object');
+    }
+    const { overview, series, topProducts } = o;
+    if (!overview || typeof overview !== 'object') {
+      throw new BadRequestException('Missing overview');
+    }
+    for (const k of ['totalRevenue', 'totalOrders', 'totalUsers', 'totalProducts'] as const) {
+      if (typeof overview[k] !== 'number' || Number.isNaN(overview[k])) {
+        throw new BadRequestException(`overview.${k} must be a number`);
+      }
+    }
+    if (!series || typeof series !== 'object') {
+      throw new BadRequestException('Missing series');
+    }
+    const { revenue, orders, users } = series;
+    if (!Array.isArray(revenue) || !Array.isArray(orders) || !Array.isArray(users)) {
+      throw new BadRequestException('series.revenue, series.orders, series.users must be arrays');
+    }
+    for (const row of revenue) {
+      if (!row || typeof row.date !== 'string' || typeof row.revenue !== 'number' || Number.isNaN(row.revenue)) {
+        throw new BadRequestException('Each series.revenue item needs { date: string, revenue: number }');
+      }
+    }
+    for (const row of orders) {
+      if (!row || typeof row.date !== 'string' || typeof row.count !== 'number' || Number.isNaN(row.count)) {
+        throw new BadRequestException('Each series.orders item needs { date: string, count: number }');
+      }
+    }
+    for (const row of users) {
+      if (!row || typeof row.date !== 'string' || typeof row.count !== 'number' || Number.isNaN(row.count)) {
+        throw new BadRequestException('Each series.users item needs { date: string, count: number }');
+      }
+    }
+    if (!Array.isArray(topProducts)) {
+      throw new BadRequestException('topProducts must be an array');
+    }
+    for (const p of topProducts) {
+      if (
+        !p ||
+        typeof p.name !== 'string' ||
+        typeof p.quantity !== 'number' ||
+        typeof p.revenue !== 'number' ||
+        Number.isNaN(p.quantity) ||
+        Number.isNaN(p.revenue)
+      ) {
+        throw new BadRequestException(
+          'Each topProducts item needs { name: string, quantity: number, revenue: number }',
+        );
+      }
+    }
+    return o as FakeAnalyticsDashboardPayload;
+  }
+
+  /**
+   * Demo analytics for admin (stored in system_config). Returns defaults if unset.
+   */
+  async getFakeAnalyticsDashboard(): Promise<FakeAnalyticsDashboardPayload> {
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: FAKE_ANALYTICS_DASHBOARD_KEY },
+    });
+    if (!row?.value?.trim()) {
+      return this.getDefaultFakeAnalyticsDashboard();
+    }
+    try {
+      const parsed = JSON.parse(row.value);
+      return this.assertFakeAnalyticsPayload(parsed);
+    } catch (e) {
+      if (e instanceof BadRequestException) {
+        throw e;
+      }
+      throw new BadRequestException('Stored fake analytics JSON is invalid');
+    }
+  }
+
+  async updateFakeAnalyticsDashboard(body: unknown): Promise<FakeAnalyticsDashboardPayload> {
+    let payload: unknown = body;
+    if (typeof body === 'string') {
+      try {
+        payload = JSON.parse(body);
+      } catch {
+        throw new BadRequestException('Invalid JSON string');
+      }
+    }
+    const validated = this.assertFakeAnalyticsPayload(payload);
+    let row = await this.systemConfigRepository.findOne({
+      where: { key: FAKE_ANALYTICS_DASHBOARD_KEY },
+    });
+    if (!row) {
+      row = this.systemConfigRepository.create({
+        key: FAKE_ANALYTICS_DASHBOARD_KEY,
+        value: JSON.stringify(validated),
+      });
+    } else {
+      row.value = JSON.stringify(validated);
+    }
+    await this.systemConfigRepository.save(row);
+    return validated;
   }
 
   /**

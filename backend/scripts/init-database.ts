@@ -26,6 +26,10 @@ import { MilestoneRewardConfig } from '../src/admin/entities/milestone-reward-co
 import { UserMilestone } from '../src/admin/entities/user-milestone.entity';
 import { BankingConfig } from '../src/admin/entities/banking-config.entity';
 import { SystemConfig } from '../src/admin/entities/system-config.entity';
+import {
+  FAKE_ANALYTICS_DASHBOARD_KEY,
+  getDefaultFakeAnalyticsDashboardPayload,
+} from '../src/admin/fake-analytics-defaults';
 import { Staff } from '../src/staff/entities/staff.entity';
 import { StaffSession } from '../src/staff/entities/staff-session.entity';
 import { Role } from '../src/role/entities/role.entity';
@@ -206,6 +210,19 @@ async function initializeDatabase() {
         );
         console.log(`Initialized system_config ${item.key}=${item.value}`);
       }
+    }
+
+    const existingFake = await systemConfigRepo.findOne({
+      where: { key: FAKE_ANALYTICS_DASHBOARD_KEY },
+    });
+    if (!existingFake) {
+      await systemConfigRepo.save(
+        systemConfigRepo.create({
+          key: FAKE_ANALYTICS_DASHBOARD_KEY,
+          value: JSON.stringify(getDefaultFakeAnalyticsDashboardPayload()),
+        }),
+      );
+      console.log(`Initialized system_config ${FAKE_ANALYTICS_DASHBOARD_KEY} (demo analytics JSON)`);
     }
 
     await dataSource.destroy();

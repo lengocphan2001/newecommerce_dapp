@@ -16,6 +16,7 @@ import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
 import CommissionPayout from './pages/CommissionPayout';
 import Analytics from './pages/Analytics';
+import FakeAnalyticsDashboard from './pages/FakeAnalyticsDashboard';
 
 import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
@@ -191,6 +192,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <Analytics />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/analytics-demo"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <FakeAnalyticsDashboard />
                   </AdminLayout>
                 </PrivateRoute>
               }

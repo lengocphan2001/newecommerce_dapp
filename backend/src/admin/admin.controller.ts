@@ -180,6 +180,24 @@ export class AdminController {
     return this.adminService.updateSystemConfig(dto);
   }
 
+  @Get('fake-analytics/default')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getFakeAnalyticsDashboardDefault() {
+    return this.adminService.getDefaultFakeAnalyticsDashboard();
+  }
+
+  @Get('fake-analytics')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getFakeAnalyticsDashboard() {
+    return this.adminService.getFakeAnalyticsDashboard();
+  }
+
+  @Put('fake-analytics')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateFakeAnalyticsDashboard(@Body() body: any) {
+    return this.adminService.updateFakeAnalyticsDashboard(body);
+  }
+
   @Get('blockchain-config')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async getBlockchainConfig() {
