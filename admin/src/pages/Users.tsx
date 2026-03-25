@@ -20,6 +20,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
+import { packagesService, Package } from '../services/packagesService';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -38,6 +39,7 @@ const Users: React.FC = () => {
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
   const [f1PurchaseModalVisible, setF1PurchaseModalVisible] = useState(false);
   const [selectedF1ForPurchases, setSelectedF1ForPurchases] = useState<any>(null);
+  const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
 
   useEffect(() => {
     fetchUsers();
@@ -134,11 +136,21 @@ const Users: React.FC = () => {
   const handleViewDetail = async (userId: string) => {
     try {
       setDetailLoading(true);
-      const response = await adminService.getUserDetail(userId);
-      const data = response.data;
+      const [detailResp, packagesResp] = await Promise.all([
+        adminService.getUserDetail(userId),
+        packagesService.getAll(),
+      ]);
+      const data = detailResp.data;
       setUserDetail(data);
       const raw = data?.user?.fakeReceivedCommission;
       setFakeCommissionValue(typeof raw === 'number' ? raw : parseFloat(raw || '0') || 0);
+      const list = Array.isArray(packagesResp) ? packagesResp : [];
+      const map: Record<string, Package> = {};
+      for (const p of list) {
+        if (!p?.code) continue;
+        map[String(p.code).toUpperCase()] = p;
+      }
+      setPackagesByCode(map);
       setIsDetailModalVisible(true);
     } catch (error: any) {
       message.error('Failed to load user details: ' + (error.message || 'Unknown error'));
@@ -165,6 +177,15 @@ const Users: React.FC = () => {
     const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
     if (!isFinite(num)) return '0.00';
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
+  };
+
+  const calcEffectiveMaxCommission = (totalPurchaseAmount: any, pkg?: Package | null): number | null => {
+    if (!pkg) return null;
+    const total = typeof totalPurchaseAmount === 'string' ? parseFloat(totalPurchaseAmount) : Number(totalPurchaseAmount);
+    const maxThreshold = Number((pkg as any).reconsumptionThreshold ?? 0);
+    const required = Number((pkg as any).price ?? 0);
+    if (!isFinite(total) || !isFinite(maxThreshold) || !isFinite(required) || required <= 0) return null;
+    return total * (maxThreshold / required);
   };
 
   const getCommissionStatusColor = (status: string) => {
@@ -385,10 +406,20 @@ const Users: React.FC = () => {
               <Title level={5}>Financial Information</Title>
               <Descriptions bordered column={2}>
                 <Descriptions.Item label="Total Purchase Amount">
-                  ${userDetail.user.totalPurchaseAmount} USDT
+                  ${formatUSDT(userDetail.user.totalPurchaseAmount)} USDT
                 </Descriptions.Item>
                 <Descriptions.Item label="Total Commission Received">
-                  ${userDetail.user.totalCommissionReceived} USDT
+                  ${formatUSDT(userDetail.user.totalCommissionReceived)} USDT
+                </Descriptions.Item>
+                <Descriptions.Item label="Max Commission Allowed (Effective Threshold)">
+                  {(() => {
+                    const code = String(userDetail.user.packageType || '').toUpperCase();
+                    const pkg = packagesByCode[code];
+                    const max = calcEffectiveMaxCommission(userDetail.user.totalPurchaseAmount, pkg);
+                    if (!pkg || !code || code === 'NONE') return 'N/A';
+                    if (max == null) return 'N/A';
+                    return `$${formatUSDT(max)} USDT`;
+                  })()}
                 </Descriptions.Item>
                 <Descriptions.Item label="Fake Received Commission (admin)">
                   <Space>
