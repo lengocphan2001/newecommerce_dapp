@@ -21,6 +21,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
+import { packagesService, Package } from '../services/packagesService';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -38,6 +39,7 @@ const Users: React.FC = () => {
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
+  const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
 
   useEffect(() => {
     fetchUsers();
@@ -166,11 +168,20 @@ const Users: React.FC = () => {
   const handleViewDetail = async (userId: string) => {
     try {
       setDetailLoading(true);
-      const response = await adminService.getUserDetail(userId);
+      const [response, packages] = await Promise.all([
+        adminService.getUserDetail(userId),
+        packagesService.getAll(),
+      ]);
       const data = response.data;
       setUserDetail(data);
       const raw = data?.user?.fakeReceivedCommission;
       setFakeCommissionValue(typeof raw === 'number' ? raw : parseFloat(raw || '0') || 0);
+      const map: Record<string, Package> = {};
+      for (const p of Array.isArray(packages) ? packages : []) {
+        if (!p?.code) continue;
+        map[String(p.code).toUpperCase()] = p;
+      }
+      setPackagesByCode(map);
       setIsDetailModalVisible(true);
     } catch (error: any) {
       message.error('Failed to load user details: ' + (error.message || 'Unknown error'));
@@ -191,6 +202,22 @@ const Users: React.FC = () => {
     } finally {
       setSavingFakeCommission(false);
     }
+  };
+
+  const calcEffectiveMaxCommission = (
+    totalPurchaseAmount: any,
+    pkg?: Package | null,
+  ): string => {
+    if (!pkg) return 'N/A';
+    const total =
+      typeof totalPurchaseAmount === 'string'
+        ? parseFloat(totalPurchaseAmount)
+        : Number(totalPurchaseAmount);
+    const maxThreshold = Number((pkg as any).reconsumptionThreshold ?? 0);
+    const required = Number((pkg as any).price ?? 0);
+    if (!isFinite(total) || !isFinite(maxThreshold) || !isFinite(required) || required <= 0) return 'N/A';
+    const max = total * (maxThreshold / required);
+    return `$${max.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} USDT`;
   };
 
   const columns = [
@@ -405,6 +432,14 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Total Commission Received">
                   ${userDetail.user.totalCommissionReceived} USDT
+                </Descriptions.Item>
+                <Descriptions.Item label="Tối đa được nhận (Effective Threshold)">
+                  {(() => {
+                    const code = String(userDetail?.user?.packageType || '').toUpperCase();
+                    if (!code || code === 'NONE') return 'N/A';
+                    const pkg = packagesByCode[code];
+                    return calcEffectiveMaxCommission(userDetail.user.totalPurchaseAmount, pkg);
+                  })()}
                 </Descriptions.Item>
                 <Descriptions.Item label="Fake Received Commission (admin)">
                   <Space>

@@ -178,16 +178,16 @@ export class CommissionService {
       );
       await this.calculateGroupCommission(order, buyer);
 
-      // BƯỚC 3: Update volume cho TẤT CẢ ancestors
-      // Update sau khi đã tính commission để volume mới không làm sai lệch logic weakSide
-      this.logger.log(`Step 3: Updating branch volumes for order ${orderId}`);
-      await this.updateBranchVolumes(order, buyer);
-
-      // BƯỚC 4: Tính hoa hồng quản lý nhóm
+      // BƯỚC 3: Tính hoa hồng quản lý nhóm (dựa trên volume hiện tại, chưa cộng đơn này)
       this.logger.log(
-        `Step 4: Calculating management commission for order ${orderId}`,
+        `Step 3: Calculating management commission for order ${orderId}`,
       );
       await this.calculateManagementCommission(order, buyer);
+
+      // BƯỚC 4: Update volume cho TẤT CẢ ancestors
+      // Update sau khi đã tính commission để đơn hiện tại không làm thay đổi điều kiện managementMinSales
+      this.logger.log(`Step 4: Updating branch volumes for order ${orderId}`);
+      await this.updateBranchVolumes(order, buyer);
 
       this.logger.log(`Commission calculation completed for order ${orderId}`);
     } catch (error: any) {
@@ -291,7 +291,7 @@ export class CommissionService {
     if (commissionAmount <= 0) return;
 
     this.logger.log(
-      `Creating direct commission (package config): referrer ${referrer.id}, packageOrderValue: ${packageOrderValue}, amount: ${commissionAmount}, status: ${canReceiveCommission ? 'PENDING' : 'BLOCKED'}`,
+      `Creating direct commission (package config): referrer ${referrer.id}, packageOrderValue: ${packageOrderValue}, amount: ${commissionAmount}, status: PENDING, reconsumptionEligible: ${canReceiveCommission}`,
     );
 
     try {
@@ -300,14 +300,12 @@ export class CommissionService {
         orderId: order.id,
         fromUserId: buyer.id,
         type: CommissionType.DIRECT,
-        status: canReceiveCommission
-          ? CommissionStatus.PENDING
-          : CommissionStatus.BLOCKED,
+        status: CommissionStatus.PENDING,
         amount: commissionAmount,
         orderAmount: packageOrderValue,
         notes: canReceiveCommission
           ? undefined
-          : 'Blocked: Reconsumption required',
+          : 'Reconsumption required - keep pending, do not approve',
       });
       await this.commissionRepository.save(commission);
 
@@ -508,9 +506,7 @@ export class CommissionService {
         const rawDirect = itemAmount * directRate;
         const commissionAmount = this.roundCommission(rawDirect);
         if (commissionAmount > 0) {
-          const directStatus = referrerCanReceive
-            ? CommissionStatus.PENDING
-            : CommissionStatus.BLOCKED;
+          const directStatus = CommissionStatus.PENDING;
           this.logger.log(
             `[PRODUCT COMMISSION] Direct: Referrer ${referrer.id}, product ${product.name}, rate ${directRate} of ${itemAmount} = ${commissionAmount}, status=${directStatus}`,
           );
@@ -524,15 +520,14 @@ export class CommissionService {
             amount: commissionAmount,
             orderAmount: itemAmount,
             notes:
-              directStatus === CommissionStatus.BLOCKED
-                ? 'Blocked: Reconsumption required'
-                : `Product direct: ${productNote}`,
+              referrerCanReceive
+                ? `Product direct: ${productNote}`
+                : 'Reconsumption required - keep pending, do not approve',
           });
           await this.commissionRepository.save(directCommission);
 
           if (
-            directStatus === CommissionStatus.PENDING &&
-            referrerProductConfig
+            referrerCanReceive && referrerProductConfig
           ) {
             await this.updateUserCommissionAndCheckThresholdWithProductConfig(
               referrer,
@@ -579,9 +574,7 @@ export class CommissionService {
             ancestor,
             ancestorProductConfig,
           );
-        const groupStatus = ancestorCanReceive
-          ? CommissionStatus.PENDING
-          : CommissionStatus.BLOCKED;
+        const groupStatus = CommissionStatus.PENDING;
 
         this.logger.log(
           `[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`,
@@ -597,9 +590,9 @@ export class CommissionService {
           orderAmount: itemAmount,
           side: buyerSide,
           notes:
-            groupStatus === CommissionStatus.BLOCKED
-              ? 'Blocked: Reconsumption required'
-              : `Product group: ${productNote}`,
+            ancestorCanReceive
+              ? `Product group: ${productNote}`
+              : 'Reconsumption required - keep pending, do not approve',
         });
         await this.commissionRepository.save(groupCommission);
 
@@ -611,7 +604,7 @@ export class CommissionService {
         if (!firstProductGroupMeta)
           firstProductGroupMeta = { product, buyerPkg };
 
-        if (groupStatus === CommissionStatus.PENDING && ancestorProductConfig) {
+        if (ancestorCanReceive && ancestorProductConfig) {
           await this.updateUserCommissionAndCheckThresholdWithProductConfig(
             ancestor,
             groupCommissionAmount,
@@ -772,9 +765,7 @@ export class CommissionService {
         ancestor,
         buyerSide,
         packageOrderValue,
-        canReceiveCommission
-          ? CommissionStatus.PENDING
-          : CommissionStatus.BLOCKED,
+        canReceiveCommission,
         config,
       );
     }
@@ -789,7 +780,7 @@ export class CommissionService {
     ancestor: User,
     side: 'left' | 'right',
     baseAmount: number,
-    status: CommissionStatus,
+    canReceiveCommission: boolean,
     config: Package,
   ): Promise<void> {
     const rawCommissionAmount = baseAmount * config.groupCommissionRate;
@@ -803,7 +794,7 @@ export class CommissionService {
     }
 
     this.logger.log(
-      `Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, status: ${status}, amount: ${commissionAmount}`,
+      `Creating group commission: ancestor ${ancestor.id}, buyer ${buyer.id}, side: ${side}, canReceive: ${canReceiveCommission}, amount: ${commissionAmount}`,
     );
 
     const commission = this.commissionRepository.create({
@@ -811,19 +802,19 @@ export class CommissionService {
       orderId: order.id,
       fromUserId: buyer.id,
       type: CommissionType.GROUP,
-      status: status,
+      status: CommissionStatus.PENDING,
       amount: commissionAmount,
       orderAmount: baseAmount,
       side: side,
       notes:
-        status === CommissionStatus.BLOCKED
-          ? 'Blocked: Reconsumption required'
-          : undefined,
+        canReceiveCommission
+          ? undefined
+          : 'Reconsumption required - keep pending, do not approve',
     });
 
     await this.commissionRepository.save(commission);
 
-    if (status === CommissionStatus.PENDING) {
+    if (canReceiveCommission) {
       await this.updateUserCommissionAndCheckThreshold(
         ancestor,
         commissionAmount,
@@ -924,9 +915,7 @@ export class CommissionService {
         level,
         baseAmount,
         rate,
-        canReceiveCommission
-          ? CommissionStatus.PENDING
-          : CommissionStatus.BLOCKED,
+        canReceiveCommission,
         config,
       );
     }
@@ -1011,9 +1000,7 @@ export class CommissionService {
         level,
         baseAmount,
         rate,
-        canReceiveCommission
-          ? CommissionStatus.PENDING
-          : CommissionStatus.BLOCKED,
+        canReceiveCommission,
         null as any,
         {
           fromProductGroup: true,
@@ -1053,7 +1040,7 @@ export class CommissionService {
     level: number,
     groupCommissionAmount: number,
     rate: number,
-    status: CommissionStatus,
+    canReceiveCommission: boolean,
     config: Package | null,
     options?: {
       fromProductGroup?: boolean;
@@ -1077,10 +1064,9 @@ export class CommissionService {
     const baseNote = options?.fromProductGroup
       ? 'From product group'
       : undefined;
-    const blockedNote =
-      status === CommissionStatus.BLOCKED
-        ? 'Blocked: Reconsumption required'
-        : undefined;
+    const blockedNote = canReceiveCommission
+      ? undefined
+      : 'Reconsumption required - keep pending, do not approve';
     const notes =
       [baseNote, blockedNote].filter(Boolean).join('; ') || undefined;
 
@@ -1089,7 +1075,7 @@ export class CommissionService {
       orderId: order.id,
       fromUserId: buyer.id,
       type: CommissionType.MANAGEMENT,
-      status: status,
+      status: CommissionStatus.PENDING,
       amount: commissionAmount,
       orderAmount: orderValue,
       level: level,
@@ -1098,7 +1084,7 @@ export class CommissionService {
 
     await this.commissionRepository.save(commission);
 
-    if (status === CommissionStatus.PENDING) {
+    if (canReceiveCommission) {
       if (options?.fromProductGroup && options?.productReconsumptionConfig) {
         await this.updateUserCommissionAndCheckThresholdWithProductConfig(
           manager,
@@ -1561,7 +1547,7 @@ export class CommissionService {
       if (config) {
         canReceive = await this.checkReconsumption(user, config);
         if (!canReceive) {
-          notes = 'Blocked: Reconsumption required';
+          notes = 'Reconsumption required - keep pending, do not approve';
         }
       }
     }
@@ -1570,7 +1556,7 @@ export class CommissionService {
       userId,
       amount,
       type: CommissionType.MILESTONE,
-      status: canReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
+      status: CommissionStatus.PENDING,
       notes: notes || `Milestone Reward #${milestoneId}`,
       orderAmount: 0,
       orderId: null,
