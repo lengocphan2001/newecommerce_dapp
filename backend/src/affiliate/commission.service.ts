@@ -1126,12 +1126,10 @@ export class CommissionService {
         Number(updatedUser.totalPurchaseAmount),
         config,
       );
-      if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
-        await this.userRepository.update(user.id, { packageType: 'NONE' });
-        this.logger.log(
-          `User ${user.id} reached effective threshold ${effectiveThreshold}, packageType set to NONE`,
-        );
-      }
+      // Note: không tự set `packageType = NONE` nữa. Việc "đạt max hoa hồng"
+      // sẽ chỉ ảnh hưởng luồng tái tiêu dùng (commission có thể vẫn Pending),
+      // còn packageType của user giữ nguyên để logic khác nhất quán.
+      void effectiveThreshold;
     }
   }
 
@@ -1226,12 +1224,8 @@ export class CommissionService {
         Number(updatedUser.totalPurchaseAmount),
         productConfig,
       );
-      if (effectiveThreshold > 0 && newTotalCommission >= effectiveThreshold) {
-        await this.userRepository.update(user.id, { packageType: 'NONE' });
-        this.logger.log(
-          `User ${user.id} reached product-config effective threshold ${effectiveThreshold}, packageType set to NONE`,
-        );
-      }
+      // Không set `packageType = NONE` để giữ nguyên trạng thái user.
+      void effectiveThreshold;
     }
   }
 
