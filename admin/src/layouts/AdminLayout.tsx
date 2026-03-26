@@ -38,6 +38,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { hasPermission, user } = useAuth();
+  const isAdminAccount = Boolean(
+    user?.isSuperAdmin || (user?.type === 'user' && user?.isAdmin),
+  );
 
   // Define menu items with their required permissions
   const allMenuItems = [
@@ -46,18 +49,21 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <DashboardOutlined />,
       label: 'Dashboard',
       permission: null, // Dashboard is always accessible
+      adminOnly: true,
     },
     {
       key: '/analytics',
       icon: <RiseOutlined />,
       label: 'Analytics',
       permission: null, // Analytics is accessible to admins (or add permission if needed)
+      adminOnly: true,
     },
     {
       key: '/analytics-demo',
       icon: <BarChartOutlined />,
       label: 'Analytics',
       permission: null,
+      adminOnly: true,
     },
     {
       key: '/users',
@@ -167,6 +173,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <BankOutlined />,
       label: 'Banking Settings',
       permission: null, // accessible to all admins
+      adminOnly: true,
     },
     {
       key: '/runtime-env-settings',
@@ -180,13 +187,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const menuItems = useMemo(() => {
     return allMenuItems
       .filter((item) => {
+        if (item.adminOnly && !isAdminAccount) return false;
         // If no permission required, always show
         if (!item.permission) return true;
         // Check if user has permission
         return hasPermission(item.permission);
       })
       .map(({ permission, ...item }) => item); // Remove permission from menu item
-  }, [hasPermission]);
+  }, [hasPermission, isAdminAccount]);
 
   const userMenuItems = [
     {
