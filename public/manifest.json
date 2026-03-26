@@ -2,11 +2,15 @@
   "name": "Shopii - Grocery DApp",
   "short_name": "Shopii",
   "description": "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#ffffff",
-  "theme_color": "#13ec5b",
+  "theme_color": "#F0B90B",
   "orientation": "portrait",
+  "lang": "vi",
   "icons": [
     {
       "src": "/images/14446125.png",

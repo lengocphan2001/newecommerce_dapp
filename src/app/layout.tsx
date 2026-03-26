@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Work_Sans } from "next/font/google";
 import "./globals.css";
 import { I18nProvider } from "@/app/i18n/I18nProvider";
 import { ShoppingCartProvider } from "@/app/contexts/ShoppingCartContext";
+import { PwaRegister } from "@/app/components/PwaRegister";
 
 // display: swap để không chặn render trên trình duyệt ví (SafePal, Binance)
 const geistSans = Geist({
@@ -103,6 +104,7 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Shopii",
   },
+  applicationName: "Shopii",
 };
 
 export const viewport: Viewport = {
@@ -129,6 +131,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${workSans.variable} antialiased font-display`}
       >
+        <PwaRegister />
         <I18nProvider>
           <ShoppingCartProvider>{children}</ShoppingCartProvider>
         </I18nProvider>
