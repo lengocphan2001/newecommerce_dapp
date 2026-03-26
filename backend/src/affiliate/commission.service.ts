@@ -837,10 +837,22 @@ export class CommissionService {
 
     if (groupCommissions.length === 0) return;
 
-    // Chỉ dùng 1 group earner → tối đa 3 management (F1, F2, F3) cho cả order
-    const sourceCommission = groupCommissions[0];
+    // Chỉ dùng 1 group earner → tối đa 3 management (F1, F2, F3) cho cả order.
+    // Rule cố định: chọn ancestor gần buyer nhất có nhận group commission trong order.
+    const ancestors = await this.getAncestors(buyer); // gần -> xa
+    const groupCommissionByUserId = new Map(
+      groupCommissions.map((commission) => [commission.userId, commission]),
+    );
+    const nearestAncestorEarner = ancestors.find((ancestor) =>
+      groupCommissionByUserId.has(ancestor.id),
+    );
+    if (!nearestAncestorEarner) return;
+
+    const sourceCommission = groupCommissionByUserId.get(nearestAncestorEarner.id);
+    if (!sourceCommission) return;
+
     const userA = await this.userRepository.findOne({
-      where: { id: sourceCommission.userId },
+      where: { id: nearestAncestorEarner.id },
     });
     if (!userA || !userA.parentId) return;
 
