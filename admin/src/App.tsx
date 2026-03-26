@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/AuthContext';
 import AdminLayout from './layouts/AdminLayout';
 import NotificationManager from './components/NotificationManager';
 import Dashboard from './pages/Dashboard';
@@ -39,6 +40,17 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return token ? <>{children}</> : <Navigate to="/login" />;
 };
 
+const AdminOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+
+  const isAdminAccount = Boolean(
+    user?.isSuperAdmin || (user?.type === 'user' && user?.isAdmin),
+  );
+  return isAdminAccount ? <>{children}</> : <Navigate to="/orders" replace />;
+};
+
 function App() {
   // Use admin_token to avoid conflict with client token
   const token = localStorage.getItem('admin_token');
@@ -70,9 +82,11 @@ function App() {
               path="/"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <Dashboard />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <Dashboard />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -80,9 +94,11 @@ function App() {
               path="/dashboard"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <Dashboard />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <Dashboard />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -190,9 +206,11 @@ function App() {
               path="/analytics"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <Analytics />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <Analytics />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -200,9 +218,11 @@ function App() {
               path="/analytics-demo"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <FakeAnalyticsDashboard />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <FakeAnalyticsDashboard />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -241,9 +261,11 @@ function App() {
               path="/matrix-pool"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <MatrixPool />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <MatrixPool />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -281,9 +303,11 @@ function App() {
               path="/package-purchases"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <PackagePurchases />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <PackagePurchases />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -291,9 +315,11 @@ function App() {
               path="/banking-settings"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <BankingSettings />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <BankingSettings />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
@@ -321,9 +347,11 @@ function App() {
               path="/blockchain-settings"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <BlockchainSettings />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <BlockchainSettings />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />
