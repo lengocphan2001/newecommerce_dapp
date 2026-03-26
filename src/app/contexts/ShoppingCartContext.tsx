@@ -170,10 +170,18 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
   );
 }
 
+const _fallbackCart: ShoppingCartContextType = {
+  items: [],
+  addItem: () => {},
+  removeItem: () => {},
+  updateQuantity: () => {},
+  clearCart: () => {},
+  totalItems: 0,
+  totalAmount: 0,
+  animation: null,
+};
+
 export function useShoppingCart() {
   const context = useContext(ShoppingCartContext);
-  if (!context) {
-    throw new Error("useShoppingCart must be used within ShoppingCartProvider");
-  }
-  return context;
+  return context ?? _fallbackCart;
 }

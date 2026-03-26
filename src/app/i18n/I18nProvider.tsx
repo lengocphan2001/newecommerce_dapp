@@ -59,8 +59,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
-export function useI18n() {
+// Safe fallback so pages never crash if rendered outside I18nProvider
+const _fallbackT = (key: I18nKey): string =>
+  DICT[DEFAULT_LANG][key] ?? (key as string);
+const _fallbackCtx: I18nContextValue = {
+  lang: DEFAULT_LANG,
+  setLang: () => {},
+  t: _fallbackT,
+};
+
+export function useI18n(): I18nContextValue {
   const ctx = useContext(I18nContext);
-  if (!ctx) throw new Error("useI18n must be used within I18nProvider");
-  return ctx;
+  return ctx ?? _fallbackCtx;
 }
