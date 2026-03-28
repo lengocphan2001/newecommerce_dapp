@@ -38,6 +38,18 @@ export default function HomePage() {
     setIsSubmitting(true);
     try {
       const res = await api.usernameLogin(u, password);
+      if (res.token && res.requiresEmailOtp === false) {
+        localStorage.setItem("token", res.token);
+        if (res.user?.walletAddress) {
+          try {
+            localStorage.setItem("walletAddress", res.user.walletAddress);
+          } catch {
+            // ignore
+          }
+        }
+        router.push("/home");
+        return;
+      }
       if (res.requiresEmailOtp) {
         setMaskedEmail(res.maskedEmail || "");
         setOtpInfo(
@@ -51,7 +63,7 @@ export default function HomePage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [username, password, t]);
+  }, [username, password, t, router]);
 
   const handleUsernameLogin = useCallback(
     async (e?: React.FormEvent) => {

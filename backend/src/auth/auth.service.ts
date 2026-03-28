@@ -25,6 +25,7 @@ import {
 } from './dto';
 import * as bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     private staffService: StaffService,
     private jwtService: JwtService,
     private mailService: MailService,
+    private configService: ConfigService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
     @Inject(forwardRef(() => MilestoneRewardService))
@@ -247,6 +249,37 @@ export class AuthService {
     };
   }
 
+  /**
+   * Mặc định bật OTP email sau username/password.
+   * Đặt LOGIN_EMAIL_OTP_ENABLED=false (hoặc 0, no, off) để tắt — chỉ nên dùng khi dev/test.
+   */
+  private isLoginEmailOtpEnabled(): boolean {
+    const v = this.configService.get<string>('LOGIN_EMAIL_OTP_ENABLED');
+    if (v === undefined || v === '') {
+      return true;
+    }
+    const lower = String(v).trim().toLowerCase();
+    if (['0', 'false', 'no', 'off', 'disabled'].includes(lower)) {
+      return false;
+    }
+    return true;
+  }
+
+  private usernameLoginSuccess(user: User) {
+    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
+    const token = this.jwtService.sign(payload);
+    return {
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        walletAddress: user.walletAddress,
+      },
+    };
+  }
+
   /** Email hệ thống không gửi được mã OTP (username@user.local, ví @wallet). */
   private isNonDeliverableLoginEmail(email: string | null | undefined): boolean {
     if (!email || !String(email).trim()) {
@@ -289,6 +322,15 @@ export class AuthService {
    */
   async initiateUsernameLogin(username: string, password: string) {
     const user = await this.assertUsernamePassword(username, password);
+
+    if (!this.isLoginEmailOtpEnabled()) {
+      return {
+        requiresEmailOtp: false as const,
+        message:
+          'Đăng nhập không qua OTP email (LOGIN_EMAIL_OTP_ENABLED=false — chỉ dùng dev/test).',
+        ...this.usernameLoginSuccess(user),
+      };
+    }
 
     if (this.isNonDeliverableLoginEmail(user.email)) {
       throw new BadRequestException(
@@ -365,19 +407,7 @@ export class AuthService {
 
     await this.userService.clearLoginOtp(user.id);
 
-    const payload = { sub: user.id, email: user.email, isAdmin: user.isAdmin };
-    const token = this.jwtService.sign(payload);
-
-    return {
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        fullName: user.fullName,
-        walletAddress: user.walletAddress,
-      },
-    };
+    return this.usernameLoginSuccess(user);
   }
 
   async checkReferral(username: string) {
