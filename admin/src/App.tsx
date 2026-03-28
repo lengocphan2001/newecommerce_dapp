@@ -310,9 +310,11 @@ function App() {
               path="/runtime-env-settings"
               element={
                 <PrivateRoute>
-                  <AdminLayout>
-                    <RuntimeEnvSettings />
-                  </AdminLayout>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <RuntimeEnvSettings />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />

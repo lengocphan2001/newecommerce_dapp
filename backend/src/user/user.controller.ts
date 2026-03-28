@@ -7,8 +7,12 @@ export class UserController {
   constructor(private readonly userService: UserService) { }
 
   @Get()
-  async findAll(@Query('search') search?: string) {
-    return this.userService.findAll(search);
+  async findAll(
+    @Query('search') search?: string,
+    @Query('parentFilter')
+    parentFilter?: 'all' | 'no_parent' | 'has_parent' | 'orphan',
+  ) {
+    return this.userService.findAll(search, parentFilter);
   }
 
   @Get(':id')

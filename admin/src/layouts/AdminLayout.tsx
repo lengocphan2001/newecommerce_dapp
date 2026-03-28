@@ -180,6 +180,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <SettingOutlined />,
       label: 'Runtime Env Settings',
       permission: null, // accessible to all admins
+      adminOnly: true,
     },
   ];
 

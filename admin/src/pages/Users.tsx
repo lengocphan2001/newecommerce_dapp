@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Table,
   Button,
@@ -16,9 +16,10 @@ import {
   Card,
   Typography,
   Divider,
+  Spin,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
-import { userService, User } from '../services/userService';
+import { userService, User, ParentFilter } from '../services/userService';
 import { adminService } from '../services/adminService';
 import { packagesService, Package } from '../services/packagesService';
 
@@ -35,20 +36,35 @@ const Users: React.FC = () => {
   const [userDetail, setUserDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [parentFilter, setParentFilter] = useState<ParentFilter>('all');
+  const [childFilter, setChildFilter] = useState<'all' | 'has_child' | 'no_child'>('all');
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
   const [f1PurchaseModalVisible, setF1PurchaseModalVisible] = useState(false);
   const [selectedF1ForPurchases, setSelectedF1ForPurchases] = useState<any>(null);
   const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
+  const [editModalLoading, setEditModalLoading] = useState(false);
+  const [saveUserLoading, setSaveUserLoading] = useState(false);
+  const [packagesList, setPackagesList] = useState<Package[]>([]);
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async (search?: string) => {
+  useEffect(() => {
+    if (!isModalVisible || packagesList.length > 0) return;
+    packagesService.getAll().then((list) => {
+      setPackagesList(Array.isArray(list) ? list : []);
+    });
+  }, [isModalVisible, packagesList.length]);
+
+  const fetchUsers = async (
+    search?: string,
+    selectedParentFilter: ParentFilter = parentFilter,
+  ) => {
     setLoading(true);
     try {
-      const response = await userService.getAll(search);
+      const response = await userService.getAll(search, selectedParentFilter);
       setUsers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch users');
@@ -59,7 +75,12 @@ const Users: React.FC = () => {
 
   const onSearch = (value: string) => {
     setSearchText(value);
-    fetchUsers(value);
+    fetchUsers(value, parentFilter);
+  };
+
+  const onParentFilterChange = (value: ParentFilter) => {
+    setParentFilter(value);
+    fetchUsers(searchText, value);
   };
 
   const handleCreate = () => {
@@ -68,10 +89,37 @@ const Users: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleEdit = (user: User) => {
+  const handleEdit = async (user: User) => {
     setEditingUser(user);
-    form.setFieldsValue(user);
     setIsModalVisible(true);
+    form.resetFields();
+    setEditModalLoading(true);
+    try {
+      const res = await userService.getById(user.id);
+      const u = res.data as Record<string, unknown>;
+      form.setFieldsValue({
+        email: u.email,
+        fullName: u.fullName,
+        phone: u.phone ?? undefined,
+        username: u.username ?? undefined,
+        country: u.country ?? undefined,
+        address: u.address ?? undefined,
+        walletAddress: u.walletAddress ?? undefined,
+        chainId: u.chainId ?? undefined,
+        referralUser: u.referralUser ?? undefined,
+        referralUserId: u.referralUserId ?? undefined,
+        parentId: u.parentId ?? undefined,
+        position: u.position ?? undefined,
+        status: u.status ?? 'ACTIVE',
+        packageType: u.packageType ?? 'NONE',
+      });
+    } catch {
+      message.error('Failed to load user for editing');
+      setIsModalVisible(false);
+      setEditingUser(null);
+    } finally {
+      setEditModalLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -94,19 +142,50 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
+    setSaveUserLoading(true);
     try {
+      const payload: Record<string, unknown> = { ...values };
+      if (!payload.password || !String(payload.password).trim()) {
+        delete payload.password;
+      }
       if (editingUser) {
-        await userService.update(editingUser.id, values);
+        const nullableKeys = [
+          'parentId',
+          'referralUserId',
+          'position',
+          'walletAddress',
+          'chainId',
+          'username',
+          'referralUser',
+          'country',
+          'address',
+          'phone',
+        ];
+        for (const key of nullableKeys) {
+          const v = payload[key];
+          if (v === undefined || v === '') {
+            payload[key] = null;
+          }
+        }
+        await userService.update(editingUser.id, payload);
         message.success('User updated successfully');
       } else {
-        await userService.create(values);
+        await userService.create({
+          email: payload.email as string,
+          fullName: payload.fullName as string,
+          phone: (payload.phone as string) || undefined,
+        });
         message.success('User created successfully');
       }
       setIsModalVisible(false);
+      setEditingUser(null);
       fetchUsers();
-    } catch (error) {
-      message.error('Failed to save user');
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      message.error(err.response?.data?.message || 'Failed to save user');
+    } finally {
+      setSaveUserLoading(false);
     }
   };
 
@@ -211,6 +290,14 @@ const Users: React.FC = () => {
     setF1PurchaseModalVisible(true);
   };
 
+  const filteredUsers = useMemo(() => {
+    if (childFilter === 'all') return users;
+    return users.filter((u) => {
+      const childCount = Array.isArray(u.childIds) ? u.childIds.length : 0;
+      return childFilter === 'has_child' ? childCount > 0 : childCount === 0;
+    });
+  }, [users, childFilter]);
+
   const columns = [
     {
       title: 'ID',
@@ -226,6 +313,32 @@ const Users: React.FC = () => {
       title: 'Full Name',
       dataIndex: 'fullName',
       key: 'fullName',
+    },
+    {
+      title: 'Child IDs',
+      key: 'childIds',
+      width: 360,
+      render: (_: any, record: User) => {
+        const childIds = Array.isArray(record.childIds) ? record.childIds : [];
+        if (childIds.length === 0) {
+          return <Tag color="default">No child</Tag>;
+        }
+        return (
+          <div>
+            <div style={{ marginBottom: 4 }}>
+              <Tag color="blue">{childIds.length} child(ren)</Tag>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {childIds.slice(0, 3).map((id) => (
+                <Tag key={id} style={{ fontFamily: 'monospace' }}>
+                  {id.slice(0, 8)}...
+                </Tag>
+              ))}
+              {childIds.length > 3 && <Tag>+{childIds.length - 3}</Tag>}
+            </div>
+          </div>
+        );
+      },
     },
     {
       title: 'Phone',
@@ -301,6 +414,27 @@ const Users: React.FC = () => {
             style={{ width: 300 }}
             allowClear
           />
+          <Select<ParentFilter>
+            value={parentFilter}
+            onChange={onParentFilterChange}
+            style={{ width: 240 }}
+            options={[
+              { value: 'all', label: 'All users' },
+              { value: 'no_parent', label: 'No parent (root/orphan)' },
+              { value: 'has_parent', label: 'Has parent' },
+              { value: 'orphan', label: 'Orphan (no parent + has referrer)' },
+            ]}
+          />
+          <Select<'all' | 'has_child' | 'no_child'>
+            value={childFilter}
+            onChange={setChildFilter}
+            style={{ width: 200 }}
+            options={[
+              { value: 'all', label: 'All child states' },
+              { value: 'has_child', label: 'Has child IDs' },
+              { value: 'no_child', label: 'No child IDs' },
+            ]}
+          />
           <Button icon={<DownloadOutlined />} onClick={handleExport}>
             Export Users
           </Button>
@@ -311,7 +445,7 @@ const Users: React.FC = () => {
       </div>
       <Table
         columns={columns}
-        dataSource={users}
+        dataSource={filteredUsers}
         loading={loading}
         rowKey="id"
         pagination={{ pageSize: 10 }}
@@ -319,28 +453,178 @@ const Users: React.FC = () => {
       <Modal
         title={editingUser ? 'Edit User' : 'Create User'}
         open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
+        onCancel={() => {
+          setIsModalVisible(false);
+          setEditingUser(null);
+        }}
         onOk={() => form.submit()}
+        confirmLoading={saveUserLoading}
+        width={820}
+        destroyOnClose
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[{ required: true, type: 'email' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="fullName"
-            label="Full Name"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="phone" label="Phone">
-            <Input />
-          </Form.Item>
-        </Form>
+        <Spin spinning={editModalLoading}>
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <Tabs
+              items={[
+                {
+                  key: 'profile',
+                  label: 'Profile',
+                  children: (
+                    <>
+                      {!editingUser && (
+                        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                          Tạo mới chỉ lưu email, họ tên và số điện thoại. Sau đó dùng Edit để chỉnh tree, ví, gói.
+                        </Text>
+                      )}
+                      <Form.Item
+                        name="email"
+                        label="Email"
+                        rules={[{ required: true, type: 'email' }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="fullName"
+                        label="Full Name"
+                        rules={[{ required: true }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name="phone" label="Phone">
+                        <Input />
+                      </Form.Item>
+                      {editingUser && (
+                        <>
+                          <Form.Item name="username" label="Username">
+                            <Input placeholder="Referral / login username" />
+                          </Form.Item>
+                          <Form.Item name="country" label="Country">
+                            <Input />
+                          </Form.Item>
+                          <Form.Item name="address" label="Address">
+                            <Input.TextArea rows={2} />
+                          </Form.Item>
+                          <Form.Item name="status" label="Status">
+                            <Select
+                              options={[
+                                { value: 'ACTIVE', label: 'Active' },
+                                { value: 'INACTIVE', label: 'Inactive' },
+                                { value: 'SUSPENDED', label: 'Suspended' },
+                                { value: 'BANNED', label: 'Banned' },
+                              ]}
+                            />
+                          </Form.Item>
+                          <Form.Item name="packageType" label="Package type">
+                            <Select
+                              allowClear
+                              placeholder="Select package"
+                              options={[
+                                { value: 'NONE', label: 'NONE' },
+                                ...packagesList
+                                  .filter((p) => p.isActive)
+                                  .map((p) => ({
+                                    value: p.code,
+                                    label: `${p.name} (${p.code})`,
+                                  })),
+                              ]}
+                            />
+                          </Form.Item>
+                        </>
+                      )}
+                    </>
+                  ),
+                },
+                ...(editingUser
+                  ? [
+                      {
+                        key: 'tree',
+                        label: 'Tree & wallet',
+                        children: (
+                    <>
+                      <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                        Parent ID và Position dùng cho binary tree. Để trống Parent ID = gốc / xóa liên kết (gửi null khi lưu).
+                      </Text>
+                      <Form.Item
+                        name="parentId"
+                        label="Parent ID (UUID)"
+                        rules={[
+                          {
+                            validator: (_: unknown, value: string) => {
+                              const v = (value || '').trim();
+                              if (!v) return Promise.resolve();
+                              const uuid =
+                                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                              return uuid.test(v)
+                                ? Promise.resolve()
+                                : Promise.reject(new Error('Must be a valid UUID'));
+                            },
+                          },
+                        ]}
+                      >
+                        <Input placeholder="UUID of parent in binary tree" allowClear />
+                      </Form.Item>
+                      <Form.Item name="position" label="Position under parent">
+                        <Select
+                          allowClear
+                          placeholder="left / right"
+                          options={[
+                            { value: 'left', label: 'Left' },
+                            { value: 'right', label: 'Right' },
+                          ]}
+                        />
+                      </Form.Item>
+                      <Divider />
+                      <Form.Item name="referralUserId" label="Referrer user ID (UUID)">
+                        <Input placeholder="referralUserId" allowClear />
+                      </Form.Item>
+                      <Form.Item name="referralUser" label="Referral username (display)">
+                        <Input placeholder="Username of referrer" allowClear />
+                      </Form.Item>
+                      <Divider />
+                      <Form.Item name="walletAddress" label="Wallet address">
+                        <Input placeholder="0x..." allowClear />
+                      </Form.Item>
+                      <Form.Item name="chainId" label="Chain ID">
+                        <Input placeholder="e.g. 56" allowClear />
+                      </Form.Item>
+                    </>
+                        ),
+                      },
+                    ]
+                  : []),
+                ...(editingUser
+                  ? [
+                      {
+                        key: 'security',
+                        label: 'Password',
+                        children: (
+                          <Form.Item
+                            name="password"
+                            label="New password"
+                            extra="Để trống nếu không đổi mật khẩu."
+                            rules={[
+                              {
+                                validator: (_: unknown, value: string) => {
+                                  const v = (value || '').trim();
+                                  if (!v) return Promise.resolve();
+                                  if (v.length < 6) {
+                                    return Promise.reject(new Error('At least 6 characters'));
+                                  }
+                                  return Promise.resolve();
+                                },
+                              },
+                            ]}
+                          >
+                            <Input.Password placeholder="Leave blank to keep current" autoComplete="new-password" />
+                          </Form.Item>
+                        ),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </Form>
+        </Spin>
       </Modal>
 
       {/* User Detail Modal */}

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, In } from 'typeorm';
+import { Repository, ILike, In, IsNull, Not } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Address } from './entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
@@ -26,29 +26,86 @@ export class UserService {
     private auditLogRepository: Repository<AuditLog>,
   ) { }
 
-  async findAll(search?: string) {
-    const where: any = {};
-    if (search) {
-      where.email = ILike(`%${search}%`);
-    }
+  async findAll(
+    search?: string,
+    parentFilter: 'all' | 'no_parent' | 'has_parent' | 'orphan' = 'all',
+  ) {
+    const parentWhere =
+      parentFilter === 'no_parent'
+        ? { parentId: IsNull() }
+        : parentFilter === 'has_parent'
+          ? { parentId: Not(IsNull()) }
+          : parentFilter === 'orphan'
+            ? { parentId: IsNull(), referralUserId: Not(IsNull()) }
+            : {};
 
-    // Since we want to search across multiple fields, we can use an array of OR conditions
     if (search) {
-      return this.userRepository.find({
+      const users = await this.userRepository.find({
         where: [
-          { email: ILike(`%${search}%`) },
-          { fullName: ILike(`%${search}%`) },
-          { username: ILike(`%${search}%`) },
-          { id: ILike(`%${search}%`) },
-          { walletAddress: ILike(`%${search}%`) },
+          { email: ILike(`%${search}%`), ...parentWhere },
+          { fullName: ILike(`%${search}%`), ...parentWhere },
+          { username: ILike(`%${search}%`), ...parentWhere },
+          { id: ILike(`%${search}%`), ...parentWhere },
+          { walletAddress: ILike(`%${search}%`), ...parentWhere },
         ],
-        select: ['id', 'email', 'fullName', 'phone', 'status', 'isAdmin', 'createdAt'],
+        select: [
+          'id',
+          'email',
+          'fullName',
+          'phone',
+          'status',
+          'isAdmin',
+          'createdAt',
+          'parentId',
+          'referralUserId',
+        ],
       });
+      return this.attachChildIds(users);
     }
 
-    return this.userRepository.find({
-      select: ['id', 'email', 'fullName', 'phone', 'status', 'isAdmin', 'createdAt'],
+    const users = await this.userRepository.find({
+      where: parentWhere,
+      select: [
+        'id',
+        'email',
+        'fullName',
+        'phone',
+        'status',
+        'isAdmin',
+        'createdAt',
+        'parentId',
+        'referralUserId',
+      ],
     });
+    return this.attachChildIds(users);
+  }
+
+  private async attachChildIds(
+    users: Array<{
+      id: string;
+      parentId?: string | null;
+    }>,
+  ): Promise<Array<any>> {
+    if (!users.length) return users as any[];
+
+    const userIds = users.map((u) => u.id);
+    const children = await this.userRepository.find({
+      where: { parentId: In(userIds) },
+      select: ['id', 'parentId'],
+    });
+
+    const childIdsByParentId = new Map<string, string[]>();
+    for (const child of children) {
+      if (!child.parentId) continue;
+      const list = childIdsByParentId.get(child.parentId) || [];
+      list.push(child.id);
+      childIdsByParentId.set(child.parentId, list);
+    }
+
+    return users.map((user) => ({
+      ...user,
+      childIds: childIdsByParentId.get(user.id) || [],
+    }));
   }
 
   async findOne(id: string): Promise<User | null> {
@@ -374,6 +431,27 @@ export class UserService {
           updateUserDto.status = updateUserDto.isActive ? 'ACTIVE' : 'INACTIVE';
         }
         delete updateUserDto.isActive;
+      }
+
+      const nullableKeys = [
+        'parentId',
+        'referralUserId',
+        'walletAddress',
+        'chainId',
+        'username',
+        'referralUser',
+        'country',
+        'address',
+        'position',
+      ];
+      for (const key of nullableKeys) {
+        if (key in updateUserDto && updateUserDto[key] === '') {
+          updateUserDto[key] = null;
+        }
+      }
+
+      if (updateUserDto.password != null && String(updateUserDto.password).trim() === '') {
+        delete updateUserDto.password;
       }
 
       if (updateUserDto.password) {
