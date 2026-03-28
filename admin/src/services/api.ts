@@ -10,6 +10,9 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    // Giảm khả năng proxy/browser cache GET (đặc biệt khi không có header từ server).
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
   },
 });
 

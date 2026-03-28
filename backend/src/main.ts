@@ -50,6 +50,21 @@ async function bootstrap() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+  // Tránh browser / proxy cache JSON API (GET orders, users, …) — admin thấy dữ liệu cũ tới khi hard refresh.
+  // Bỏ qua /files (ảnh upload vẫn có thể cache).
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.path.startsWith('/files')) {
+      return next();
+    }
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate',
+    );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
   /** Đặt DISABLE_RATE_LIMIT=true trong .env để tắt toàn bộ express-rate-limit (chỉ nên dùng khi dev/test). Production không set. */
   const disableRateLimit =
     process.env.DISABLE_RATE_LIMIT === 'true' ||

@@ -134,6 +134,8 @@ CORS_ORIGINS=https://shopiibiztest.top,https://www.shopiibiztest.top,https://sho
 
 **Lưu ý:** Trên production nên đặt `FORCE_SYNC=false` hoặc không set (synchronize DB sẽ tắt khi `NODE_ENV=production` trong code).
 
+**API và cache:** Backend gửi `Cache-Control: no-store` (và tương đương) cho mọi route trừ `/files`, để trình duyệt/proxy không giữ JSON cũ (ví dụ danh sách orders trên admin).
+
 **Đăng nhập Web2 (username/password):** Sau khi nhập đúng mật khẩu, API gửi **mã 6 số** tới **email thật** của user; cần cấu hình SMTP ở trên. User chỉ có email dạng `...@user.local` hoặc `...@wallet` sẽ không nhận được mã — cần cập nhật email thật (admin/hỗ trợ) hoặc đăng nhập bằng ví.
 
 Nếu DB production **không** dùng synchronize, thêm cột OTP (một lần):
@@ -417,11 +419,16 @@ location /api {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    # Socket.IO (thông báo đơn mới / nạp-rút trên admin) — bắt buộc cho transport websocket
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
     client_max_body_size 50M;
 }
 ```
 
 `NEXT_PUBLIC_API_URL` và `REACT_APP_API_URL` đặt là `https://shopiibiztest.top/api` (đã cấu hình ở mục 4.1 và 5.1).
+
+**Thông báo real-time (admin):** Panel admin dùng Socket.IO namespace `/notifications`, path engine `/api/socket.io` khi API URL kết thúc bằng `/api`. Backend phải chạy, Nginx proxy `/api` như trên (có `Upgrade`/`Connection`), và sau deploy **build lại admin** để lấy client socket đúng path. Tài khoản đăng nhập **User có `isAdmin`** (không phải staff) trước đây bị từ chối socket — cần backend mới (gateway cho phép cả hai loại).
 
 ### 6.2 Frontend + Admin (cùng domain)
 
@@ -440,9 +447,23 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         client_max_body_size 50M;
     }
 
+    # Admin CRA: không cache `index.html` (entry SPA). Nếu không, sau deploy vẫn thấy bundle cũ tới khi Ctrl+Shift+R.
+    # File JS/CSS trong `/admin/static/` có hash — có thể cache lâu (block tùy chọn bên dưới).
+    location = /admin/index.html {
+        alias /var/www/shopii/admin/build/index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+    location /admin/static/ {
+        alias /var/www/shopii/admin/build/static/;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
     location /admin {
         alias /var/www/shopii/admin/build;
         try_files $uri $uri/ /admin/index.html;
@@ -478,9 +499,21 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         client_max_body_size 50M;
     }
 
+    location = /admin/index.html {
+        alias /var/www/shopii/admin/build/index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+    location /admin/static/ {
+        alias /var/www/shopii/admin/build/static/;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
     location /admin {
         alias /var/www/shopii/admin/build;
         try_files $uri $uri/ /admin/index.html;

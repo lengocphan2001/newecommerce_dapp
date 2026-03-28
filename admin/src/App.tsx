@@ -51,10 +51,25 @@ const AdminOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return isAdminAccount ? <>{children}</> : <Navigate to="/orders" replace />;
 };
 
-function App() {
-  // Use admin_token to avoid conflict with client token
-  const token = localStorage.getItem('admin_token');
+/** Bật socket thông báo sau khi /auth/me xong — tránh connect rồi disconnect khi token là user admin. */
+const AdminNotifications: React.FC = () => {
+  const { user, loading } = useAuth();
+  const token =
+    typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+  if (loading || !token || !user) {
+    return null;
+  }
+  const eligible =
+    user.type === 'staff' ||
+    user.isSuperAdmin === true ||
+    (user.type === 'user' && user.isAdmin);
+  if (!eligible) {
+    return null;
+  }
+  return <NotificationManager token={token} />;
+};
 
+function App() {
   // Use /admin basename only when URL actually starts with /admin (e.g. production or reverse-proxy).
   // When running dev server at root (e.g. http://localhost:3000/), basename must be "" so the Router can match "/".
   const basename =
@@ -74,7 +89,7 @@ function App() {
           },
         }}
       >
-        <NotificationManager token={token} />
+        <AdminNotifications />
         <BrowserRouter basename={basename}>
           <Routes>
             <Route path="/login" element={<Login />} />

@@ -26,7 +26,8 @@ export class NotificationsGateway
   @WebSocketServer()
   server: Server;
 
-  private connectedStaff: Map<string, Socket> = new Map();
+  /** staff:{id} hoặc user:{id} — mọi socket trong namespace đều nhận broadcast new-order */
+  private connectedClients: Map<string, Socket> = new Map();
 
   constructor(
     private jwtService: JwtService,
@@ -53,14 +54,22 @@ export class NotificationsGateway
             this.configService.get<string>('JWT_SECRET') || 'your-secret-key',
         });
 
-        // Only allow staff connections
+        // Staff (đăng nhập /auth/admin/login qua bảng staff)
         if (payload.type === 'staff' || payload.staffId) {
           const staffId = payload.staffId || payload.sub;
-          this.connectedStaff.set(staffId, client);
+          this.connectedClients.set(`staff:${staffId}`, client);
           client.join(`staff:${staffId}`);
           console.log(`Staff ${staffId} connected to notifications`);
+        } else if (
+          payload.isAdmin === true &&
+          (payload.type === 'user' || !payload.type)
+        ) {
+          // User trong bảng users có isAdmin (fallback admin login) — trước đây bị disconnect nên không có thông báo đơn mới
+          const userId = payload.sub;
+          this.connectedClients.set(`user:${userId}`, client);
+          console.log(`Admin user ${userId} connected to notifications`);
         } else {
-          console.log('Not a staff user, disconnecting');
+          console.log('Not an admin listener, disconnecting notifications socket');
           client.disconnect();
         }
       } catch (jwtError) {
@@ -74,10 +83,10 @@ export class NotificationsGateway
   }
 
   handleDisconnect(client: Socket) {
-    for (const [staffId, socket] of this.connectedStaff.entries()) {
+    for (const [key, socket] of this.connectedClients.entries()) {
       if (socket === client) {
-        this.connectedStaff.delete(staffId);
-        console.log(`Staff ${staffId} disconnected from notifications`);
+        this.connectedClients.delete(key);
+        console.log(`Notifications client ${key} disconnected`);
         break;
       }
     }

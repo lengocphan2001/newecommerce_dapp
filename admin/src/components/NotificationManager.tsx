@@ -6,11 +6,20 @@ interface NotificationManagerProps {
   token: string | null;
 }
 
-// Configure Ant Design notification to prevent duplicates
+// Cho phép vài toast cùng lúc (nhiều đơn/ngắn hạn)
 notification.config({
-  maxCount: 1,
+  maxCount: 5,
   rtl: false,
 });
+
+function adminHref(path: string): string {
+  const base =
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+      ? '/admin'
+      : '';
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${p}`;
+}
 
 // Function to play notification sound
 const playNotificationSound = () => {
@@ -135,7 +144,7 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
           duration: 5,
           placement: 'topRight',
           onClick: () => {
-            window.location.href = `/admin/orders`;
+            window.location.href = adminHref('/orders');
           },
         });
 
@@ -151,7 +160,7 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
 
           browserNotification.onclick = () => {
             window.focus();
-            window.location.href = `/admin/orders`;
+            window.location.href = adminHref('/orders');
             browserNotification.close();
           };
 
@@ -174,7 +183,7 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
           duration: 5,
           placement: 'topRight',
           onClick: () => {
-            window.location.href = `/admin/wallet-deposit-requests`;
+            window.location.href = adminHref('/wallet-deposit-requests');
           },
         });
       };
@@ -191,7 +200,7 @@ const NotificationManager: React.FC<NotificationManagerProps> = ({ token }) => {
           duration: 5,
           placement: 'topRight',
           onClick: () => {
-            window.location.href = `/admin/wallet-withdraw-requests`;
+            window.location.href = adminHref('/wallet-withdraw-requests');
           },
         });
       };

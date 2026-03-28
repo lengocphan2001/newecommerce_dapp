@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import { orderService, Order } from '../services/orderService';
 
 const Orders: React.FC = () => {
@@ -200,7 +201,12 @@ const Orders: React.FC = () => {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 24 }}>Orders Management</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+        <h1 style={{ margin: 0 }}>Orders Management</h1>
+        <Button icon={<ReloadOutlined />} onClick={() => fetchOrders(getQueryParams())} loading={loading}>
+          Làm mới danh sách
+        </Button>
+      </div>
       <Space style={{ marginBottom: 16 }} wrap>
         <Input.Search
           placeholder="Tìm theo mã đơn, user, transaction hash..."
