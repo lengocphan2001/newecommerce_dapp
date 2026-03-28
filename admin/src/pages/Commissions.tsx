@@ -19,12 +19,16 @@ import {
   CheckCircleOutlined,
   SearchOutlined,
   DownloadOutlined,
+  StopOutlined,
 } from '@ant-design/icons';
 import { commissionService, Commission } from '../services/commissionService';
 
 const { Option } = Select;
 const { TextArea } = Input;
 const { Title } = Typography;
+
+const canCancelCommission = (status: string) =>
+  status === 'pending' || status === 'blocked';
 
 const CommissionsPage: React.FC = () => {
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -37,6 +41,10 @@ const CommissionsPage: React.FC = () => {
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
   const [approveNotes, setApproveNotes] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelTargetIds, setCancelTargetIds] = useState<string[]>([]);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     fetchCommissions();
@@ -287,13 +295,18 @@ const CommissionsPage: React.FC = () => {
   };
 
   const handleApproveBatch = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('Please select at least one commission');
+    const pendingIds = selectedRowKeys.filter((key) => {
+      const c = filteredCommissions.find((x) => x.id === key);
+      return c?.status === 'pending';
+    }) as string[];
+
+    if (pendingIds.length === 0) {
+      message.warning('Chỉ có thể duyệt thanh toán cho commission đang pending. Hãy chọn ít nhất một dòng pending.');
       return;
     }
 
     try {
-      const result = await commissionService.approveBatch(selectedRowKeys as string[]);
+      const result = await commissionService.approveBatch(pendingIds);
       const data = result?.data || {};
       const txHash = data.txHash;
       message.success(
@@ -321,6 +334,56 @@ const CommissionsPage: React.FC = () => {
     }
   };
 
+  const openCancelModal = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setCancelTargetIds(ids);
+    setCancelReason('');
+    setCancelModalOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (cancelTargetIds.length === 0) return;
+    setCancelling(true);
+    try {
+      const reason = cancelReason.trim() || undefined;
+      if (cancelTargetIds.length === 1) {
+        await commissionService.cancel(cancelTargetIds[0], reason);
+      } else {
+        const result = await commissionService.cancelBatch(cancelTargetIds, reason);
+        const data = result?.data as { cancelled?: number; failed?: number; errors?: string[] } | undefined;
+        if (data?.failed && data.failed > 0) {
+          message.warning(
+            `${data.failed} commission(s) không hủy được. Đã hủy: ${data.cancelled ?? 0}.`,
+          );
+        }
+      }
+      message.success(
+        cancelTargetIds.length === 1
+          ? 'Đã hủy commission.'
+          : `Đã xử lý hủy ${cancelTargetIds.length} commission.`,
+      );
+      setCancelModalOpen(false);
+      setCancelTargetIds([]);
+      setCancelReason('');
+      setSelectedRowKeys([]);
+      if (
+        selectedCommission &&
+        cancelTargetIds.includes(selectedCommission.id)
+      ) {
+        setDetailModalVisible(false);
+        setSelectedCommission(null);
+        setApproveNotes('');
+      }
+      fetchCommissions();
+    } catch (error: any) {
+      message.error(
+        error?.response?.data?.message || 'Không hủy được commission',
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const handleViewDetail = async (id: string) => {
     try {
       const response = await commissionService.getById(id);
@@ -336,6 +399,7 @@ const CommissionsPage: React.FC = () => {
       pending: { color: 'orange', text: 'Pending' },
       paid: { color: 'green', text: 'Paid' },
       blocked: { color: 'red', text: 'Blocked' },
+      cancelled: { color: 'default', text: 'Cancelled' },
     };
     const config = statusConfig[status] || { color: 'default', text: status };
     return <Tag color={config.color}>{config.text}</Tag>;
@@ -484,6 +548,17 @@ const CommissionsPage: React.FC = () => {
               Approve
             </Button>
           )}
+          {canCancelCommission(record.status) && (
+            <Button
+              danger
+              type="link"
+              size="small"
+              icon={<StopOutlined />}
+              onClick={() => openCancelModal([record.id])}
+            >
+              Cancel
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -492,20 +567,30 @@ const CommissionsPage: React.FC = () => {
   const rowSelection = {
     selectedRowKeys,
     onChange: (keys: React.Key[]) => {
-      // Chỉ cho phép chọn các commission có status = pending
-      const pendingCommissions = filteredCommissions
-        .filter((c) => c.status === 'pending')
+      const cancelableIds = filteredCommissions
+        .filter((c) => canCancelCommission(c.status))
         .map((c) => c.id);
-      const validKeys = keys.filter((key) => pendingCommissions.includes(key as string));
+      const validKeys = keys.filter((key) =>
+        cancelableIds.includes(key as string),
+      );
       setSelectedRowKeys(validKeys);
     },
     getCheckboxProps: (record: Commission) => ({
-      disabled: record.status !== 'pending',
+      disabled: !canCancelCommission(record.status),
     }),
   };
 
   const pendingCount = filteredCommissions.filter((c) => c.status === 'pending').length;
-  const selectedPendingCount = selectedRowKeys.length;
+  const selectedApproveIds = selectedRowKeys.filter((key) => {
+    const c = filteredCommissions.find((x) => x.id === key);
+    return c?.status === 'pending';
+  }) as string[];
+  const selectedCancelIds = selectedRowKeys.filter((key) => {
+    const c = filteredCommissions.find((x) => x.id === key);
+    return c && canCancelCommission(c.status);
+  }) as string[];
+  const selectedApproveCount = selectedApproveIds.length;
+  const selectedCancelCount = selectedCancelIds.length;
 
   return (
     <div style={{ padding: '24px' }}>
@@ -518,13 +603,22 @@ const CommissionsPage: React.FC = () => {
           <Button icon={<ReloadOutlined />} onClick={fetchCommissions}>
             Refresh
           </Button>
-          {selectedPendingCount > 0 && (
+          {selectedApproveCount > 0 && (
             <Button
               type="primary"
               icon={<CheckCircleOutlined />}
               onClick={handleApproveBatch}
             >
-              Approve Selected ({selectedPendingCount})
+              Approve Selected ({selectedApproveCount})
+            </Button>
+          )}
+          {selectedCancelCount > 0 && (
+            <Button
+              danger
+              icon={<StopOutlined />}
+              onClick={() => openCancelModal(selectedCancelIds)}
+            >
+              Cancel Selected ({selectedCancelCount})
             </Button>
           )}
         </Space>
@@ -548,6 +642,7 @@ const CommissionsPage: React.FC = () => {
           <Option value="pending">Pending</Option>
           <Option value="paid">Paid</Option>
           <Option value="blocked">Blocked</Option>
+          <Option value="cancelled">Cancelled</Option>
         </Select>
 
         <Select
@@ -595,6 +690,17 @@ const CommissionsPage: React.FC = () => {
           <Button key="close" onClick={() => setDetailModalVisible(false)}>
             Close
           </Button>,
+          selectedCommission &&
+            canCancelCommission(selectedCommission.status) && (
+              <Button
+                key="cancel"
+                danger
+                icon={<StopOutlined />}
+                onClick={() => openCancelModal([selectedCommission.id])}
+              >
+                Cancel
+              </Button>
+            ),
           selectedCommission?.status === 'pending' && (
             <Button
               key="approve"
@@ -705,6 +811,37 @@ const CommissionsPage: React.FC = () => {
             )}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title={
+          cancelTargetIds.length === 1
+            ? 'Hủy commission'
+            : `Hủy ${cancelTargetIds.length} commission`
+        }
+        open={cancelModalOpen}
+        onCancel={() => {
+          setCancelModalOpen(false);
+          setCancelTargetIds([]);
+          setCancelReason('');
+        }}
+        onOk={handleConfirmCancel}
+        okText="Xác nhận hủy"
+        okButtonProps={{ danger: true, loading: cancelling }}
+        cancelText="Đóng"
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 12, color: '#666' }}>
+          Chỉ commission đang pending hoặc blocked mới bị hủy. Trạng thái sẽ thành
+          Cancelled; ghi chú sẽ được bổ sung.
+        </p>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Lý do (tùy chọn)</div>
+        <TextArea
+          rows={3}
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="Ví dụ: sai sót đơn hàng, yêu cầu user..."
+        />
       </Modal>
     </div>
   );

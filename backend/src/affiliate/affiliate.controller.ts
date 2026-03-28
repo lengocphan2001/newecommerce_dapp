@@ -1,6 +1,13 @@
 import { Controller, Get, Post, Body, Param, Query, Request, UseGuards, Put } from '@nestjs/common';
 import { AffiliateService } from './affiliate.service';
-import { RegisterAffiliateDto, WithdrawAffiliateDto, ApproveCommissionDto, ApproveSingleCommissionDto } from './dto';
+import {
+  RegisterAffiliateDto,
+  WithdrawAffiliateDto,
+  ApproveCommissionDto,
+  ApproveSingleCommissionDto,
+  CancelCommissionBatchDto,
+  CancelSingleCommissionDto,
+} from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('affiliate')
@@ -88,6 +95,21 @@ export class AffiliateController {
       userAgent: req.headers?.['user-agent'],
     };
     return this.affiliateService.approveCommissions(approveDto.commissionIds, ctx);
+  }
+
+  @Put('admin/commissions/:id/cancel')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async cancelCommission(
+    @Param('id') id: string,
+    @Body() dto: CancelSingleCommissionDto,
+  ) {
+    return this.affiliateService.cancelCommission(id, dto.reason);
+  }
+
+  @Post('admin/commissions/cancel-batch')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async cancelCommissionsBatch(@Body() dto: CancelCommissionBatchDto) {
+    return this.affiliateService.cancelCommissions(dto.commissionIds, dto.reason);
   }
 }
 

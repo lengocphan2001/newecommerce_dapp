@@ -155,5 +155,13 @@ export class AffiliateService {
   async getCommissionDetail(commissionId: string) {
     return this.commissionService.getCommissionDetail(commissionId);
   }
+
+  async cancelCommission(commissionId: string, reason?: string) {
+    return this.commissionService.cancelCommission(commissionId, reason);
+  }
+
+  async cancelCommissions(commissionIds: string[], reason?: string) {
+    return this.commissionService.cancelCommissions(commissionIds, reason);
+  }
 }
 

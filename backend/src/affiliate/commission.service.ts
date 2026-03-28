@@ -1,4 +1,11 @@
-import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { User } from '../user/entities/user.entity';
@@ -1232,6 +1239,68 @@ export class CommissionService {
       }
     }
     return results;
+  }
+
+  /**
+   * Admin hủy commission: chỉ pending / blocked. Không đảo totalCommissionReceived trên user
+   * (có thể đã cộng khi tạo commission tùy luồng — cần kiểm tra tay nếu cần khớp sổ).
+   */
+  async cancelCommission(commissionId: string, reason?: string): Promise<Commission> {
+    const commission = await this.commissionRepository.findOne({
+      where: { id: commissionId },
+    });
+
+    if (!commission) {
+      throw new NotFoundException('Commission not found');
+    }
+
+    if (
+      commission.status !== CommissionStatus.PENDING &&
+      commission.status !== CommissionStatus.BLOCKED
+    ) {
+      throw new BadRequestException(
+        `Only pending or blocked commissions can be cancelled (current: ${commission.status})`,
+      );
+    }
+
+    commission.status = CommissionStatus.CANCELLED;
+    const noteSuffix = reason?.trim()
+      ? `[Admin cancelled] ${reason.trim()}`
+      : '[Admin cancelled]';
+    commission.notes = commission.notes
+      ? `${commission.notes}; ${noteSuffix}`
+      : noteSuffix;
+
+    return this.commissionRepository.save(commission);
+  }
+
+  async cancelCommissions(
+    commissionIds: string[],
+    reason?: string,
+  ): Promise<{
+    cancelled: number;
+    failed: number;
+    results: Commission[];
+    errors: string[];
+  }> {
+    const results: Commission[] = [];
+    const errors: string[] = [];
+    for (const id of commissionIds) {
+      try {
+        const result = await this.cancelCommission(id, reason);
+        results.push(result);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errors.push(`${id}: ${msg}`);
+        this.logger.warn(`Cancel commission ${id} failed: ${msg}`);
+      }
+    }
+    return {
+      cancelled: results.length,
+      failed: errors.length,
+      results,
+      errors,
+    };
   }
 
   async getCommissionDetail(commissionId: string) {
