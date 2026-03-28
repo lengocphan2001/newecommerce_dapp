@@ -489,7 +489,8 @@ const Users: React.FC = () => {
                 </Form.Item>
               </>
             ) : (
-              <Tabs defaultActiveKey="account">
+              <>
+              <Tabs defaultActiveKey="account" destroyInactiveTabPane={false}>
                 <TabPane tab="Account" key="account">
                   <Form.Item
                     name="email"
@@ -530,28 +531,6 @@ const Users: React.FC = () => {
                   </Form.Item>
                   <Form.Item name="emailVerified" label="Email verified" valuePropName="checked">
                     <Switch />
-                  </Form.Item>
-                  <Divider plain>Password</Divider>
-                  <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                    Leave empty to keep current password. Min 6 characters if set.
-                  </Text>
-                  <Form.Item
-                    name="password"
-                    label="New password"
-                    rules={[
-                      {
-                        validator: (_, v) => {
-                          const s = String(v || '').trim();
-                          if (!s) return Promise.resolve();
-                          if (s.length < 6) {
-                            return Promise.reject(new Error('At least 6 characters'));
-                          }
-                          return Promise.resolve();
-                        },
-                      },
-                    ]}
-                  >
-                    <Input.Password autoComplete="new-password" />
                   </Form.Item>
                 </TabPane>
 
@@ -637,6 +616,35 @@ const Users: React.FC = () => {
                   </Form.Item>
                 </TabPane>
               </Tabs>
+              <Divider />
+              <Title level={5} style={{ marginTop: 0 }}>
+                Mật khẩu đăng nhập Web2
+              </Title>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                Luôn hiển thị phía dưới — để trống nếu không đổi. Tối thiểu 6 ký tự nếu nhập mật khẩu mới.
+              </Text>
+              <Form.Item
+                name="password"
+                label="Mật khẩu mới"
+                rules={[
+                  {
+                    validator: (_, v) => {
+                      const s = String(v || '').trim();
+                      if (!s) return Promise.resolve();
+                      if (s.length < 6) {
+                        return Promise.reject(new Error('Tối thiểu 6 ký tự'));
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
+                <Input.Password
+                  autoComplete="new-password"
+                  placeholder="Chỉ điền khi muốn đổi mật khẩu"
+                />
+              </Form.Item>
+              </>
             )}
           </Form>
         )}
