@@ -21,6 +21,7 @@ export enum CommissionStatus {
   PENDING = 'pending',
   PAID = 'paid',
   BLOCKED = 'blocked', // Bị chặn do chưa tái tiêu dùng
+  CANCELLED = 'cancelled', // Admin hủy, không chi trả
 }
 
 @Entity('commissions')

@@ -17,6 +17,8 @@ import {
   Typography,
   Divider,
   Alert,
+  Spin,
+  Switch,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
@@ -25,6 +27,43 @@ import { packagesService, Package } from '../services/packagesService';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
+
+function toNum(v: unknown): number {
+  if (v === null || v === undefined) return 0;
+  const x = typeof v === 'string' ? parseFloat(v) : Number(v);
+  return Number.isFinite(x) ? x : 0;
+}
+
+function buildEditFormValues(u: Record<string, unknown>) {
+  return {
+    email: u.email,
+    fullName: u.fullName,
+    phone: u.phone ?? '',
+    username: u.username ?? '',
+    country: u.country ?? '',
+    address: u.address ?? '',
+    walletAddress: u.walletAddress ?? '',
+    chainId: u.chainId ?? '',
+    avatar: u.avatar ?? '',
+    referralUser: u.referralUser ?? '',
+    referralUserId: u.referralUserId ?? '',
+    parentId: u.parentId ?? '',
+    position: u.position ?? undefined,
+    packageType: u.packageType ?? 'NONE',
+    status: u.status ?? 'ACTIVE',
+    isAdmin: !!u.isAdmin,
+    emailVerified: !!u.emailVerified,
+    password: '',
+    totalPurchaseAmount: toNum(u.totalPurchaseAmount),
+    totalCommissionReceived: toNum(u.totalCommissionReceived),
+    fakeReceivedCommission: toNum(u.fakeReceivedCommission),
+    totalReconsumptionAmount: toNum(u.totalReconsumptionAmount),
+    leftBranchTotal: toNum(u.leftBranchTotal),
+    rightBranchTotal: toNum(u.rightBranchTotal),
+    walletBalance: toNum(u.walletBalance),
+    withdrawWalletBalance: toNum(u.withdrawWalletBalance),
+  };
+}
 
 const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -40,6 +79,9 @@ const Users: React.FC = () => {
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
   const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [packagesForEdit, setPackagesForEdit] = useState<Package[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -64,14 +106,33 @@ const Users: React.FC = () => {
 
   const handleCreate = () => {
     setEditingUser(null);
+    setPackagesForEdit([]);
     form.resetFields();
     setIsModalVisible(true);
   };
 
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    form.setFieldsValue(user);
+  const handleEdit = async (row: User) => {
+    setEditingUser(row);
+    form.resetFields();
     setIsModalVisible(true);
+    setEditLoading(true);
+    try {
+      const [userRes, pkgRes] = await Promise.all([
+        userService.getById(row.id),
+        packagesService.getAll().catch(() => []),
+      ]);
+      const u = userRes.data as Record<string, unknown>;
+      setEditingUser(userRes.data as User);
+      const pkgs = Array.isArray(pkgRes) ? pkgRes : [];
+      setPackagesForEdit(pkgs);
+      form.setFieldsValue(buildEditFormValues(u));
+    } catch {
+      message.error('Failed to load user for edit');
+      setIsModalVisible(false);
+      setEditingUser(null);
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -94,19 +155,66 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: Record<string, unknown>) => {
+    setSubmitLoading(true);
     try {
       if (editingUser) {
-        await userService.update(editingUser.id, values);
+        const rid = String(values.referralUserId ?? '').trim();
+        const pid = String(values.parentId ?? '').trim();
+        const pw = String(values.password ?? '').trim();
+        const payload: Record<string, unknown> = {
+          email: values.email,
+          fullName: values.fullName,
+          phone: values.phone || undefined,
+          username: values.username || undefined,
+          country: values.country || undefined,
+          address: values.address || undefined,
+          walletAddress: values.walletAddress || undefined,
+          chainId: values.chainId || undefined,
+          avatar: values.avatar || undefined,
+          referralUser: values.referralUser || undefined,
+          referralUserId: rid.length ? rid : null,
+          parentId: pid.length ? pid : null,
+          position: values.position ?? null,
+          packageType: values.packageType,
+          status: values.status,
+          isAdmin: values.isAdmin,
+          emailVerified: values.emailVerified,
+          totalPurchaseAmount: values.totalPurchaseAmount,
+          totalCommissionReceived: values.totalCommissionReceived,
+          fakeReceivedCommission: values.fakeReceivedCommission,
+          totalReconsumptionAmount: values.totalReconsumptionAmount,
+          leftBranchTotal: values.leftBranchTotal,
+          rightBranchTotal: values.rightBranchTotal,
+          walletBalance: values.walletBalance,
+          withdrawWalletBalance: values.withdrawWalletBalance,
+        };
+        if (pw.length >= 6) {
+          payload.password = pw;
+        }
+        await userService.update(editingUser.id, payload as any);
         message.success('User updated successfully');
       } else {
-        await userService.create(values);
+        await userService.create({
+          email: values.email as string,
+          fullName: values.fullName as string,
+          phone: values.phone as string | undefined,
+        });
         message.success('User created successfully');
       }
       setIsModalVisible(false);
+      setEditingUser(null);
       fetchUsers();
-    } catch (error) {
-      message.error('Failed to save user');
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message ||
+        (Array.isArray(error?.response?.data?.message)
+          ? error.response.data.message.join(', ')
+          : null) ||
+        'Failed to save user';
+      message.error(typeof msg === 'string' ? msg : 'Failed to save user');
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
@@ -341,28 +449,197 @@ const Users: React.FC = () => {
       <Modal
         title={editingUser ? 'Edit User' : 'Create User'}
         open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
+        width={920}
+        style={{ top: 24 }}
+        destroyOnClose
+        confirmLoading={submitLoading}
+        onCancel={() => {
+          setIsModalVisible(false);
+          setEditingUser(null);
+          form.resetFields();
+        }}
         onOk={() => form.submit()}
+        okText={editingUser ? 'Save changes' : 'Create'}
+        bodyStyle={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[{ required: true, type: 'email' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="fullName"
-            label="Full Name"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="phone" label="Phone">
-            <Input />
-          </Form.Item>
-        </Form>
+        {editLoading ? (
+          <div style={{ textAlign: 'center', padding: 48 }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            {!editingUser ? (
+              <>
+                <Form.Item
+                  name="email"
+                  label="Email"
+                  rules={[{ required: true, type: 'email' }]}
+                >
+                  <Input />
+                </Form.Item>
+                <Form.Item
+                  name="fullName"
+                  label="Full Name"
+                  rules={[{ required: true }]}
+                >
+                  <Input />
+                </Form.Item>
+                <Form.Item name="phone" label="Phone">
+                  <Input />
+                </Form.Item>
+              </>
+            ) : (
+              <Tabs defaultActiveKey="account">
+                <TabPane tab="Account" key="account">
+                  <Form.Item
+                    name="email"
+                    label="Email"
+                    rules={[{ required: true, type: 'email' }]}
+                  >
+                    <Input />
+                  </Form.Item>
+                  <Form.Item
+                    name="fullName"
+                    label="Full Name"
+                    rules={[{ required: true }]}
+                  >
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="phone" label="Phone">
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="username" label="Username">
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="country" label="Country">
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="address" label="Address (text)">
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+                  <Form.Item name="status" label="Status">
+                    <Select>
+                      <Select.Option value="ACTIVE">ACTIVE</Select.Option>
+                      <Select.Option value="INACTIVE">INACTIVE</Select.Option>
+                      <Select.Option value="SUSPENDED">SUSPENDED</Select.Option>
+                      <Select.Option value="BANNED">BANNED</Select.Option>
+                    </Select>
+                  </Form.Item>
+                  <Form.Item name="isAdmin" label="Admin" valuePropName="checked">
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item name="emailVerified" label="Email verified" valuePropName="checked">
+                    <Switch />
+                  </Form.Item>
+                  <Divider plain>Password</Divider>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                    Leave empty to keep current password. Min 6 characters if set.
+                  </Text>
+                  <Form.Item
+                    name="password"
+                    label="New password"
+                    rules={[
+                      {
+                        validator: (_, v) => {
+                          const s = String(v || '').trim();
+                          if (!s) return Promise.resolve();
+                          if (s.length < 6) {
+                            return Promise.reject(new Error('At least 6 characters'));
+                          }
+                          return Promise.resolve();
+                        },
+                      },
+                    ]}
+                  >
+                    <Input.Password autoComplete="new-password" />
+                  </Form.Item>
+                </TabPane>
+
+                <TabPane tab="Wallet" key="wallet">
+                  <Form.Item name="walletAddress" label="Wallet address">
+                    <Input placeholder="0x..." />
+                  </Form.Item>
+                  <Form.Item name="chainId" label="Chain ID">
+                    <Input placeholder="e.g. 56" />
+                  </Form.Item>
+                  <Form.Item name="avatar" label="Avatar (URL or data)">
+                    <Input.TextArea rows={2} placeholder="URL or base64 — can be long" />
+                  </Form.Item>
+                </TabPane>
+
+                <TabPane tab="Tree & referral" key="tree">
+                  <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    message="parentId / referralUserId must be valid user UUIDs. Clear field + save to set null."
+                  />
+                  <Form.Item name="referralUser" label="Referral username (display)">
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="referralUserId" label="Referral user ID (UUID)">
+                    <Input placeholder="UUID of referrer" allowClear />
+                  </Form.Item>
+                  <Form.Item name="parentId" label="Parent ID (binary tree)">
+                    <Input placeholder="UUID of parent in tree" allowClear />
+                  </Form.Item>
+                  <Form.Item name="position" label="Position under parent">
+                    <Select allowClear placeholder="Clear to remove">
+                      <Select.Option value="left">Left</Select.Option>
+                      <Select.Option value="right">Right</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </TabPane>
+
+                <TabPane tab="Package & volumes" key="finance">
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    message="These fields affect commissions and binary volume. Change only when you understand the impact."
+                  />
+                  <Form.Item name="packageType" label="Package type">
+                    <Select showSearch optionFilterProp="children" allowClear placeholder="NONE">
+                      <Select.Option value="NONE">NONE</Select.Option>
+                      {packagesForEdit
+                        .filter((p) => p?.code)
+                        .map((p) => (
+                          <Select.Option key={p.code} value={p.code}>
+                            {p.code}
+                          </Select.Option>
+                        ))}
+                    </Select>
+                  </Form.Item>
+                  <Divider plain>Amounts (USDT)</Divider>
+                  <Form.Item name="totalPurchaseAmount" label="Total purchase amount">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="totalCommissionReceived" label="Total commission received">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="fakeReceivedCommission" label="Fake received commission">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="totalReconsumptionAmount" label="Total reconsumption">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="leftBranchTotal" label="Left branch total">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="rightBranchTotal" label="Right branch total">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="walletBalance" label="Wallet balance (deposit)">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="withdrawWalletBalance" label="Withdraw wallet balance">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                </TabPane>
+              </Tabs>
+            )}
+          </Form>
+        )}
       </Modal>
 
       {/* User Detail Modal */}

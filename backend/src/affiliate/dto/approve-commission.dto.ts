@@ -16,3 +16,20 @@ export class ApproveSingleCommissionDto {
   @IsString()
   notes?: string; // Optional notes for approval
 }
+
+export class CancelCommissionBatchDto {
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty()
+  commissionIds: string[];
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class CancelSingleCommissionDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

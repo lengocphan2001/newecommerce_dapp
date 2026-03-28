@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   InternalServerErrorException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,7 @@ import { Commission } from '../affiliate/entities/commission.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
 import { AuditLog } from '../audit-log/entities/audit-log.entity';
 import * as bcrypt from 'bcryptjs';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UserService {
@@ -75,6 +77,27 @@ export class UserService {
 
   async findOne(id: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id } });
+  }
+
+  /** API response: không trả password / OTP / token. */
+  stripSensitiveUser(user: User) {
+    const {
+      password: _p,
+      loginOtpCode: _o,
+      loginOtpExpiresAt: _oe,
+      emailVerificationToken: _t,
+      emailVerificationExpiresAt: _te,
+      ...rest
+    } = user as User;
+    return rest;
+  }
+
+  async findOneSanitized(id: string) {
+    const user = await this.findOne(id);
+    if (!user) {
+      return null;
+    }
+    return this.stripSensitiveUser(user);
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -456,30 +479,77 @@ export class UserService {
     return result;
   }
 
-  async update(id: string, updateUserDto: any) {
-    try {
-      // Handle isActive -> status mapping (legacy/frontend compatibility)
-      if ('isActive' in updateUserDto) {
-        if (updateUserDto.isActive !== undefined && !updateUserDto.status) {
-          updateUserDto.status = updateUserDto.isActive ? 'ACTIVE' : 'INACTIVE';
-        }
-        delete updateUserDto.isActive;
-      }
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
 
-      if (updateUserDto.password) {
-        updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    const dto = { ...(updateUserDto as unknown as Record<string, unknown>) };
+
+    if ('isActive' in dto && dto.isActive !== undefined && dto.status === undefined) {
+      dto.status = dto.isActive ? 'ACTIVE' : 'INACTIVE';
+    }
+    delete dto.isActive;
+
+    if (dto.password !== undefined) {
+      const p = String(dto.password).trim();
+      if (p.length === 0) {
+        delete dto.password;
+      } else {
+        dto.password = await bcrypt.hash(p, 10);
       }
-      await this.userRepository.update(id, updateUserDto);
-      return this.findOne(id);
-    } catch (error) {
-      // Check for unique constraint violation (MySQL: ER_DUP_ENTRY, Postgres: 23505)
+    }
+
+    const patch: Record<string, unknown> = {};
+    for (const key of Object.keys(dto)) {
+      const v = dto[key];
+      if (v !== undefined) {
+        patch[key] = v;
+      }
+    }
+
+    if (patch.parentId === id) {
+      throw new BadRequestException('parentId cannot equal the user id');
+    }
+    if (patch.parentId) {
+      const parent = await this.userRepository.findOne({
+        where: { id: patch.parentId as string },
+      });
+      if (!parent) {
+        throw new BadRequestException('Parent user not found');
+      }
+    }
+    if (patch.referralUserId) {
+      const ref = await this.userRepository.findOne({
+        where: { id: patch.referralUserId as string },
+      });
+      if (!ref) {
+        throw new BadRequestException('Referral user (referralUserId) not found');
+      }
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return this.stripSensitiveUser(user);
+    }
+
+    try {
+      await this.userRepository.update(id, patch as any);
+    } catch (error: any) {
       if (error.code === 'ER_DUP_ENTRY' || error.code === '23505') {
-        throw new ConflictException('Email or username already exists');
+        throw new ConflictException(
+          'Email, username or wallet address already exists',
+        );
       }
-      // Log the actual error for debugging
       Logger.error(`Failed to update user ${id}`, error.stack, 'UserService');
       throw new InternalServerErrorException('Failed to update user');
     }
+
+    const updated = await this.userRepository.findOne({ where: { id } });
+    if (!updated) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return this.stripSensitiveUser(updated);
   }
 
   async remove(id: string) {

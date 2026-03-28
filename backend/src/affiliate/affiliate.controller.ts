@@ -15,6 +15,8 @@ import {
   WithdrawAffiliateDto,
   ApproveCommissionDto,
   ApproveSingleCommissionDto,
+  CancelCommissionBatchDto,
+  CancelSingleCommissionDto,
 } from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
@@ -121,6 +123,24 @@ export class AffiliateController {
     return this.affiliateService.approveCommissions(
       approveDto.commissionIds,
       ctx,
+    );
+  }
+
+  @Put('admin/commissions/:id/cancel')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async cancelCommission(
+    @Param('id') id: string,
+    @Body() dto: CancelSingleCommissionDto,
+  ) {
+    return this.affiliateService.cancelCommission(id, dto.reason);
+  }
+
+  @Post('admin/commissions/cancel-batch')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async cancelCommissionsBatch(@Body() dto: CancelCommissionBatchDto) {
+    return this.affiliateService.cancelCommissions(
+      dto.commissionIds,
+      dto.reason,
     );
   }
 }

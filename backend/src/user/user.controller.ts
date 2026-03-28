@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  NotFoundException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto, UpdateUserDto } from './dto';
@@ -22,7 +23,11 @@ export class UserController {
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    return this.userService.findOne(id);
+    const user = await this.userService.findOneSanitized(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
   }
 
   @Post()
