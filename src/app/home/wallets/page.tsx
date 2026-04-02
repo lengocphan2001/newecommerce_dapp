@@ -537,7 +537,8 @@ export default function WalletsPage() {
 
       <main className="flex-1 flex flex-col gap-6 px-4 bg-white mt-4">
         {/* Số dư hoa hồng + Địa chỉ ví nhận hoa hồng */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-gray-100">
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-violet-200">
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
           <div className="relative z-10 flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
@@ -587,7 +588,8 @@ export default function WalletsPage() {
         </div>
 
         {/* Ví rút tiền */}
-        <div className="rounded-2xl bg-white p-6 shadow-md border border-gray-100">
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-rose-200">
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 to-orange-400" />
           <div className="flex items-center justify-between mb-2">
             <div>
               <p className="text-sm font-medium text-gray-600">Ví rút tiền</p>
@@ -598,7 +600,7 @@ export default function WalletsPage() {
             <button
               type="button"
               onClick={handleOpenWithdraw}
-              className="rounded-xl bg-primary text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:opacity-90"
+              className="rounded-xl bg-rose-500 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-rose-600"
             >
               <span className="material-symbols-outlined text-lg">payments</span>
               Rút tiền
@@ -657,7 +659,8 @@ export default function WalletsPage() {
         </div>
 
         {/* Ví nạp tiền (banking) */}
-        <div className="rounded-2xl bg-white p-6 shadow-md border border-gray-100">
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-cyan-200">
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600">Ví nạp tiền</p>
@@ -668,7 +671,7 @@ export default function WalletsPage() {
             <button
               type="button"
               onClick={() => { setShowDepositModal(true); setDepositError(""); setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "" }); }}
-              className="rounded-xl bg-primary text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:opacity-90"
+              className="rounded-xl bg-cyan-500 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-cyan-600"
             >
               <span className="material-symbols-outlined text-lg">add</span>
               Nạp tiền

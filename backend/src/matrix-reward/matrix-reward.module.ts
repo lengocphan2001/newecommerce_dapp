@@ -11,9 +11,11 @@ import { User } from '../user/entities/user.entity';
 import { MatrixRewardService } from './matrix-reward.service';
 import { MatrixRewardUserController } from './matrix-reward-user.controller';
 import { MatrixRewardAdminController } from './matrix-reward-admin.controller';
+import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
+    PackagesModule,
     TypeOrmModule.forFeature([
       MatrixRewardTree,
       MatrixRewardNode,

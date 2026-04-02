@@ -213,12 +213,18 @@ export class CommissionPayoutService {
       }
 
       // Update each commission and credit 2 internal wallets by configured percentages
+      const recipientUserIds = dto.recipients.map((recipient) => recipient.userId);
+      const recipientsUsers = recipientUserIds.length
+        ? await queryRunner.manager.find(User, {
+            where: { id: In(recipientUserIds) },
+            select: ['id', 'walletBalance', 'withdrawWalletBalance'],
+          })
+        : [];
+      const usersById = new Map(recipientsUsers.map((user) => [user.id, user]));
+
       for (const recipient of dto.recipients) {
         const userCommissions = commissionMap.get(recipient.userId) || [];
-        const user = await queryRunner.manager.findOne(User, {
-          where: { id: recipient.userId },
-          select: ['id', 'walletBalance', 'withdrawWalletBalance'],
-        });
+        const user = usersById.get(recipient.userId);
         if (!user) continue;
 
         const gross = userCommissions.reduce(
@@ -691,6 +697,7 @@ export class CommissionPayoutService {
 
     const contractBalance =
       await this.blockchainPayoutService.getContractBalance();
+    const contractInfo = await this.blockchainPayoutService.getContractInfo();
 
     return {
       pending: {
@@ -704,10 +711,8 @@ export class CommissionPayoutService {
         count: totalBlocked,
       },
       contractBalance: parseFloat(contractBalance),
-      contractAddress: (await this.blockchainPayoutService.getContractInfo())
-        .contractAddress,
-      tokenAddress: (await this.blockchainPayoutService.getContractInfo())
-        .tokenAddress,
+      contractAddress: contractInfo.contractAddress,
+      tokenAddress: contractInfo.tokenAddress,
     };
   }
 

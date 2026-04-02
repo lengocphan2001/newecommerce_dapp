@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { User } from '../user/entities/user.entity';
@@ -34,6 +34,52 @@ export class OrderService {
     @Inject(forwardRef(() => MatrixRewardService))
     private matrixRewardService: MatrixRewardService,
   ) {}
+
+  private getOrderItems(order: Order): Array<{
+    productId: string;
+    quantity: number;
+  }> {
+    const items = Array.isArray(order.items) ? order.items : [];
+    return items.flatMap((item) => {
+      if (!item?.productId || typeof item.quantity !== 'number') {
+        return [];
+      }
+      return [{ productId: item.productId, quantity: item.quantity }];
+    });
+  }
+
+  private async getProductsByIds(
+    productIds: string[],
+  ): Promise<Map<string, Product>> {
+    const ids = [...new Set(productIds.filter(Boolean))];
+    if (ids.length === 0) return new Map();
+    const products = await this.productRepository.find({ where: { id: In(ids) } });
+    return new Map(products.map((product) => [product.id, product]));
+  }
+
+  private async updateStockByOrderItems(
+    order: Order,
+    mode: 'decrease' | 'increase',
+  ): Promise<void> {
+    const items = this.getOrderItems(order);
+    const qtyByProductId = new Map<string, number>();
+    for (const item of items) {
+      qtyByProductId.set(
+        item.productId,
+        (qtyByProductId.get(item.productId) ?? 0) + item.quantity,
+      );
+    }
+    const productMap = await this.getProductsByIds([...qtyByProductId.keys()]);
+    for (const [productId, quantity] of qtyByProductId.entries()) {
+      const product = productMap.get(productId);
+      if (!product) continue;
+      const nextStock =
+        mode === 'decrease'
+          ? Math.max(0, product.stock - quantity)
+          : product.stock + quantity;
+      await this.productRepository.update(productId, { stock: nextStock });
+    }
+  }
 
   async findAll(query: any) {
     const queryBuilder = this.orderRepository
@@ -102,10 +148,20 @@ export class OrderService {
 
     let shippingFee = 0;
 
+    const productIds = [
+      ...new Set(
+        (createOrderDto.items || [])
+          .map((item) => item?.productId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const products = productIds.length
+      ? await this.productRepository.find({ where: { id: In(productIds) } })
+      : [];
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
     for (const item of createOrderDto.items) {
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
+      const product = productMap.get(item.productId);
 
       if (!product) {
         throw new NotFoundException(`Product ${item.productId} not found`);
@@ -134,12 +190,6 @@ export class OrderService {
         properties: item.properties, // Include selected properties
       });
 
-      // Kiểm tra stock nhưng không trừ ngay (sẽ trừ khi admin duyệt)
-      if (product.stock < item.quantity) {
-        throw new Error(
-          `Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
-        );
-      }
     }
 
     // Add shipping fee to total amount
@@ -241,19 +291,8 @@ export class OrderService {
    * Encapsulate order approval logic (Stock deduction, Commission, Payout, etc.)
    */
   private async approveOrder(order: Order) {
-    // 1. Deduct Stock (guard against missing items)
-    const items = Array.isArray(order.items) ? order.items : [];
-    for (const item of items) {
-      if (!item?.productId || typeof item.quantity !== 'number') continue;
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
-      if (product) {
-        await this.productRepository.update(product.id, {
-          stock: Math.max(0, product.stock - item.quantity),
-        });
-      }
-    }
+    // 1. Deduct Stock (grouped by productId to avoid repeated updates)
+    await this.updateStockByOrderItems(order, 'decrease');
 
     // 2. Update buyer's total purchase amount, upgrade package type by threshold, & check reconsumption
     if (order.userId) {
@@ -366,10 +405,12 @@ export class OrderService {
       newStatus === OrderStatus.CONFIRMED
     ) {
       // Kiểm tra stock lại trước khi duyệt
-      for (const item of order.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId },
-        });
+      const approveItems = this.getOrderItems(order);
+      const approveProductMap = await this.getProductsByIds(
+        approveItems.map((item) => item.productId),
+      );
+      for (const item of approveItems) {
+        const product = approveProductMap.get(item.productId);
         if (!product) {
           throw new Error(`Product ${item.productId} not found`);
         }
@@ -400,16 +441,7 @@ export class OrderService {
       newStatus === OrderStatus.CANCELLED &&
       oldStatus !== OrderStatus.CANCELLED
     ) {
-      for (const item of order.items) {
-        const product = await this.productRepository.findOne({
-          where: { id: item.productId },
-        });
-        if (product) {
-          await this.productRepository.update(product.id, {
-            stock: product.stock + item.quantity,
-          });
-        }
-      }
+      await this.updateStockByOrderItems(order, 'increase');
     }
 
     order.status = newStatus;
@@ -438,16 +470,7 @@ export class OrderService {
     }
 
     // Hoàn lại stock
-    for (const item of order.items) {
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
-      if (product) {
-        await this.productRepository.update(product.id, {
-          stock: product.stock + item.quantity,
-        });
-      }
-    }
+    await this.updateStockByOrderItems(order, 'increase');
 
     order.status = OrderStatus.CANCELLED;
     const cancelledOrder = await this.orderRepository.save(order);

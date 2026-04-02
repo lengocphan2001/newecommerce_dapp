@@ -175,24 +175,35 @@ export class AdminService {
     });
 
     const rows: string[][] = [['username', 'email', 'fullName', 'password']];
+    const usedUsernames = new Set(
+      users
+        .map((u) => (u.username || '').trim().toLowerCase())
+        .filter((u) => Boolean(u)),
+    );
+    const usersToUpdate: Array<{ id: string; username: string; password: string }> = [];
 
     for (const user of users) {
       let username = (user.username || '').trim();
       if (!username) {
-        const seed =
+        const rawSeed =
           this.normalizeUsernameSeed(user.fullName || '') ||
           this.normalizeUsernameSeed((user.email || '').split('@')[0] || '') ||
           this.normalizeUsernameSeed(user.walletAddress || '') ||
           `user${user.id.replace(/-/g, '').slice(0, 6)}`;
-        username = await this.ensureUniqueUsername(seed);
+        const seed = (rawSeed || 'user').slice(0, 24);
+        let suffix = 0;
+        let candidate = seed;
+        while (usedUsernames.has(candidate.toLowerCase())) {
+          suffix += 1;
+          candidate = `${seed}${suffix}`.slice(0, 24);
+        }
+        username = candidate;
       }
+      usedUsernames.add(username.toLowerCase());
 
       const plainPassword = this.generateRandomPassword();
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
-      await this.userRepository.update(user.id, {
-        username,
-        password: hashedPassword,
-      });
+      usersToUpdate.push({ id: user.id, username, password: hashedPassword });
 
       rows.push([
         this.escapeCsv(username),
@@ -200,6 +211,10 @@ export class AdminService {
         this.escapeCsv(user.fullName || ''),
         this.escapeCsv(plainPassword),
       ]);
+    }
+
+    if (usersToUpdate.length > 0) {
+      await this.userRepository.save(usersToUpdate);
     }
 
     const csvContent = rows.map((r) => r.join(',')).join('\n');
@@ -488,7 +503,7 @@ export class AdminService {
    * Get full binary tree structure recursively
    */
   async getFullTree(userId: string, maxDepth: number = 5): Promise<any> {
-    const user = await this.userRepository.findOne({
+    const rootUser = await this.userRepository.findOne({
       where: { id: userId },
       select: [
         'id',
@@ -504,22 +519,38 @@ export class AdminService {
       ],
     });
 
-    if (!user) {
+    if (!rootUser) {
       throw new NotFoundException('User not found');
     }
 
-    const buildTree = async (
-      currentUserId: string,
-      depth: number,
-    ): Promise<any> => {
-      if (depth >= maxDepth) {
-        return null;
-      }
+    if (maxDepth <= 0) {
+      return {
+        id: rootUser.id,
+        username: rootUser.username,
+        fullName: rootUser.fullName,
+        email: rootUser.email,
+        packageType: rootUser.packageType,
+        avatar: rootUser.avatar,
+        leftBranchTotal: parseFloat(String(rootUser.leftBranchTotal || 0)),
+        rightBranchTotal: parseFloat(String(rootUser.rightBranchTotal || 0)),
+        totalPurchaseAmount: parseFloat(String(rootUser.totalPurchaseAmount || 0)),
+        createdAt: rootUser.createdAt,
+        children: [],
+      };
+    }
 
-      const currentUser = await this.userRepository.findOne({
-        where: { id: currentUserId },
+    const allNodes = new Map<string, any>();
+    allNodes.set(rootUser.id, rootUser);
+
+    let parentIds: string[] = [rootUser.id];
+    let depth = 0;
+    while (depth < maxDepth && parentIds.length > 0) {
+      const levelChildren = await this.userRepository.find({
+        where: { parentId: In(parentIds) },
         select: [
           'id',
+          'parentId',
+          'position',
           'username',
           'fullName',
           'email',
@@ -530,56 +561,50 @@ export class AdminService {
           'totalPurchaseAmount',
           'createdAt',
         ],
-      });
-
-      if (!currentUser) {
-        return null;
-      }
-
-      const leftChild = await this.userRepository.findOne({
-        where: { parentId: currentUserId, position: 'left' },
         order: { createdAt: 'ASC' },
       });
 
-      const rightChild = await this.userRepository.findOne({
-        where: { parentId: currentUserId, position: 'right' },
-        order: { createdAt: 'ASC' },
-      });
-
-      const node: any = {
-        id: currentUser.id,
-        username: currentUser.username,
-        fullName: currentUser.fullName,
-        email: currentUser.email,
-        packageType: currentUser.packageType,
-        avatar: currentUser.avatar,
-        leftBranchTotal: parseFloat(String(currentUser.leftBranchTotal || 0)),
-        rightBranchTotal: parseFloat(String(currentUser.rightBranchTotal || 0)),
-        totalPurchaseAmount: parseFloat(
-          String(currentUser.totalPurchaseAmount || 0),
-        ),
-        createdAt: currentUser.createdAt,
-        children: [],
-      };
-
-      if (leftChild) {
-        const leftTree = await buildTree(leftChild.id, depth + 1);
-        if (leftTree) {
-          node.children.push({ ...leftTree, position: 'left' });
-        }
+      if (levelChildren.length === 0) {
+        break;
       }
 
-      if (rightChild) {
-        const rightTree = await buildTree(rightChild.id, depth + 1);
-        if (rightTree) {
-          node.children.push({ ...rightTree, position: 'right' });
+      for (const child of levelChildren) {
+        if (!allNodes.has(child.id)) {
+          allNodes.set(child.id, child);
         }
       }
+      parentIds = levelChildren.map((child) => child.id);
+      depth += 1;
+    }
 
-      return node;
-    };
+    const toTreeNode = (node: any): any => ({
+      id: node.id,
+      username: node.username,
+      fullName: node.fullName,
+      email: node.email,
+      packageType: node.packageType,
+      avatar: node.avatar,
+      leftBranchTotal: parseFloat(String(node.leftBranchTotal || 0)),
+      rightBranchTotal: parseFloat(String(node.rightBranchTotal || 0)),
+      totalPurchaseAmount: parseFloat(String(node.totalPurchaseAmount || 0)),
+      createdAt: node.createdAt,
+      children: [],
+    });
 
-    return buildTree(userId, 0);
+    const treeNodes = new Map<string, any>();
+    for (const node of allNodes.values()) {
+      treeNodes.set(node.id, toTreeNode(node));
+    }
+
+    for (const node of allNodes.values()) {
+      if (!node.parentId) continue;
+      const parent = treeNodes.get(node.parentId);
+      const child = treeNodes.get(node.id);
+      if (!parent || !child) continue;
+      parent.children.push({ ...child, position: node.position });
+    }
+
+    return treeNodes.get(rootUser.id);
   }
 
   /**

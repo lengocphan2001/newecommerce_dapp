@@ -34,9 +34,19 @@ export const adminService = {
     perSlotUsd?: number;
     maxEarnPerTreeUsd?: number;
     maxUplines?: number;
+    prevTreeQualifyPercent?: number;
   }) => api.put('/admin/matrix-reward/config', data),
   getMatrixRewardLevels: () => api.get('/admin/matrix-reward/trees/levels'),
   getMatrixRewardTreeView: (level: number) =>
     api.get(`/admin/matrix-reward/trees/${level}/view`),
+  prepareMatrixRewardTrees: (maxLevel: number) =>
+    api.post('/admin/matrix-reward/trees/prepare', { maxLevel }),
+  backfillMatrixRewardOrders: (data?: {
+    maxOrders?: number;
+    fromDate?: string;
+    onlyUnprocessed?: boolean;
+  }) => api.post('/admin/matrix-reward/orders/backfill', data || {}),
+  setMatrixRewardTreeRoot: (level: number, userId: string) =>
+    api.put(`/admin/matrix-reward/trees/${level}/root`, { userId }),
 };
 

@@ -15,7 +15,21 @@ export class KycService {
     private kycRepository: Repository<Kyc>,
   ) {}
 
+  private normalizeDocumentNumber(value: string): string {
+    return String(value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+  }
+
   async submitKyc(userId: string, kycDto: SubmitKycDto) {
+    const normalizedDocumentNumber = this.normalizeDocumentNumber(
+      kycDto.documentNumber,
+    );
+    if (!normalizedDocumentNumber) {
+      throw new BadRequestException('Document number is required');
+    }
+
     const existing = await this.kycRepository.findOne({
       where: { userId, status: KycStatus.PENDING },
     });
@@ -24,9 +38,21 @@ export class KycService {
       throw new BadRequestException('You already have a pending KYC request');
     }
 
+    // Mỗi CCCD/ID chỉ được submit 1 lần trên toàn hệ thống.
+    const duplicateDocument = await this.kycRepository.findOne({
+      where: { documentNumber: normalizedDocumentNumber },
+      select: ['id', 'userId', 'status'],
+    });
+    if (duplicateDocument) {
+      throw new BadRequestException(
+        'This CCCD/ID number has already been used for KYC',
+      );
+    }
+
     const kyc = this.kycRepository.create({
       user: { id: userId },
       ...kycDto,
+      documentNumber: normalizedDocumentNumber,
     });
     return this.kycRepository.save(kyc);
   }

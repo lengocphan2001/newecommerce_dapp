@@ -202,9 +202,6 @@ export const api = {
   },
 
   async getReferralInfo() {
-    const cached = apiCache.get('referralInfo');
-    if (cached) return cached;
-
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -231,7 +228,6 @@ export const api = {
       if (data.leftLink) data.leftLink = rewrite(data.leftLink);
       if (data.rightLink) data.rightLink = rewrite(data.rightLink);
     }
-    apiCache.set('referralInfo', data);
     return data;
   },
 

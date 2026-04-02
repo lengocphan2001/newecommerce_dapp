@@ -27,6 +27,8 @@ export interface User {
   rightBranchTotal?: number;
   walletBalance?: number;
   withdrawWalletBalance?: number;
+  kycStatus?: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  kycSubmittedAt?: string | null;
   createdAt?: string;
 }
 

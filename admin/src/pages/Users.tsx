@@ -364,6 +364,29 @@ const Users: React.FC = () => {
       },
     },
     {
+      title: 'KYC',
+      dataIndex: 'kycStatus',
+      key: 'kycStatus',
+      render: (kycStatus: string, record: User) => {
+        const status = kycStatus || 'UNVERIFIED';
+        const colorMap: Record<string, string> = {
+          APPROVED: 'green',
+          PENDING: 'orange',
+          REJECTED: 'red',
+          UNVERIFIED: 'default',
+        };
+        const timeText = record.kycSubmittedAt
+          ? new Date(record.kycSubmittedAt).toLocaleDateString()
+          : null;
+        return (
+          <Space direction="vertical" size={2}>
+            <Tag color={colorMap[status] || 'default'}>{status}</Tag>
+            {timeText ? <Text type="secondary" style={{ fontSize: 12 }}>{timeText}</Text> : null}
+          </Space>
+        );
+      },
+    },
+    {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: User) => (

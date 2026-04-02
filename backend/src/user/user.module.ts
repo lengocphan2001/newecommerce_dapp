@@ -9,6 +9,7 @@ import { Order } from '../order/entities/order.entity';
 import { Commission } from '../affiliate/entities/commission.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
 import { AuditLog } from '../audit-log/entities/audit-log.entity';
+import { Kyc } from '../kyc/entities/kyc.entity';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuditLog } from '../audit-log/entities/audit-log.entity';
       Commission,
       UserMilestone,
       AuditLog,
+      Kyc,
     ]),
   ],
   controllers: [UserController, MeController],

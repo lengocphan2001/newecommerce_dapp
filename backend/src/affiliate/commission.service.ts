@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import {
@@ -166,24 +166,37 @@ export class CommissionService {
 
       // Package type is only set when user buys a package (not from product purchase).
 
+      const productMap = await this.getOrderProductsMap(order);
+      const hasAnyProductCommission = this.hasAnyProductCommissionInMap(productMap);
+
       // BƯỚC 1: Tính hoa hồng trực tiếp cho người giới thiệu
       this.logger.log(
         `Step 1: Calculating direct commission for order ${orderId}`,
       );
-      await this.calculateDirectCommission(order, buyer);
+      await this.calculateDirectCommission(
+        order,
+        buyer,
+        productMap,
+        hasAnyProductCommission,
+      );
 
       // BƯỚC 1b: Hoa hồng product – rate theo từng sản phẩm (admin set % TV/CTV/NPP trong product), trả cho referrer; cộng dồn tới ngưỡng như group/management
       this.logger.log(
         `Step 1b: Calculating product commission for order ${orderId}`,
       );
-      await this.calculateProductCommission(order, buyer);
+      await this.calculateProductCommission(order, buyer, productMap);
 
       // BƯỚC 2: Tính hoa hồng nhóm (cân nhánh – khi có giao dịch từ nhánh yếu, không cần minSale)
       // Tính dựa trên volume hiện tại (trước khi cộng volume của đơn hàng này)
       this.logger.log(
         `Step 2: Calculating group commission for order ${orderId}`,
       );
-      await this.calculateGroupCommission(order, buyer);
+      await this.calculateGroupCommission(
+        order,
+        buyer,
+        productMap,
+        hasAnyProductCommission,
+      );
 
       // BƯỚC 3: Tính hoa hồng quản lý nhóm (dựa trên volume hiện tại, chưa cộng đơn này)
       this.logger.log(
@@ -208,17 +221,32 @@ export class CommissionService {
   }
 
   /** Đơn có bất kỳ dòng nào bật hoa hồng sản phẩm thì không dùng package (direct/group/management). */
-  private async orderHasAnyProductCommission(order: Order): Promise<boolean> {
-    const items = Array.isArray(order.items) ? order.items : [];
-    for (const item of items) {
-      if (!item?.productId) continue;
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-        select: ['id', 'useProductCommission'],
-      });
-      if (product?.useProductCommission === true) return true;
+  private hasAnyProductCommissionInMap(productMap: Map<string, Product>): boolean {
+    for (const product of productMap.values()) {
+      if (product.useProductCommission === true) return true;
     }
     return false;
+  }
+
+  private async orderHasAnyProductCommission(order: Order): Promise<boolean> {
+    const productMap = await this.getOrderProductsMap(order);
+    return this.hasAnyProductCommissionInMap(productMap);
+  }
+
+  private async getOrderProductsMap(order: Order): Promise<Map<string, Product>> {
+    const items = Array.isArray(order.items) ? order.items : [];
+    const productIds = [
+      ...new Set(
+        items
+          .map((item) => item?.productId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (productIds.length === 0) return new Map();
+    const products = await this.productRepository.find({
+      where: { id: In(productIds) },
+    });
+    return new Map(products.map((product) => [product.id, product]));
   }
 
   /**
@@ -228,8 +256,15 @@ export class CommissionService {
   private async calculateDirectCommission(
     order: Order,
     buyer: User,
+    preloadedProductMap?: Map<string, Product>,
+    hasAnyProductCommission?: boolean,
   ): Promise<void> {
-    if (await this.orderHasAnyProductCommission(order)) {
+    const skipPackageCommission =
+      hasAnyProductCommission ??
+      this.hasAnyProductCommissionInMap(
+        preloadedProductMap ?? (await this.getOrderProductsMap(order)),
+      );
+    if (skipPackageCommission) {
       this.logger.debug(
         `Order ${order.id} has product commission lines, skipping package direct`,
       );
@@ -265,6 +300,7 @@ export class CommissionService {
     if (!config) return;
 
     const items = Array.isArray(order.items) ? order.items : [];
+    const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
     let packageOrderValue = 0;
     for (const item of items) {
       if (
@@ -273,9 +309,7 @@ export class CommissionService {
         typeof item.price !== 'number'
       )
         continue;
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
+      const product = productMap.get(item.productId);
       if (!product) continue;
       if (product.useProductCommission === true) continue;
       packageOrderValue += Number(item.price) * item.quantity;
@@ -442,6 +476,7 @@ export class CommissionService {
   private async calculateProductCommission(
     order: Order,
     buyer: User,
+    preloadedProductMap?: Map<string, Product>,
   ): Promise<void> {
     const freshBuyer = await this.userRepository.findOne({
       where: { id: buyer.id },
@@ -468,6 +503,7 @@ export class CommissionService {
 
     const ancestors = await this.getAncestors(buyer);
     const items = Array.isArray(order.items) ? order.items : [];
+    const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
     const productGroupAmountByAncestorId = new Map<string, number>();
     let firstProductGroupMeta: { product: Product; buyerPkg: string } | null =
       null;
@@ -481,9 +517,7 @@ export class CommissionService {
       )
         continue;
 
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
+      const product = productMap.get(item.productId);
       if (!product) continue;
       if (product.useProductCommission === false) {
         this.logger.debug(
@@ -561,13 +595,13 @@ export class CommissionService {
         const groupCommissionAmount = this.roundCommission(rawGroup);
         if (groupCommissionAmount <= 0) continue;
 
-        const hasBothBranches = await this.hasBothBranches(ancestor.id);
+        const hasBothBranches = this.hasBothBranchesFromUser(ancestor);
         if (!hasBothBranches) continue;
 
         // Min branch sales chỉ áp dụng cho hoa hồng quản lý (management), không áp dụng cho hoa hồng cân nhánh (product group).
 
         const buyerSide = await this.getBuyerSide(buyer, ancestor);
-        const weakSide = await this.getWeakSide(ancestor.id);
+        const weakSide = this.getWeakSideFromUser(ancestor);
 
         if (
           Number(ancestor.leftBranchTotal) === 0 &&
@@ -695,8 +729,15 @@ export class CommissionService {
   private async calculateGroupCommission(
     order: Order,
     buyer: User,
+    preloadedProductMap?: Map<string, Product>,
+    hasAnyProductCommission?: boolean,
   ): Promise<void> {
-    if (await this.orderHasAnyProductCommission(order)) {
+    const skipPackageCommission =
+      hasAnyProductCommission ??
+      this.hasAnyProductCommissionInMap(
+        preloadedProductMap ?? (await this.getOrderProductsMap(order)),
+      );
+    if (skipPackageCommission) {
       this.logger.debug(
         `[GROUP COMMISSION] Order ${order.id} has product commission lines, skipping package group`,
       );
@@ -704,6 +745,7 @@ export class CommissionService {
     }
 
     const items = Array.isArray(order.items) ? order.items : [];
+    const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
     let packageOrderValue = 0;
     for (const item of items) {
       if (
@@ -712,9 +754,7 @@ export class CommissionService {
         typeof item.price !== 'number'
       )
         continue;
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
+      const product = productMap.get(item.productId);
       if (!product) continue;
       if (product.useProductCommission === true) continue;
       packageOrderValue += Number(item.price) * item.quantity;
@@ -742,7 +782,7 @@ export class CommissionService {
       const config = await this.getPackageConfig(ancestor.packageType);
       if (!config) continue;
 
-      const hasBothBranches = await this.hasBothBranches(ancestor.id);
+      const hasBothBranches = this.hasBothBranchesFromUser(ancestor);
       if (!hasBothBranches) {
         this.logger.debug(
           `[GROUP COMMISSION] Ancestor ${ancestor.id} does not have both branches, skipping`,
@@ -753,7 +793,7 @@ export class CommissionService {
       // Min branch sales chỉ áp dụng cho hoa hồng quản lý (management), không áp dụng cho hoa hồng cân nhánh (group).
 
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
-      const weakSide = await this.getWeakSide(ancestor.id);
+      const weakSide = this.getWeakSideFromUser(ancestor);
 
       if (weakSide !== null && buyerSide !== weakSide) {
         this.logger.debug(
@@ -1294,6 +1334,12 @@ export class CommissionService {
     return leftTotal > 0 || rightTotal > 0;
   }
 
+  private hasBothBranchesFromUser(user: User): boolean {
+    const leftTotal = Number(user.leftBranchTotal ?? 0);
+    const rightTotal = Number(user.rightBranchTotal ?? 0);
+    return leftTotal > 0 || rightTotal > 0;
+  }
+
   private async getBuyerSide(
     buyer: User,
     ancestor: User,
@@ -1324,6 +1370,14 @@ export class CommissionService {
     const left = Number(user.leftBranchTotal);
     const right = Number(user.rightBranchTotal);
 
+    if (left < right) return 'left';
+    if (right < left) return 'right';
+    return null;
+  }
+
+  private getWeakSideFromUser(user: User): 'left' | 'right' | null {
+    const left = Number(user.leftBranchTotal ?? 0);
+    const right = Number(user.rightBranchTotal ?? 0);
     if (left < right) return 'left';
     if (right < left) return 'right';
     return null;

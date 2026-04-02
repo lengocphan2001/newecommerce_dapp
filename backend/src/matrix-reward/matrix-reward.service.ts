@@ -1,6 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
 import { MatrixRewardTree } from './entities/matrix-reward-tree.entity';
 import {
   MatrixRewardNode,
@@ -12,11 +17,13 @@ import { MatrixRewardOrderProcessed } from './entities/matrix-reward-order-proce
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { User } from '../user/entities/user.entity';
 import { SystemConfig } from '../admin/entities/system-config.entity';
+import { PackagesService } from '../packages/packages.service';
 
 const CFG_MIN_ORDER = 'matrixRewardMinOrderUsd';
 const CFG_PER_SLOT = 'matrixRewardPerSlotUsd';
 const CFG_MAX_EARN = 'matrixRewardMaxEarnPerTreeUsd';
 const CFG_MAX_UPLINES = 'matrixRewardMaxUplines';
+const CFG_PREV_TREE_QUALIFY_PERCENT = 'matrixRewardPrevTreeQualifyPercent';
 
 function roundMoney(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -49,21 +56,27 @@ export class MatrixRewardService {
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(SystemConfig)
     private readonly systemConfigRepo: Repository<SystemConfig>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly packagesService: PackagesService,
     private readonly dataSource: DataSource,
   ) {}
 
   async getPublicConfig() {
-    const [minOrder, perSlot, maxEarn, maxUplines] = await Promise.all([
+    const [minOrder, perSlot, maxEarn, maxUplines, prevTreeQualifyPercent] =
+      await Promise.all([
       this.getConfigNumber(CFG_MIN_ORDER, 100),
       this.getConfigNumber(CFG_PER_SLOT, 0.5),
       this.getConfigNumber(CFG_MAX_EARN, 1500),
       this.getConfigNumber(CFG_MAX_UPLINES, 11),
-    ]);
+      this.getConfigNumber(CFG_PREV_TREE_QUALIFY_PERCENT, 100),
+      ]);
     return {
       minOrderUsd: minOrder,
       perSlotUsd: perSlot,
       maxEarnPerTreeUsd: maxEarn,
       maxUplines,
+      prevTreeQualifyPercent: prevTreeQualifyPercent,
     };
   }
 
@@ -74,6 +87,7 @@ export class MatrixRewardService {
         { key: CFG_PER_SLOT },
         { key: CFG_MAX_EARN },
         { key: CFG_MAX_UPLINES },
+        { key: CFG_PREV_TREE_QUALIFY_PERCENT },
       ],
     });
     const map = new Map(rows.map((r) => [r.key, r.value]));
@@ -82,6 +96,9 @@ export class MatrixRewardService {
       perSlotUsd: Number(map.get(CFG_PER_SLOT) ?? 0.5),
       maxEarnPerTreeUsd: Number(map.get(CFG_MAX_EARN) ?? 1500),
       maxUplines: Number(map.get(CFG_MAX_UPLINES) ?? 11),
+      prevTreeQualifyPercent: Number(
+        map.get(CFG_PREV_TREE_QUALIFY_PERCENT) ?? 100,
+      ),
     };
   }
 
@@ -90,6 +107,7 @@ export class MatrixRewardService {
     perSlotUsd?: number;
     maxEarnPerTreeUsd?: number;
     maxUplines?: number;
+    prevTreeQualifyPercent?: number;
   }) {
     const entries: Array<{ key: string; value: string }> = [];
     if (body.minOrderUsd != null)
@@ -103,6 +121,11 @@ export class MatrixRewardService {
       });
     if (body.maxUplines != null)
       entries.push({ key: CFG_MAX_UPLINES, value: String(body.maxUplines) });
+    if (body.prevTreeQualifyPercent != null)
+      entries.push({
+        key: CFG_PREV_TREE_QUALIFY_PERCENT,
+        value: String(body.prevTreeQualifyPercent),
+      });
     for (const e of entries) {
       let row = await this.systemConfigRepo.findOne({ where: { key: e.key } });
       if (!row) {
@@ -165,6 +188,19 @@ export class MatrixRewardService {
         try {
           const buyerId = order.userId;
           const nextLevel = await this.computeNextTreeLevel(buyerId, manager);
+          const prevTreeQualifyPercent = await this.getConfigNumber(
+            CFG_PREV_TREE_QUALIFY_PERCENT,
+            100,
+          );
+          const passedPrevTreeRule = await this.checkPrevTreeEligibility({
+            manager,
+            userId: buyerId,
+            nextTreeLevel: nextLevel,
+            prevTreeQualifyPercent,
+          });
+          if (!passedPrevTreeRule) {
+            return;
+          }
           const tree = await this.getOrCreateTree(nextLevel, manager);
           const treeId = tree.id;
 
@@ -217,6 +253,54 @@ export class MatrixRewardService {
     }
   }
 
+  private async checkPrevTreeEligibility(opts: {
+    manager: EntityManager;
+    userId: string;
+    nextTreeLevel: number;
+    prevTreeQualifyPercent: number;
+  }): Promise<boolean> {
+    const { manager, userId, nextTreeLevel, prevTreeQualifyPercent } = opts;
+
+    // Tree đầu tiên luôn cho vào nếu đơn đủ điều kiện.
+    if (nextTreeLevel <= 1) return true;
+
+    const user = await manager.getRepository(User).findOne({
+      where: { id: userId },
+      select: ['id', 'packageType', 'totalPurchaseAmount'],
+    });
+    if (!user) return false;
+
+    if (!user.packageType || user.packageType === 'NONE') {
+      return false;
+    }
+
+    const pkg = await this.packagesService.findByCode(user.packageType);
+    if (!pkg) return false;
+
+    const maxEffectiveThreshold = this.packagesService.getEffectiveThreshold(
+      Number(user.totalPurchaseAmount),
+      pkg,
+    );
+    const requiredEarnOnPrevTree = roundMoney(
+      (Math.max(0, Number(prevTreeQualifyPercent) || 0) / 100) *
+        maxEffectiveThreshold,
+    );
+
+    const prevTree = await manager
+      .getRepository(MatrixRewardTree)
+      .findOne({ where: { treeLevel: nextTreeLevel - 1 } });
+    if (!prevTree) {
+      return false;
+    }
+
+    const earnedOnPrevTree = await this.sumLedgerForUserTree(
+      manager,
+      userId,
+      prevTree.id,
+    );
+    return earnedOnPrevTree >= requiredEarnOnPrevTree;
+  }
+
   /** Đánh dấu đã xử lý khi không đủ ngưỡng — tránh quét lại vô hạn. */
   private async safeMarkProcessed(orderId: string) {
     try {
@@ -243,12 +327,14 @@ export class MatrixRewardService {
       .map((n) => n.tree?.treeLevel)
       .filter((l): l is number => typeof l === 'number');
     const maxLevel = activeLevels.length > 0 ? Math.max(...activeLevels) : 0;
+    const exclusions = await exRepo.find({
+      where: { userId },
+      select: ['treeLevel'],
+    });
+    const excludedLevels = new Set(exclusions.map((entry) => entry.treeLevel));
     let candidate = maxLevel + 1;
     for (let i = 0; i < 500; i++) {
-      const ex = await exRepo.findOne({
-        where: { userId, treeLevel: candidate },
-      });
-      if (!ex) return candidate;
+      if (!excludedLevels.has(candidate)) return candidate;
       candidate++;
     }
     throw new Error('matrix tree level overflow');
@@ -327,11 +413,11 @@ export class MatrixRewardService {
   ): Promise<MatrixRewardNode[]> {
     const nodeRepo = manager.getRepository(MatrixRewardNode);
     const result: MatrixRewardNode[] = [];
-    let cur = await nodeRepo.findOne({ where: { id: fromNodeId, treeId } });
+    const allNodes = await nodeRepo.find({ where: { treeId } });
+    const nodeMap = new Map(allNodes.map((node) => [node.id, node]));
+    let cur = nodeMap.get(fromNodeId);
     while (cur?.parentNodeId && result.length < max) {
-      const parent = await nodeRepo.findOne({
-        where: { id: cur.parentNodeId, treeId },
-      });
+      const parent = nodeMap.get(cur.parentNodeId);
       if (!parent) break;
       result.push(parent);
       cur = parent;
@@ -535,19 +621,25 @@ export class MatrixRewardService {
     rootId: string,
   ): Promise<{ parentNodeId: string; side: MatrixNodeSide } | null> {
     const nodeRepo = manager.getRepository(MatrixRewardNode);
+    const nodes = await nodeRepo.find({ where: { treeId } });
+    const childrenByParent = new Map<string, { left?: string; right?: string }>();
+    for (const node of nodes) {
+      if (!node.parentNodeId) continue;
+      if (!childrenByParent.has(node.parentNodeId)) {
+        childrenByParent.set(node.parentNodeId, {});
+      }
+      const slot = childrenByParent.get(node.parentNodeId)!;
+      if (node.side === MatrixNodeSide.LEFT) slot.left = node.id;
+      if (node.side === MatrixNodeSide.RIGHT) slot.right = node.id;
+    }
     const queue: string[] = [rootId];
     while (queue.length) {
       const id = queue.shift()!;
-      const left = await nodeRepo.findOne({
-        where: { treeId, parentNodeId: id, side: MatrixNodeSide.LEFT },
-      });
-      const right = await nodeRepo.findOne({
-        where: { treeId, parentNodeId: id, side: MatrixNodeSide.RIGHT },
-      });
-      if (!left) return { parentNodeId: id, side: MatrixNodeSide.LEFT };
-      if (!right) return { parentNodeId: id, side: MatrixNodeSide.RIGHT };
-      queue.push(left.id);
-      queue.push(right.id);
+      const slot = childrenByParent.get(id) ?? {};
+      if (!slot.left) return { parentNodeId: id, side: MatrixNodeSide.LEFT };
+      if (!slot.right) return { parentNodeId: id, side: MatrixNodeSide.RIGHT };
+      queue.push(slot.left);
+      queue.push(slot.right);
     }
     return null;
   }
@@ -563,24 +655,42 @@ export class MatrixRewardService {
       order: { createdAt: 'ASC' },
     });
 
+    const userIds = [...new Set(nodes.map((node) => node.userId))];
     const earnedByUser = new Map<string, number>();
-    for (const n of nodes) {
-      const s = await this.sumLedgerForUserTreeExternal(n.userId, tree.id);
-      earnedByUser.set(n.userId, s);
+    if (userIds.length > 0) {
+      const ledgerRows = await this.ledgerRepo
+        .createQueryBuilder('l')
+        .select('l.beneficiaryUserId', 'beneficiaryUserId')
+        .addSelect('COALESCE(SUM(l.amount),0)', 'total')
+        .where('l.treeId = :treeId', { treeId: tree.id })
+        .andWhere('l.beneficiaryUserId IN (:...userIds)', { userIds })
+        .groupBy('l.beneficiaryUserId')
+        .getRawMany<{ beneficiaryUserId: string; total: string }>();
+      for (const row of ledgerRows) {
+        earnedByUser.set(row.beneficiaryUserId, roundMoney(Number(row.total) || 0));
+      }
     }
 
     const byId = new Map(nodes.map((x) => [x.id, x]));
+    const childrenByParent = new Map<
+      string,
+      { left?: MatrixRewardNode; right?: MatrixRewardNode }
+    >();
+    for (const node of nodes) {
+      if (!node.parentNodeId) continue;
+      if (!childrenByParent.has(node.parentNodeId)) {
+        childrenByParent.set(node.parentNodeId, {});
+      }
+      const slot = childrenByParent.get(node.parentNodeId)!;
+      if (node.side === MatrixNodeSide.LEFT) slot.left = node;
+      if (node.side === MatrixNodeSide.RIGHT) slot.right = node;
+    }
     const build = (id: string): any => {
       const node = byId.get(id)!;
       const u = node.user;
-      const left = nodes.find(
-        (c) =>
-          c.parentNodeId === id && c.side === MatrixNodeSide.LEFT,
-      );
-      const right = nodes.find(
-        (c) =>
-          c.parentNodeId === id && c.side === MatrixNodeSide.RIGHT,
-      );
+      const slot = childrenByParent.get(id) ?? {};
+      const left = slot.left;
+      const right = slot.right;
       const children: any[] = [];
       if (left) {
         children.push({
@@ -631,6 +741,217 @@ export class MatrixRewardService {
     return trees.map((t) => t.treeLevel);
   }
 
+  /**
+   * Admin: quét lại đơn CONFIRMED cũ và chạy matrix theo thứ tự thời gian.
+   * Dùng để backfill dữ liệu trước khi có module matrix.
+   */
+  async backfillConfirmedOrders(options?: {
+    maxOrders?: number;
+    fromDate?: string;
+    onlyUnprocessed?: boolean;
+  }): Promise<{
+    scanned: number;
+    processed: number;
+    failed: number;
+    skipped: number;
+    failedOrderIds: string[];
+  }> {
+    const maxOrders = Math.max(
+      1,
+      Math.min(5000, Math.floor(Number(options?.maxOrders ?? 500))),
+    );
+    const onlyUnprocessed = options?.onlyUnprocessed !== false;
+
+    const qb = this.orderRepo
+      .createQueryBuilder('o')
+      .leftJoin(MatrixRewardOrderProcessed, 'p', 'p.orderId = o.id')
+      .where('o.status = :status', { status: OrderStatus.CONFIRMED })
+      .orderBy('o.createdAt', 'ASC')
+      .addOrderBy('o.id', 'ASC')
+      .take(maxOrders);
+
+    if (options?.fromDate) {
+      const from = new Date(options.fromDate);
+      if (!Number.isNaN(from.getTime())) {
+        qb.andWhere('o.createdAt >= :from', { from: from.toISOString() });
+      }
+    }
+
+    if (onlyUnprocessed) {
+      qb.andWhere('p.orderId IS NULL');
+    }
+
+    const orders = await qb.select(['o.id']).getMany();
+
+    let processed = 0;
+    let failed = 0;
+    const failedOrderIds: string[] = [];
+
+    for (const order of orders) {
+      try {
+        await this.processOrderIfEligible(order.id);
+        processed += 1;
+      } catch (error) {
+        failed += 1;
+        failedOrderIds.push(order.id);
+        this.logger.error(
+          `[MATRIX] backfill failed order=${order.id}: ${(error as any)?.message}`,
+        );
+      }
+    }
+
+    return {
+      scanned: orders.length,
+      processed,
+      failed,
+      skipped: Math.max(0, orders.length - processed - failed),
+      failedOrderIds,
+    };
+  }
+
+  /**
+   * Admin: tạo sẵn cây matrix từ level 1..maxLevel (idempotent).
+   */
+  async ensureTreesUpTo(maxLevel: number): Promise<{
+    requestedMaxLevel: number;
+    createdLevels: number[];
+    existingLevels: number[];
+  }> {
+    const target = Math.floor(Number(maxLevel));
+    if (!Number.isFinite(target) || target < 1) {
+      throw new BadRequestException('maxLevel must be >= 1');
+    }
+    if (target > 1000) {
+      throw new BadRequestException('maxLevel too large (max 1000)');
+    }
+
+    const existing = await this.treeRepo.find({ order: { treeLevel: 'ASC' } });
+    const existingSet = new Set(existing.map((tree) => tree.treeLevel));
+    const createdLevels: number[] = [];
+    const existingLevels: number[] = [];
+
+    for (let level = 1; level <= target; level++) {
+      if (existingSet.has(level)) {
+        existingLevels.push(level);
+        continue;
+      }
+      const tree = this.treeRepo.create({ treeLevel: level });
+      await this.treeRepo.save(tree);
+      createdLevels.push(level);
+    }
+
+    return {
+      requestedMaxLevel: target,
+      createdLevels,
+      existingLevels,
+    };
+  }
+
+  /**
+   * Admin: đặt user làm gốc cây matrix theo treeLevel.
+   * Chỉ cho phép khi cây trống hoặc chỉ có một node gốc (chưa có con) — tránh phá cấu trúc BFS đã hình thành.
+   */
+  async setAdminTreeRoot(
+    treeLevel: number,
+    userId: string,
+  ): Promise<{
+    treeLevel: number;
+    treeId: string;
+    rootNodeId: string;
+    userId: string;
+  }> {
+    const uid = (userId || '').trim();
+    if (!uid) {
+      throw new BadRequestException('userId is required');
+    }
+
+    const user = await this.userRepo.findOne({
+      where: { id: uid },
+      select: ['id'],
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const treeRepo = manager.getRepository(MatrixRewardTree);
+      const nodeRepo = manager.getRepository(MatrixRewardNode);
+
+      let tree = await treeRepo.findOne({ where: { treeLevel } });
+      if (!tree) {
+        tree = treeRepo.create({ treeLevel });
+        await treeRepo.save(tree);
+      }
+
+      const treeId = tree.id;
+      const nodes = await nodeRepo.find({ where: { treeId } });
+
+      if (nodes.length === 0) {
+        const node = manager.create(MatrixRewardNode, {
+          treeId,
+          userId: uid,
+          parentNodeId: null,
+          side: null,
+          placementOrderId: null,
+        });
+        await manager.save(MatrixRewardNode, node);
+        this.logger.log(
+          `[MATRIX] Admin set root: treeLevel=${treeLevel} userId=${uid} (new root)`,
+        );
+        return {
+          treeLevel,
+          treeId,
+          rootNodeId: node.id,
+          userId: uid,
+        };
+      }
+
+      const root = nodes.find((n) => n.parentNodeId === null);
+      if (!root) {
+        throw new BadRequestException(
+          'Invalid matrix tree: missing root node; contact support.',
+        );
+      }
+
+      const children = nodes.filter((n) => n.parentNodeId === root.id);
+      if (children.length > 0) {
+        throw new BadRequestException(
+          'Chỉ đặt gốc khi cây trống hoặc chỉ có một node gốc (chưa có nhánh con).',
+        );
+      }
+
+      if (root.userId === uid) {
+        return {
+          treeLevel,
+          treeId,
+          rootNodeId: root.id,
+          userId: uid,
+        };
+      }
+
+      const duplicateUser = nodes.find(
+        (n) => n.userId === uid && n.id !== root.id,
+      );
+      if (duplicateUser) {
+        throw new BadRequestException(
+          'User đã có vị trí khác trên cây này; không thể đặt làm gốc.',
+        );
+      }
+
+      await nodeRepo.update(root.id, { userId: uid });
+      this.logger.log(
+        `[MATRIX] Admin changed root user: treeLevel=${treeLevel} rootNodeId=${root.id} userId=${uid}`,
+      );
+
+      return {
+        treeLevel,
+        treeId,
+        rootNodeId: root.id,
+        userId: uid,
+      };
+    });
+  }
+
   async getMySummary(userId: string) {
     const nodes = await this.nodeRepo.find({
       where: { userId },
@@ -642,14 +963,29 @@ export class MatrixRewardService {
       nodeId: string;
       earnedOnTreeUsd: number;
     }> = [];
+    const treeIds = [...new Set(nodes.map((node) => node.treeId))];
+    const earnedByTree = new Map<string, number>();
+    if (treeIds.length > 0) {
+      const rows = await this.ledgerRepo
+        .createQueryBuilder('l')
+        .select('l.treeId', 'treeId')
+        .addSelect('COALESCE(SUM(l.amount),0)', 'total')
+        .where('l.beneficiaryUserId = :userId', { userId })
+        .andWhere('l.treeId IN (:...treeIds)', { treeIds })
+        .groupBy('l.treeId')
+        .getRawMany<{ treeId: string; total: string }>();
+      for (const row of rows) {
+        earnedByTree.set(row.treeId, roundMoney(Number(row.total) || 0));
+      }
+    }
+
     for (const n of nodes) {
       const tid = n.treeId;
-      const earned = await this.sumLedgerForUserTreeExternal(userId, tid);
       out.push({
         treeLevel: n.tree?.treeLevel ?? 0,
         treeId: tid,
         nodeId: n.id,
-        earnedOnTreeUsd: earned,
+        earnedOnTreeUsd: earnedByTree.get(tid) ?? 0,
       });
     }
     out.sort((a, b) => a.treeLevel - b.treeLevel);

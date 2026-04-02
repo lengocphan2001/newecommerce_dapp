@@ -7,13 +7,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike, In } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Address } from './entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Commission } from '../affiliate/entities/commission.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
 import { AuditLog } from '../audit-log/entities/audit-log.entity';
+import { Kyc } from '../kyc/entities/kyc.entity';
 import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -35,44 +36,66 @@ export class UserService {
   ) {}
 
   async findAll(search?: string) {
-    const where: any = {};
+    const qb = this.userRepository
+      .createQueryBuilder('u')
+      .leftJoin(
+        (subQb) =>
+          subQb
+            .from(Kyc, 'k')
+            .select('k.userId', 'userId')
+            .addSelect('k.status', 'status')
+            .addSelect('k.createdAt', 'createdAt')
+            .addSelect(
+              'ROW_NUMBER() OVER (PARTITION BY k.userId ORDER BY k.createdAt DESC)',
+              'rn',
+            ),
+        'kyc_latest',
+        'kyc_latest.userId = u.id AND kyc_latest.rn = 1',
+      )
+      .select([
+        'u.id AS id',
+        'u.email AS email',
+        'u.fullName AS fullName',
+        'u.phone AS phone',
+        'u.status AS status',
+        'u.isAdmin AS isAdmin',
+        'u.createdAt AS createdAt',
+        'kyc_latest.status AS kycStatus',
+        'kyc_latest.createdAt AS kycSubmittedAt',
+      ])
+      .orderBy('u.createdAt', 'DESC');
+
     if (search) {
-      where.email = ILike(`%${search}%`);
+      qb.where('u.email LIKE :search', { search: `%${search}%` })
+        .orWhere('u.fullName LIKE :search', { search: `%${search}%` })
+        .orWhere('u.username LIKE :search', { search: `%${search}%` })
+        .orWhere('u.id LIKE :search', { search: `%${search}%` })
+        .orWhere('u.walletAddress LIKE :search', { search: `%${search}%` });
     }
 
-    // Since we want to search across multiple fields, we can use an array of OR conditions
-    if (search) {
-      return this.userRepository.find({
-        where: [
-          { email: ILike(`%${search}%`) },
-          { fullName: ILike(`%${search}%`) },
-          { username: ILike(`%${search}%`) },
-          { id: ILike(`%${search}%`) },
-          { walletAddress: ILike(`%${search}%`) },
-        ],
-        select: [
-          'id',
-          'email',
-          'fullName',
-          'phone',
-          'status',
-          'isAdmin',
-          'createdAt',
-        ],
-      });
-    }
+    const rows = await qb.getRawMany<{
+      id: string;
+      email: string;
+      fullName: string;
+      phone: string | null;
+      status: string;
+      isAdmin: number | boolean;
+      createdAt: Date | string;
+      kycStatus: string | null;
+      kycSubmittedAt: Date | string | null;
+    }>();
 
-    return this.userRepository.find({
-      select: [
-        'id',
-        'email',
-        'fullName',
-        'phone',
-        'status',
-        'isAdmin',
-        'createdAt',
-      ],
-    });
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      fullName: row.fullName,
+      phone: row.phone ?? undefined,
+      status: row.status,
+      isAdmin: Boolean(row.isAdmin),
+      createdAt: row.createdAt,
+      kycStatus: row.kycStatus ?? 'UNVERIFIED',
+      kycSubmittedAt: row.kycSubmittedAt ?? null,
+    }));
   }
 
   async findOne(id: string): Promise<User | null> {
@@ -202,62 +225,46 @@ export class UserService {
     startUserId: string,
     targetPosition: 'left' | 'right',
   ): Promise<{ parentId: string; position: 'left' | 'right' }> {
-    // Kiểm tra node bắt đầu có slot trống ở nhánh chỉ định không
-    // Mỗi node chỉ có tối đa 1 left và 1 right direct child
-    const directChildCount = await this.countChildren(
-      startUserId,
-      targetPosition,
-    );
-
-    if (directChildCount === 0) {
-      // Node này chưa có direct child ở nhánh chỉ định, có thể đặt trực tiếp
-      return { parentId: startUserId, position: targetPosition };
-    }
-
-    // Node này đã có direct child ở nhánh chỉ định (chỉ có thể là 1)
-    // Tìm direct child đó
     const directChild = await this.userRepository.findOne({
       where: { parentId: startUserId, position: targetPosition },
       order: { createdAt: 'ASC' }, // Lấy con đầu tiên (theo thời gian đăng ký)
+      select: ['id'],
     });
 
     if (!directChild) {
-      // Không tìm thấy con (không nên xảy ra nhưng để an toàn)
       return { parentId: startUserId, position: targetPosition };
     }
 
-    // Tìm node đầu tiên trong downline có slot trống
-    // Duyệt theo thứ tự từ trên xuống (BFS - Breadth First Search)
     const queue: string[] = [directChild.id];
-
     while (queue.length > 0) {
-      const currentNodeId = queue.shift()!;
-
-      // Kiểm tra node này có đủ 2 direct children chưa
-      const leftCount = await this.countChildren(currentNodeId, 'left');
-      const rightCount = await this.countChildren(currentNodeId, 'right');
-
-      // Nếu chưa đủ 2 direct children, tìm nhánh yếu để đặt
-      if (leftCount === 0 || rightCount === 0) {
-        // Có ít nhất 1 slot trống, đặt vào nhánh yếu
-        const weakLeg = leftCount <= rightCount ? 'left' : 'right';
-        return { parentId: currentNodeId, position: weakLeg };
+      const currentLevelParentIds = [...queue];
+      queue.length = 0;
+      const children = await this.userRepository.find({
+        where: { parentId: In(currentLevelParentIds) },
+        select: ['id', 'parentId', 'position'],
+        order: { createdAt: 'ASC' },
+      });
+      const childByParent = new Map<
+        string,
+        { left?: string; right?: string }
+      >();
+      for (const child of children) {
+        if (!child.parentId) continue;
+        if (!childByParent.has(child.parentId)) {
+          childByParent.set(child.parentId, {});
+        }
+        const slot = childByParent.get(child.parentId)!;
+        if (child.position === 'left') slot.left = child.id;
+        if (child.position === 'right') slot.right = child.id;
       }
 
-      // Node này đã đủ 2 direct children, thêm các direct children của nó vào queue để tiếp tục tìm
-      const leftChild = await this.userRepository.findOne({
-        where: { parentId: currentNodeId, position: 'left' },
-      });
-      const rightChild = await this.userRepository.findOne({
-        where: { parentId: currentNodeId, position: 'right' },
-      });
-
-      // Thêm các direct children vào queue theo thứ tự (left trước, right sau)
-      if (leftChild) {
-        queue.push(leftChild.id);
-      }
-      if (rightChild) {
-        queue.push(rightChild.id);
+      for (const parentId of currentLevelParentIds) {
+        const slot = childByParent.get(parentId) ?? {};
+        if (!slot.left || !slot.right) {
+          return { parentId, position: !slot.left ? 'left' : 'right' };
+        }
+        queue.push(slot.left);
+        queue.push(slot.right);
       }
     }
 
@@ -345,22 +352,31 @@ export class UserService {
       order: { createdAt: 'ASC' },
     });
 
-    const result = await Promise.all(
-      f1Users.map(async (u) => {
-        const directReferralCount = await this.userRepository.count({
-          where: { referralUserId: u.id },
-        });
-        return {
-          id: u.id,
-          username: u.username,
-          fullName: u.fullName,
-          email: u.email,
-          packageType: u.packageType || 'NONE',
-          createdAt: u.createdAt,
-          directReferralCount,
-        };
-      }),
-    );
+    const f1Ids = f1Users.map((u) => u.id);
+    const countsByReferrer = new Map<string, number>();
+    if (f1Ids.length > 0) {
+      const rows = await this.userRepository
+        .createQueryBuilder('user')
+        .select('user.referralUserId', 'referralUserId')
+        .addSelect('COUNT(user.id)', 'count')
+        .where('user.referralUserId IN (:...f1Ids)', { f1Ids })
+        .groupBy('user.referralUserId')
+        .getRawMany<{ referralUserId: string; count: string }>();
+
+      for (const row of rows) {
+        countsByReferrer.set(row.referralUserId, Number(row.count) || 0);
+      }
+    }
+
+    const result = f1Users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      fullName: u.fullName,
+      email: u.email,
+      packageType: u.packageType || 'NONE',
+      createdAt: u.createdAt,
+      directReferralCount: countsByReferrer.get(u.id) || 0,
+    }));
 
     return result;
   }
@@ -399,39 +415,42 @@ export class UserService {
     position?: 'left' | 'right',
     currentDepth: number = 1,
   ): Promise<any[]> {
-    const query = this.userRepository
-      .createQueryBuilder('user')
-      .select([
-        'user.id',
-        'user.username',
-        'user.fullName',
-        'user.avatar',
-        'user.packageType',
-        'user.position',
-        'user.leftBranchTotal',
-        'user.rightBranchTotal',
-        'user.totalPurchaseAmount',
-        'user.createdAt',
-      ])
-      .where('user.parentId = :parentId', { parentId });
+    const descendants: any[] = [];
+    let currentParentIds: string[] = [parentId];
+    let depth = currentDepth;
+    let applyPositionFilter = position;
 
-    if (position) {
-      query.andWhere('user.position = :position', { position });
-    }
+    while (currentParentIds.length > 0) {
+      const query = this.userRepository
+        .createQueryBuilder('user')
+        .select([
+          'user.id',
+          'user.username',
+          'user.fullName',
+          'user.avatar',
+          'user.packageType',
+          'user.position',
+          'user.leftBranchTotal',
+          'user.rightBranchTotal',
+          'user.totalPurchaseAmount',
+          'user.createdAt',
+          'user.parentId',
+        ])
+        .where('user.parentId IN (:...parentIds)', { parentIds: currentParentIds });
 
-    const children = await query.getMany();
-    let descendants: any[] = [];
+      if (applyPositionFilter) {
+        query.andWhere('user.position = :position', { position: applyPositionFilter });
+      }
 
-    for (const child of children) {
-      const member = { ...child, depth: currentDepth };
-      descendants.push(member);
+      const levelChildren = await query.getMany();
+      if (levelChildren.length === 0) {
+        break;
+      }
 
-      const subDescendants = await this.getAllDescendants(
-        child.id,
-        undefined,
-        currentDepth + 1,
-      );
-      descendants = [...descendants, ...subDescendants];
+      descendants.push(...levelChildren.map((child) => ({ ...child, depth })));
+      currentParentIds = levelChildren.map((child) => child.id);
+      applyPositionFilter = undefined;
+      depth += 1;
     }
 
     return descendants;
@@ -444,19 +463,28 @@ export class UserService {
     parentId: string,
     position?: 'left' | 'right',
   ): Promise<number> {
-    const query = this.userRepository
-      .createQueryBuilder('user')
-      .where('user.parentId = :parentId', { parentId });
+    let count = 0;
+    let currentParentIds: string[] = [parentId];
+    let applyPositionFilter = position;
 
-    if (position) {
-      query.andWhere('user.position = :position', { position });
-    }
+    while (currentParentIds.length > 0) {
+      const query = this.userRepository
+        .createQueryBuilder('user')
+        .select(['user.id'])
+        .where('user.parentId IN (:...parentIds)', { parentIds: currentParentIds });
 
-    const children = await query.getMany();
-    let count = children.length;
+      if (applyPositionFilter) {
+        query.andWhere('user.position = :position', { position: applyPositionFilter });
+      }
 
-    for (const child of children) {
-      count += await this.countAllDescendants(child.id);
+      const levelChildren = await query.getMany();
+      if (levelChildren.length === 0) {
+        break;
+      }
+
+      count += levelChildren.length;
+      currentParentIds = levelChildren.map((child) => child.id);
+      applyPositionFilter = undefined;
     }
 
     return count;
@@ -613,11 +641,11 @@ export class UserService {
   ): Promise<void> {
     if (!buyer.parentId) return;
 
-    const ancestors = await this.getAncestorsForVolumeAdjustment(buyer);
+    const chain = await this.buildParentChainForUser(buyer);
+    const ancestors = chain.map((entry) => entry.user);
 
     for (const ancestor of ancestors) {
-      // Determine which side the buyer originates from relative to this ancestor
-      const buyerSide = await this.findBuyerSideForAncestor(buyer, ancestor);
+      const buyerSide = this.findBuyerSideFromChain(ancestor.id, chain);
 
       // Subtract volume using Atomical update
       await this.userRepository
@@ -633,40 +661,46 @@ export class UserService {
   }
 
   private async getAncestorsForVolumeAdjustment(user: User): Promise<User[]> {
-    const ancestors: User[] = [];
+    const chain = await this.buildParentChainForUser(user);
+    return chain.map((entry) => entry.user);
+  }
+
+  private async buildParentChainForUser(
+    user: User,
+  ): Promise<Array<{ user: User; childPosition: 'left' | 'right' }>> {
     let current = user;
+    const chain: Array<{ user: User; childPosition: 'left' | 'right' }> = [];
     while (current && current.parentId) {
       const parent = await this.userRepository.findOne({
         where: { id: current.parentId },
       });
       if (parent) {
-        ancestors.push(parent);
+        chain.push({
+          user: parent,
+          childPosition: current.position ?? 'left',
+        });
         current = parent;
       } else {
         break;
       }
     }
-    return ancestors;
+    return chain;
   }
 
   private async findBuyerSideForAncestor(
     buyer: User,
     ancestor: User,
   ): Promise<'left' | 'right'> {
-    let current = buyer;
-    while (current.parentId && current.parentId !== ancestor.id) {
-      const parent = await this.userRepository.findOne({
-        where: { id: current.parentId },
-      });
-      if (!parent) break;
-      current = parent;
-    }
+    const chain = await this.buildParentChainForUser(buyer);
+    return this.findBuyerSideFromChain(ancestor.id, chain);
+  }
 
-    if (current.parentId === ancestor.id) {
-      return current.position;
-    }
-
-    return 'left'; // Fallback
+  private findBuyerSideFromChain(
+    ancestorId: string,
+    chain: Array<{ user: User; childPosition: 'left' | 'right' }>,
+  ): 'left' | 'right' {
+    const entry = chain.find((item) => item.user.id === ancestorId);
+    return entry?.childPosition ?? 'left';
   }
 
   // Address Methods

@@ -11,6 +11,9 @@ import {
   Form,
   InputNumber,
   Typography,
+  Alert,
+  Input,
+  Modal,
 } from 'antd';
 import { ReloadOutlined, SearchOutlined, SaveOutlined } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
@@ -116,6 +119,18 @@ const MatrixPool: React.FC = () => {
   const reactFlowContainerRef = React.useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [rootUserId, setRootUserId] = useState('');
+  const [settingRoot, setSettingRoot] = useState(false);
+  const [prepareMaxLevel, setPrepareMaxLevel] = useState<number>(10);
+  const [preparingTrees, setPreparingTrees] = useState(false);
+  const [backfillLimit, setBackfillLimit] = useState<number>(500);
+  const [backfillingOrders, setBackfillingOrders] = useState(false);
+  const [userPreview, setUserPreview] = useState<{
+    id: string;
+    username?: string | null;
+    fullName?: string;
+    email?: string;
+  } | null>(null);
 
   const loadLevels = async () => {
     try {
@@ -139,6 +154,7 @@ const MatrixPool: React.FC = () => {
         perSlotUsd: c.perSlotUsd,
         maxEarnPerTreeUsd: c.maxEarnPerTreeUsd,
         maxUplines: c.maxUplines,
+        prevTreeQualifyPercent: c.prevTreeQualifyPercent,
       });
     } catch (e: any) {
       message.error(e?.message || 'Failed to load matrix config');
@@ -281,6 +297,67 @@ const MatrixPool: React.FC = () => {
     [nodes.length],
   );
 
+  const lookupUser = async () => {
+    const id = rootUserId.trim();
+    if (!id) {
+      setUserPreview(null);
+      return;
+    }
+    try {
+      const res = await adminService.getUserDetail(id);
+      const data = (res as any)?.data ?? res;
+      const u = data?.user;
+      if (u?.id) {
+        setUserPreview({
+          id: u.id,
+          username: u.username,
+          fullName: u.fullName,
+          email: u.email,
+        });
+      } else {
+        setUserPreview(null);
+      }
+    } catch {
+      setUserPreview(null);
+      message.warning('Không tìm thấy user với ID này');
+    }
+  };
+
+  const setTreeRoot = () => {
+    const uid = rootUserId.trim();
+    if (!uid) {
+      message.warning('Nhập User ID (UUID)');
+      return;
+    }
+    Modal.confirm({
+      title: `Đặt gốc cây Matrix — Tree ${treeLevel}?`,
+      content:
+        'Chỉ thành công khi cây đang trống hoặc chỉ có một node gốc chưa có nhánh con. Nếu cây đã có người xếp BFS, hãy dùng cây level khác hoặc liên hệ kỹ thuật.',
+      okText: 'Xác nhận',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        setSettingRoot(true);
+        try {
+          await adminService.setMatrixRewardTreeRoot(treeLevel, uid);
+          message.success('Đã đặt gốc cây');
+          setRootUserId('');
+          setUserPreview(null);
+          await fetchTree();
+          await loadLevels();
+        } catch (e: any) {
+          const msg =
+            e?.response?.data?.message ||
+            e?.message ||
+            'Không thể đặt gốc (kiểm tra điều kiện cây / user)';
+          message.error(Array.isArray(msg) ? msg.join(', ') : msg);
+          throw e;
+        } finally {
+          setSettingRoot(false);
+        }
+      },
+    });
+  };
+
   const saveConfig = async () => {
     try {
       const v = await form.validateFields();
@@ -290,6 +367,50 @@ const MatrixPool: React.FC = () => {
     } catch (e: any) {
       if (e?.errorFields) return;
       message.error(e?.message || 'Save failed');
+    }
+  };
+
+  const prepareTrees = async () => {
+    if (!prepareMaxLevel || prepareMaxLevel < 1) {
+      message.warning('Nhập max level hợp lệ (>= 1)');
+      return;
+    }
+    try {
+      setPreparingTrees(true);
+      const res = await adminService.prepareMatrixRewardTrees(prepareMaxLevel);
+      const data = (res as any)?.data ?? res;
+      const created = Array.isArray(data?.createdLevels)
+        ? data.createdLevels.length
+        : 0;
+      message.success(`Đã chuẩn bị cây tới level ${prepareMaxLevel} (tạo mới ${created} cây)`);
+      await loadLevels();
+    } catch (e: any) {
+      message.error(
+        e?.response?.data?.message || e?.message || 'Không thể tạo sẵn cây matrix',
+      );
+    } finally {
+      setPreparingTrees(false);
+    }
+  };
+
+  const backfillOrders = async () => {
+    try {
+      setBackfillingOrders(true);
+      const res = await adminService.backfillMatrixRewardOrders({
+        maxOrders: backfillLimit,
+        onlyUnprocessed: true,
+      });
+      const data = (res as any)?.data ?? res;
+      message.success(
+        `Backfill xong: scanned=${data?.scanned ?? 0}, processed=${data?.processed ?? 0}, failed=${data?.failed ?? 0}`,
+      );
+      await loadLevels();
+    } catch (e: any) {
+      message.error(
+        e?.response?.data?.message || e?.message || 'Backfill orders thất bại',
+      );
+    } finally {
+      setBackfillingOrders(false);
     }
   };
 
@@ -309,6 +430,13 @@ const MatrixPool: React.FC = () => {
           <Form.Item name="maxUplines" label="Max upline" rules={[{ required: true }]}>
             <InputNumber min={1} max={50} step={1} />
           </Form.Item>
+          <Form.Item
+            name="prevTreeQualifyPercent"
+            label="% đạt cây trước"
+            rules={[{ required: true }]}
+          >
+            <InputNumber min={0} max={500} step={1} />
+          </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
               Save
@@ -317,8 +445,96 @@ const MatrixPool: React.FC = () => {
         </Form>
         <Text type="secondary">
           Đơn CONFIRMED ≥ min order → user vào cây BFS theo level; mỗi upline (tối đa N) nhận per-slot; đủ trần → xóa
-          node + loại khỏi cây đó.
+          node + loại khỏi cây đó. Với cây từ level 2 trở lên, user chỉ được vào nếu hoa hồng ở cây trước đạt ngưỡng
+          (% cấu hình) × max effective threshold.
         </Text>
+      </Card>
+
+      <Card title="Đặt gốc cây Matrix (admin)" style={{ marginBottom: 16 }}>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Khi nào dùng"
+          description={
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li>Cây trống: tạo node gốc cho user chỉ định (đơn hàng sau sẽ BFS từ gốc này).</li>
+              <li>Chỉ có một node gốc, chưa có trái/phải: đổi user đứng đầu.</li>
+              <li>Đã có nhánh con: không đổi gốc qua đây — cần can thiệp DB hoặc cây level mới.</li>
+            </ul>
+          }
+        />
+        <Space align="end" wrap style={{ width: '100%', marginBottom: 16 }}>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              Tạo sẵn cây đến level
+            </div>
+            <InputNumber
+              min={1}
+              max={1000}
+              step={1}
+              value={prepareMaxLevel}
+              onChange={(v) => setPrepareMaxLevel(Number(v || 1))}
+            />
+          </div>
+          <Button loading={preparingTrees} onClick={prepareTrees}>
+            Tạo sẵn cây
+          </Button>
+        </Space>
+        <Space align="end" wrap style={{ width: '100%', marginBottom: 16 }}>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              Backfill đơn CONFIRMED (tối đa)
+            </div>
+            <InputNumber
+              min={1}
+              max={5000}
+              step={50}
+              value={backfillLimit}
+              onChange={(v) => setBackfillLimit(Number(v || 1))}
+            />
+          </div>
+          <Button loading={backfillingOrders} onClick={backfillOrders}>
+            Quét đơn cũ vào matrix
+          </Button>
+        </Space>
+        <Space wrap align="start" style={{ width: '100%' }}>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Cây (level)</div>
+            <Select
+              style={{ width: 160 }}
+              value={treeLevel}
+              onChange={setTreeLevel}
+              options={levels.map((l) => ({ value: l, label: `Tree ${l}` }))}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>User ID (UUID)</div>
+            <Space.Compact style={{ width: '100%', maxWidth: 420 }}>
+              <Input
+                placeholder="Dán UUID từ chi tiết user"
+                value={rootUserId}
+                onChange={(e) => {
+                  setRootUserId(e.target.value);
+                  setUserPreview(null);
+                }}
+                onPressEnter={lookupUser}
+              />
+              <Button onClick={lookupUser}>Kiểm tra</Button>
+            </Space.Compact>
+            {userPreview && (
+              <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                {userPreview.fullName || userPreview.username || userPreview.id}
+                {userPreview.email ? ` · ${userPreview.email}` : ''}
+              </Text>
+            )}
+          </div>
+          <div style={{ alignSelf: 'flex-end' }}>
+            <Button type="primary" loading={settingRoot} onClick={setTreeRoot}>
+              Đặt làm gốc
+            </Button>
+          </div>
+        </Space>
       </Card>
 
       <Card

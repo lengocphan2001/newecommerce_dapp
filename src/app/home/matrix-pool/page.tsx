@@ -51,7 +51,7 @@ export default function MatrixPoolPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background-gray">
       <div className="relative z-10 flex flex-col w-full max-w-md mx-auto">
-        <AppHeader title="Matrix pool" showBack={true} showMenu={false} showActions={false} />
+        <AppHeader title="Cây tri ân" showBack={true} showMenu={false} showActions={false} />
 
         <div
           className="flex-1 px-4 py-4 space-y-4 pb-28"
