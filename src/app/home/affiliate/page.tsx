@@ -23,6 +23,7 @@ export default function AffiliatePage() {
       left: { count: number; members: any[]; volume?: number };
       right: { count: number; members: any[]; volume?: number };
       total: number;
+      newTodayCount?: number;
     };
     accumulatedPurchases?: string;
     bonusCommission?: string;
@@ -208,6 +209,11 @@ export default function AffiliatePage() {
 
   const newTodayCount = useMemo(() => {
     if (!referralInfo) return 0;
+    const fromApi = (referralInfo.treeStats as { newTodayCount?: number })
+      ?.newTodayCount;
+    if (typeof fromApi === "number") {
+      return fromApi;
+    }
     const leftMembers = referralInfo.treeStats.left.members || [];
     const rightMembers = referralInfo.treeStats.right.members || [];
     const allMembers = [...leftMembers, ...rightMembers];

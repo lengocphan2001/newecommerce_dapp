@@ -93,26 +93,30 @@ export default function ActivityPage() {
     try {
       setLoading(true);
 
-      // Fetch orders
-      try {
-        const ordersData = await api.getOrders();
-        const ordersList = Array.isArray(ordersData) ? ordersData : (ordersData?.data || []);
+      const [ordersOutcome, referralOutcome] = await Promise.allSettled([
+        api.getOrders(undefined, { limit: 100 }),
+        api.getReferralInfo(),
+      ]);
+
+      if (ordersOutcome.status === 'fulfilled') {
+        const ordersData = ordersOutcome.value;
+        const ordersList = Array.isArray(ordersData)
+          ? ordersData
+          : (ordersData?.data || []);
         setOrders(ordersList);
-      } catch (err: any) {
-        // Check if it's an authentication error and redirect
+      } else {
+        const err = ordersOutcome.reason;
         if (handleAuthError(err, router)) {
-          return; // Redirect is happening
+          return;
         }
       }
 
-      // Fetch referral info (commissions)
-      try {
-        const info = await api.getReferralInfo();
-        setReferralInfo(info);
-      } catch (err: any) {
-        // Check if it's an authentication error and redirect
+      if (referralOutcome.status === 'fulfilled') {
+        setReferralInfo(referralOutcome.value);
+      } else {
+        const err = referralOutcome.reason;
         if (handleAuthError(err, router)) {
-          return; // Redirect is happening
+          return;
         }
       }
     } catch (error) {

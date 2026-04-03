@@ -193,6 +193,25 @@ export const api = {
     return response.json();
   },
 
+  /** Một request thay cho N lần getProduct (ảnh dòng đơn hàng). */
+  async getProductThumbnails(
+    productIds: string[],
+  ): Promise<Record<string, string>> {
+    const unique = [...new Set(productIds.filter(Boolean))].slice(0, 50);
+    if (unique.length === 0) {
+      return {};
+    }
+    const qs = new URLSearchParams();
+    qs.set('ids', unique.join(','));
+    const response = await fetch(
+      `${API_BASE_URL}/products/thumbnails?${qs.toString()}`,
+    );
+    if (!response.ok) {
+      return {};
+    }
+    return response.json();
+  },
+
   async checkReferral(username: string) {
     const response = await fetch(`${API_BASE_URL}/auth/referral/check?username=${encodeURIComponent(username)}`);
     if (!response.ok) {
@@ -426,13 +445,24 @@ export const api = {
     }
   },
 
-  async getOrders(userId?: string) {
+  async getOrders(
+    userId?: string,
+    options?: { limit?: number },
+  ) {
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
     }
-    const url = userId
-      ? `${API_BASE_URL}/orders?userId=${userId}`
+    const params = new URLSearchParams();
+    if (userId) {
+      params.set('userId', userId);
+    }
+    if (options?.limit != null && options.limit > 0) {
+      params.set('limit', String(Math.min(options.limit, 100)));
+    }
+    const qs = params.toString();
+    const url = qs
+      ? `${API_BASE_URL}/orders?${qs}`
       : `${API_BASE_URL}/orders`;
     const response = await fetch(url, {
       headers: {

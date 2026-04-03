@@ -408,6 +408,82 @@ export class UserService {
   }
 
   /**
+   * Cùng số liệu cây nhị phân nhưng không tải danh sách members (nhẹ cho /auth/referral/info).
+   * newTodayCount = F1+ sâu trong nhánh có createdAt trong ngày (theo server local midnight).
+   */
+  async getBinaryTreeStatsSummary(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const left = await this.getDescendantStats(userId, 'left', startOfDay);
+    const right = await this.getDescendantStats(userId, 'right', startOfDay);
+
+    return {
+      left: {
+        count: left.count,
+        members: [],
+        volume: user.leftBranchTotal || 0,
+        total: user.leftBranchTotal || 0,
+      },
+      right: {
+        count: right.count,
+        members: [],
+        volume: user.rightBranchTotal || 0,
+        total: user.rightBranchTotal || 0,
+      },
+      total: left.count + right.count,
+      newTodayCount: left.newSince + right.newSince,
+    };
+  }
+
+  private async getDescendantStats(
+    parentId: string,
+    position: 'left' | 'right',
+    since: Date,
+  ): Promise<{ count: number; newSince: number }> {
+    let count = 0;
+    let newSince = 0;
+    let currentParentIds: string[] = [parentId];
+    let applyPositionFilter: 'left' | 'right' | undefined = position;
+
+    while (currentParentIds.length > 0) {
+      const query = this.userRepository
+        .createQueryBuilder('user')
+        .select(['user.id', 'user.createdAt'])
+        .where('user.parentId IN (:...parentIds)', { parentIds: currentParentIds });
+
+      if (applyPositionFilter) {
+        query.andWhere('user.position = :position', {
+          position: applyPositionFilter,
+        });
+      }
+
+      const levelChildren = await query.getMany();
+      if (levelChildren.length === 0) {
+        break;
+      }
+
+      count += levelChildren.length;
+      for (const child of levelChildren) {
+        const d = child.createdAt ? new Date(child.createdAt) : null;
+        if (d && !isNaN(d.getTime()) && d >= since) {
+          newSince += 1;
+        }
+      }
+
+      currentParentIds = levelChildren.map((child) => child.id);
+      applyPositionFilter = undefined;
+    }
+
+    return { count, newSince };
+  }
+
+  /**
    * Lấy tất cả thành viên trong một nhánh (đệ quy)
    */
   private async getAllDescendants(

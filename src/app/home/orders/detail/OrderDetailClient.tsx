@@ -53,19 +53,30 @@ export default function OrderDetailClient() {
             const data = await api.getOrder(orderId);
             setOrder(data);
 
-            // Fetch product images if needed or if missing
-            const updatedItems = await Promise.all(
-                (data.items || []).map(async (item: OrderItem) => {
-                    if (item.thumbnailUrl) return item;
-                    try {
-                        const product = await api.getProduct(item.productId);
-                        return { ...item, thumbnailUrl: product.thumbnailUrl };
-                    } catch {
-                        return item;
-                    }
-                })
+            const items: OrderItem[] = data.items || [];
+            const needIds = [
+                ...new Set(
+                    items
+                        .filter((i) => !i.thumbnailUrl?.trim())
+                        .map((i) => i.productId)
+                        .filter(Boolean),
+                ),
+            ];
+            let thumbMap: Record<string, string> = {};
+            if (needIds.length > 0) {
+                try {
+                    thumbMap = await api.getProductThumbnails(needIds);
+                } catch {
+                    /* ignore */
+                }
+            }
+            setItemsWithImages(
+                items.map((item) =>
+                    item.thumbnailUrl?.trim()
+                        ? item
+                        : { ...item, thumbnailUrl: thumbMap[item.productId] },
+                ),
             );
-            setItemsWithImages(updatedItems);
 
         } catch (error: any) {
             // Check if it's an authentication error and redirect

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { CategoryService } from '../category/category.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
@@ -69,6 +69,25 @@ export class ProductService {
       ...product,
       soldCount: product.fakeSold ?? 0,
     }));
+  }
+
+  /** Map productId -> thumbnailUrl (batch cho chi tiết đơn / danh sách). */
+  async findThumbnailMapByIds(ids: string[]): Promise<Record<string, string>> {
+    const unique = [...new Set(ids.filter(Boolean))].slice(0, 50);
+    if (unique.length === 0) {
+      return {};
+    }
+    const rows = await this.productRepository.find({
+      where: { id: In(unique) },
+      select: ['id', 'thumbnailUrl'],
+    });
+    const out: Record<string, string> = {};
+    for (const r of rows) {
+      if (r.thumbnailUrl) {
+        out[r.id] = r.thumbnailUrl;
+      }
+    }
+    return out;
   }
 
   async findOne(id: string) {

@@ -11,7 +11,6 @@ import { UserService } from '../user/user.service';
 import { User } from '../user/entities/user.entity';
 import { StaffService } from '../staff/staff.service';
 import { CommissionService } from '../affiliate/commission.service';
-import { CommissionStatus } from '../affiliate/entities/commission.entity';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { PackagesService } from '../packages/packages.service';
 import { AdminService } from '../admin/admin.service';
@@ -582,8 +581,8 @@ export class AuthService {
     const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
     const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
 
-    // Get binary tree stats
-    const treeStats = await this.userService.getBinaryTreeStats(userId);
+    // Binary tree: chỉ count + volume, không trả members (payload nhỏ, nhanh)
+    const treeStats = await this.userService.getBinaryTreeStatsSummary(userId);
 
     // Format decimal numbers with full precision
     const formatDecimal = (value: number | string): string => {
@@ -600,77 +599,45 @@ export class AuthService {
       return `${intPart}.${decPart}`;
     };
 
-    // Get pending commissions for recent activity
-    const pendingCommissions = await this.commissionService.getCommissions(
-      userId,
-      { status: CommissionStatus.PENDING },
-    );
-    const recentCommissions = await this.commissionService.getCommissions(
+    const pendingRewardsTotal =
+      await this.commissionService.getPendingCommissionSum(userId);
+    const recentCommissions = await this.commissionService.getCommissionsLimited(
       userId,
       {},
+      24,
     );
-    const recentActivity = await Promise.all(
-      recentCommissions.slice(0, 20).map(async (c: any) => {
-        let fromUsername = c.fromUser?.username || c.fromUser?.fullName;
+    const recentActivity = recentCommissions.slice(0, 20).map((c: any) => {
+      const fromUsername =
+        c.fromUser?.username || c.fromUser?.fullName || null;
 
-        // Fallback if relation didn't load
-        if (!fromUsername && c.fromUserId) {
-          try {
-            const fromUser = await this.userService.findOne(c.fromUserId);
-            if (fromUser) {
-              fromUsername = fromUser.username || fromUser.fullName;
-            }
-          } catch (e) {
-            // Ignore
-          }
-        }
-
-        // Ensure createdAt is always a string (ISO format) for proper JSON serialization
-        let createdAtStr: string | null = null;
-
-        // Debug: log the commission to see what we have
-        if (!c.createdAt) {
-          console.warn('Commission missing createdAt:', c.id, c);
-        }
-
-        if (c.createdAt) {
-          if (c.createdAt instanceof Date) {
-            createdAtStr = c.createdAt.toISOString();
-          } else if (typeof c.createdAt === 'string') {
-            // Already a string, use it directly
-            createdAtStr = c.createdAt;
-          } else {
-            // Try to convert to Date first, then to ISO string
-            try {
-              const date = new Date(c.createdAt);
-              if (!isNaN(date.getTime())) {
-                createdAtStr = date.toISOString();
-              }
-            } catch (e) {
-              // If conversion fails, set to null
-              createdAtStr = null;
-            }
-          }
+      let createdAtStr: string | null = null;
+      if (c.createdAt) {
+        if (c.createdAt instanceof Date) {
+          createdAtStr = c.createdAt.toISOString();
+        } else if (typeof c.createdAt === 'string') {
+          createdAtStr = c.createdAt;
         } else {
-          // If createdAt is null/undefined, try to get it from database directly
-          // This should not happen, but handle it gracefully
-          console.error(
-            'Commission createdAt is null/undefined for commission:',
-            c.id,
-          );
+          try {
+            const date = new Date(c.createdAt);
+            if (!isNaN(date.getTime())) {
+              createdAtStr = date.toISOString();
+            }
+          } catch {
+            createdAtStr = null;
+          }
         }
+      }
 
-        return {
-          id: c.id,
-          type: c.type,
-          amount: formatDecimal(c.amount),
-          status: c.status,
-          createdAt: createdAtStr,
-          fromUserId: c.fromUserId,
-          fromUsername: fromUsername,
-        };
-      }),
-    );
+      return {
+        id: c.id,
+        type: c.type,
+        amount: formatDecimal(c.amount),
+        status: c.status,
+        createdAt: createdAtStr,
+        fromUserId: c.fromUserId,
+        fromUsername,
+      };
+    });
 
     // Threshold hiệu lực (theo totalPurchaseAmount: mỗi lần mua >= giá gói thì cộng thêm một lần)
     let maxCommission = '0.00';
@@ -724,13 +691,7 @@ export class AuthService {
       maxCommission,
       packageType: user.packageType,
       totalReconsumptionAmount: formatDecimal(user.totalReconsumptionAmount),
-      pendingRewards: formatDecimal(
-        pendingCommissions.reduce((sum: number, c: any) => {
-          const amount =
-            typeof c.amount === 'string' ? parseFloat(c.amount) : c.amount;
-          return sum + amount;
-        }, 0),
-      ),
+      pendingRewards: formatDecimal(pendingRewardsTotal),
       minPayoutThreshold,
       recentActivity,
       avatar: user.avatar,

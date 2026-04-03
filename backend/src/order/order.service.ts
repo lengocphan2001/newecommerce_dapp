@@ -124,6 +124,12 @@ export class OrderService {
       }
     }
 
+    const rawLimit =
+      query.limit != null ? parseInt(String(query.limit), 10) : NaN;
+    if (Number.isFinite(rawLimit) && rawLimit > 0) {
+      queryBuilder.take(Math.min(rawLimit, 100));
+    }
+
     return queryBuilder.getMany();
   }
 
@@ -142,6 +148,7 @@ export class OrderService {
       productName: string;
       quantity: number;
       price: number;
+      thumbnailUrl?: string;
       properties?: { [key: string]: string };
     }> = [];
     let totalAmount = 0;
@@ -187,6 +194,7 @@ export class OrderService {
         productName: product.name,
         quantity: item.quantity,
         price: product.price,
+        thumbnailUrl: product.thumbnailUrl ?? undefined,
         properties: item.properties, // Include selected properties
       });
 

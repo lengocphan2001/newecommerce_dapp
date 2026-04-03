@@ -33,7 +33,6 @@ function OrdersPageContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
-  const [productImages, setProductImages] = useState<Record<string, string>>({});
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t } = useI18n();
@@ -50,34 +49,38 @@ function OrdersPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    // Fetch product images for order items
-    const fetchProductImages = async () => {
-      const productIds = new Set<string>();
-      orders.forEach(order => {
-        order.items.forEach(item => {
-          if (item.productId) {
-            productIds.add(item.productId);
-          }
-        });
-      });
-
-      const images: Record<string, string> = {};
-      for (const productId of Array.from(productIds)) {
-        try {
-          const product = await api.getProduct(productId);
-          if (product.thumbnailUrl) {
-            images[productId] = product.thumbnailUrl;
-          }
-        } catch (err) {
-          // Ignore errors, use placeholder
-        }
+    if (orders.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const ids = [
+        ...new Set(
+          orders
+            .flatMap((o) => o.items || [])
+            .filter((it) => it.productId && !it.thumbnailUrl)
+            .map((it) => it.productId),
+        ),
+      ];
+      if (ids.length === 0) return;
+      try {
+        const map = await api.getProductThumbnails(ids);
+        if (cancelled || Object.keys(map).length === 0) return;
+        setOrders((prev) =>
+          prev.map((order) => ({
+            ...order,
+            items: order.items.map((it) =>
+              it.thumbnailUrl || !map[it.productId]
+                ? it
+                : { ...it, thumbnailUrl: map[it.productId] },
+            ),
+          })),
+        );
+      } catch {
+        /* ignore */
       }
-      setProductImages(images);
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    if (orders.length > 0) {
-      fetchProductImages();
-    }
   }, [orders]);
 
   const fetchOrders = async () => {
@@ -177,17 +180,10 @@ function OrdersPageContent() {
   };
 
   const getOrderImage = (order: Order): string => {
-    // Get first item's image, or use placeholder
-    if (order.items.length > 0) {
-      const firstItem = order.items[0];
-      if (firstItem.thumbnailUrl) {
-        return firstItem.thumbnailUrl;
-      }
-      if (productImages[firstItem.productId]) {
-        return productImages[firstItem.productId];
-      }
+    const first = order.items[0];
+    if (first?.thumbnailUrl) {
+      return first.thumbnailUrl;
     }
-    // Placeholder image
     return "https://placehold.co/72x72/F3F4F6/6B7280.png?text=Order";
   };
 

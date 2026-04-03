@@ -28,6 +28,20 @@ export class ProductController {
     return this.productService.findAll(query);
   }
 
+  /** Batch thumbnail URLs by id (comma-separated), max 50. Public để trang đơn hàng không N+1. */
+  @Get('thumbnails')
+  async thumbnails(@Query('ids') idsRaw: string) {
+    if (!idsRaw?.trim()) {
+      return {};
+    }
+    const ids = idsRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 50);
+    return this.productService.findThumbnailMapByIds(ids);
+  }
+
   @Get('export')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async exportProducts(@Query() query: any, @Res() res: Response) {

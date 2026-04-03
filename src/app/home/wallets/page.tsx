@@ -147,7 +147,7 @@ export default function WalletsPage() {
 
   const fetchOrders = async () => {
     try {
-      const data = await api.getOrders();
+      const data = await api.getOrders(undefined, { limit: 30 });
       const ordersList = Array.isArray(data) ? data : (data?.data || []);
       setOrders(ordersList);
     } catch (err: any) {

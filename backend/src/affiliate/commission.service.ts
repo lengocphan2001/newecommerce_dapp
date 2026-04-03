@@ -1534,6 +1534,43 @@ export class CommissionService {
     }));
   }
 
+  async getPendingCommissionSum(userId: string): Promise<number> {
+    const raw = await this.commissionRepository
+      .createQueryBuilder('c')
+      .select('COALESCE(SUM(c.amount), 0)', 'sum')
+      .where('c.userId = :userId', { userId })
+      .andWhere('c.status = :status', { status: CommissionStatus.PENDING })
+      .getRawOne<{ sum: string }>();
+    return this.roundCommission(Number(raw?.sum ?? 0));
+  }
+
+  async getCommissionsLimited(
+    userId: string,
+    query: { type?: CommissionType; status?: CommissionStatus },
+    limit: number,
+  ) {
+    const take = Math.min(Math.max(1, limit), 100);
+    const qb = this.commissionRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.fromUser', 'fromUser')
+      .where('c.userId = :userId', { userId })
+      .orderBy('c.createdAt', 'DESC')
+      .take(take);
+
+    if (query.type) {
+      qb.andWhere('c.type = :type', { type: query.type });
+    }
+    if (query.status) {
+      qb.andWhere('c.status = :status', { status: query.status });
+    }
+
+    const commissions = await qb.getMany();
+    return commissions.map((c) => ({
+      ...c,
+      amount: this.roundCommission(Number(c.amount)),
+    }));
+  }
+
   async getAllCommissions(query: {
     type?: CommissionType;
     status?: CommissionStatus;
