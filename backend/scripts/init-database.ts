@@ -201,6 +201,7 @@ async function initializeDatabase() {
       { key: 'matrixRewardPerSlotUsd', value: '0.5' },
       { key: 'matrixRewardMaxEarnPerTreeUsd', value: '1500' },
       { key: 'matrixRewardMaxUplines', value: '11' },
+      { key: 'matrixRewardPrevTreeQualifyPercent', value: '100' },
     ];
     for (const item of defaults) {
       const existed = await systemConfigRepo.findOne({ where: { key: item.key } });

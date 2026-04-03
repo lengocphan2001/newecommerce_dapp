@@ -143,7 +143,7 @@ Nếu DB production **không** dùng synchronize, thêm cột OTP (một lần):
 - **PostgreSQL:** `ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpCode" varchar NULL; ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpExpiresAt" TIMESTAMP NULL;`
 - **MySQL:** `ALTER TABLE users ADD COLUMN loginOtpCode VARCHAR(255) NULL, ADD COLUMN loginOtpExpiresAt DATETIME(6) NULL;` (bỏ qua nếu cột đã tồn tại).
 
-**Matrix reward pool (cây nhị phân theo level, tách affiliate):** Bảng `matrix_reward_trees`, `matrix_reward_nodes`, `matrix_reward_ledger`, `matrix_tree_exclusions`, `matrix_reward_order_processed`. Chạy `npm run db:init` (synchronize) hoặc migration tương đương. Cấu hình trong `system_config`: `matrixRewardMinOrderUsd`, `matrixRewardPerSlotUsd`, `matrixRewardMaxEarnPerTreeUsd`, `matrixRewardMaxUplines` (init-database seed mặc định). Admin: menu **Matrix pool** (`/matrix-pool`). User app: `/home/matrix-pool` (link từ Affiliate).
+**Matrix reward pool (cây nhị phân theo level, tách affiliate):** Bảng `matrix_reward_trees`, `matrix_reward_nodes`, `matrix_reward_ledger`, `matrix_tree_exclusions`, `matrix_reward_order_processed`. Chạy `npm run db:init` (synchronize) hoặc migration tương đương. Cấu hình trong `system_config` (đều được seed mặc định bởi `db:init`): `matrixRewardMinOrderUsd` (100), `matrixRewardPerSlotUsd` (0.5), `matrixRewardMaxEarnPerTreeUsd` (1500), `matrixRewardMaxUplines` (11), `matrixRewardPrevTreeQualifyPercent` (100 — % doanh số cây trước cần đạt để mở cây tiếp theo; **thiếu key này sẽ khiến "Quét đơn cũ vào matrix" không lưu config đúng**). Admin: menu **Matrix pool** (`/matrix-pool`). User app: `/home/matrix-pool` (link từ Affiliate).
 
 ### 3.2 Cài đặt, build và chạy
 
