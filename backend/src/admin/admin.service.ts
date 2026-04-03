@@ -167,15 +167,15 @@ export class AdminService {
   }
 
   /**
-   * Generate/update username+password for ALL users, send email to every user
-   * with a valid email address, and return CSV content + email stats.
+   * Generate/update username+password for ALL users, queue emails fire-and-forget,
+   * return CSV + stats ngay lập tức (không block trên bcrypt/SMTP → tránh 504).
+   * bcrypt dùng rounds=8 và chạy song song batch 20 (~25ms/user thay vì 100ms).
    */
   async generateUserLoginCredentialsCsv(): Promise<{
     csvContent: string;
     stats: {
       total: number;
-      emailSent: number;
-      emailFailed: number;
+      emailQueued: number;
       emailSkipped: number;
       emailEnabled: boolean;
     };
@@ -192,16 +192,11 @@ export class AdminService {
         .filter((u) => Boolean(u)),
     );
 
-    const usersToUpdate: Array<{
+    // Bước 1: resolve username + plain password (không async)
+    const prepared: Array<{
       id: string;
       username: string;
-      password: string;
-    }> = [];
-
-    const credentialsList: Array<{
-      username: string;
       email: string;
-      fullName: string;
       plainPassword: string;
     }> = [];
 
@@ -223,17 +218,8 @@ export class AdminService {
         username = candidate;
       }
       usedUsernames.add(username.toLowerCase());
-
       const plainPassword = this.generateRandomPassword();
-      const hashedPassword = await bcrypt.hash(plainPassword, 10);
-      usersToUpdate.push({ id: user.id, username, password: hashedPassword });
-      credentialsList.push({
-        username,
-        email: user.email || '',
-        fullName: user.fullName || '',
-        plainPassword,
-      });
-
+      prepared.push({ id: user.id, username, email: user.email || '', plainPassword });
       rows.push([
         this.escapeCsv(username),
         this.escapeCsv(user.email || ''),
@@ -242,55 +228,56 @@ export class AdminService {
       ]);
     }
 
+    // Bước 2: bcrypt song song batch 20, rounds=8 (~25ms/user, 4× nhanh hơn rounds=10)
+    const BCRYPT_BATCH = 20;
+    const usersToUpdate: Array<{ id: string; username: string; password: string }> = [];
+    for (let i = 0; i < prepared.length; i += BCRYPT_BATCH) {
+      const batch = prepared.slice(i, i + BCRYPT_BATCH);
+      const hashed = await Promise.all(batch.map((u) => bcrypt.hash(u.plainPassword, 8)));
+      for (let j = 0; j < batch.length; j++) {
+        usersToUpdate.push({ id: batch[j].id, username: batch[j].username, password: hashed[j] });
+      }
+    }
+
+    // Bước 3: lưu DB
     if (usersToUpdate.length > 0) {
       await this.userRepository.save(usersToUpdate);
     }
 
-    // Send emails concurrently in batches of 10 to avoid overwhelming SMTP
+    // Bước 4: tính số email sẽ gửi
     const emailEnabled = this.mailService.isEnabled();
-    let emailSent = 0;
-    let emailFailed = 0;
-    let emailSkipped = 0;
+    const emailList = prepared.filter((u) => this.isValidEmail(u.email));
+    const emailQueued = emailEnabled ? emailList.length : 0;
+    const emailSkipped = prepared.length - emailList.length;
 
-    if (emailEnabled) {
-      const BATCH_SIZE = 10;
-      for (let i = 0; i < credentialsList.length; i += BATCH_SIZE) {
-        const batch = credentialsList.slice(i, i + BATCH_SIZE);
-        await Promise.all(
-          batch.map(async ({ username, email, plainPassword }) => {
-            if (!this.isValidEmail(email)) {
-              emailSkipped += 1;
-              return;
-            }
-            const sent = await this.mailService.sendLoginCredentials(
-              email.trim(),
-              username,
-              plainPassword,
-            );
-            if (sent) {
-              emailSent += 1;
-            } else {
-              emailFailed += 1;
-            }
-          }),
-        );
-      }
-    } else {
-      emailSkipped = credentialsList.length;
+    // Bước 5: gửi email fire-and-forget — không await → trả response ngay
+    if (emailEnabled && emailList.length > 0) {
+      void this.sendCredentialsEmailBackground(emailList);
     }
 
-    const csvContent = rows.map((r) => r.join(',')).join('\n');
-    const BOM = '\uFEFF';
     return {
-      csvContent: BOM + csvContent,
-      stats: {
-        total: credentialsList.length,
-        emailSent,
-        emailFailed,
-        emailSkipped,
-        emailEnabled,
-      },
+      csvContent: '\uFEFF' + rows.map((r) => r.join(',')).join('\n'),
+      stats: { total: prepared.length, emailQueued, emailSkipped, emailEnabled },
     };
+  }
+
+  /** Gửi email thông tin đăng nhập trong background (fire-and-forget). */
+  private async sendCredentialsEmailBackground(
+    list: Array<{ username: string; email: string; plainPassword: string }>,
+  ): Promise<void> {
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < list.length; i += BATCH_SIZE) {
+      const batch = list.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(({ username, email, plainPassword }) =>
+          this.mailService
+            .sendLoginCredentials(email.trim(), username, plainPassword)
+            .catch((err) =>
+              console.error(`[MailService] bulk send failed ${email}:`, err),
+            ),
+        ),
+      );
+    }
   }
 
   private isValidEmail(email: string): boolean {

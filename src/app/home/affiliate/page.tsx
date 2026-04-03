@@ -343,21 +343,7 @@ export default function AffiliatePage() {
               </div>
             </div>
 
-            <Link
-              href="/home/matrix-pool"
-              className="flex items-center justify-between gap-3 p-4 rounded-xl border border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 shadow-sm active:scale-[0.99] transition"
-            >
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-violet-600 text-2xl">account_tree</span>
-                <div>
-                  <p className="font-bold text-violet-900 text-sm">Thưởng tri ân</p>
-                  <p className="text-xs text-violet-700/90">
-                    Thưởng Thưởng tri ân theo đơn
-                  </p>
-                </div>
-              </div>
-              <span className="material-symbols-outlined text-violet-500">chevron_right</span>
-            </Link>
+            
           </div>
 
           {/* Pending Payout Progress Widget */}

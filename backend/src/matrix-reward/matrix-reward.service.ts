@@ -148,23 +148,34 @@ export class MatrixRewardService {
     return Number.isFinite(n) ? n : defaultVal;
   }
 
+  /** Kết quả chi tiết của processOrderIfEligible — dùng để thống kê backfill. */
+  type ProcessResult =
+    | 'already_done'      // đã xử lý từ trước (idempotent)
+    | 'invalid_order'     // đơn không tồn tại / chưa CONFIRMED
+    | 'below_min_order'   // giá trị đơn < minOrderUsd
+    | 'prev_tree_not_met' // chưa đủ điều kiện cây trước (không mark processed)
+    | 'placed_root'       // đặt thành root cây, chưa có upline để trả
+    | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
+    | 'placed_no_upline'; // đặt vào cây nhưng tất cả upline đã đạt maxEarn
+
   /**
    * Gọi khi đơn CONFIRMED. Idempotent theo orderId.
+   * Trả về kết quả chi tiết để backfill có thể thống kê đúng.
    */
-  async processOrderIfEligible(orderId: string): Promise<void> {
+  async processOrderIfEligible(orderId: string): Promise<ProcessResult> {
     const done = await this.processedRepo.findOne({ where: { orderId } });
-    if (done) return;
+    if (done) return 'already_done';
 
     const order = await this.orderRepo.findOne({ where: { id: orderId } });
     if (!order || order.status !== OrderStatus.CONFIRMED || !order.userId) {
-      return;
+      return 'invalid_order';
     }
 
     const minOrder = await this.getConfigNumber(CFG_MIN_ORDER, 100);
     const orderTotal = roundMoney(Number(order.totalAmount));
     if (!Number.isFinite(orderTotal) || orderTotal < minOrder) {
       await this.safeMarkProcessed(orderId);
-      return;
+      return 'below_min_order';
     }
 
     const perSlot = await this.getConfigNumber(CFG_PER_SLOT, 0.5);
@@ -174,6 +185,8 @@ export class MatrixRewardService {
       Math.floor(await this.getConfigNumber(CFG_MAX_UPLINES, 11)),
     );
 
+    let result: ProcessResult = 'placed_no_upline';
+
     try {
       await this.dataSource.transaction(async (manager) => {
         let claimed = false;
@@ -181,7 +194,10 @@ export class MatrixRewardService {
           await manager.insert(MatrixRewardOrderProcessed, { orderId });
           claimed = true;
         } catch (e) {
-          if (isDuplicateKeyError(e)) return;
+          if (isDuplicateKeyError(e)) {
+            result = 'already_done';
+            return;
+          }
           throw e;
         }
 
@@ -199,12 +215,21 @@ export class MatrixRewardService {
             prevTreeQualifyPercent,
           });
           if (!passedPrevTreeRule) {
+            // Xóa mark để cho phép retry sau khi user đủ điều kiện cây trước
+            await manager.delete(MatrixRewardOrderProcessed, { orderId });
+            result = 'prev_tree_not_met';
             return;
           }
           const tree = await this.getOrCreateTree(nextLevel, manager);
           const treeId = tree.id;
 
           const placement = await this.findBfsPlacement(manager, treeId);
+
+          // Root: không có parent → không có upline → không trả tiền ngay
+          if (placement.parentNodeId === null) {
+            result = 'placed_root';
+          }
+
           const node = manager.create(MatrixRewardNode, {
             treeId,
             userId: buyerId,
@@ -221,8 +246,9 @@ export class MatrixRewardService {
             maxUplines,
           );
 
+          let paidCount = 0;
           for (const uplineNode of uplines) {
-            await this.payUplineAndMaybeRemove({
+            const paid = await this.payUplineAndMaybeRemove({
               manager,
               treeId,
               treeLevel: tree.treeLevel,
@@ -232,6 +258,14 @@ export class MatrixRewardService {
               perSlot,
               maxEarn,
             });
+            if (paid) paidCount++;
+          }
+
+          if (paidCount > 0) {
+            result = 'paid';
+          } else if (placement.parentNodeId !== null) {
+            // Có parent nhưng tất cả upline đã đạt maxEarn
+            result = 'placed_no_upline';
           }
         } catch (inner) {
           if (claimed) {
@@ -243,7 +277,7 @@ export class MatrixRewardService {
     } catch (err: any) {
       if (isDuplicateKeyError(err)) {
         this.logger.warn(`[MATRIX] duplicate skip order=${orderId}`);
-        return;
+        return 'already_done';
       }
       this.logger.error(
         `[MATRIX] processOrderIfEligible failed order=${orderId}: ${err?.message}`,
@@ -251,6 +285,8 @@ export class MatrixRewardService {
       );
       throw err;
     }
+
+    return result;
   }
 
   private async checkPrevTreeEligibility(opts: {
@@ -463,7 +499,7 @@ export class MatrixRewardService {
     orderId: string;
     perSlot: number;
     maxEarn: number;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const {
       manager,
       treeId,
@@ -481,11 +517,11 @@ export class MatrixRewardService {
       treeId,
     );
     if (current >= maxEarn) {
-      return;
+      return false;
     }
     const room = roundMoney(maxEarn - current);
     const pay = roundMoney(Math.min(perSlot, room));
-    if (pay <= 0) return;
+    if (pay <= 0) return false;
 
     const userRepo = manager.getRepository(User);
     const u = await userRepo.findOne({
@@ -519,6 +555,7 @@ export class MatrixRewardService {
         beneficiaryUserId,
       );
     }
+    return true;
   }
 
   private async removeUserFromTreeAndExclude(
@@ -754,6 +791,11 @@ export class MatrixRewardService {
     processed: number;
     failed: number;
     skipped: number;
+    paid: number;
+    placedRoot: number;
+    placedNoUpline: number;
+    prevTreeNotMet: number;
+    alreadyDone: number;
     failedOrderIds: string[];
   }> {
     const maxOrders = Math.max(
@@ -787,12 +829,22 @@ export class MatrixRewardService {
 
     let processed = 0;
     let failed = 0;
+    let paid = 0;
+    let placedRoot = 0;
+    let placedNoUpline = 0;
+    let prevTreeNotMet = 0;
+    let alreadyDone = 0;
     const failedOrderIds: string[] = [];
 
     for (const order of orders) {
       try {
-        await this.processOrderIfEligible(order.id);
+        const result = await this.processOrderIfEligible(order.id);
         processed += 1;
+        if (result === 'paid') paid++;
+        else if (result === 'placed_root') placedRoot++;
+        else if (result === 'placed_no_upline') placedNoUpline++;
+        else if (result === 'prev_tree_not_met') prevTreeNotMet++;
+        else if (result === 'already_done') alreadyDone++;
       } catch (error) {
         failed += 1;
         failedOrderIds.push(order.id);
@@ -807,6 +859,11 @@ export class MatrixRewardService {
       processed,
       failed,
       skipped: Math.max(0, orders.length - processed - failed),
+      paid,
+      placedRoot,
+      placedNoUpline,
+      prevTreeNotMet,
+      alreadyDone,
       failedOrderIds,
     };
   }

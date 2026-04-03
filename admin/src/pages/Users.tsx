@@ -284,13 +284,11 @@ const Users: React.FC = () => {
                 <p>Tổng số user: <strong>{stats.total}</strong></p>
                 {stats.emailEnabled ? (
                   <>
-                    <p style={{ color: '#16a34a' }}>✅ Gửi email thành công: <strong>{stats.emailSent}</strong></p>
-                    {stats.emailFailed > 0 && (
-                      <p style={{ color: '#dc2626' }}>❌ Gửi email thất bại: <strong>{stats.emailFailed}</strong></p>
-                    )}
+                    <p style={{ color: '#16a34a' }}>📬 Email đã được xếp hàng gửi: <strong>{stats.emailQueued}</strong></p>
                     {stats.emailSkipped > 0 && (
-                      <p style={{ color: '#d97706' }}>⏭️ Bỏ qua (email không hợp lệ): <strong>{stats.emailSkipped}</strong></p>
+                      <p style={{ color: '#d97706' }}>⏭️ Bỏ qua (email không phải @gmail.com): <strong>{stats.emailSkipped}</strong></p>
                     )}
+                    <p style={{ color: '#6b7280', fontSize: 12 }}>Email sẽ được gửi trong nền — CSV đã tải xuống ngay lập tức.</p>
                   </>
                 ) : (
                   <p style={{ color: '#d97706' }}>⚠️ SMTP chưa được cấu hình — không gửi được email. File CSV đã được tải xuống.</p>

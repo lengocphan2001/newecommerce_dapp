@@ -341,6 +341,7 @@ export default function WalletsPage() {
       await api.deleteBankAccount(id);
       await fetchWalletData();
     } catch (err: any) {
+      if (handleAuthError(err, router)) return;
       alert(err?.message || "Xóa tài khoản thất bại");
     }
   };

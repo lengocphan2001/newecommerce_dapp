@@ -401,9 +401,30 @@ const MatrixPool: React.FC = () => {
         onlyUnprocessed: true,
       });
       const data = (res as any)?.data ?? res;
-      message.success(
-        `Backfill xong: scanned=${data?.scanned ?? 0}, processed=${data?.processed ?? 0}, failed=${data?.failed ?? 0}`,
-      );
+      const paid = data?.paid ?? 0;
+      const root = data?.placedRoot ?? 0;
+      const noUpline = data?.placedNoUpline ?? 0;
+      const notMet = data?.prevTreeNotMet ?? 0;
+      const failed = data?.failed ?? 0;
+      if (paid > 0) {
+        message.success(
+          `Backfill xong: ${paid} đơn tạo hoa hồng cho upline` +
+          (root ? `, ${root} node gốc (chưa có upline)` : '') +
+          (noUpline ? `, ${noUpline} upline đã đạt trần` : '') +
+          (notMet ? `, ${notMet} chưa đủ điều kiện cây trước` : '') +
+          (failed ? `, ${failed} lỗi` : ''),
+        );
+      } else {
+        message.warning(
+          `Backfill xong nhưng chưa có hoa hồng: ` +
+          `scanned=${data?.scanned ?? 0}` +
+          (root ? `, placed_root=${root} (user đầu tiên vào cây, chưa có upline)` : '') +
+          (noUpline ? `, no_upline=${noUpline} (upline đạt maxEarn)` : '') +
+          (notMet ? `, prev_tree_not_met=${notMet} (chưa đủ điều kiện cây trước)` : '') +
+          (data?.alreadyDone ? `, already_done=${data.alreadyDone}` : '') +
+          (failed ? `, failed=${failed}` : ''),
+        );
+      }
       await loadLevels();
     } catch (e: any) {
       message.error(

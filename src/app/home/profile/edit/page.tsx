@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { handleAuthError } from "@/app/utils/auth";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -319,6 +320,7 @@ export default function EditProfilePage() {
       if (bankForm.id === id) resetBankForm();
       setBankMessage({ type: 'success', text: 'Đã xóa tài khoản ngân hàng' });
     } catch (err: any) {
+      if (handleAuthError(err, router)) return;
       setBankMessage({ type: 'error', text: err?.message || 'Xóa tài khoản thất bại' });
     }
   };

@@ -665,6 +665,7 @@ export const api = {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) {
+      if (response.status === 401) throw new Error('Authentication expired');
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Failed to delete bank account');
     }

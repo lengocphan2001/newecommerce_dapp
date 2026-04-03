@@ -439,6 +439,19 @@ server {
     listen 80;
     server_name shopiibiztest.top www.shopiibiztest.top;
 
+    # Endpoint generate credentials nặng (bcrypt × N users) — tăng timeout riêng
+    location = /api/admin/users/export-login-credentials {
+        rewrite ^/api/?(.*) /$1 break;
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location /api {
         rewrite ^/api/?(.*) /$1 break;
         proxy_pass http://127.0.0.1:3002;
@@ -469,6 +482,15 @@ server {
         try_files $uri $uri/ /admin/index.html;
     }
 
+    # Service Worker: không cache để thiết bị luôn lấy SW mới nhất
+    location = /sw.js {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+
     location / {
         proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
@@ -490,6 +512,19 @@ server {
     listen 80;
     server_name shopiibiztest.top www.shopiibiztest.top;
     root /var/www/shopii/out;
+
+    # Endpoint generate credentials nặng (bcrypt × N users) — tăng timeout riêng
+    location = /api/admin/users/export-login-credentials {
+        rewrite ^/api/?(.*) /$1 break;
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
     location /api {
         rewrite ^/api/?(.*) /$1 break;
@@ -519,7 +554,27 @@ server {
         try_files $uri $uri/ /admin/index.html;
     }
 
+    # Next.js static export — _next/static/ có content-hash → cache lâu dài
+    location /_next/static/ {
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Service Worker: không cache để thiết bị luôn lấy SW mới nhất
+    location = /sw.js {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+    }
+
+    # HTML: no-cache (nội dung thay đổi sau mỗi deploy)
+    location ~* \.html$ {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        try_files $uri $uri/ $uri.html /index.html;
+    }
+
     location / {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
         try_files $uri $uri/ $uri.html /index.html;
     }
 }
@@ -536,6 +591,31 @@ sudo ln -sf /etc/nginx/sites-available/shopii /etc/nginx/sites-enabled/
 
 sudo nginx -t
 sudo systemctl reload nginx
+```
+
+### 6.3b Fix timeout cho endpoint Generate Login Credentials
+
+Endpoint `POST /api/admin/users/export-login-credentials` thực hiện bcrypt cho toàn bộ user nên cần timeout dài hơn mặc định 60s của Nginx. Thêm `location` sau **trước** block `location /api` trong file nginx của bạn:
+
+```nginx
+# Thêm trước location /api { ... }
+location = /api/admin/users/export-login-credentials {
+    rewrite ^/api/?(.*) /$1 break;
+    proxy_pass http://127.0.0.1:3002;
+    proxy_http_version 1.1;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+```bash
+sudo nano /etc/nginx/sites-available/shopii   # hoặc tên file của bạn
+# Thêm block trên, rồi:
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### 6.4 SSL với Certbot
