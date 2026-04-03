@@ -768,7 +768,9 @@ export class MatrixRewardService {
       .where('o.status = :status', { status: OrderStatus.CONFIRMED })
       .orderBy('o.createdAt', 'ASC')
       .addOrderBy('o.id', 'ASC')
-      .take(maxOrders);
+      // Dùng limit() thay vì take() để tránh TypeORM sinh subquery DISTINCT
+      // khiến ORDER BY o_createdAt lỗi ER_BAD_FIELD_ERROR khi chỉ SELECT o.id
+      .limit(maxOrders);
 
     if (options?.fromDate) {
       const from = new Date(options.fromDate);
@@ -781,7 +783,7 @@ export class MatrixRewardService {
       qb.andWhere('p.orderId IS NULL');
     }
 
-    const orders = await qb.select(['o.id']).getMany();
+    const orders = await qb.select(['o.id', 'o.createdAt']).getMany();
 
     let processed = 0;
     let failed = 0;

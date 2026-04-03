@@ -91,14 +91,14 @@ const BankingSettings: React.FC = () => {
             payoutForm.setFieldsValue({
                 minPayoutThreshold: config.minPayoutThreshold ?? 50,
                 commissionDepositWalletPercent:
-                  config.commissionDepositWalletPercent ?? 10,
+                  config.commissionDepositWalletPercent ?? 12,
                 commissionWithdrawWalletPercent:
                   config.commissionWithdrawWalletPercent ?? 80,
             });
         } catch {
             payoutForm.setFieldsValue({
               minPayoutThreshold: 50,
-              commissionDepositWalletPercent: 10,
+              commissionDepositWalletPercent: 12,
               commissionWithdrawWalletPercent: 80,
             });
         }

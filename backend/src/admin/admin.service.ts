@@ -32,7 +32,7 @@ import { MailService } from '../mail/mail.service';
 export class AdminService {
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
   private readonly defaultMinPayoutThreshold = 50;
-  private readonly defaultCommissionDepositWalletPercent = 10;
+  private readonly defaultCommissionDepositWalletPercent = 12;
   private readonly defaultCommissionWithdrawWalletPercent = 80;
 
   constructor(

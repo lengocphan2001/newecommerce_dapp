@@ -409,7 +409,7 @@ export default function WalletsPage() {
 
   const shoppingBalance = parseFloat(referralInfo?.accumulatedPurchases || "0");
   const affiliateBalanceGross = parseFloat(referralInfo?.bonusCommission || "0");
-  const depositPercent = referralInfo?.commissionDepositWalletPercent ?? 10;
+  const depositPercent = referralInfo?.commissionDepositWalletPercent ?? 12;
   const withdrawPercent = referralInfo?.commissionWithdrawWalletPercent ?? 80;
   const feePercent = referralInfo?.payoutFeePercent ?? Math.max(0, 100 - (depositPercent + withdrawPercent));
   const affiliateBalanceNet = referralInfo?.bonusCommissionNet != null
