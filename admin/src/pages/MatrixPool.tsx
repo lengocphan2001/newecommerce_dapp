@@ -16,6 +16,7 @@ import {
   Modal,
   Switch,
   Popconfirm,
+  Table,
 } from 'antd';
 import { ReloadOutlined, SearchOutlined, SaveOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
@@ -53,6 +54,18 @@ interface MatrixTreeNode {
 
 interface CustomNodeData extends Record<string, unknown> {
   node: MatrixTreeNode;
+}
+
+interface MatrixLedgerItem {
+  id: string;
+  createdAt: string;
+  treeId: string;
+  orderId: string;
+  beneficiaryUserId: string;
+  beneficiaryUsername: string | null;
+  beneficiaryEmail: string | null;
+  sourceNodeId: string;
+  amount: number;
 }
 
 const MatrixCustomNode = ({ data }: { data: CustomNodeData }) => {
@@ -99,11 +112,6 @@ const MatrixCustomNode = ({ data }: { data: CustomNodeData }) => {
         <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: 6, wordBreak: 'break-all' }}>
           {node.email}
         </div>
-        <Tooltip title="Tổng nhận từ pool trên cây này (USD)">
-          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#722ed1' }}>
-            Earned: ${Number(node.matrixEarnedOnTree || 0).toFixed(2)}
-          </div>
-        </Tooltip>
       </div>
     </div>
   );
@@ -129,6 +137,18 @@ const MatrixPool: React.FC = () => {
   const [preparingTrees, setPreparingTrees] = useState(false);
   const [backfillLimit, setBackfillLimit] = useState<number>(500);
   const [backfillingOrders, setBackfillingOrders] = useState(false);
+  const [reverseUserId, setReverseUserId] = useState('');
+  const [reverseOrderId, setReverseOrderId] = useState('');
+  const [reverseReason, setReverseReason] = useState('');
+  const [reversingReward, setReversingReward] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRows, setHistoryRows] = useState<MatrixLedgerItem[]>([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLimit, setHistoryLimit] = useState(10);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyUserId, setHistoryUserId] = useState('');
+  const [historyOrderId, setHistoryOrderId] = useState('');
+  const [historyType, setHistoryType] = useState<'all' | 'credit' | 'debit'>('all');
   const [userPreview, setUserPreview] = useState<{
     id: string;
     username?: string | null;
@@ -188,6 +208,32 @@ const MatrixPool: React.FC = () => {
   useEffect(() => {
     loadLevels();
     loadConfig();
+  }, []);
+
+  const loadLedgerHistory = async (page = historyPage, limit = historyLimit) => {
+    try {
+      setHistoryLoading(true);
+      const res = await adminService.getMatrixRewardLedgerHistory({
+        page,
+        limit,
+        userId: historyUserId.trim() || undefined,
+        orderId: historyOrderId.trim() || undefined,
+        type: historyType,
+      });
+      const data = (res as any)?.data ?? res;
+      setHistoryRows(Array.isArray(data?.items) ? data.items : []);
+      setHistoryTotal(Number(data?.total ?? 0));
+      setHistoryPage(Number(data?.page ?? page));
+      setHistoryLimit(Number(data?.limit ?? limit));
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || e?.message || 'Không thể tải lịch sử matrix');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadLedgerHistory(1, historyLimit);
   }, []);
 
   const fetchTree = async () => {
@@ -461,6 +507,52 @@ const MatrixPool: React.FC = () => {
     }
   };
 
+  const reverseRewardByOrder = async () => {
+    const userId = reverseUserId.trim();
+    const orderId = reverseOrderId.trim();
+    if (!userId || !orderId) {
+      message.warning('Nhập đủ User ID và Order ID để hoàn tác');
+      return;
+    }
+
+    Modal.confirm({
+      title: 'Xác nhận trừ lại tiền Matrix đã cộng ví?',
+      content:
+        'Hệ thống sẽ trừ phần matrix còn net dương của user theo orderId này, đồng thời ghi ledger âm để audit.',
+      okText: 'Xác nhận trừ',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setReversingReward(true);
+          const res = await adminService.reverseMatrixRewardByOrder({
+            userId,
+            orderId,
+            reason: reverseReason.trim() || undefined,
+          });
+          const data = (res as any)?.data ?? res;
+          const reversed = Number(data?.reversedAmount ?? 0);
+          if (reversed > 0) {
+            message.success(
+              `Đã trừ ${reversed.toFixed(2)} USDT. Số dư: ${Number(
+                data?.balanceBefore ?? 0,
+              ).toFixed(2)} -> ${Number(data?.balanceAfter ?? 0).toFixed(2)}`,
+            );
+          } else {
+            message.info(data?.note || 'Không còn số dư matrix dương để trừ cho order này.');
+          }
+        } catch (e: any) {
+          const msg =
+            e?.response?.data?.message || e?.message || 'Không thể hoàn tác matrix reward';
+          message.error(Array.isArray(msg) ? msg.join(', ') : msg);
+          throw e;
+        } finally {
+          setReversingReward(false);
+        }
+      },
+    });
+  };
+
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
       <Card
@@ -602,6 +694,45 @@ const MatrixPool: React.FC = () => {
             </Button>
           </Tooltip>
         </Space>
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="Hoàn tác Matrix đã cộng vào ví"
+          description="Dùng khi cần thu hồi thưởng matrix đã cộng nhầm. Nhập đúng User ID + Order ID để trừ phần net dương còn lại của order đó."
+        />
+        <Space align="end" wrap style={{ width: '100%', marginBottom: 16 }}>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>User ID (nhận thưởng)</div>
+            <Input
+              style={{ width: 280 }}
+              placeholder="UUID user nhận matrix"
+              value={reverseUserId}
+              onChange={(e) => setReverseUserId(e.target.value)}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Order ID cần hoàn tác</div>
+            <Input
+              style={{ width: 280 }}
+              placeholder="UUID order"
+              value={reverseOrderId}
+              onChange={(e) => setReverseOrderId(e.target.value)}
+            />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Lý do (optional)</div>
+            <Input
+              style={{ width: 300 }}
+              placeholder="vd: cộng nhầm / cần rollback"
+              value={reverseReason}
+              onChange={(e) => setReverseReason(e.target.value)}
+            />
+          </div>
+          <Button danger loading={reversingReward} onClick={reverseRewardByOrder}>
+            Trừ lại Matrix theo order
+          </Button>
+        </Space>
         <Space wrap align="start" style={{ width: '100%' }}>
           <div>
             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Cây (level)</div>
@@ -665,6 +796,97 @@ const MatrixPool: React.FC = () => {
             Load
           </Button>
         </Space>
+      </Card>
+
+      <Card
+        title="Lịch sử cộng / trừ hoa hồng Matrix Pool"
+        style={{ marginTop: 16 }}
+        extra={
+          <Button icon={<ReloadOutlined />} onClick={() => loadLedgerHistory(historyPage, historyLimit)}>
+            Refresh lịch sử
+          </Button>
+        }
+      >
+        <Space wrap style={{ marginBottom: 12 }}>
+          <Input
+            style={{ width: 260 }}
+            placeholder="Lọc theo User ID"
+            value={historyUserId}
+            onChange={(e) => setHistoryUserId(e.target.value)}
+          />
+          <Input
+            style={{ width: 260 }}
+            placeholder="Lọc theo Order ID"
+            value={historyOrderId}
+            onChange={(e) => setHistoryOrderId(e.target.value)}
+          />
+          <Select
+            style={{ width: 160 }}
+            value={historyType}
+            onChange={(v) => setHistoryType(v)}
+            options={[
+              { value: 'all', label: 'Tất cả' },
+              { value: 'credit', label: 'Chỉ cộng (+)' },
+              { value: 'debit', label: 'Chỉ trừ (-)' },
+            ]}
+          />
+          <Button type="primary" onClick={() => loadLedgerHistory(1, historyLimit)}>
+            Lọc
+          </Button>
+        </Space>
+
+        <Table<MatrixLedgerItem>
+          rowKey="id"
+          loading={historyLoading}
+          dataSource={historyRows}
+          size="small"
+          scroll={{ x: 1200 }}
+          columns={[
+            {
+              title: 'Thời gian',
+              dataIndex: 'createdAt',
+              key: 'createdAt',
+              width: 180,
+              render: (v: string) => (v ? new Date(v).toLocaleString('vi-VN') : '-'),
+            },
+            {
+              title: 'User nhận',
+              key: 'beneficiary',
+              width: 260,
+              render: (_: unknown, r: MatrixLedgerItem) => (
+                <div>
+                  <div>{r.beneficiaryUsername ? `@${r.beneficiaryUsername}` : r.beneficiaryUserId}</div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {r.beneficiaryEmail || r.beneficiaryUserId}
+                  </Text>
+                </div>
+              ),
+            },
+            {
+              title: 'Số tiền',
+              dataIndex: 'amount',
+              key: 'amount',
+              width: 140,
+              render: (v: number) => (
+                <Text style={{ color: v >= 0 ? '#389e0d' : '#cf1322', fontWeight: 600 }}>
+                  {v >= 0 ? '+' : ''}
+                  {Number(v || 0).toFixed(2)} USDT
+                </Text>
+              ),
+            },
+            { title: 'Order ID', dataIndex: 'orderId', key: 'orderId', width: 260 },
+            { title: 'Tree ID', dataIndex: 'treeId', key: 'treeId', width: 260 },
+            { title: 'Source Node', dataIndex: 'sourceNodeId', key: 'sourceNodeId', width: 260 },
+          ]}
+          pagination={{
+            current: historyPage,
+            pageSize: historyLimit,
+            total: historyTotal,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 20, 50, 100],
+            onChange: (p, s) => loadLedgerHistory(p, s),
+          }}
+        />
       </Card>
 
       {loading && (

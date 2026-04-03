@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
@@ -62,6 +63,23 @@ export class MatrixRewardAdminController {
     return this.matrixRewardService.backfillConfirmedOrders(body);
   }
 
+  @Get('ledger/history')
+  getLedgerHistory(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('userId') userId?: string,
+    @Query('orderId') orderId?: string,
+    @Query('type') type?: 'all' | 'credit' | 'debit',
+  ) {
+    return this.matrixRewardService.getLedgerHistory({
+      page: Number(page ?? 1),
+      limit: Number(limit ?? 20),
+      userId,
+      orderId,
+      type: type === 'credit' || type === 'debit' ? type : 'all',
+    });
+  }
+
   @Get('trees/:level/view')
   getTreeView(@Param('level', ParseIntPipe) level: number) {
     return this.matrixRewardService.getTreeViewForLevel(level);
@@ -74,5 +92,21 @@ export class MatrixRewardAdminController {
     @Body() body: { userId?: string },
   ) {
     return this.matrixRewardService.setAdminTreeRoot(level, body.userId ?? '');
+  }
+
+  @Post('reverse')
+  reverseRewardByOrder(
+    @Body()
+    body: {
+      userId?: string;
+      orderId?: string;
+      reason?: string;
+    },
+  ) {
+    return this.matrixRewardService.reverseRewardByOrder({
+      userId: body.userId ?? '',
+      orderId: body.orderId ?? '',
+      reason: body.reason,
+    });
   }
 }

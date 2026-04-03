@@ -51,6 +51,18 @@ export const adminService = {
     fromDate?: string;
     onlyUnprocessed?: boolean;
   }) => api.post('/admin/matrix-reward/orders/backfill', data || {}),
+  getMatrixRewardLedgerHistory: (params?: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+    orderId?: string;
+    type?: 'all' | 'credit' | 'debit';
+  }) => api.get('/admin/matrix-reward/ledger/history', { params }),
+  reverseMatrixRewardByOrder: (data: {
+    userId: string;
+    orderId: string;
+    reason?: string;
+  }) => api.post('/admin/matrix-reward/reverse', data),
   setMatrixRewardTreeRoot: (level: number, userId: string) =>
     api.put(`/admin/matrix-reward/trees/${level}/root`, { userId }),
 };

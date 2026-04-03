@@ -790,6 +790,90 @@ export class MatrixRewardService {
     return trees.map((t) => t.treeLevel);
   }
 
+  async getLedgerHistory(params?: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+    orderId?: string;
+    type?: 'all' | 'credit' | 'debit';
+  }): Promise<{
+    items: Array<{
+      id: string;
+      createdAt: Date;
+      treeId: string;
+      orderId: string;
+      beneficiaryUserId: string;
+      beneficiaryUsername: string | null;
+      beneficiaryEmail: string | null;
+      sourceNodeId: string;
+      amount: number;
+    }>;
+    page: number;
+    limit: number;
+    total: number;
+  }> {
+    const page = Math.max(1, Math.floor(Number(params?.page ?? 1)));
+    const limit = Math.max(1, Math.min(200, Math.floor(Number(params?.limit ?? 20))));
+    const userId = (params?.userId || '').trim();
+    const orderId = (params?.orderId || '').trim();
+    const type = params?.type ?? 'all';
+
+    const qb = this.ledgerRepo
+      .createQueryBuilder('l')
+      .leftJoin(User, 'u', 'u.id = l.beneficiaryUserId')
+      .select([
+        'l.id AS id',
+        'l.createdAt AS createdAt',
+        'l.treeId AS treeId',
+        'l.orderId AS orderId',
+        'l.beneficiaryUserId AS beneficiaryUserId',
+        'u.username AS beneficiaryUsername',
+        'u.email AS beneficiaryEmail',
+        'l.sourceNodeId AS sourceNodeId',
+        'l.amount AS amount',
+      ])
+      .orderBy('l.createdAt', 'DESC')
+      .addOrderBy('l.id', 'DESC');
+
+    if (userId) qb.andWhere('l.beneficiaryUserId = :userId', { userId });
+    if (orderId) qb.andWhere('l.orderId = :orderId', { orderId });
+    if (type === 'credit') qb.andWhere('l.amount > 0');
+    if (type === 'debit') qb.andWhere('l.amount < 0');
+
+    const total = await qb.getCount();
+    const rows = await qb
+      .offset((page - 1) * limit)
+      .limit(limit)
+      .getRawMany<{
+        id: string;
+        createdAt: Date;
+        treeId: string;
+        orderId: string;
+        beneficiaryUserId: string;
+        beneficiaryUsername: string | null;
+        beneficiaryEmail: string | null;
+        sourceNodeId: string;
+        amount: string;
+      }>();
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt,
+        treeId: row.treeId,
+        orderId: row.orderId,
+        beneficiaryUserId: row.beneficiaryUserId,
+        beneficiaryUsername: row.beneficiaryUsername ?? null,
+        beneficiaryEmail: row.beneficiaryEmail ?? null,
+        sourceNodeId: row.sourceNodeId,
+        amount: roundMoney(Number(row.amount ?? 0)),
+      })),
+      page,
+      limit,
+      total,
+    };
+  }
+
   /**
    * Admin: quét lại đơn CONFIRMED cũ và chạy matrix theo thứ tự thời gian.
    * Dùng để backfill dữ liệu trước khi có module matrix.
@@ -1086,5 +1170,106 @@ export class MatrixRewardService {
       excludedTreeLevels: exclusions.map((e) => e.treeLevel),
       config: await this.getPublicConfig(),
     };
+  }
+
+  /**
+   * Admin: hoàn tác (trừ lại) tiền matrix đã cộng vào ví user theo orderId.
+   * Idempotent theo (userId, orderId): chỉ trừ phần còn "net dương" chưa reverse.
+   */
+  async reverseRewardByOrder(params: {
+    userId: string;
+    orderId: string;
+    reason?: string;
+  }): Promise<{
+    userId: string;
+    orderId: string;
+    reversedAmount: number;
+    balanceBefore: number;
+    balanceAfter: number;
+    note: string;
+  }> {
+    const userId = (params.userId || '').trim();
+    const orderId = (params.orderId || '').trim();
+    const reason = (params.reason || '').trim();
+    if (!userId) throw new BadRequestException('userId is required');
+    if (!orderId) throw new BadRequestException('orderId is required');
+
+    return this.dataSource.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const ledgerRepo = manager.getRepository(MatrixRewardLedger);
+
+      const user = await userRepo.findOne({
+        where: { id: userId },
+        select: ['id', 'withdrawWalletBalance'],
+      });
+      if (!user) throw new NotFoundException('User not found');
+
+      const sumRaw = await ledgerRepo
+        .createQueryBuilder('l')
+        .select('COALESCE(SUM(l.amount),0)', 's')
+        .where('l.beneficiaryUserId = :userId', { userId })
+        .andWhere('l.orderId = :orderId', { orderId })
+        .getRawOne<{ s: string }>();
+
+      const netAmount = roundMoney(Number(sumRaw?.s ?? 0));
+      if (netAmount <= 0) {
+        return {
+          userId,
+          orderId,
+          reversedAmount: 0,
+          balanceBefore: roundMoney(Number(user.withdrawWalletBalance ?? 0)),
+          balanceAfter: roundMoney(Number(user.withdrawWalletBalance ?? 0)),
+          note: 'No positive matrix amount left to reverse for this order',
+        };
+      }
+
+      const anchor = await ledgerRepo
+        .createQueryBuilder('l')
+        .where('l.beneficiaryUserId = :userId', { userId })
+        .andWhere('l.orderId = :orderId', { orderId })
+        .andWhere('l.amount > 0')
+        .orderBy('l.createdAt', 'ASC')
+        .getOne();
+
+      if (!anchor) {
+        throw new BadRequestException('No matrix reward ledger found for this user/order');
+      }
+
+      const balanceBefore = roundMoney(Number(user.withdrawWalletBalance ?? 0));
+      if (balanceBefore < netAmount) {
+        throw new BadRequestException(
+          `Insufficient withdraw wallet balance to reverse. Required=${netAmount}, current=${balanceBefore}`,
+        );
+      }
+
+      const balanceAfter = roundMoney(balanceBefore - netAmount);
+      await userRepo.update(userId, { withdrawWalletBalance: balanceAfter });
+
+      const note = reason
+        ? `MATRIX_REVERSE:${reason}`
+        : 'MATRIX_REVERSE:admin_manual_adjustment';
+      await manager.save(
+        MatrixRewardLedger,
+        manager.create(MatrixRewardLedger, {
+          treeId: anchor.treeId,
+          beneficiaryUserId: userId,
+          amount: -netAmount,
+          sourceNodeId: anchor.sourceNodeId,
+          orderId,
+        }),
+      );
+      this.logger.warn(
+        `[MATRIX] reverse reward user=${userId} order=${orderId} amount=${netAmount} note=${note}`,
+      );
+
+      return {
+        userId,
+        orderId,
+        reversedAmount: netAmount,
+        balanceBefore,
+        balanceAfter,
+        note,
+      };
+    });
   }
 }
