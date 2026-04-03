@@ -21,6 +21,8 @@ function roundMoney(num: number): number {
   return Math.round(num * 100) / 100;
 }
 
+const COMMISSION_FEE_PERCENT = 12;
+
 /**
  * Commission được trả ngay (không cần đạt ngưỡng): Direct từ package HOẶC Product direct (type=PRODUCT, notes bắt đầu "Product direct").
  */
@@ -188,11 +190,10 @@ export class CommissionPayoutService {
         );
       }
 
-      const { depositPercent, withdrawPercent } =
-        await this.adminService.getCommissionWalletDistribution();
-      const feePercent = Math.max(0, 100 - (depositPercent + withdrawPercent));
+      const feePercent = COMMISSION_FEE_PERCENT;
+      const withdrawPercent = Math.max(0, 100 - feePercent);
       this.logger.log(
-        `Internal payout distribution: deposit=${depositPercent}%, withdraw=${withdrawPercent}%, fee=${feePercent}%`,
+        `Internal payout distribution: withdraw=${withdrawPercent}%, fee=${feePercent}%`,
       );
 
       const batchId =
@@ -212,12 +213,12 @@ export class CommissionPayoutService {
         commissionMap.get(commission.userId)!.push(commission);
       }
 
-      // Update each commission and credit 2 internal wallets by configured percentages
+      // Update each commission and credit withdraw wallet only (after fixed fee deduction)
       const recipientUserIds = dto.recipients.map((recipient) => recipient.userId);
       const recipientsUsers = recipientUserIds.length
         ? await queryRunner.manager.find(User, {
             where: { id: In(recipientUserIds) },
-            select: ['id', 'walletBalance', 'withdrawWalletBalance'],
+            select: ['id', 'withdrawWalletBalance'],
           })
         : [];
       const usersById = new Map(recipientsUsers.map((user) => [user.id, user]));
@@ -231,12 +232,9 @@ export class CommissionPayoutService {
           (sum, c) => sum + Number(c.amount || 0),
           0,
         );
-        const depositAmount = roundMoney((gross * depositPercent) / 100);
         const withdrawAmount = roundMoney((gross * withdrawPercent) / 100);
-        const currentDeposit = Number(user.walletBalance || 0);
         const currentWithdraw = Number(user.withdrawWalletBalance || 0);
         await queryRunner.manager.update(User, user.id, {
-          walletBalance: currentDeposit + depositAmount,
           withdrawWalletBalance: currentWithdraw + withdrawAmount,
         });
 
@@ -248,7 +246,7 @@ export class CommissionPayoutService {
           commission.payoutDate = new Date();
           const parts = [
             commission.notes,
-            `Distributed internal wallets (deposit ${depositPercent}%, withdraw ${withdrawPercent}%)`,
+            `Distributed to withdraw wallet (${withdrawPercent}%) after ${feePercent}% fee`,
           ]
             .filter(Boolean)
             .join('; ');
@@ -279,7 +277,6 @@ export class CommissionPayoutService {
             commissionCount: commissions.length,
             recipientCount: dto.recipients.length,
             distribution: {
-              depositPercent,
               withdrawPercent,
               feePercent,
             },
