@@ -523,6 +523,27 @@ export const api = {
     return result.url;
   },
 
+  async getProfile() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to load profile');
+    }
+    return response.json();
+  },
+
   async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string }) {
     const token = localStorage.getItem('token');
     if (!token) {

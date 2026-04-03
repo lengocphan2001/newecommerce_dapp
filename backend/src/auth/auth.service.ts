@@ -518,6 +518,40 @@ export class AuthService {
     return { message: 'Email verified successfully', email: user.email };
   }
 
+  /**
+   * Dữ liệu hiển thị màn /home/profile: một lần find user, không referral tree / commissions.
+   */
+  async getProfileSummary(userId: string) {
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const formatDecimal = (value: number | string): string => {
+      if (value === null || value === undefined || value === 0) return '0.00';
+      if (typeof value === 'string') {
+        const [intPart, decPart] = value.split('.');
+        if (decPart) {
+          return `${intPart}.${decPart}`;
+        }
+        return `${intPart}.00`;
+      }
+      const numStr = value.toFixed(18);
+      const [intPart, decPart] = numStr.split('.');
+      return `${intPart}.${decPart}`;
+    };
+
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      username: user.username,
+      avatar: user.avatar,
+      packageType: user.packageType,
+      accumulatedPurchases: formatDecimal(user.totalPurchaseAmount ?? 0),
+      emailVerified: user.emailVerified,
+    };
+  }
+
   async getMe(user: any) {
     // If it's a staff user, return staff info with permissions
     if (user.type === 'staff' || user.staffId) {

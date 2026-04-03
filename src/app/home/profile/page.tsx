@@ -16,13 +16,6 @@ export default function ProfilePage() {
     avatar?: string;
     packageType?: string;
     accumulatedPurchases?: string;
-    bonusCommission?: string;
-    maxCommission?: string;
-    totalReconsumptionAmount?: string;
-    treeStats?: {
-      left: { count: number; total: number };
-      right: { count: number; total: number };
-    };
   } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [reconsumptionStatus, setReconsumptionStatus] = useState<{
@@ -33,107 +26,81 @@ export default function ProfilePage() {
     totalPurchaseAmount?: number;
   } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [packages, setPackages] = useState<Array<{ id: string; name: string; code: string; price: number; description?: string; directCommissionRate: number; groupCommissionRate: number; managementRateF1: number }>>([]);
-  const [myPurchases, setMyPurchases] = useState<Array<{ id: string; packageId: string; amount: number; status: string; package?: { name: string; code: string } }>>([]);
-  const [packagesLoading, setPackagesLoading] = useState(false);
-  const [purchasingId, setPurchasingId] = useState<string | null>(null);
-  const [purchaseError, setPurchaseError] = useState("");
   const [kycStatus, setKycStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    loadUserProfile();
     loadWalletStatus();
-    loadReconsumptionStatus();
-    loadPackages();
-    loadKycStatus();
+    void loadInitialData();
   }, []);
 
-  const loadKycStatus = async () => {
-    try {
-      const res = await api.getKycStatus();
-      setKycStatus(res?.status ?? "UNVERIFIED");
-    } catch {
-      setKycStatus("UNVERIFIED");
-    }
-  };
+  const loadInitialData = async () => {
+    const [profileOutcome, reconOutcome, kycOutcome] = await Promise.allSettled([
+      api.getProfile(),
+      api.checkReconsumption(),
+      api.getKycStatus(),
+    ]);
 
-  const loadPackages = async () => {
-    try {
-      setPackagesLoading(true);
-      const [list, purchases] = await Promise.all([
-        api.getActivePackages(),
-        api.getMyPackagePurchases(),
-      ]);
-      setPackages(Array.isArray(list) ? list : []);
-      setMyPurchases(Array.isArray(purchases) ? purchases : []);
-    } catch (_) {
-      setPackages([]);
-      setMyPurchases([]);
-    } finally {
-      setPackagesLoading(false);
-    }
-  };
-
-  const handleBuyPackage = async (pkg: { id: string; name: string; code: string; price: number }) => {
-    try {
-      setPurchasingId(pkg.id);
-      setPurchaseError("");
-      const purchase = await api.purchasePackage(pkg.id);
-      const purchaseId = purchase?.id ?? (purchase as any)?.data?.id;
-      const amount = Number(pkg.price);
-      if (purchaseId && amount > 0) {
-        router.push(
-          `/home/package-checkout?purchaseId=${encodeURIComponent(purchaseId)}&amount=${amount}&packageName=${encodeURIComponent(pkg.name)}`
-        );
-      } else {
-        await loadPackages();
+    if (profileOutcome.status === "fulfilled") {
+      const info = profileOutcome.value;
+      const localAvatar = localStorage.getItem("userAvatar");
+      setUserInfo({
+        ...info,
+        avatar: info.avatar || localAvatar || undefined,
+      });
+    } else {
+      const e = profileOutcome.reason;
+      if (handleAuthError(e, router)) {
+        return;
       }
-    } catch (err: any) {
-      if (handleAuthError(err, router)) return;
-      setPurchaseError(err.message || "Failed to request purchase");
-    } finally {
-      setPurchasingId(null);
+      const savedPhone = localStorage.getItem("userPhone");
+      const savedName = localStorage.getItem("userName");
+      const savedAvatar = localStorage.getItem("userAvatar");
+      setUserInfo({
+        fullName: savedName || "Nguyễn Văn A",
+        username: savedPhone || "99887722",
+        avatar:
+          savedAvatar ||
+          "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA",
+      });
     }
-  };
 
-  const loadReconsumptionStatus = async () => {
-    try {
-      const status = await api.checkReconsumption();
-      setReconsumptionStatus(status);
-    } catch (error) {
-      // Silently fail
+    if (reconOutcome.status === "fulfilled") {
+      setReconsumptionStatus(reconOutcome.value);
+    }
+
+    if (kycOutcome.status === "fulfilled") {
+      setKycStatus(kycOutcome.value?.status ?? "UNVERIFIED");
+    } else {
+      setKycStatus("UNVERIFIED");
     }
   };
 
   const loadUserProfile = async () => {
     try {
-      // Try to get info from API
-      if (typeof api !== 'undefined') {
-        try {
-          const info = await api.getReferralInfo();
-          // Get local avatar as fallback
-          const localAvatar = localStorage.getItem("userAvatar");
-          setUserInfo({
-            ...info,
-            avatar: info.avatar || localAvatar
-          });
-        } catch (e: any) {
-          // Check if it's an authentication error and redirect
-          if (handleAuthError(e, router)) {
-            return; // Redirect is happening
-          }
-          // Fallback to local storage or defaults
-          const savedPhone = localStorage.getItem("userPhone");
-          const savedName = localStorage.getItem("userName");
-          const savedAvatar = localStorage.getItem("userAvatar");
-          setUserInfo({
-            fullName: savedName || "Nguyễn Văn A",
-            username: savedPhone || "99887722",
-            avatar: savedAvatar || "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA"
-          });
+      try {
+        const info = await api.getProfile();
+        const localAvatar = localStorage.getItem("userAvatar");
+        setUserInfo({
+          ...info,
+          avatar: info.avatar || localAvatar || undefined,
+        });
+      } catch (e: any) {
+        if (handleAuthError(e, router)) {
+          return;
         }
+        const savedPhone = localStorage.getItem("userPhone");
+        const savedName = localStorage.getItem("userName");
+        const savedAvatar = localStorage.getItem("userAvatar");
+        setUserInfo({
+          fullName: savedName || "Nguyễn Văn A",
+          username: savedPhone || "99887722",
+          avatar:
+            savedAvatar ||
+            "https://lh3.googleusercontent.com/aida-public/AB6AXuAkJa2DRzw6szvW3OTTY4LTkdz1KpLIEcoyCXBoTV7CT-eukbKk9cfspmJv1RVPzMKLhFZFMV4puf9YFTK8Fp_Mj14V_JeL9gylhtB6HENgUVJjPRiNaoI1FsEnLLPfSI9welU7uVGKBDArGQ15eWv3yQa364BAB17-FI2JhO83NiBhrdKd3IJdtqv3n6GhopqhsrPFXrk-M0Dy8RwfR7jhlpV8WMebFYshuA9H2HoYOqv6IxJp0zI6lQpthNG8y9CnSYPaA8p48CA",
+        });
       }
-    } catch (err) {
+    } catch {
+      /* ignore */
     }
   };
 
@@ -336,15 +303,7 @@ export default function ProfilePage() {
                         const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
                         const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
                         const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
-                        const packageValueFromStatus = Number(reconsumptionStatus?.packageValue) || 0;
-                        const packageValueFromCurrentPackage =
-                          Number(
-                            packages.find((p) => p.code === userInfo?.packageType)?.price || 0
-                          ) || 0;
-                        const price =
-                          packageValueFromStatus > 0
-                            ? packageValueFromStatus
-                            : packageValueFromCurrentPackage;
+                        const price = Number(reconsumptionStatus?.packageValue) || 0;
                         if (price <= 0) return "0 lần";
                         // Không tính lần mua đầu tiên và hiển thị số nguyên.
                         const reconsumptionTimes = Math.max(0, Math.floor(total / price) - 1);
@@ -359,15 +318,7 @@ export default function ProfilePage() {
                         const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
                         const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
                         const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
-                        const packageValueFromStatus = Number(reconsumptionStatus?.packageValue) || 0;
-                        const packageValueFromCurrentPackage =
-                          Number(
-                            packages.find((p) => p.code === userInfo?.packageType)?.price || 0
-                          ) || 0;
-                        const price =
-                          packageValueFromStatus > 0
-                            ? packageValueFromStatus
-                            : packageValueFromCurrentPackage;
+                        const price = Number(reconsumptionStatus?.packageValue) || 0;
                         if (price <= 0) return "$0";
                         // Không tính lần mua đầu tiên: đã tái tiêu dùng = totalPurchase - value gói.
                         const reconsumptionAmount = Math.max(0, total - price);

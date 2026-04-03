@@ -31,6 +31,13 @@ export class AuthController {
     private readonly packagesService: PackagesService,
   ) {}
 
+  /** Hồ sơ tối giản cho màn Cá nhân (không gọi cây nhị phân / hoa hồng). */
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@Request() req: any) {
+    return this.authService.getProfileSummary(req.user.sub);
+  }
+
   @Put('profile')
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Request() req: any, @Body() data: any) {
