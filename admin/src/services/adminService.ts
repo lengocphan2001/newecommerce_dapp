@@ -58,6 +58,10 @@ export const adminService = {
     orderId?: string;
     type?: 'all' | 'credit' | 'debit';
   }) => api.get('/admin/matrix-reward/ledger/history', { params }),
+  getMatrixRewardLedgerSummary: (params?: {
+    userId?: string;
+    orderId?: string;
+  }) => api.get('/admin/matrix-reward/ledger/summary', { params }),
   reverseMatrixRewardByOrder: (data: {
     userId: string;
     orderId: string;

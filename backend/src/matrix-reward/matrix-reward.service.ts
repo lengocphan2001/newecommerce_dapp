@@ -874,6 +874,62 @@ export class MatrixRewardService {
     };
   }
 
+  async getLedgerSummary(params?: {
+    userId?: string;
+    orderId?: string;
+  }): Promise<{
+    totalCreditAmount: number;
+    totalDebitAmount: number;
+    netAmount: number;
+    creditCount: number;
+    debitCount: number;
+    outstandingPairCount: number;
+  }> {
+    const userId = (params?.userId || '').trim();
+    const orderId = (params?.orderId || '').trim();
+
+    const baseQb = this.ledgerRepo.createQueryBuilder('l');
+    if (userId) baseQb.andWhere('l.beneficiaryUserId = :userId', { userId });
+    if (orderId) baseQb.andWhere('l.orderId = :orderId', { orderId });
+
+    const totals = await baseQb
+      .clone()
+      .select('COALESCE(SUM(CASE WHEN l.amount > 0 THEN l.amount ELSE 0 END),0)', 'credit')
+      .addSelect('COALESCE(SUM(CASE WHEN l.amount < 0 THEN l.amount ELSE 0 END),0)', 'debit')
+      .addSelect('COALESCE(SUM(l.amount),0)', 'net')
+      .getRawOne<{ credit: string; debit: string; net: string }>();
+
+    const counts = await baseQb
+      .clone()
+      .select('COALESCE(SUM(CASE WHEN l.amount > 0 THEN 1 ELSE 0 END),0)', 'creditCount')
+      .addSelect('COALESCE(SUM(CASE WHEN l.amount < 0 THEN 1 ELSE 0 END),0)', 'debitCount')
+      .getRawOne<{ creditCount: string; debitCount: string }>();
+
+    const pairQb = this.ledgerRepo
+      .createQueryBuilder('l')
+      .select('l.beneficiaryUserId', 'userId')
+      .addSelect('l.orderId', 'orderId')
+      .groupBy('l.beneficiaryUserId')
+      .addGroupBy('l.orderId')
+      .having('COALESCE(SUM(l.amount),0) > 0');
+
+    if (userId) pairQb.andWhere('l.beneficiaryUserId = :userId', { userId });
+    if (orderId) pairQb.andWhere('l.orderId = :orderId', { orderId });
+    // getCount() on grouped query can return base-row count in some TypeORM versions.
+    // Count raw grouped rows to get the true number of outstanding (userId, orderId) pairs.
+    const outstandingPairs = await pairQb.getRawMany<{ userId: string; orderId: string }>();
+    const outstandingPairCount = outstandingPairs.length;
+
+    return {
+      totalCreditAmount: roundMoney(Number(totals?.credit ?? 0)),
+      totalDebitAmount: roundMoney(Number(totals?.debit ?? 0)),
+      netAmount: roundMoney(Number(totals?.net ?? 0)),
+      creditCount: Number(counts?.creditCount ?? 0),
+      debitCount: Number(counts?.debitCount ?? 0),
+      outstandingPairCount,
+    };
+  }
+
   /**
    * Admin: quét lại đơn CONFIRMED cũ và chạy matrix theo thứ tự thời gian.
    * Dùng để backfill dữ liệu trước khi có module matrix.

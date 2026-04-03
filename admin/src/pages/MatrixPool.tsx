@@ -17,6 +17,7 @@ import {
   Switch,
   Popconfirm,
   Table,
+  Statistic,
 } from 'antd';
 import { ReloadOutlined, SearchOutlined, SaveOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
@@ -66,6 +67,15 @@ interface MatrixLedgerItem {
   beneficiaryEmail: string | null;
   sourceNodeId: string;
   amount: number;
+}
+
+interface MatrixLedgerSummary {
+  totalCreditAmount: number;
+  totalDebitAmount: number;
+  netAmount: number;
+  creditCount: number;
+  debitCount: number;
+  outstandingPairCount: number;
 }
 
 const MatrixCustomNode = ({ data }: { data: CustomNodeData }) => {
@@ -150,6 +160,15 @@ const MatrixPool: React.FC = () => {
   const [historyUserId, setHistoryUserId] = useState('');
   const [historyOrderId, setHistoryOrderId] = useState('');
   const [historyType, setHistoryType] = useState<'all' | 'credit' | 'debit'>('all');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [ledgerSummary, setLedgerSummary] = useState<MatrixLedgerSummary>({
+    totalCreditAmount: 0,
+    totalDebitAmount: 0,
+    netAmount: 0,
+    creditCount: 0,
+    debitCount: 0,
+    outstandingPairCount: 0,
+  });
   const [userPreview, setUserPreview] = useState<{
     id: string;
     username?: string | null;
@@ -233,8 +252,32 @@ const MatrixPool: React.FC = () => {
     }
   };
 
+  const loadLedgerSummary = async () => {
+    try {
+      setSummaryLoading(true);
+      const res = await adminService.getMatrixRewardLedgerSummary({
+        userId: historyUserId.trim() || undefined,
+        orderId: historyOrderId.trim() || undefined,
+      });
+      const data = (res as any)?.data ?? res;
+      setLedgerSummary({
+        totalCreditAmount: Number(data?.totalCreditAmount ?? 0),
+        totalDebitAmount: Number(data?.totalDebitAmount ?? 0),
+        netAmount: Number(data?.netAmount ?? 0),
+        creditCount: Number(data?.creditCount ?? 0),
+        debitCount: Number(data?.debitCount ?? 0),
+        outstandingPairCount: Number(data?.outstandingPairCount ?? 0),
+      });
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || e?.message || 'Không thể tải tổng hợp matrix');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadLedgerHistory(1, historyLimit);
+    loadLedgerSummary();
   }, []);
 
   const fetchTree = async () => {
@@ -845,7 +888,13 @@ const MatrixPool: React.FC = () => {
         title="Lịch sử cộng / trừ hoa hồng Matrix Pool"
         style={{ marginTop: 16 }}
         extra={
-          <Button icon={<ReloadOutlined />} onClick={() => loadLedgerHistory(historyPage, historyLimit)}>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => {
+              loadLedgerHistory(historyPage, historyLimit);
+              loadLedgerSummary();
+            }}
+          >
             Refresh lịch sử
           </Button>
         }
@@ -873,9 +922,56 @@ const MatrixPool: React.FC = () => {
               { value: 'debit', label: 'Chỉ trừ (-)' },
             ]}
           />
-          <Button type="primary" onClick={() => loadLedgerHistory(1, historyLimit)}>
+          <Button
+            type="primary"
+            onClick={() => {
+              loadLedgerHistory(1, historyLimit);
+              loadLedgerSummary();
+            }}
+          >
             Lọc
           </Button>
+          <Button onClick={() => loadLedgerSummary()}>Tính tổng hợp</Button>
+        </Space>
+        <Space wrap size="large" style={{ marginBottom: 16 }}>
+          <Statistic
+            title="Tổng dòng cộng (+)"
+            value={ledgerSummary.creditCount}
+            loading={summaryLoading}
+          />
+          <Statistic
+            title="Tổng dòng trừ (-)"
+            value={ledgerSummary.debitCount}
+            loading={summaryLoading}
+          />
+          <Statistic
+            title="Tổng tiền cộng"
+            value={ledgerSummary.totalCreditAmount}
+            precision={2}
+            suffix="USDT"
+            loading={summaryLoading}
+          />
+          <Statistic
+            title="Tổng tiền trừ"
+            value={ledgerSummary.totalDebitAmount}
+            precision={2}
+            suffix="USDT"
+            loading={summaryLoading}
+          />
+          <Statistic
+            title="Net (cộng + trừ)"
+            value={ledgerSummary.netAmount}
+            precision={2}
+            suffix="USDT"
+            loading={summaryLoading}
+            valueStyle={{ color: ledgerSummary.netAmount > 0 ? '#cf1322' : '#389e0d' }}
+          />
+          <Statistic
+            title="Cặp user+order còn dương"
+            value={ledgerSummary.outstandingPairCount}
+            loading={summaryLoading}
+            valueStyle={{ color: ledgerSummary.outstandingPairCount > 0 ? '#cf1322' : '#389e0d' }}
+          />
         </Space>
 
         <Table<MatrixLedgerItem>

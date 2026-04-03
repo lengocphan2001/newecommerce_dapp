@@ -80,6 +80,17 @@ export class MatrixRewardAdminController {
     });
   }
 
+  @Get('ledger/summary')
+  getLedgerSummary(
+    @Query('userId') userId?: string,
+    @Query('orderId') orderId?: string,
+  ) {
+    return this.matrixRewardService.getLedgerSummary({
+      userId,
+      orderId,
+    });
+  }
+
   @Get('trees/:level/view')
   getTreeView(@Param('level', ParseIntPipe) level: number) {
     return this.matrixRewardService.getTreeViewForLevel(level);

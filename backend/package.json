@@ -23,6 +23,7 @@
     "db:init": "ts-node -r tsconfig-paths/register scripts/init-database.ts",
     "clear:data": "ts-node -r tsconfig-paths/register scripts/clear-data.ts",
     "script:set-product-package": "ts-node -r tsconfig-paths/register scripts/set-all-products-use-package-commission.ts",
+    "script:convert-product-images-webp": "ts-node -r tsconfig-paths/register scripts/convert-product-images-to-webp.ts",
     "script:set-passwords": "ts-node -r tsconfig-paths/register scripts/set-passwords-for-existing-users.ts",
     "script:create-admin": "ts-node -r tsconfig-paths/register scripts/create-admin-user.ts",
     "script:create-superadmin": "ts-node -r tsconfig-paths/register scripts/create-superadmin-staff.ts"
@@ -61,6 +62,7 @@
     "react-i18next": "^16.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "speakeasy": "^2.0.0",
