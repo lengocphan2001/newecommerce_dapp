@@ -294,7 +294,7 @@ export class AdminService {
   }
 
   private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((email || '').trim());
+    return /^[^\s@]+@gmail\.com$/i.test((email || '').trim());
   }
 
   /**
