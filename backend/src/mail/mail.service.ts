@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -11,7 +11,7 @@ export interface SendMailOptions {
 }
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleDestroy {
   private transporter: Transporter | null = null;
   private from: string = '';
   private enabled: boolean = false;
@@ -33,7 +33,22 @@ export class MailService {
         port: port ?? 587,
         secure: port === 465,
         auth: { user, pass },
+        // Pool: dùng chung kết nối SMTP, chỉ auth MỘT LẦN
+        // → tránh lỗi "Too many login attempts" khi gửi bulk email
+        pool: true,
+        maxConnections: 2,
+        maxMessages: Infinity,
+        // Rate limit: tối đa 3 email/giây — Gmail cho phép ~100/phút
+        rateDelta: 1000,
+        rateLimit: 3,
       });
+    }
+  }
+
+  /** Đóng pool kết nối SMTP khi ứng dụng shutdown. */
+  onModuleDestroy() {
+    if (this.transporter) {
+      this.transporter.close();
     }
   }
 

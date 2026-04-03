@@ -279,23 +279,23 @@ export class AdminService {
     }
   }
 
-  /** Gửi email thông tin đăng nhập trong background (fire-and-forget). */
+  /**
+   * Gửi email credentials trong background.
+   * Pool SMTP (pool:true + rateLimit) tự quản lý: 1 auth, tối đa 3 email/giây.
+   * Gọi tất cả cùng lúc — pool queue nội bộ, không spam auth.
+   */
   private async sendCredentialsEmailBackground(
     list: Array<{ username: string; email: string; plainPassword: string }>,
   ): Promise<void> {
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < list.length; i += BATCH_SIZE) {
-      const batch = list.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map(({ username, email, plainPassword }) =>
-          this.mailService
-            .sendLoginCredentials(email.trim(), username, plainPassword)
-            .catch((err) =>
-              console.error(`[MailService] bulk send failed ${email}:`, err),
-            ),
-        ),
-      );
-    }
+    await Promise.all(
+      list.map(({ username, email, plainPassword }) =>
+        this.mailService
+          .sendLoginCredentials(email.trim(), username, plainPassword)
+          .catch((err) =>
+            console.error(`[MailService] bulk send failed ${email}:`, err),
+          ),
+      ),
+    );
   }
 
   private isValidEmail(email: string): boolean {
