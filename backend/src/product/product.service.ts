@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
-import { Order, OrderStatus } from '../order/entities/order.entity';
 import { CategoryService } from '../category/category.service';
 import { CreateProductDto, UpdateProductDto } from './dto';
 
@@ -11,8 +10,6 @@ export class ProductService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    @InjectRepository(Order)
-    private readonly orderRepository: Repository<Order>,
     private readonly categoryService: CategoryService,
   ) {}
 
@@ -24,32 +21,6 @@ export class ProductService {
       product.pushedAt = new Date();
     }
     return this.productRepository.save(product);
-  }
-
-  /**
-   * Calculate sold count for a product from orders
-   */
-  private async calculateSoldCount(productId: string): Promise<number> {
-    const orders = await this.orderRepository.find({
-      where: [
-        { status: OrderStatus.CONFIRMED },
-        { status: OrderStatus.PROCESSING },
-        { status: OrderStatus.SHIPPED },
-        { status: OrderStatus.DELIVERED },
-      ],
-    });
-
-    let soldCount = 0;
-    for (const order of orders) {
-      const items = order.items || [];
-      for (const item of items) {
-        if (item.productId === productId) {
-          soldCount += item.quantity || 0;
-        }
-      }
-    }
-
-    return soldCount;
   }
 
   async findAll(query: any) {
@@ -93,18 +64,11 @@ export class ProductService {
       });
     }
 
-    // Calculate sold count for each product
-    const productsWithSoldCount = await Promise.all(
-      allProducts.map(async (product) => {
-        const soldCount = await this.calculateSoldCount(product.id);
-        return {
-          ...product,
-          soldCount: product.fakeSold ?? soldCount, // Use fakeSold if set, otherwise real soldCount
-        };
-      }),
-    );
-
-    return productsWithSoldCount;
+    // List: soldCount chỉ từ fakeSold (không quét orders).
+    return allProducts.map((product) => ({
+      ...product,
+      soldCount: product.fakeSold ?? 0,
+    }));
   }
 
   async findOne(id: string) {
@@ -116,7 +80,6 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    const soldCount = await this.calculateSoldCount(id);
     let categoryBreadcrumb: string[] = [];
     if (product.categoryId) {
       try {
@@ -130,7 +93,7 @@ export class ProductService {
 
     return {
       ...product,
-      soldCount: product.fakeSold ?? soldCount, // Use fakeSold if set, otherwise real soldCount
+      soldCount: product.fakeSold ?? 0,
       categoryBreadcrumb,
     };
   }
