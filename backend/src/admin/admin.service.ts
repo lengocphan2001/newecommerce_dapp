@@ -167,9 +167,9 @@ export class AdminService {
   }
 
   /**
-   * Generate/update username+password for ALL users, queue emails fire-and-forget,
-   * return CSV + stats ngay lập tức (không block trên bcrypt/SMTP → tránh 504).
-   * bcrypt dùng rounds=8 và chạy song song batch 20 (~25ms/user thay vì 100ms).
+   * Trả về CSV **ngay lập tức** (< 100ms bất kể số lượng user).
+   * bcrypt + lưu DB + gửi email chạy hoàn toàn trong background (fire-and-forget).
+   * → Không bao giờ timeout dù Nginx/Cloudflare có giới hạn bao nhiêu giây.
    */
   async generateUserLoginCredentialsCsv(): Promise<{
     csvContent: string;
@@ -192,7 +192,7 @@ export class AdminService {
         .filter((u) => Boolean(u)),
     );
 
-    // Bước 1: resolve username + plain password (không async)
+    // Bước 1: resolve username + plain password đồng bộ (không async, ~0ms)
     const prepared: Array<{
       id: string;
       username: string;
@@ -228,37 +228,55 @@ export class AdminService {
       ]);
     }
 
-    // Bước 2: bcrypt song song batch 20, rounds=8 (~25ms/user, 4× nhanh hơn rounds=10)
-    const BCRYPT_BATCH = 20;
-    const usersToUpdate: Array<{ id: string; username: string; password: string }> = [];
-    for (let i = 0; i < prepared.length; i += BCRYPT_BATCH) {
-      const batch = prepared.slice(i, i + BCRYPT_BATCH);
-      const hashed = await Promise.all(batch.map((u) => bcrypt.hash(u.plainPassword, 8)));
-      for (let j = 0; j < batch.length; j++) {
-        usersToUpdate.push({ id: batch[j].id, username: batch[j].username, password: hashed[j] });
-      }
-    }
-
-    // Bước 3: lưu DB
-    if (usersToUpdate.length > 0) {
-      await this.userRepository.save(usersToUpdate);
-    }
-
-    // Bước 4: tính số email sẽ gửi
+    // Bước 2: tính email stats trước khi trả response
     const emailEnabled = this.mailService.isEnabled();
     const emailList = prepared.filter((u) => this.isValidEmail(u.email));
     const emailQueued = emailEnabled ? emailList.length : 0;
     const emailSkipped = prepared.length - emailList.length;
 
-    // Bước 5: gửi email fire-and-forget — không await → trả response ngay
-    if (emailEnabled && emailList.length > 0) {
-      void this.sendCredentialsEmailBackground(emailList);
-    }
+    // Bước 3: toàn bộ việc nặng (bcrypt + DB save + email) chạy BACKGROUND
+    // KHÔNG await → response trả ngay, không bao giờ timeout
+    void this.hashSaveAndEmailBackground(prepared, emailEnabled ? emailList : []);
 
     return {
       csvContent: '\uFEFF' + rows.map((r) => r.join(',')).join('\n'),
       stats: { total: prepared.length, emailQueued, emailSkipped, emailEnabled },
     };
+  }
+
+  /**
+   * Background job: bcrypt → save DB → send emails.
+   * Chạy sau khi response đã trả về client → không bao giờ gây timeout.
+   */
+  private async hashSaveAndEmailBackground(
+    prepared: Array<{ id: string; username: string; email: string; plainPassword: string }>,
+    emailList: Array<{ username: string; email: string; plainPassword: string }>,
+  ): Promise<void> {
+    try {
+      // bcrypt song song theo batch 20, rounds=8 (~25ms/user)
+      const BCRYPT_BATCH = 20;
+      const usersToUpdate: Array<{ id: string; username: string; password: string }> = [];
+      for (let i = 0; i < prepared.length; i += BCRYPT_BATCH) {
+        const batch = prepared.slice(i, i + BCRYPT_BATCH);
+        const hashed = await Promise.all(batch.map((u) => bcrypt.hash(u.plainPassword, 8)));
+        for (let j = 0; j < batch.length; j++) {
+          usersToUpdate.push({ id: batch[j].id, username: batch[j].username, password: hashed[j] });
+        }
+      }
+
+      // Lưu DB theo batch 50 để tránh TypeORM tạo quá nhiều connection
+      const DB_BATCH = 50;
+      for (let i = 0; i < usersToUpdate.length; i += DB_BATCH) {
+        await this.userRepository.save(usersToUpdate.slice(i, i + DB_BATCH));
+      }
+
+      // Gửi email
+      if (emailList.length > 0) {
+        await this.sendCredentialsEmailBackground(emailList);
+      }
+    } catch (err) {
+      console.error('[AdminService] hashSaveAndEmailBackground error:', err);
+    }
   }
 
   /** Gửi email thông tin đăng nhập trong background (fire-and-forget). */
