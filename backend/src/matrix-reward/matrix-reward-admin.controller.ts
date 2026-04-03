@@ -30,6 +30,7 @@ export class MatrixRewardAdminController {
       maxEarnPerTreeUsd?: number;
       maxUplines?: number;
       prevTreeQualifyPercent?: number;
+      enabled?: boolean;
     },
   ) {
     return this.matrixRewardService.setAdminConfig(body);

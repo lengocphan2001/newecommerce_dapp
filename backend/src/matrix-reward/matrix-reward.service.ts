@@ -24,6 +24,18 @@ const CFG_PER_SLOT = 'matrixRewardPerSlotUsd';
 const CFG_MAX_EARN = 'matrixRewardMaxEarnPerTreeUsd';
 const CFG_MAX_UPLINES = 'matrixRewardMaxUplines';
 const CFG_PREV_TREE_QUALIFY_PERCENT = 'matrixRewardPrevTreeQualifyPercent';
+const CFG_ENABLED = 'matrixRewardEnabled';
+
+/** Kết quả chi tiết của processOrderIfEligible — dùng để thống kê backfill. */
+type ProcessResult =
+  | 'system_disabled'   // hệ thống matrix đang tắt
+  | 'already_done'      // đã xử lý từ trước (idempotent)
+  | 'invalid_order'     // đơn không tồn tại / chưa CONFIRMED
+  | 'below_min_order'   // giá trị đơn < minOrderUsd
+  | 'prev_tree_not_met' // chưa đủ điều kiện cây trước (không mark processed)
+  | 'placed_root'       // đặt thành root cây, chưa có upline để trả
+  | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
+  | 'placed_no_upline'; // đặt vào cây nhưng tất cả upline đã đạt maxEarn
 
 function roundMoney(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -63,20 +75,22 @@ export class MatrixRewardService {
   ) {}
 
   async getPublicConfig() {
-    const [minOrder, perSlot, maxEarn, maxUplines, prevTreeQualifyPercent] =
+    const [minOrder, perSlot, maxEarn, maxUplines, prevTreeQualifyPercent, enabled] =
       await Promise.all([
       this.getConfigNumber(CFG_MIN_ORDER, 100),
       this.getConfigNumber(CFG_PER_SLOT, 0.5),
       this.getConfigNumber(CFG_MAX_EARN, 1500),
       this.getConfigNumber(CFG_MAX_UPLINES, 11),
       this.getConfigNumber(CFG_PREV_TREE_QUALIFY_PERCENT, 100),
+      this.getConfigBool(CFG_ENABLED, true),
       ]);
     return {
       minOrderUsd: minOrder,
       perSlotUsd: perSlot,
       maxEarnPerTreeUsd: maxEarn,
       maxUplines,
-      prevTreeQualifyPercent: prevTreeQualifyPercent,
+      prevTreeQualifyPercent,
+      enabled,
     };
   }
 
@@ -88,6 +102,7 @@ export class MatrixRewardService {
         { key: CFG_MAX_EARN },
         { key: CFG_MAX_UPLINES },
         { key: CFG_PREV_TREE_QUALIFY_PERCENT },
+        { key: CFG_ENABLED },
       ],
     });
     const map = new Map(rows.map((r) => [r.key, r.value]));
@@ -96,9 +111,8 @@ export class MatrixRewardService {
       perSlotUsd: Number(map.get(CFG_PER_SLOT) ?? 0.5),
       maxEarnPerTreeUsd: Number(map.get(CFG_MAX_EARN) ?? 1500),
       maxUplines: Number(map.get(CFG_MAX_UPLINES) ?? 11),
-      prevTreeQualifyPercent: Number(
-        map.get(CFG_PREV_TREE_QUALIFY_PERCENT) ?? 100,
-      ),
+      prevTreeQualifyPercent: Number(map.get(CFG_PREV_TREE_QUALIFY_PERCENT) ?? 100),
+      enabled: (map.get(CFG_ENABLED) ?? 'true') !== 'false',
     };
   }
 
@@ -108,6 +122,7 @@ export class MatrixRewardService {
     maxEarnPerTreeUsd?: number;
     maxUplines?: number;
     prevTreeQualifyPercent?: number;
+    enabled?: boolean;
   }) {
     const entries: Array<{ key: string; value: string }> = [];
     if (body.minOrderUsd != null)
@@ -115,17 +130,13 @@ export class MatrixRewardService {
     if (body.perSlotUsd != null)
       entries.push({ key: CFG_PER_SLOT, value: String(body.perSlotUsd) });
     if (body.maxEarnPerTreeUsd != null)
-      entries.push({
-        key: CFG_MAX_EARN,
-        value: String(body.maxEarnPerTreeUsd),
-      });
+      entries.push({ key: CFG_MAX_EARN, value: String(body.maxEarnPerTreeUsd) });
     if (body.maxUplines != null)
       entries.push({ key: CFG_MAX_UPLINES, value: String(body.maxUplines) });
     if (body.prevTreeQualifyPercent != null)
-      entries.push({
-        key: CFG_PREV_TREE_QUALIFY_PERCENT,
-        value: String(body.prevTreeQualifyPercent),
-      });
+      entries.push({ key: CFG_PREV_TREE_QUALIFY_PERCENT, value: String(body.prevTreeQualifyPercent) });
+    if (body.enabled != null)
+      entries.push({ key: CFG_ENABLED, value: body.enabled ? 'true' : 'false' });
     for (const e of entries) {
       let row = await this.systemConfigRepo.findOne({ where: { key: e.key } });
       if (!row) {
@@ -148,21 +159,22 @@ export class MatrixRewardService {
     return Number.isFinite(n) ? n : defaultVal;
   }
 
-  /** Kết quả chi tiết của processOrderIfEligible — dùng để thống kê backfill. */
-  type ProcessResult =
-    | 'already_done'      // đã xử lý từ trước (idempotent)
-    | 'invalid_order'     // đơn không tồn tại / chưa CONFIRMED
-    | 'below_min_order'   // giá trị đơn < minOrderUsd
-    | 'prev_tree_not_met' // chưa đủ điều kiện cây trước (không mark processed)
-    | 'placed_root'       // đặt thành root cây, chưa có upline để trả
-    | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
-    | 'placed_no_upline'; // đặt vào cây nhưng tất cả upline đã đạt maxEarn
+  private async getConfigBool(key: string, defaultVal: boolean): Promise<boolean> {
+    const row = await this.systemConfigRepo.findOne({ where: { key } });
+    if (!row?.value) return defaultVal;
+    return row.value !== 'false';
+  }
+
 
   /**
    * Gọi khi đơn CONFIRMED. Idempotent theo orderId.
    * Trả về kết quả chi tiết để backfill có thể thống kê đúng.
    */
   async processOrderIfEligible(orderId: string): Promise<ProcessResult> {
+    // Kiểm tra cờ bật/tắt toàn hệ thống matrix
+    const enabled = await this.getConfigBool(CFG_ENABLED, true);
+    if (!enabled) return 'system_disabled';
+
     const done = await this.processedRepo.findOne({ where: { orderId } });
     if (done) return 'already_done';
 
@@ -528,7 +540,7 @@ export class MatrixRewardService {
       where: { id: beneficiaryUserId },
       select: ['id', 'withdrawWalletBalance'],
     });
-    if (!u) return;
+    if (!u) return false;
 
     const bal = roundMoney(Number(u.withdrawWalletBalance ?? 0));
     await userRepo.update(beneficiaryUserId, {
@@ -797,6 +809,7 @@ export class MatrixRewardService {
     prevTreeNotMet: number;
     alreadyDone: number;
     failedOrderIds: string[];
+    systemDisabled: boolean;
   }> {
     const maxOrders = Math.max(
       1,
@@ -826,6 +839,24 @@ export class MatrixRewardService {
     }
 
     const orders = await qb.select(['o.id', 'o.createdAt']).getMany();
+
+    // Nếu hệ thống matrix đang tắt, không cần quét từng đơn
+    const matrixEnabled = await this.getConfigBool(CFG_ENABLED, true);
+    if (!matrixEnabled) {
+      return {
+        scanned: 0,
+        processed: 0,
+        failed: 0,
+        skipped: 0,
+        paid: 0,
+        placedRoot: 0,
+        placedNoUpline: 0,
+        prevTreeNotMet: 0,
+        alreadyDone: 0,
+        failedOrderIds: [],
+        systemDisabled: true,
+      };
+    }
 
     let processed = 0;
     let failed = 0;
@@ -865,6 +896,7 @@ export class MatrixRewardService {
       prevTreeNotMet,
       alreadyDone,
       failedOrderIds,
+      systemDisabled: false,
     };
   }
 

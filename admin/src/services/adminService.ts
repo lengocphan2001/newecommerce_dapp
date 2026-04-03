@@ -39,6 +39,7 @@ export const adminService = {
     maxEarnPerTreeUsd?: number;
     maxUplines?: number;
     prevTreeQualifyPercent?: number;
+    enabled?: boolean;
   }) => api.put('/admin/matrix-reward/config', data),
   getMatrixRewardLevels: () => api.get('/admin/matrix-reward/trees/levels'),
   getMatrixRewardTreeView: (level: number) =>

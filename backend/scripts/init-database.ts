@@ -197,6 +197,7 @@ async function initializeDatabase() {
       { key: 'minPayoutThreshold', value: '50' },
       { key: 'commissionDepositWalletPercent', value: '12' },
       { key: 'commissionWithdrawWalletPercent', value: '80' },
+      { key: 'matrixRewardEnabled', value: 'true' },
       { key: 'matrixRewardMinOrderUsd', value: '100' },
       { key: 'matrixRewardPerSlotUsd', value: '0.5' },
       { key: 'matrixRewardMaxEarnPerTreeUsd', value: '1500' },

@@ -14,8 +14,10 @@ import {
   Alert,
   Input,
   Modal,
+  Switch,
+  Popconfirm,
 } from 'antd';
-import { ReloadOutlined, SearchOutlined, SaveOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SearchOutlined, SaveOutlined, PoweroffOutlined } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
 import {
   ReactFlow,
@@ -115,6 +117,8 @@ const MatrixPool: React.FC = () => {
   const [treeData, setTreeData] = useState<MatrixTreeNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [configLoading, setConfigLoading] = useState(false);
+  const [matrixEnabled, setMatrixEnabled] = useState(true);
+  const [togglingEnabled, setTogglingEnabled] = useState(false);
   const [form] = Form.useForm();
   const reactFlowContainerRef = React.useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -156,10 +160,28 @@ const MatrixPool: React.FC = () => {
         maxUplines: c.maxUplines,
         prevTreeQualifyPercent: c.prevTreeQualifyPercent,
       });
+      setMatrixEnabled(c.enabled !== false);
     } catch (e: any) {
       message.error(e?.message || 'Failed to load matrix config');
     } finally {
       setConfigLoading(false);
+    }
+  };
+
+  const toggleMatrixEnabled = async (newEnabled: boolean) => {
+    try {
+      setTogglingEnabled(true);
+      await adminService.updateMatrixRewardConfig({ enabled: newEnabled });
+      setMatrixEnabled(newEnabled);
+      message.success(
+        newEnabled
+          ? '✅ Đã bật hệ thống Matrix Pool — đơn CONFIRMED sẽ được xử lý.'
+          : '🔴 Đã tắt hệ thống Matrix Pool — đơn mới sẽ không vào matrix.',
+      );
+    } catch (e: any) {
+      message.error(e?.message || 'Không thể thay đổi trạng thái Matrix Pool');
+    } finally {
+      setTogglingEnabled(false);
     }
   };
 
@@ -400,7 +422,11 @@ const MatrixPool: React.FC = () => {
         maxOrders: backfillLimit,
         onlyUnprocessed: true,
       });
-      const data = (res as any)?.data ?? res;
+          const data = (res as any)?.data ?? res;
+      if (data?.systemDisabled) {
+        message.warning('Hệ thống Matrix Pool đang TẮT — bật lại trước khi backfill.');
+        return;
+      }
       const paid = data?.paid ?? 0;
       const root = data?.placedRoot ?? 0;
       const noUpline = data?.placedNoUpline ?? 0;
@@ -437,7 +463,58 @@ const MatrixPool: React.FC = () => {
 
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
-      <Card title="Matrix reward pool — cấu hình" style={{ marginBottom: 16 }} loading={configLoading}>
+      <Card
+        title={
+          <Space>
+            <PoweroffOutlined style={{ color: matrixEnabled ? '#52c41a' : '#ff4d4f' }} />
+            Matrix reward pool — cấu hình
+            <Tag color={matrixEnabled ? 'success' : 'error'}>
+              {matrixEnabled ? 'ĐANG BẬT' : 'ĐANG TẮT'}
+            </Tag>
+          </Space>
+        }
+        extra={
+          <Space>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              {matrixEnabled ? 'Tắt hệ thống matrix:' : 'Bật hệ thống matrix:'}
+            </Text>
+            <Popconfirm
+              title={
+                matrixEnabled
+                  ? 'Tắt Matrix Pool?'
+                  : 'Bật Matrix Pool?'
+              }
+              description={
+                matrixEnabled
+                  ? 'Các đơn CONFIRMED sau khi tắt sẽ không được xử lý vào matrix. Backfill vẫn bị chặn.'
+                  : 'Hệ thống matrix sẽ hoạt động trở lại. Dùng "Quét đơn cũ" để xử lý các đơn bị bỏ qua.'
+              }
+              okText={matrixEnabled ? 'Xác nhận tắt' : 'Xác nhận bật'}
+              okType={matrixEnabled ? 'danger' : 'primary'}
+              cancelText="Hủy"
+              onConfirm={() => toggleMatrixEnabled(!matrixEnabled)}
+            >
+              <Switch
+                checked={matrixEnabled}
+                loading={togglingEnabled}
+                checkedChildren="BẬT"
+                unCheckedChildren="TẮT"
+              />
+            </Popconfirm>
+          </Space>
+        }
+        style={{ marginBottom: 16 }}
+        loading={configLoading}
+      >
+        {!matrixEnabled && (
+          <Alert
+            type="error"
+            showIcon
+            message="Hệ thống Matrix Pool đang TẮT"
+            description="Các đơn hàng CONFIRMED sẽ không được xử lý vào matrix. Bật lại để hệ thống hoạt động bình thường."
+            style={{ marginBottom: 16 }}
+          />
+        )}
         <Form form={form} layout="inline" onFinish={saveConfig}>
           <Form.Item name="minOrderUsd" label="Min đơn (USDT)" rules={[{ required: true }]}>
             <InputNumber min={1} step={1} />
@@ -515,9 +592,15 @@ const MatrixPool: React.FC = () => {
               onChange={(v) => setBackfillLimit(Number(v || 1))}
             />
           </div>
-          <Button loading={backfillingOrders} onClick={backfillOrders}>
-            Quét đơn cũ vào matrix
-          </Button>
+          <Tooltip title={!matrixEnabled ? 'Bật Matrix Pool trước khi backfill' : ''}>
+            <Button
+              loading={backfillingOrders}
+              onClick={backfillOrders}
+              disabled={!matrixEnabled}
+            >
+              Quét đơn cũ vào matrix
+            </Button>
+          </Tooltip>
         </Space>
         <Space wrap align="start" style={{ width: '100%' }}>
           <div>
