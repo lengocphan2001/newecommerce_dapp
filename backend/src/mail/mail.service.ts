@@ -81,6 +81,43 @@ export class MailService {
     return this.send({ to, subject, text, html });
   }
 
+  /** Gửi thông tin đăng nhập (username + password) mới do admin tạo. */
+  async sendLoginCredentials(
+    to: string,
+    username: string,
+    password: string,
+  ): Promise<boolean> {
+    const subject = 'Thông tin đăng nhập của bạn - Your Login Credentials';
+    const text = `Tên đăng nhập: ${username}\nMật khẩu: ${password}\nVui lòng đăng nhập và đổi mật khẩu ngay sau khi nhận được email này.\n\nUsername: ${username}\nPassword: ${password}\nPlease log in and change your password immediately.`;
+    const html = `
+      <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <div style="background: #7c3aed; padding: 24px 32px;">
+          <h2 style="color: #fff; margin: 0; font-size: 20px;">Thông tin đăng nhập</h2>
+        </div>
+        <div style="padding: 24px 32px;">
+          <p style="color: #374151; margin-bottom: 20px;">
+            Quản trị viên đã cấp tài khoản đăng nhập cho bạn. Vui lòng sử dụng thông tin dưới đây để đăng nhập và <strong>đổi mật khẩu ngay sau khi đăng nhập lần đầu</strong>.
+          </p>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr>
+              <td style="padding: 10px 16px; background: #f3f4f6; border-radius: 4px; font-weight: bold; color: #374151; width: 140px;">Tên đăng nhập</td>
+              <td style="padding: 10px 16px; font-size: 18px; font-weight: bold; color: #7c3aed; letter-spacing: 1px;">${username}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 16px; background: #f3f4f6; border-radius: 4px; font-weight: bold; color: #374151;">Mật khẩu</td>
+              <td style="padding: 10px 16px; font-size: 18px; font-weight: bold; color: #7c3aed; letter-spacing: 2px;">${password}</td>
+            </tr>
+          </table>
+          <p style="color: #ef4444; font-size: 13px;">⚠️ Không chia sẻ thông tin này với bất kỳ ai. Do not share these credentials with anyone.</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <h3 style="color: #374151; font-size: 16px;">Your Login Credentials</h3>
+          <p style="color: #6b7280; font-size: 14px;">An administrator has set up your account. Use the credentials above to log in and <strong>change your password immediately</strong>.</p>
+        </div>
+      </div>
+    `;
+    return this.send({ to, subject, text, html });
+  }
+
   /** Mã OTP đăng nhập (Web2 username/password). */
   async sendLoginOtpCode(
     to: string,

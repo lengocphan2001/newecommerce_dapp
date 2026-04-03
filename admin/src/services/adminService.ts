@@ -12,7 +12,11 @@ export const adminService = {
   withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
   exportUsers: () => api.get('/admin/users/export', { responseType: 'blob' }),
   exportLoginCredentials: () =>
-    api.post('/admin/users/export-login-credentials', {}, { responseType: 'blob' }),
+    api.post<{ csvContent: string; stats: { total: number; emailSent: number; emailFailed: number; emailSkipped: number; emailEnabled: boolean } }>(
+      '/admin/users/export-login-credentials',
+    ),
+  generatePasswordForUser: (id: string) =>
+    api.post(`/admin/users/${id}/generate-password`),
   getBlockchainConfig: () => api.get('/admin/blockchain-config'),
   updateBlockchainConfig: (data: {
     blockchainPrivateKey?: string;

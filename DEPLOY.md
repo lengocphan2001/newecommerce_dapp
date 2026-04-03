@@ -541,7 +541,7 @@ sudo systemctl reload nginx
 ### 6.4 SSL với Certbot
 
 ```bash
-sudo certbot --nginx -d shopiibiztest.top -d www.shopiibiztest.top
+sudo certbot --nginx -d shopii.biz -d www.shopii.biz
 sudo certbot renew --dry-run
 ```
 

@@ -26,6 +26,7 @@ import { CommissionService } from '../affiliate/commission.service';
 import { AffiliateService } from '../affiliate/affiliate.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { Web3Service } from '../blockchain/web3.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminService {
@@ -55,6 +56,7 @@ export class AdminService {
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
     private web3Service: Web3Service,
+    private mailService: MailService,
   ) {}
 
   async getDashboard() {
@@ -165,10 +167,19 @@ export class AdminService {
   }
 
   /**
-   * Generate/update username+password for users and return CSV content.
-   * CSV can be opened directly by Excel.
+   * Generate/update username+password for ALL users, send email to every user
+   * with a valid email address, and return CSV content + email stats.
    */
-  async generateUserLoginCredentialsCsv(): Promise<string> {
+  async generateUserLoginCredentialsCsv(): Promise<{
+    csvContent: string;
+    stats: {
+      total: number;
+      emailSent: number;
+      emailFailed: number;
+      emailSkipped: number;
+      emailEnabled: boolean;
+    };
+  }> {
     const users = await this.userRepository.find({
       order: { createdAt: 'DESC' },
       select: ['id', 'username', 'email', 'fullName', 'walletAddress'],
@@ -180,7 +191,19 @@ export class AdminService {
         .map((u) => (u.username || '').trim().toLowerCase())
         .filter((u) => Boolean(u)),
     );
-    const usersToUpdate: Array<{ id: string; username: string; password: string }> = [];
+
+    const usersToUpdate: Array<{
+      id: string;
+      username: string;
+      password: string;
+    }> = [];
+
+    const credentialsList: Array<{
+      username: string;
+      email: string;
+      fullName: string;
+      plainPassword: string;
+    }> = [];
 
     for (const user of users) {
       let username = (user.username || '').trim();
@@ -204,6 +227,12 @@ export class AdminService {
       const plainPassword = this.generateRandomPassword();
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
       usersToUpdate.push({ id: user.id, username, password: hashedPassword });
+      credentialsList.push({
+        username,
+        email: user.email || '',
+        fullName: user.fullName || '',
+        plainPassword,
+      });
 
       rows.push([
         this.escapeCsv(username),
@@ -217,9 +246,116 @@ export class AdminService {
       await this.userRepository.save(usersToUpdate);
     }
 
+    // Send emails concurrently in batches of 10 to avoid overwhelming SMTP
+    const emailEnabled = this.mailService.isEnabled();
+    let emailSent = 0;
+    let emailFailed = 0;
+    let emailSkipped = 0;
+
+    if (emailEnabled) {
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < credentialsList.length; i += BATCH_SIZE) {
+        const batch = credentialsList.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async ({ username, email, plainPassword }) => {
+            if (!this.isValidEmail(email)) {
+              emailSkipped += 1;
+              return;
+            }
+            const sent = await this.mailService.sendLoginCredentials(
+              email.trim(),
+              username,
+              plainPassword,
+            );
+            if (sent) {
+              emailSent += 1;
+            } else {
+              emailFailed += 1;
+            }
+          }),
+        );
+      }
+    } else {
+      emailSkipped = credentialsList.length;
+    }
+
     const csvContent = rows.map((r) => r.join(',')).join('\n');
     const BOM = '\uFEFF';
-    return BOM + csvContent;
+    return {
+      csvContent: BOM + csvContent,
+      stats: {
+        total: credentialsList.length,
+        emailSent,
+        emailFailed,
+        emailSkipped,
+        emailEnabled,
+      },
+    };
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((email || '').trim());
+  }
+
+  /**
+   * Generate a new random password for a single user, update in DB,
+   * and send credentials email if the user has a valid email address.
+   */
+  async generatePasswordForUser(userId: string): Promise<{
+    userId: string;
+    username: string;
+    email: string;
+    emailSent: boolean;
+    emailEnabled: boolean;
+    emailValid: boolean;
+  }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'username', 'email', 'fullName', 'walletAddress'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let username = (user.username || '').trim();
+    if (!username) {
+      username = await this.ensureUniqueUsername(
+        this.normalizeUsernameSeed(user.fullName || '') ||
+          this.normalizeUsernameSeed((user.email || '').split('@')[0] || '') ||
+          this.normalizeUsernameSeed(user.walletAddress || '') ||
+          `user${user.id.replace(/-/g, '').slice(0, 6)}`,
+      );
+    }
+
+    const plainPassword = this.generateRandomPassword();
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+    await this.userRepository.update(userId, {
+      username,
+      password: hashedPassword,
+    });
+
+    const emailValid = this.isValidEmail(user.email);
+    const emailEnabled = this.mailService.isEnabled();
+    let emailSent = false;
+
+    if (emailEnabled && emailValid) {
+      emailSent = await this.mailService.sendLoginCredentials(
+        user.email.trim(),
+        username,
+        plainPassword,
+      );
+    }
+
+    return {
+      userId,
+      username,
+      email: user.email || '',
+      emailSent,
+      emailEnabled,
+      emailValid,
+    };
   }
 
   async getOrders(query: any) {

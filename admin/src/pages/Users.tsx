@@ -20,7 +20,7 @@ import {
   Spin,
   Switch,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, KeyOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
 import { packagesService, Package } from '../services/packagesService';
@@ -78,6 +78,7 @@ const Users: React.FC = () => {
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
+  const [generatingPasswordForUser, setGeneratingPasswordForUser] = useState<string | null>(null);
   const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
@@ -243,17 +244,29 @@ const Users: React.FC = () => {
 
   const handleGenerateLoginCredentials = async () => {
     Modal.confirm({
-      title: 'Generate user login credentials?',
-      content:
-        'This will reset/generate username + password for users and download a CSV file. Share it securely with users.',
-      okText: 'Generate & Download',
+      title: 'Generate & gửi thông tin đăng nhập cho tất cả user?',
+      content: (
+        <div>
+          <p>Hành động này sẽ:</p>
+          <ul style={{ paddingLeft: 20, margin: '8px 0' }}>
+            <li>Tạo mật khẩu ngẫu nhiên mới cho <strong>toàn bộ</strong> user</li>
+            <li>Gửi email thông tin đăng nhập tới tất cả user có email hợp lệ</li>
+            <li>Tải file CSV chứa danh sách tên đăng nhập & mật khẩu</li>
+          </ul>
+          <p style={{ color: '#ef4444', marginTop: 8 }}>⚠️ Thao tác này không thể hoàn tác!</p>
+        </div>
+      ),
+      okText: 'Xác nhận Generate & Send Email',
       okType: 'danger',
-      cancelText: 'Cancel',
+      cancelText: 'Hủy',
       onOk: async () => {
         setGeneratingCredentials(true);
         try {
           const response = await adminService.exportLoginCredentials();
-          const blob = new Blob([response.data as any], { type: 'text/csv;charset=utf-8;' });
+          const { csvContent, stats } = response.data;
+
+          // Download CSV
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
@@ -262,10 +275,33 @@ const Users: React.FC = () => {
           link.click();
           link.parentNode?.removeChild(link);
           window.URL.revokeObjectURL(url);
-          message.success('Credentials file generated and downloaded');
+
+          // Show email stats
+          Modal.info({
+            title: 'Kết quả Generate & Gửi Email',
+            content: (
+              <div>
+                <p>Tổng số user: <strong>{stats.total}</strong></p>
+                {stats.emailEnabled ? (
+                  <>
+                    <p style={{ color: '#16a34a' }}>✅ Gửi email thành công: <strong>{stats.emailSent}</strong></p>
+                    {stats.emailFailed > 0 && (
+                      <p style={{ color: '#dc2626' }}>❌ Gửi email thất bại: <strong>{stats.emailFailed}</strong></p>
+                    )}
+                    {stats.emailSkipped > 0 && (
+                      <p style={{ color: '#d97706' }}>⏭️ Bỏ qua (email không hợp lệ): <strong>{stats.emailSkipped}</strong></p>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ color: '#d97706' }}>⚠️ SMTP chưa được cấu hình — không gửi được email. File CSV đã được tải xuống.</p>
+                )}
+              </div>
+            ),
+            okText: 'Đóng',
+          });
         } catch (error) {
           console.error(error);
-          message.error('Failed to generate credentials file');
+          message.error('Failed to generate credentials');
         } finally {
           setGeneratingCredentials(false);
         }
@@ -310,6 +346,47 @@ const Users: React.FC = () => {
     } finally {
       setSavingFakeCommission(false);
     }
+  };
+
+  const handleGeneratePasswordForUser = (userId: string, userEmail: string) => {
+    Modal.confirm({
+      title: 'Generate & gửi mật khẩu cho user?',
+      content: (
+        <div>
+          <p>Hệ thống sẽ tạo mật khẩu ngẫu nhiên và cập nhật vào tài khoản của user.</p>
+          <p>Email: <strong>{userEmail || '(không có email)'}</strong></p>
+          <p>Nếu email hợp lệ và SMTP được cấu hình, thông tin đăng nhập sẽ được gửi tới email trên.</p>
+        </div>
+      ),
+      okText: 'Xác nhận',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        setGeneratingPasswordForUser(userId);
+        try {
+          const res = await adminService.generatePasswordForUser(userId);
+          const { username, email, emailSent, emailEnabled, emailValid } = res.data as {
+            username: string;
+            email: string;
+            emailSent: boolean;
+            emailEnabled: boolean;
+            emailValid: boolean;
+          };
+          if (emailSent) {
+            message.success(`Đã tạo mật khẩu và gửi email thành công tới ${email}`);
+          } else if (!emailEnabled) {
+            message.warning(`Đã tạo mật khẩu cho "${username}" nhưng SMTP chưa được cấu hình — không gửi được email.`);
+          } else if (!emailValid) {
+            message.warning(`Đã tạo mật khẩu cho "${username}" nhưng email "${email}" không hợp lệ — không gửi email.`);
+          } else {
+            message.error(`Đã tạo mật khẩu cho "${username}" nhưng gửi email thất bại.`);
+          }
+        } catch (error: any) {
+          message.error(error?.response?.data?.message || 'Tạo mật khẩu thất bại');
+        } finally {
+          setGeneratingPasswordForUser(null);
+        }
+      },
+    });
   };
 
   const calcEffectiveMaxCommission = (
@@ -405,6 +482,14 @@ const Users: React.FC = () => {
           >
             Edit
           </Button>
+          <Button
+            type="link"
+            icon={<KeyOutlined />}
+            loading={generatingPasswordForUser === record.id}
+            onClick={() => handleGeneratePasswordForUser(record.id, record.email)}
+          >
+            Gen Password
+          </Button>
           <Select
             defaultValue={record.status || 'ACTIVE'}
             style={{ width: 120 }}
@@ -460,7 +545,7 @@ const Users: React.FC = () => {
         style={{ marginBottom: 12 }}
         type="warning"
         showIcon
-        message="Generate Login Credentials will reset/generate username + password for users."
+        message="Generate Login Credentials sẽ tạo lại username + mật khẩu cho TẤT CẢ user và gửi email đồng loạt tới các địa chỉ email hợp lệ."
       />
       <Table
         columns={columns}
