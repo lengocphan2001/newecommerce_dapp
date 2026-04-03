@@ -141,6 +141,7 @@ const MatrixPool: React.FC = () => {
   const [reverseOrderId, setReverseOrderId] = useState('');
   const [reverseReason, setReverseReason] = useState('');
   const [reversingReward, setReversingReward] = useState(false);
+  const [reversingAll, setReversingAll] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRows, setHistoryRows] = useState<MatrixLedgerItem[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
@@ -553,6 +554,40 @@ const MatrixPool: React.FC = () => {
     });
   };
 
+  const reverseAllOutstandingRewards = async () => {
+    Modal.confirm({
+      title: 'Xác nhận hoàn tác toàn bộ Matrix cho tất cả user?',
+      content:
+        'Hệ thống sẽ quét tất cả khoản matrix còn dương và trừ lại theo từng user + order. Thao tác này có thể mất thời gian.',
+      okText: 'Xác nhận hoàn tác tất cả',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setReversingAll(true);
+          const res = await adminService.reverseAllMatrixRewardOutstanding();
+          const data = (res as any)?.data ?? res;
+          message.success(
+            `Bulk reverse xong: scanned=${data?.scanned ?? 0}, reversed=${data?.reversed ?? 0}, total=${Number(
+              data?.totalReversedAmount ?? 0,
+            ).toFixed(2)} USDT, failed=${data?.failed ?? 0}`,
+          );
+          if (Number(data?.failed ?? 0) > 0) {
+            message.warning('Có một số bản ghi không thể trừ (thường do ví không đủ). Xem chi tiết ở response API/log backend.');
+          }
+          await loadLedgerHistory(1, historyLimit);
+        } catch (e: any) {
+          const msg =
+            e?.response?.data?.message || e?.message || 'Không thể hoàn tác toàn bộ matrix reward';
+          message.error(Array.isArray(msg) ? msg.join(', ') : msg);
+          throw e;
+        } finally {
+          setReversingAll(false);
+        }
+      },
+    });
+  };
+
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
       <Card
@@ -701,6 +736,14 @@ const MatrixPool: React.FC = () => {
           message="Hoàn tác Matrix đã cộng vào ví"
           description="Dùng khi cần thu hồi thưởng matrix đã cộng nhầm. Nhập đúng User ID + Order ID để trừ phần net dương còn lại của order đó."
         />
+        <Space style={{ marginBottom: 12 }}>
+          <Button danger loading={reversingAll} onClick={reverseAllOutstandingRewards}>
+            Hoàn tác tất cả user (bulk)
+          </Button>
+          <Text type="secondary">
+            Chỉ trừ các khoản còn net dương; bản ghi thiếu số dư ví sẽ được báo failed.
+          </Text>
+        </Space>
         <Space align="end" wrap style={{ width: '100%', marginBottom: 16 }}>
           <div>
             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>User ID (nhận thưởng)</div>

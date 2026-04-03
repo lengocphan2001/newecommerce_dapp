@@ -109,4 +109,9 @@ export class MatrixRewardAdminController {
       reason: body.reason,
     });
   }
+
+  @Post('reverse-all')
+  reverseAllOutstandingRewards() {
+    return this.matrixRewardService.reverseAllOutstandingRewards();
+  }
 }

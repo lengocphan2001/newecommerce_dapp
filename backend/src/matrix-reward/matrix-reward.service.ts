@@ -1272,4 +1272,69 @@ export class MatrixRewardService {
       };
     });
   }
+
+  /**
+   * Admin: hoàn tác hàng loạt toàn bộ khoản matrix còn net dương.
+   * Theo từng cặp (beneficiaryUserId, orderId) để giữ tính audit và idempotent.
+   */
+  async reverseAllOutstandingRewards(): Promise<{
+    scanned: number;
+    reversed: number;
+    totalReversedAmount: number;
+    skipped: number;
+    failed: number;
+    failures: Array<{ userId: string; orderId: string; reason: string }>;
+  }> {
+    const grouped = await this.ledgerRepo
+      .createQueryBuilder('l')
+      .select('l.beneficiaryUserId', 'userId')
+      .addSelect('l.orderId', 'orderId')
+      .addSelect('COALESCE(SUM(l.amount),0)', 'netAmount')
+      .groupBy('l.beneficiaryUserId')
+      .addGroupBy('l.orderId')
+      .having('COALESCE(SUM(l.amount),0) > 0')
+      .orderBy('l.beneficiaryUserId', 'ASC')
+      .addOrderBy('l.orderId', 'ASC')
+      .getRawMany<{ userId: string; orderId: string; netAmount: string }>();
+
+    let reversed = 0;
+    let skipped = 0;
+    let failed = 0;
+    let totalReversedAmount = 0;
+    const failures: Array<{ userId: string; orderId: string; reason: string }> = [];
+
+    for (const row of grouped) {
+      const userId = row.userId;
+      const orderId = row.orderId;
+      try {
+        const result = await this.reverseRewardByOrder({
+          userId,
+          orderId,
+          reason: 'bulk_reverse_all',
+        });
+        if (result.reversedAmount > 0) {
+          reversed += 1;
+          totalReversedAmount = roundMoney(totalReversedAmount + result.reversedAmount);
+        } else {
+          skipped += 1;
+        }
+      } catch (e: any) {
+        failed += 1;
+        failures.push({
+          userId,
+          orderId,
+          reason: e?.response?.data?.message || e?.message || 'Unknown error',
+        });
+      }
+    }
+
+    return {
+      scanned: grouped.length,
+      reversed,
+      totalReversedAmount,
+      skipped,
+      failed,
+      failures,
+    };
+  }
 }
