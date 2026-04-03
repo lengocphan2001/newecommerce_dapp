@@ -350,9 +350,9 @@ export default function AffiliatePage() {
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-violet-600 text-2xl">account_tree</span>
                 <div>
-                  <p className="font-bold text-violet-900 text-sm">Cây tri ân</p>
+                  <p className="font-bold text-violet-900 text-sm">Thưởng tri ân</p>
                   <p className="text-xs text-violet-700/90">
-                    Thưởng cây tri ân theo đơn
+                    Thưởng Thưởng tri ân theo đơn
                   </p>
                 </div>
               </div>
