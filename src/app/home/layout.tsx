@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../components/BottomNav";
 import AddToCartAnimation from "../components/AddToCartAnimation";
 import { useShoppingCart } from "../contexts/ShoppingCartContext";
-import { api } from "../services/api";
 
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
