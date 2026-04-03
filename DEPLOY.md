@@ -125,11 +125,23 @@ CORS_ORIGINS=https://shopiibiztest.top,https://www.shopiibiztest.top,https://sho
 # REDIS_HOST=localhost
 # REDIS_PORT=6379
 
-# (Tùy chọn) SMTP nếu gửi mail
-# SMTP_HOST=
-# SMTP_PORT=587
-# SMTP_USER=
-# SMTP_PASS=
+# SMTP — hỗ trợ tối đa 3 account Gmail, gửi round-robin để tránh rate limit
+# Mỗi account cần dùng App Password (không dùng regular password)
+# Tạo App Password: https://myaccount.google.com/apppasswords
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+# Account 1 (bắt buộc)
+SMTP_USER=email1@gmail.com
+SMTP_PASS=xxxx xxxx xxxx xxxx
+SMTP_FROM=email1@gmail.com
+# Account 2 (tùy chọn — để trống nếu chỉ dùng 1 account)
+# SMTP_USER_2=email2@gmail.com
+# SMTP_PASS_2=xxxx xxxx xxxx xxxx
+# SMTP_FROM_2=email2@gmail.com
+# Account 3 (tùy chọn)
+# SMTP_USER_3=email3@gmail.com
+# SMTP_PASS_3=xxxx xxxx xxxx xxxx
+# SMTP_FROM_3=email3@gmail.com
 ```
 
 **Lưu ý:** Trên production nên đặt `FORCE_SYNC=false` hoặc không set (synchronize DB sẽ tắt khi `NODE_ENV=production` trong code).
