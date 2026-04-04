@@ -20,6 +20,11 @@ interface SmtpAccount {
 export class MailService implements OnModuleDestroy {
   /** Danh sách các SMTP account (tối đa 3). */
   private accounts: SmtpAccount[] = [];
+  /**
+   * Chỉ bộ SMTP_USER / SMTP_PASS / SMTP_FROM (slot đầu env).
+   * Dùng cho mail nhạy cảm (mật khẩu do admin tạo) — không round-robin, không fallback sang _2/_3.
+   */
+  private primarySmtpAccount: SmtpAccount | null = null;
   /** Con trỏ round-robin — tăng mỗi lần gửi để chia đều tải. */
   private rrIndex = 0;
 
@@ -50,7 +55,8 @@ export class MailService implements OnModuleDestroy {
       },
     ];
 
-    for (const slot of slots) {
+    for (let slotIndex = 0; slotIndex < slots.length; slotIndex++) {
+      const slot = slots[slotIndex];
       if (!host || !slot.user || !slot.pass) continue;
       const transporter = nodemailer.createTransport({
         host,
@@ -65,11 +71,15 @@ export class MailService implements OnModuleDestroy {
         rateDelta: 1000,
         rateLimit: 2,
       });
-      this.accounts.push({
+      const account: SmtpAccount = {
         transporter,
         from: slot.from || slot.user,
         user: slot.user,
-      });
+      };
+      this.accounts.push(account);
+      if (slotIndex === 0) {
+        this.primarySmtpAccount = account;
+      }
     }
 
     if (this.accounts.length > 0) {
@@ -88,6 +98,34 @@ export class MailService implements OnModuleDestroy {
 
   isEnabled(): boolean {
     return this.accounts.length > 0;
+  }
+
+  /** Có cấu hình đủ SMTP_USER (slot 1) để gửi mail chỉ định từ account đó. */
+  isPrimarySmtpConfigured(): boolean {
+    return this.primarySmtpAccount !== null;
+  }
+
+  /**
+   * Gửi chỉ qua SMTP_USER — không dùng SMTP_USER_2 / _3.
+   */
+  private async sendViaPrimaryOnly(options: SendMailOptions): Promise<boolean> {
+    const acc = this.primarySmtpAccount;
+    if (!acc) {
+      return false;
+    }
+    try {
+      await acc.transporter.sendMail({
+        from: acc.from,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html ?? options.text,
+      });
+      return true;
+    } catch (err) {
+      console.error('[MailService] send (SMTP_USER only):', err);
+      return false;
+    }
   }
 
   /**
@@ -182,7 +220,7 @@ export class MailService implements OnModuleDestroy {
         </div>
       </div>
     `;
-    return this.send({ to, subject, text, html });
+    return this.sendViaPrimaryOnly({ to, subject, text, html });
   }
 
   /** Mã OTP đăng nhập (Web2 username/password). */

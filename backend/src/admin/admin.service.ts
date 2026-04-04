@@ -281,8 +281,7 @@ export class AdminService {
 
   /**
    * Gửi email credentials trong background.
-   * Pool SMTP (pool:true + rateLimit) tự quản lý: 1 auth, tối đa 3 email/giây.
-   * Gọi tất cả cùng lúc — pool queue nội bộ, không spam auth.
+   * Chỉ qua SMTP_USER (xem MailService.sendLoginCredentials) — không dùng SMTP_USER_2/_3.
    */
   private async sendCredentialsEmailBackground(
     list: Array<{ username: string; email: string; plainPassword: string }>,
@@ -342,7 +341,7 @@ export class AdminService {
     });
 
     const emailValid = this.isValidEmail(user.email);
-    const emailEnabled = this.mailService.isEnabled();
+    const emailEnabled = this.mailService.isPrimarySmtpConfigured();
     let emailSent = false;
 
     if (emailEnabled && emailValid) {
