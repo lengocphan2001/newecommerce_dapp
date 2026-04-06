@@ -364,7 +364,7 @@ export class WalletService {
     return qb.getMany();
   }
 
-  async findAllWithdrawRequests(status?: WalletWithdrawStatus) {
+  async findAllWithdrawRequests(status?: WalletWithdrawStatus, q?: string) {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'user')
@@ -377,6 +377,21 @@ export class WalletService {
       ])
       .orderBy('r.createdAt', 'DESC');
     if (status) qb.andWhere('r.status = :status', { status });
+    if (q && q.trim()) {
+      const keyword = `%${q.trim()}%`;
+      qb.andWhere(
+        `(r.id LIKE :keyword
+          OR r.userId LIKE :keyword
+          OR r.usdtWalletAddress LIKE :keyword
+          OR r.bankAccountNumber LIKE :keyword
+          OR r.bankAccountName LIKE :keyword
+          OR user.username LIKE :keyword
+          OR user.fullName LIKE :keyword
+          OR user.email LIKE :keyword
+          OR user.phone LIKE :keyword)`,
+        { keyword },
+      );
+    }
     return qb.getMany();
   }
 
@@ -431,9 +446,9 @@ export class WalletService {
         const contract = this.web3Service.getContract(tokenAddress, USDT_ABI);
         const toAddress = this.web3Service.formatAddress(request.usdtWalletAddress);
         
-        // Calculate 12% fee
+        // No withdrawal fee: transfer full requested amount
         const requestedAmount = Number(request.amount || 0);
-        const actualAmount = requestedAmount * 0.88; // Deduct 12%
+        const actualAmount = requestedAmount;
         request.actualAmount = actualAmount;
 
         // USDT BEP20 uses 18 decimals

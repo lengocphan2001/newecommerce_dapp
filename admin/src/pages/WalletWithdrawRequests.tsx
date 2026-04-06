@@ -4,6 +4,8 @@ import {
   CheckOutlined,
   CloseOutlined,
   ReloadOutlined,
+  DownloadOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import {
   walletWithdrawRequestService,
@@ -14,7 +16,9 @@ const WalletWithdrawRequests: React.FC = () => {
   const [list, setList] = useState<WalletWithdrawRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [searchText, setSearchText] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] =
     useState<WalletWithdrawRequest | null>(null);
@@ -28,6 +32,7 @@ const WalletWithdrawRequests: React.FC = () => {
     try {
       const res = await walletWithdrawRequestService.list(
         statusFilter || undefined,
+        searchText.trim() || undefined,
       );
       const data = Array.isArray(res.data)
         ? res.data
@@ -44,6 +49,37 @@ const WalletWithdrawRequests: React.FC = () => {
   useEffect(() => {
     fetchList();
   }, [statusFilter]);
+
+  const handleSearch = () => {
+    fetchList();
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await walletWithdrawRequestService.exportToExcel(
+        statusFilter || undefined,
+        searchText.trim() || undefined,
+      );
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data], { type: 'text/csv;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'wallet-withdraw-requests.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success('Export thành công');
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Export thất bại');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleProcess = (
     request: WalletWithdrawRequest,
@@ -103,7 +139,7 @@ const WalletWithdrawRequests: React.FC = () => {
       render: (v: string | number) => `$${Number(v || 0).toFixed(2)}`,
     },
     {
-      title: 'Thực nhận (Sau 12% phí)',
+      title: 'Thực nhận',
       dataIndex: 'actualAmount',
       key: 'actualAmount',
       width: 140,
@@ -192,6 +228,18 @@ const WalletWithdrawRequests: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Yêu cầu rút tiền từ ví rút</h2>
         <Space>
+          <Input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onPressEnter={handleSearch}
+            placeholder="Tìm theo user/email/sđt/wallet/id..."
+            allowClear
+            style={{ width: 320 }}
+            suffix={<SearchOutlined />}
+          />
+          <Button onClick={handleSearch} icon={<SearchOutlined />}>
+            Tìm kiếm
+          </Button>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -202,6 +250,13 @@ const WalletWithdrawRequests: React.FC = () => {
             <option value="APPROVED">Đã duyệt</option>
             <option value="REJECTED">Từ chối</option>
           </select>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            loading={exporting}
+          >
+            Export Excel
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={fetchList} loading={loading}>
             Làm mới
           </Button>
@@ -238,7 +293,10 @@ const WalletWithdrawRequests: React.FC = () => {
               <strong>Số tiền yêu cầu:</strong> ${Number(selectedRequest.amount || 0).toFixed(2)}
             </p>
             <p>
-              <strong>Thực nhận (Sau 12% phí):</strong> <span style={{ fontWeight: 'bold', color: '#1890ff' }}>${(Number(selectedRequest.amount || 0) * 0.88).toFixed(2)}</span>
+              <strong>Thực nhận:</strong>{' '}
+              <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
+                ${Number(selectedRequest.amount || 0).toFixed(2)}
+              </span>
             </p>
             <p>
               <strong>Phương thức:</strong> {selectedRequest.method}

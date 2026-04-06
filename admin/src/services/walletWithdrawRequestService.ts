@@ -26,9 +26,20 @@ export interface WalletWithdrawRequest {
 }
 
 export const walletWithdrawRequestService = {
-  list: (status?: string) =>
+  list: (status?: string, q?: string) =>
     api.get<WalletWithdrawRequest[]>('/admin/wallet/withdraw-requests', {
-      params: status ? { status } : {},
+      params: {
+        ...(status ? { status } : {}),
+        ...(q ? { q } : {}),
+      },
+    }),
+  exportToExcel: (status?: string, q?: string) =>
+    api.get('/admin/wallet/withdraw-requests/export', {
+      params: {
+        ...(status ? { status } : {}),
+        ...(q ? { q } : {}),
+      },
+      responseType: 'blob',
     }),
   process: (
     id: string,
