@@ -28,7 +28,7 @@ import { ProcessWithdrawRequestDto } from './dto/process-withdraw-request.dto';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { ConfigService } from '@nestjs/config';
 import { Web3Service } from '../blockchain/web3.service';
-import { ethers } from 'ethers';
+import { CommissionPayoutService as BlockchainCommissionPayoutService } from '../blockchain/commission-payout.service';
 @Injectable()
 export class WalletService {
   constructor(
@@ -45,6 +45,7 @@ export class WalletService {
     private readonly notificationsGateway: NotificationsGateway,
     private readonly configService: ConfigService,
     private readonly web3Service: Web3Service,
+    private readonly blockchainPayoutService: BlockchainCommissionPayoutService,
   ) {}
 
   /** Số dư ví nạp tiền của user */
@@ -432,48 +433,31 @@ export class WalletService {
       }
 
       try {
-        const network = this.configService.get<string>('BSC_NETWORK') || 'testnet';
-        const tokenAddress = this.configService.get<string>('TOKEN_ADDRESS') ||
-          (network === 'mainnet'
-            ? '0x55d398326f99059fF775485246999027B3197955'
-            : '0x0000000000000000000000000000000000000000');
-        
-        if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
-           throw new Error('Chưa cấu hình địa chỉ Token (TOKEN_ADDRESS) trong env');
-        }
-
-        const USDT_ABI = ['function transfer(address to, uint amount) returns (bool)'];
-        const contract = this.web3Service.getContract(tokenAddress, USDT_ABI);
         const toAddress = this.web3Service.formatAddress(request.usdtWalletAddress);
-        
-        // No withdrawal fee: transfer full requested amount
-        const requestedAmount = Number(request.amount || 0);
+
+        // Withdraw from COMMISSION_PAYOUT_CONTRACT_ADDRESS (contract treasury).
+        const requestedAmountRaw = String(request.amount ?? '').trim();
+        const requestedAmount = Number(requestedAmountRaw);
+        if (!requestedAmountRaw || !Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+          throw new Error('Số tiền rút không hợp lệ');
+        }
         const actualAmount = requestedAmount;
         request.actualAmount = actualAmount;
 
-        // USDT BEP20 uses 18 decimals
-        const amountStr = actualAmount.toFixed(18);
-        const parts = amountStr.split('.');
-        const cleanAmountStr = parts.length === 2 && parts[1].length > 18 ? parts[0] + '.' + parts[1].substring(0, 18) : amountStr;
-        const parsedAmount = ethers.parseUnits(cleanAmountStr, 18);
-
-        const gasPrice = await this.web3Service.getGasPrice();
-        const gasPriceWithBuffer = (gasPrice * BigInt(120)) / BigInt(100);
-
-        const tx = await contract.transfer(toAddress, parsedAmount, {
-           gasPrice: gasPriceWithBuffer,
-           gasLimit: 300000, 
-        });
-
-        const receipt = await this.web3Service.waitForTransaction(tx.hash, 1);
-        if (!receipt || !receipt.status) {
-           throw new Error('Giao dịch chuyển USDT bị Reverted trên blockchain');
-        }
-
-        request.txHash = tx.hash;
+        const result = await this.blockchainPayoutService.emergencyWithdraw(
+          toAddress,
+          requestedAmountRaw,
+        );
+        request.txHash = result.txHash;
 
       } catch (error: any) {
-        throw new BadRequestException(`Lỗi xuất quỹ USDT: ${error.message}`);
+        const reason =
+          error?.shortMessage ||
+          error?.reason ||
+          error?.info?.error?.message ||
+          error?.message ||
+          'Unknown error';
+        throw new BadRequestException(`Lỗi xuất quỹ USDT: ${reason}`);
       }
     }
 
