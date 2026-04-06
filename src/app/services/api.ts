@@ -626,7 +626,7 @@ export const api = {
   },
 
   /** Ví nạp tiền: tạo yêu cầu nạp (số tiền VND đã chuyển, admin sẽ tính USDT theo tỉ giá) */
-  async createDepositRequest(data: { amountVnd: number; proofImageUrl?: string; transferNote?: string }) {
+  async createDepositRequest(data: { amountVnd?: number; method?: 'BANKING' | 'USDT'; requestedUsdt?: number; txHash?: string; proofImageUrl?: string; transferNote?: string }) {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
     const response = await fetch(`${API_BASE_URL}/wallet/deposit-requests`, {

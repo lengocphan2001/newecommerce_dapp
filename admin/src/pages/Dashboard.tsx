@@ -54,6 +54,7 @@ const Dashboard: React.FC = () => {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [contractAddress, setContractAddress] = useState('');
   const [tokenAddress, setTokenAddress] = useState('');
+  const [paymentWallet, setPaymentWallet] = useState('');
   const [isAddFundsModalOpen, setIsAddFundsModalOpen] = useState(false);
   const [addFundAmount, setAddFundAmount] = useState('');
   const [addFundLoading, setAddFundLoading] = useState(false);
@@ -87,6 +88,7 @@ const Dashboard: React.FC = () => {
       setContractBalance(data.contractBalance || 0);
       setContractAddress(data.contractAddress || '');
       setTokenAddress(data.tokenAddress || '');
+      setPaymentWallet(data.paymentWallet || '');
       setRecentOrders(data.recentOrders || []);
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);
@@ -97,10 +99,12 @@ const Dashboard: React.FC = () => {
   };
 
   const handleWithdraw = () => {
-    // Try to get wallet from env, fallback to hardcoded
-    const paymentWallet = process.env.REACT_APP_PAYMENT_WALLET || process.env.NEXT_PUBLIC_PAYMENT_WALLET || '0x65c03707C17EA9F7Dc1C1Eb2c0C12D3AfC3e7fe1';
-
-    setWithdrawAddress(paymentWallet);
+    const defaultWallet =
+      paymentWallet ||
+      process.env.REACT_APP_PAYMENT_WALLET ||
+      process.env.NEXT_PUBLIC_PAYMENT_WALLET ||
+      '0x65c03707C17EA9F7Dc1C1Eb2c0C12D3AfC3e7fe1';
+    setWithdrawAddress(defaultWallet);
     setWithdrawAmount(contractBalance.toFixed(18));
     setIsWithdrawModalOpen(true);
   };

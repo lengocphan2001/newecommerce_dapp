@@ -4,6 +4,7 @@ export interface WalletWithdrawRequest {
   id: string;
   userId: string;
   amount: string | number;
+  actualAmount?: string | number | null;
   method: 'USDT' | 'BANKING';
   usdtWalletAddress?: string | null;
   bankName?: string | null;

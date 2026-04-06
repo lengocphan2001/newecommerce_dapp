@@ -72,11 +72,22 @@ const WalletDepositRequests: React.FC = () => {
           : r.userId,
     },
     {
-      title: 'Số tiền (VND)',
-      dataIndex: 'amountVnd',
-      key: 'amountVnd',
-      width: 130,
-      render: (v: string | number | null) => (v != null ? `${Number(v).toLocaleString('vi-VN')} ₫` : '-'),
+      title: 'Phương thức',
+      dataIndex: 'method',
+      key: 'method',
+      width: 110,
+      render: (v: string) => <Tag color={v === 'USDT' ? 'geekblue' : 'blue'}>{v || 'BANKING'}</Tag>,
+    },
+    {
+      title: 'Số lượng / Số tiền',
+      key: 'amountRequested',
+      width: 150,
+      render: (_: any, r: WalletDepositRequest) => {
+        if (r.method === 'USDT') {
+          return r.requestedUsdt != null ? <span className="font-mono text-blue-600 font-semibold">{Number(r.requestedUsdt).toLocaleString()} USDT</span> : '—';
+        }
+        return r.amountVnd != null ? <span className="font-medium">{Number(r.amountVnd).toLocaleString('vi-VN')} ₫</span> : '—';
+      },
     },
     {
       title: 'Đã cộng (USDT)',
@@ -95,6 +106,16 @@ const WalletDepositRequests: React.FC = () => {
         const map: Record<string, string> = { PENDING: 'orange', APPROVED: 'green', REJECTED: 'red' };
         const label: Record<string, string> = { PENDING: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Từ chối' };
         return <Tag color={map[status] || 'default'}>{label[status] || status}</Tag>;
+      },
+    },
+    {
+      title: 'TxHash / Info',
+      key: 'txHash',
+      width: 120,
+      ellipsis: true,
+      render: (_: any, r: WalletDepositRequest) => {
+        if (r.method === 'USDT') return r.txHash ? <span title={r.txHash} className="font-mono text-xs">{r.txHash}</span> : '—';
+        return '—';
       },
     },
     {
@@ -177,8 +198,20 @@ const WalletDepositRequests: React.FC = () => {
         {selectedRequest && (
           <div className="space-y-3">
             <p><strong>User:</strong> {selectedRequest.user?.username || selectedRequest.userId}</p>
-            <p><strong>Số tiền đã chuyển (VND):</strong> {selectedRequest.amountVnd != null ? `${Number(selectedRequest.amountVnd).toLocaleString('vi-VN')} ₫` : '—'}</p>
-            <p className="text-sm text-slate-600">Khi duyệt, hệ thống sẽ tính USDT = VND / tỉ giá (Banking Settings) và cộng vào ví.</p>
+            {selectedRequest.method === 'USDT' ? (
+              <>
+                <p><strong>Phương thức:</strong> USDT</p>
+                <p><strong>Số USDT user báo nạp:</strong> {selectedRequest.requestedUsdt != null ? <span className="font-mono text-blue-600 font-semibold">{Number(selectedRequest.requestedUsdt).toLocaleString()} USDT</span> : '—'}</p>
+                {selectedRequest.txHash && <p><strong>TxHash:</strong> <span className="font-mono text-sm break-all">{selectedRequest.txHash}</span></p>}
+                <p className="text-sm text-slate-600">Khi duyệt, hệ thống sẽ tự động cộng đúng số USDT user đã khai báo vào tài khoản.</p>
+              </>
+            ) : (
+              <>
+                <p><strong>Phương thức:</strong> Ngân hàng (Banking)</p>
+                <p><strong>Số tiền đã chuyển (VND):</strong> {selectedRequest.amountVnd != null ? `${Number(selectedRequest.amountVnd).toLocaleString('vi-VN')} ₫` : '—'}</p>
+                <p className="text-sm text-slate-600">Khi duyệt, hệ thống sẽ tính USDT = VND / tỉ giá (Banking Settings) và cộng vào ví.</p>
+              </>
+            )}
             {selectedRequest.transferNote && <p><strong>Ghi chú user:</strong> {selectedRequest.transferNote}</p>}
             {selectedRequest.proofImageUrl && (
               <p>

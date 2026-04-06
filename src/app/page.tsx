@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
@@ -10,6 +10,13 @@ import { api } from "@/app/services/api";
 export default function HomePage() {
   const router = useRouter();
   const { t } = useI18n();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      router.replace("/home");
+    }
+  }, [router]);
 
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");

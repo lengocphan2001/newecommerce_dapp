@@ -29,6 +29,8 @@ const { Title } = Typography;
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchText, setSearchText] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -71,13 +73,33 @@ const Products: React.FC = () => {
     setLoading(true);
     try {
       const response = await productService.getAll();
-      setProducts(Array.isArray(response.data) ? response.data : []);
+      const data = Array.isArray(response.data) ? response.data : [];
+      setProducts(data);
+      setFilteredProducts(data);
     } catch (error) {
       message.error('Failed to fetch products');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!searchText.trim()) {
+      setFilteredProducts(products);
+    } else {
+      const q = searchText.trim().toLowerCase();
+      const filtered = products.filter((p) => {
+        return (
+          p.name?.toLowerCase().includes(q) ||
+          p.id?.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q) ||
+          p.tags?.some((t) => t.toLowerCase().includes(q)) ||
+          p.categoryId?.toLowerCase().includes(q)
+        );
+      });
+      setFilteredProducts(filtered);
+    }
+  }, [products, searchText]);
 
   const handleExport = async () => {
     try {
@@ -502,7 +524,14 @@ const Products: React.FC = () => {
         }}
       >
         <h1 style={{ margin: 0, fontSize: 'clamp(20px, 4vw, 24px)' }}>Products Management</h1>
-        <Space>
+        <Space wrap>
+          <Input.Search
+            placeholder="Search products..."
+            allowClear
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ width: 250 }}
+          />
           <Upload
             accept=".csv,text/csv"
             showUploadList={false}
@@ -524,7 +553,7 @@ const Products: React.FC = () => {
       <div style={{ overflowX: 'auto', width: '100%' }}>
         <Table
           columns={columns}
-          dataSource={products}
+          dataSource={filteredProducts}
           loading={loading}
           rowKey="id"
           pagination={{ pageSize: 10 }}

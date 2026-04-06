@@ -37,6 +37,12 @@ export const commissionService = {
     userId?: string;
   }) => api.get('/affiliate/admin/commissions', { params }),
   
+  exportCommissions: (params?: {
+    status?: 'pending' | 'paid' | 'blocked' | 'cancelled';
+    type?: 'direct' | 'group' | 'management' | 'product' | 'milestone';
+    userId?: string;
+  }) => api.get('/affiliate/admin/commissions/export', { params, responseType: 'blob' }),
+
   getById: (id: string) => api.get(`/affiliate/admin/commissions/${id}`),
   
   approve: (id: string, notes?: string) => 

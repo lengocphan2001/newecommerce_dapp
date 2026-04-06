@@ -26,7 +26,9 @@ import {
 import { CreateWithdrawRequestDto } from './dto/create-withdraw-request.dto';
 import { ProcessWithdrawRequestDto } from './dto/process-withdraw-request.dto';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
-
+import { ConfigService } from '@nestjs/config';
+import { Web3Service } from '../blockchain/web3.service';
+import { ethers } from 'ethers';
 @Injectable()
 export class WalletService {
   constructor(
@@ -41,6 +43,8 @@ export class WalletService {
     @InjectRepository(UserBankAccount)
     private readonly userBankAccountRepo: Repository<UserBankAccount>,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly configService: ConfigService,
+    private readonly web3Service: Web3Service,
   ) {}
 
   /** Số dư ví nạp tiền của user */
@@ -68,9 +72,21 @@ export class WalletService {
 
   /** User tạo yêu cầu nạp tiền (số tiền VND đã chuyển). Admin duyệt sẽ dùng tỉ giá Banking Settings để cộng USDT. */
   async createDepositRequest(userId: string, dto: CreateDepositRequestDto) {
+    const method = dto.method || 'BANKING';
+
+    if (method === 'BANKING' && !dto.amountVnd) {
+      throw new BadRequestException('Vui lòng nhập số tiền VND (amountVnd)');
+    }
+    if (method === 'USDT' && !dto.requestedUsdt) {
+      throw new BadRequestException('Vui lòng nhập số lượng USDT (requestedUsdt)');
+    }
+
     const request = this.depositRequestRepo.create({
       userId,
-      amountVnd: dto.amountVnd,
+      method,
+      amountVnd: method === 'BANKING' ? dto.amountVnd : null,
+      requestedUsdt: method === 'USDT' ? dto.requestedUsdt : null,
+      txHash: method === 'USDT' ? dto.txHash || null : null,
       amount: null,
       status: WalletDepositStatus.PENDING,
       proofImageUrl: dto.proofImageUrl,
@@ -82,7 +98,9 @@ export class WalletService {
       request: {
         id: saved.id,
         userId: saved.userId,
+        method: saved.method,
         amountVnd: saved.amountVnd,
+        requestedUsdt: saved.requestedUsdt,
         createdAt: saved.createdAt,
       },
       message: `New deposit request #${saved.id.substring(0, 8)} received`,
@@ -145,7 +163,14 @@ export class WalletService {
       const amountVnd =
         request.amountVnd != null ? Number(request.amountVnd) : null;
       let creditedUsdt: number;
-      if (amountVnd != null && amountVnd > 0) {
+      if (request.method === 'USDT') {
+        creditedUsdt = request.requestedUsdt != null ? Number(request.requestedUsdt) : 0;
+        if (creditedUsdt <= 0) {
+          // Fallback legacy nếu có
+          creditedUsdt = request.amount != null ? Number(request.amount) : 0;
+          if (creditedUsdt <= 0) throw new BadRequestException('Số lượng USDT không hợp lệ');
+        }
+      } else if (amountVnd != null && amountVnd > 0) {
         const banking = await this.bankingConfigRepo.findOne({
           where: { isEnabled: true },
         });
@@ -385,6 +410,55 @@ export class WalletService {
         await this.userRepo.update(request.userId, {
           withdrawWalletBalance: current + Number(request.amount || 0),
         });
+      }
+    } else if (dto.status === WalletWithdrawStatus.APPROVED && request.method === WalletWithdrawMethod.USDT) {
+      if (!request.usdtWalletAddress) {
+         throw new BadRequestException('Bắt buộc phải có địa chỉ ví USDT để chuyển tiền');
+      }
+
+      try {
+        const network = this.configService.get<string>('BSC_NETWORK') || 'testnet';
+        const tokenAddress = this.configService.get<string>('TOKEN_ADDRESS') ||
+          (network === 'mainnet'
+            ? '0x55d398326f99059fF775485246999027B3197955'
+            : '0x0000000000000000000000000000000000000000');
+        
+        if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
+           throw new Error('Chưa cấu hình địa chỉ Token (TOKEN_ADDRESS) trong env');
+        }
+
+        const USDT_ABI = ['function transfer(address to, uint amount) returns (bool)'];
+        const contract = this.web3Service.getContract(tokenAddress, USDT_ABI);
+        const toAddress = this.web3Service.formatAddress(request.usdtWalletAddress);
+        
+        // Calculate 12% fee
+        const requestedAmount = Number(request.amount || 0);
+        const actualAmount = requestedAmount * 0.88; // Deduct 12%
+        request.actualAmount = actualAmount;
+
+        // USDT BEP20 uses 18 decimals
+        const amountStr = actualAmount.toFixed(18);
+        const parts = amountStr.split('.');
+        const cleanAmountStr = parts.length === 2 && parts[1].length > 18 ? parts[0] + '.' + parts[1].substring(0, 18) : amountStr;
+        const parsedAmount = ethers.parseUnits(cleanAmountStr, 18);
+
+        const gasPrice = await this.web3Service.getGasPrice();
+        const gasPriceWithBuffer = (gasPrice * BigInt(120)) / BigInt(100);
+
+        const tx = await contract.transfer(toAddress, parsedAmount, {
+           gasPrice: gasPriceWithBuffer,
+           gasLimit: 300000, 
+        });
+
+        const receipt = await this.web3Service.waitForTransaction(tx.hash, 1);
+        if (!receipt || !receipt.status) {
+           throw new Error('Giao dịch chuyển USDT bị Reverted trên blockchain');
+        }
+
+        request.txHash = tx.hash;
+
+      } catch (error: any) {
+        throw new BadRequestException(`Lỗi xuất quỹ USDT: ${error.message}`);
       }
     }
 

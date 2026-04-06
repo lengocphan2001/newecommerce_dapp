@@ -33,6 +33,12 @@ function RegisterForm() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const token = localStorage.getItem("token");
+    if (token) {
+      router.replace("/home");
+      return;
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get("ref");
     const leg = urlParams.get("leg");

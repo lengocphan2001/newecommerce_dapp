@@ -42,6 +42,18 @@ export class WalletWithdrawRequest {
   })
   amount: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    nullable: true,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  actualAmount: number | null;
+
   @Column({ type: 'varchar', length: 16 })
   method: WalletWithdrawMethod;
 
@@ -71,6 +83,9 @@ export class WalletWithdrawRequest {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   processedBy: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  txHash: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

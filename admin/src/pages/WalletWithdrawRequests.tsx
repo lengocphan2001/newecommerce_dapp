@@ -96,11 +96,25 @@ const WalletWithdrawRequests: React.FC = () => {
           : r.userId,
     },
     {
-      title: 'Số tiền',
+      title: 'Số tiền yêu cầu',
       dataIndex: 'amount',
       key: 'amount',
       width: 120,
       render: (v: string | number) => `$${Number(v || 0).toFixed(2)}`,
+    },
+    {
+      title: 'Thực nhận (Sau 12% phí)',
+      dataIndex: 'actualAmount',
+      key: 'actualAmount',
+      width: 140,
+      render: (v: string | number | null) => 
+        v !== null && v !== undefined ? (
+          <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
+            ${Number(v).toFixed(2)}
+          </span>
+        ) : (
+          <span style={{ color: '#aaa' }}>Chưa tính</span>
+        ),
     },
     {
       title: 'Phương thức',
@@ -221,7 +235,10 @@ const WalletWithdrawRequests: React.FC = () => {
               <strong>User:</strong> {selectedRequest.user?.username || selectedRequest.userId}
             </p>
             <p>
-              <strong>Số tiền:</strong> ${Number(selectedRequest.amount || 0).toFixed(2)}
+              <strong>Số tiền yêu cầu:</strong> ${Number(selectedRequest.amount || 0).toFixed(2)}
+            </p>
+            <p>
+              <strong>Thực nhận (Sau 12% phí):</strong> <span style={{ fontWeight: 'bold', color: '#1890ff' }}>${(Number(selectedRequest.amount || 0) * 0.88).toFixed(2)}</span>
             </p>
             <p>
               <strong>Phương thức:</strong> {selectedRequest.method}

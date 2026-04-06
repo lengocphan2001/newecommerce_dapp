@@ -60,6 +60,7 @@ const BlockchainSettings: React.FC = () => {
         blockchainPrivateKey: '',
         privateKey: '',
         tokenAddress: cfgRes.data?.tokenAddress || '',
+        paymentWallet: cfgRes.data?.paymentWallet || '',
       });
       setKeyInfo({
         hasBlockchainPrivateKey: Boolean(cfgRes.data?.hasBlockchainPrivateKey),
@@ -82,8 +83,10 @@ const BlockchainSettings: React.FC = () => {
         tokenAddress?: string;
         blockchainPrivateKey?: string;
         privateKey?: string;
+        paymentWallet?: string;
       } = {
         tokenAddress: values.tokenAddress,
+        paymentWallet: values.paymentWallet,
       };
       if (values.blockchainPrivateKey?.trim()) {
         payload.blockchainPrivateKey = values.blockchainPrivateKey.trim();
@@ -239,6 +242,19 @@ const BlockchainSettings: React.FC = () => {
             label="TOKEN_ADDRESS"
             name="tokenAddress"
             rules={[{ required: true, message: 'Required' }]}
+          >
+            <Input placeholder="0x..." />
+          </Form.Item>
+          <Form.Item
+            label="NEXT_PUBLIC_PAYMENT_WALLET"
+            name="paymentWallet"
+            rules={[
+              { required: true, message: 'Required' },
+              {
+                pattern: /^0x[a-fA-F0-9]{40}$/,
+                message: 'Must be a valid wallet address (0x + 40 hex chars)',
+              },
+            ]}
           >
             <Input placeholder="0x..." />
           </Form.Item>

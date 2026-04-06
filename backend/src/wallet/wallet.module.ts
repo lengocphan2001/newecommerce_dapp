@@ -8,10 +8,14 @@ import { UserBankAccount } from './entities/user-bank-account.entity';
 import { User } from '../user/entities/user.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ConfigModule } from '@nestjs/config';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
   imports: [
     NotificationsModule,
+    ConfigModule,
+    BlockchainModule,
     TypeOrmModule.forFeature([
       WalletDepositRequest,
       WalletWithdrawRequest,

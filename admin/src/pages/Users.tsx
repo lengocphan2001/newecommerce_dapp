@@ -425,6 +425,18 @@ const Users: React.FC = () => {
       key: 'phone',
     },
     {
+      title: 'Ví nạp tiền',
+      dataIndex: 'walletBalance',
+      key: 'walletBalance',
+      render: (val: number) => <span style={{ color: '#52c41a', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
+    },
+    {
+      title: 'Ví rút tiền',
+      dataIndex: 'withdrawWalletBalance',
+      key: 'withdrawWalletBalance',
+      render: (val: number) => <span style={{ color: '#1890ff', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -818,6 +830,12 @@ const Users: React.FC = () => {
 
               <Title level={5}>Financial Information</Title>
               <Descriptions bordered column={2}>
+                <Descriptions.Item label="Ví nạp tiền (Deposit Wallet)">
+                  <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Ví rút tiền (Withdraw Wallet)">
+                  <span style={{ color: '#1890ff', fontWeight: 600 }}>${userDetail.user.withdrawWalletBalance ?? 0} USDT</span>
+                </Descriptions.Item>
                 <Descriptions.Item label="Total Purchase Amount">
                   ${userDetail.user.totalPurchaseAmount} USDT
                 </Descriptions.Item>

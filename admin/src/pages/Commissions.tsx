@@ -18,6 +18,7 @@ import {
   CheckCircleOutlined,
   SearchOutlined,
   StopOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { commissionService, Commission } from '../services/commissionService';
 
@@ -67,6 +68,33 @@ const CommissionsPage: React.FC = () => {
       message.error(error?.response?.data?.message || 'Failed to fetch commissions');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const params: any = {};
+      if (selectedStatus !== 'all') params.status = selectedStatus;
+      if (selectedType !== 'all') params.type = selectedType;
+      
+      const response = await commissionService.exportCommissions(params);
+
+      const blob = new Blob([response.data as any], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'commissions.csv');
+      document.body.appendChild(link);
+      link.click();
+
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      message.success('Commissions exported successfully');
+    } catch (error) {
+      console.error(error);
+      message.error('Failed to export commissions');
     }
   };
 
@@ -489,6 +517,9 @@ const CommissionsPage: React.FC = () => {
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchCommissions}>
             Refresh
+          </Button>
+          <Button icon={<DownloadOutlined />} onClick={handleExport}>
+            Export CSV
           </Button>
           {selectedApproveCount > 0 && (
             <Button

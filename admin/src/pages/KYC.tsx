@@ -5,6 +5,7 @@ import { kycService, Kyc } from '../services/kycService';
 
 const KYC: React.FC = () => {
   const [kycs, setKycs] = useState<Kyc[]>([]);
+  const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -74,11 +75,26 @@ const KYC: React.FC = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
+      width: 220,
+      render: (id: string) => <span style={{ fontFamily: 'monospace' }}>{id}</span>,
     },
     {
       title: 'User ID',
       dataIndex: 'userId',
       key: 'userId',
+      width: 220,
+      render: (userId: string) => <span style={{ fontFamily: 'monospace' }}>{userId}</span>,
+    },
+    {
+      title: 'User Name',
+      key: 'userName',
+      render: (_: any, record: Kyc) =>
+        record.user?.fullName || record.user?.username || 'N/A',
+    },
+    {
+      title: 'Email',
+      key: 'userEmail',
+      render: (_: any, record: Kyc) => record.user?.email || 'N/A',
     },
     {
       title: 'Document Type',
@@ -120,22 +136,53 @@ const KYC: React.FC = () => {
     },
   ];
 
+  const filteredKycs = kycs.filter((item) => {
+    const keyword = searchText.trim().toLowerCase();
+    if (!keyword) return true;
+
+    const haystack = [
+      item.id,
+      item.userId,
+      item.documentType,
+      item.documentNumber,
+      item.status,
+      item.user?.email,
+      item.user?.fullName,
+      item.user?.username,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(keyword);
+  });
+
   return (
     <div>
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0 }}>KYC Verification</h1>
-        <Button
-          type="primary"
-          icon={<DownloadOutlined />}
-          onClick={handleExport}
-          loading={exporting}
-        >
-          Export to Excel
-        </Button>
+        <Space>
+          <Input.Search
+            allowClear
+            placeholder="Search ID, user, document, status..."
+            style={{ width: 320 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onSearch={(value) => setSearchText(value)}
+          />
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            loading={exporting}
+          >
+            Export to Excel
+          </Button>
+        </Space>
       </div>
       <Table
         columns={columns}
-        dataSource={kycs}
+        dataSource={filteredKycs}
         loading={loading}
         rowKey="id"
         pagination={{ pageSize: 10 }}

@@ -8,7 +8,9 @@ import {
   Request,
   UseGuards,
   Put,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AffiliateService } from './affiliate.service';
 import {
   RegisterAffiliateDto,
@@ -78,6 +80,68 @@ export class AffiliateController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async getAllCommissions(@Query() query: any) {
     return this.affiliateService.getAllCommissions(query);
+  }
+
+  @Get('admin/commissions/export')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async exportCommissions(@Query() query: any, @Res() res: Response) {
+    const commissions = await this.affiliateService.getAllCommissions(query);
+
+    const escapeCsv = (
+      val: string | number | Date | null | undefined,
+    ): string => {
+      if (val === null || val === undefined) return '';
+      const s =
+        val instanceof Date
+          ? isNaN(val.getTime())
+            ? ''
+            : val.toISOString()
+          : String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n'))
+        return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    };
+
+    const headers = [
+      'ID',
+      'Receiver ID',
+      'Receiver Email',
+      'From User ID',
+      'From User Email',
+      'Type',
+      'Status',
+      'Amount (USDT)',
+      'Side',
+      'Order ID',
+      'Notes',
+      'Payout Tx Hash',
+      'Created At',
+    ];
+
+    const rows = commissions.map((c) => [
+      escapeCsv(c.id),
+      escapeCsv(c.user?.id),
+      escapeCsv(c.user?.email),
+      escapeCsv(c.fromUser?.id),
+      escapeCsv(c.fromUser?.email),
+      escapeCsv(c.type),
+      escapeCsv(c.status),
+      c.amount ?? 0,
+      escapeCsv(c.side),
+      escapeCsv(c.orderId),
+      escapeCsv(c.notes),
+      escapeCsv(c.payoutTxHash),
+      escapeCsv(c.createdAt),
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
+
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', 'attachment; filename="commissions.csv"');
+    return res.send(csvContent);
   }
 
   @Get('admin/commissions/:id')

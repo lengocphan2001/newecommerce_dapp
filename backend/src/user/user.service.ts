@@ -60,6 +60,8 @@ export class UserService {
         'u.status AS status',
         'u.isAdmin AS isAdmin',
         'u.createdAt AS createdAt',
+        'u.walletBalance AS walletBalance',
+        'u.withdrawWalletBalance AS withdrawWalletBalance',
         'kyc_latest.status AS kycStatus',
         'kyc_latest.createdAt AS kycSubmittedAt',
       ])
@@ -81,6 +83,8 @@ export class UserService {
       status: string;
       isAdmin: number | boolean;
       createdAt: Date | string;
+      walletBalance: number | string;
+      withdrawWalletBalance: number | string;
       kycStatus: string | null;
       kycSubmittedAt: Date | string | null;
     }>();
@@ -93,6 +97,8 @@ export class UserService {
       status: row.status,
       isAdmin: Boolean(row.isAdmin),
       createdAt: row.createdAt,
+      walletBalance: Number(row.walletBalance || 0),
+      withdrawWalletBalance: Number(row.withdrawWalletBalance || 0),
       kycStatus: row.kycStatus ?? 'UNVERIFIED',
       kycSubmittedAt: row.kycSubmittedAt ?? null,
     }));

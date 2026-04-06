@@ -22,6 +22,7 @@ export const adminService = {
     blockchainPrivateKey?: string;
     privateKey?: string;
     tokenAddress?: string;
+    paymentWallet?: string;
   }) => api.patch('/admin/blockchain-config', data),
 
   // Analytics

@@ -106,6 +106,7 @@ export class AdminService {
       contractBalance: payoutStats.contractBalance,
       contractAddress: payoutStats.contractAddress,
       tokenAddress: payoutStats.tokenAddress,
+      paymentWallet: process.env.NEXT_PUBLIC_PAYMENT_WALLET || '',
     };
   }
 
@@ -1061,6 +1062,7 @@ export class AdminService {
     hasBlockchainPrivateKey: boolean;
     hasPrivateKey: boolean;
     tokenAddress: string;
+    paymentWallet: string;
   }> {
     const blockchainPrivateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '';
     const privateKey = process.env.PRIVATE_KEY || '';
@@ -1075,6 +1077,7 @@ export class AdminService {
       hasBlockchainPrivateKey: Boolean(blockchainPrivateKey),
       hasPrivateKey: Boolean(privateKey),
       tokenAddress: process.env.TOKEN_ADDRESS || '',
+      paymentWallet: process.env.NEXT_PUBLIC_PAYMENT_WALLET || '',
     };
   }
 
@@ -1082,12 +1085,14 @@ export class AdminService {
     blockchainPrivateKey?: string;
     privateKey?: string;
     tokenAddress?: string;
+    paymentWallet?: string;
   }): Promise<{
     blockchainPrivateKeyMasked: string;
     privateKeyMasked: string;
     hasBlockchainPrivateKey: boolean;
     hasPrivateKey: boolean;
     tokenAddress: string;
+    paymentWallet: string;
   }> {
     let content = '';
     try {
@@ -1100,6 +1105,8 @@ export class AdminService {
       (v ?? '').replace(/\r?\n/g, '').trim();
     const isValidPrivateKey = (value: string) =>
       /^(0x)?[a-fA-F0-9]{64}$/.test(value);
+    const isValidWalletAddress = (value: string) =>
+      /^0x[a-fA-F0-9]{40}$/.test(value);
 
     if (
       dto.blockchainPrivateKey !== undefined &&
@@ -1118,6 +1125,16 @@ export class AdminService {
     ) {
       throw new BadRequestException(
         'PRIVATE_KEY is invalid (must be 64 hex chars, optional 0x)',
+      );
+    }
+
+    if (
+      dto.paymentWallet !== undefined &&
+      normalize(dto.paymentWallet) &&
+      !isValidWalletAddress(normalize(dto.paymentWallet))
+    ) {
+      throw new BadRequestException(
+        'NEXT_PUBLIC_PAYMENT_WALLET is invalid (must be 0x + 40 hex chars)',
       );
     }
 
@@ -1142,6 +1159,13 @@ export class AdminService {
         normalize(dto.tokenAddress),
       );
     }
+    if (dto.paymentWallet !== undefined) {
+      content = this.upsertEnvValue(
+        content,
+        'NEXT_PUBLIC_PAYMENT_WALLET',
+        normalize(dto.paymentWallet),
+      );
+    }
 
     await fs.writeFile(this.backendEnvPath, content, 'utf8');
 
@@ -1154,6 +1178,9 @@ export class AdminService {
     }
     if (dto.tokenAddress !== undefined) {
       process.env.TOKEN_ADDRESS = normalize(dto.tokenAddress);
+    }
+    if (dto.paymentWallet !== undefined) {
+      process.env.NEXT_PUBLIC_PAYMENT_WALLET = normalize(dto.paymentWallet);
     }
 
     // Apply new blockchain key immediately for current runtime.

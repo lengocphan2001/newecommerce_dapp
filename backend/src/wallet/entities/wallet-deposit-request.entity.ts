@@ -54,6 +54,27 @@ export class WalletDepositRequest {
   })
   amount: number | null;
 
+  @Column({ type: 'varchar', length: 20, default: 'BANKING' })
+  method: 'BANKING' | 'USDT';
+
+  /** Số dư USDT user yêu cầu nạp (nếu nạp qua USDT) */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) =>
+        value != null ? parseFloat(value) : null,
+    },
+  })
+  requestedUsdt: number | null;
+
+  /** TxHash giao dịch nạp USDT */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  txHash: string | null;
+
   @Column({ type: 'varchar', length: 20, default: WalletDepositStatus.PENDING })
   status: WalletDepositStatus;
 

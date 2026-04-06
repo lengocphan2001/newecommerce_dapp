@@ -9,6 +9,12 @@ export interface Kyc {
   backImage?: string;
   status: string;
   createdAt?: string;
+  user?: {
+    id?: string;
+    email?: string;
+    fullName?: string;
+    username?: string;
+  };
 }
 
 export const kycService = {

@@ -7,11 +7,24 @@ import {
 } from 'class-validator';
 
 export class CreateDepositRequestDto {
-  /** Số tiền đã chuyển (VND). Admin sẽ dùng tỉ giá Banking Settings để quy đổi USDT khi duyệt. */
+  /** Số tiền đã chuyển (VND). Bắt buộc nếu method là BANKING. */
   @IsNumber()
-  @IsNotEmpty()
+  @IsOptional()
   @Min(1000, { message: 'Số tiền VND tối thiểu 1.000' })
-  amountVnd: number;
+  amountVnd?: number;
+
+  @IsString()
+  @IsOptional()
+  method?: 'BANKING' | 'USDT';
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0.000001, { message: 'Số lượng USDT tối thiểu là 0.000001' })
+  requestedUsdt?: number;
+
+  @IsString()
+  @IsOptional()
+  txHash?: string;
 
   /** URL ảnh chứng từ chuyển khoản (sau khi upload) */
   @IsString()

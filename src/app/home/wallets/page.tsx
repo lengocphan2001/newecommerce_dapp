@@ -32,7 +32,7 @@ export default function WalletsPage() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showBankAccountModal, setShowBankAccountModal] = useState(false);
-  const [depositForm, setDepositForm] = useState({ amountVnd: "", proofImageUrl: "", transferNote: "" });
+  const [depositForm, setDepositForm] = useState({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING" as "BANKING" | "USDT", requestedUsdt: "", txHash: "" });
   const [withdrawForm, setWithdrawForm] = useState({
     amount: "",
     method: "USDT" as "USDT" | "BANKING",
@@ -63,6 +63,10 @@ export default function WalletsPage() {
     isEnabled?: boolean;
     usdtPriceVnd?: number | null;
     usdtWithdrawPriceVnd?: number | null;
+    usdtEnabled?: boolean;
+    usdtWalletAddress?: string;
+    usdtNetwork?: string;
+    usdtQrImageUrl?: string;
   } | null>(null);
   const [copiedDeposit, setCopiedDeposit] = useState<string | null>(null);
 
@@ -199,20 +203,39 @@ export default function WalletsPage() {
 
   const handleSubmitDeposit = async () => {
     setDepositError("");
-    const amountVnd = parseVndAmount(depositForm.amountVnd);
-    if (!depositForm.amountVnd || isNaN(amountVnd) || amountVnd < 1000) {
-      setDepositError("Nhập số tiền đã chuyển (VND) tối thiểu 1.000");
-      return;
+    
+    let payload: any = {
+      method: depositForm.method,
+      proofImageUrl: depositForm.proofImageUrl || undefined,
+      transferNote: depositForm.transferNote || undefined,
+    };
+
+    if (depositForm.method === "BANKING") {
+      const amountVnd = parseVndAmount(depositForm.amountVnd);
+      if (!depositForm.amountVnd || isNaN(amountVnd) || amountVnd < 1000) {
+        setDepositError("Nhập số tiền đã chuyển (VND) tối thiểu 1.000");
+        return;
+      }
+      payload.amountVnd = amountVnd;
+    } else {
+      const requestedUsdt = parseUsdtAmount(depositForm.requestedUsdt);
+      if (!depositForm.requestedUsdt || isNaN(requestedUsdt) || requestedUsdt <= 0) {
+        setDepositError("Nhập số lượng USDT hợp lệ");
+        return;
+      }
+      if (!depositForm.txHash && !depositForm.proofImageUrl) {
+         setDepositError("Vui lòng nhập TxHash hoặc tải lên ảnh chứng từ");
+         return;
+      }
+      payload.requestedUsdt = requestedUsdt;
+      payload.txHash = depositForm.txHash || undefined;
     }
+
     setDepositSubmitting(true);
     try {
-      await api.createDepositRequest({
-        amountVnd,
-        proofImageUrl: depositForm.proofImageUrl || undefined,
-        transferNote: depositForm.transferNote || undefined,
-      });
+      await api.createDepositRequest(payload);
       setShowDepositModal(false);
-      setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "" });
+      setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING", requestedUsdt: "", txHash: "" });
       const requests = await api.getMyDepositRequests();
       setDepositRequests(Array.isArray(requests) ? requests : []);
     } catch (err: any) {
@@ -671,7 +694,7 @@ export default function WalletsPage() {
             </div>
             <button
               type="button"
-              onClick={() => { setShowDepositModal(true); setDepositError(""); setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "" }); }}
+              onClick={() => { setShowDepositModal(true); setDepositError(""); setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING", requestedUsdt: "", txHash: "" }); }}
               className="rounded-xl bg-cyan-500 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-cyan-600"
             >
               <span className="material-symbols-outlined text-lg">add</span>
@@ -703,107 +726,164 @@ export default function WalletsPage() {
             <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 my-auto" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-bold text-text-dark mb-4">Nạp tiền vào ví</h3>
 
-              {/* Bước 1: User nhập số tiền muốn nạp trước */}
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số tiền muốn nạp (VND) *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={depositForm.amountVnd}
-                  onChange={(e) =>
-                    setDepositForm((f) => ({
-                      ...f,
-                      amountVnd: formatVndInput(e.target.value),
-                    }))
-                  }
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
-                  placeholder="VD: 500.000"
-                />
-                <p className="text-xs text-slate-500 mt-1">Sau khi nhập, mã QR sẽ hiển thị bên dưới để bạn chuyển khoản đúng số tiền.</p>
-              </div>
+              {bankingConfig?.usdtEnabled && (
+                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setDepositForm(f => ({ ...f, method: 'BANKING' }))}
+                    className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${depositForm.method === 'BANKING' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    VND (Ngân Hàng)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDepositForm(f => ({ ...f, method: 'USDT' }))}
+                    className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${depositForm.method === 'USDT' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    USDT (Crypto)
+                  </button>
+                </div>
+              )}
 
-              {bankingConfig?.isEnabled && (bankingConfig.accountNumber || bankingConfig.bankName) ? (
+              {depositForm.method === 'BANKING' ? (
                 <>
-                  <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển khoản đến tài khoản sau:</p>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2 mb-3">
-                    {bankingConfig.bankName && (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-slate-500">Ngân hàng</span>
-                        <span className="font-semibold text-slate-900">{bankingConfig.bankName}</span>
-                        <button type="button" onClick={() => copyDeposit(bankingConfig.bankName!, "bank")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                          {copiedDeposit === "bank" ? "Đã copy" : "Copy"}
-                        </button>
-                      </div>
-                    )}
-                    {bankingConfig.accountNumber && (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-slate-500">Số tài khoản</span>
-                        <span className="font-mono font-semibold text-slate-900">{bankingConfig.accountNumber}</span>
-                        <button type="button" onClick={() => copyDeposit(bankingConfig.accountNumber!, "account")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                          {copiedDeposit === "account" ? "Đã copy" : "Copy"}
-                        </button>
-                      </div>
-                    )}
-                    {bankingConfig.accountName && (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-slate-500">Chủ tài khoản</span>
-                        <span className="font-semibold text-slate-900 uppercase">{bankingConfig.accountName}</span>
-                        <button type="button" onClick={() => copyDeposit(bankingConfig.accountName!, "name")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                          {copiedDeposit === "name" ? "Đã copy" : "Copy"}
-                        </button>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      <span className="text-xs text-slate-500">Nội dung chuyển khoản</span>
-                      <button type="button" onClick={() => copyDeposit(depositTransferContent, "content")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                        {copiedDeposit === "content" ? "Đã copy" : "Copy"}
-                      </button>
-                    </div>
-                    <p className="font-semibold text-slate-900 break-all">{depositTransferContent}</p>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số tiền muốn nạp (VND) *</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={depositForm.amountVnd}
+                      onChange={(e) =>
+                        setDepositForm((f) => ({ ...f, amountVnd: formatVndInput(e.target.value) }))
+                      }
+                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
+                      placeholder="VD: 500.000"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Sau khi nhập, mã QR sẽ hiển thị bên dưới để bạn chuyển khoản đúng số tiền.</p>
                   </div>
-                  {depositVietQrUrl && parseVndAmount(depositForm.amountVnd) >= 1000 ? (
-                    <div className="flex flex-col items-center mb-4">
-                      <p className="text-xs text-slate-600 mb-2">Quét mã QR để chuyển khoản (số tiền + nội dung đã điền sẵn)</p>
-                      <img src={depositVietQrUrl} alt="VietQR nạp ví" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
-                    </div>
-                  ) : depositVietQrUrl ? (
-                    <div className="flex flex-col items-center mb-4">
-                      <p className="text-xs text-slate-600 mb-2">Nhập số tiền (tối thiểu 1.000 VND) bên trên để hiện mã QR</p>
-                      <div className="w-56 h-56 rounded-lg border border-dashed border-slate-300 flex items-center justify-center bg-slate-50 text-slate-400 text-sm text-center px-2">Nhập số tiền VND</div>
-                    </div>
-                  ) : bankingConfig.qrImageUrl ? (
-                    <div className="flex flex-col items-center mb-4">
-                      <p className="text-xs text-slate-600 mb-2">Quét mã QR (hoặc nhập số tiền trên để dùng VietQR có sẵn số tiền)</p>
-                      <img src={bankingConfig.qrImageUrl} alt="QR chuyển khoản" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
-                    </div>
-                  ) : null}
-                  <div className="border-t border-slate-200 pt-4 mt-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-3">3. Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> bên dưới (có thể đính kèm ảnh chứng từ).</p>
-                  </div>
+
+                  {bankingConfig?.isEnabled && (bankingConfig.accountNumber || bankingConfig.bankName) ? (
+                    <>
+                      <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển khoản đến tài khoản sau:</p>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2 mb-3">
+                        {bankingConfig.bankName && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-500">Ngân hàng</span>
+                            <span className="font-semibold text-slate-900">{bankingConfig.bankName}</span>
+                            <button type="button" onClick={() => copyDeposit(bankingConfig.bankName!, "bank")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                              {copiedDeposit === "bank" ? "Đã copy" : "Copy"}
+                            </button>
+                          </div>
+                        )}
+                        {bankingConfig.accountNumber && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-500">Số tài khoản</span>
+                            <span className="font-mono font-semibold text-slate-900">{bankingConfig.accountNumber}</span>
+                            <button type="button" onClick={() => copyDeposit(bankingConfig.accountNumber!, "account")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                              {copiedDeposit === "account" ? "Đã copy" : "Copy"}
+                            </button>
+                          </div>
+                        )}
+                        {bankingConfig.accountName && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-500">Chủ tài khoản</span>
+                            <span className="font-semibold text-slate-900 uppercase">{bankingConfig.accountName}</span>
+                            <button type="button" onClick={() => copyDeposit(bankingConfig.accountName!, "name")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                              {copiedDeposit === "name" ? "Đã copy" : "Copy"}
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <span className="text-xs text-slate-500">Nội dung chuyển khoản</span>
+                          <button type="button" onClick={() => copyDeposit(depositTransferContent, "content")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                            {copiedDeposit === "content" ? "Đã copy" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="font-semibold text-slate-900 break-all">{depositTransferContent}</p>
+                      </div>
+                      {depositVietQrUrl && parseVndAmount(depositForm.amountVnd) >= 1000 ? (
+                        <div className="flex flex-col items-center mb-4">
+                          <p className="text-xs text-slate-600 mb-2">Quét mã QR để chuyển khoản</p>
+                          <img src={depositVietQrUrl} alt="VietQR" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Admin chưa cấu hình ngân hàng.</p>
+                  )}
                 </>
               ) : (
-                <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Admin chưa cấu hình ngân hàng. Vui lòng liên hệ để được hướng dẫn nạp tiền.</p>
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số lượng USDT muốn nạp *</label>
+                    <input
+                      type="text"
+                      value={depositForm.requestedUsdt}
+                      onChange={(e) => setDepositForm((f) => ({ ...f, requestedUsdt: sanitizeUsdtInput(e.target.value) }))}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
+                      placeholder="VD: 50.00"
+                    />
+                  </div>
+
+                  {bankingConfig?.usdtWalletAddress ? (
+                    <>
+                      <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển USDT đến địa chỉ sau:</p>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2 mb-3">
+                        {bankingConfig.usdtNetwork && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-slate-500">Mạng lưới (Network)</span>
+                            <span className="font-semibold text-slate-900">{bankingConfig.usdtNetwork}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-slate-500">Địa chỉ ví</span>
+                          <button type="button" onClick={() => copyDeposit(bankingConfig.usdtWalletAddress!, "usdtWallet")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
+                            {copiedDeposit === "usdtWallet" ? "Đã copy" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="font-mono font-semibold text-slate-900 text-sm break-all">{bankingConfig.usdtWalletAddress}</p>
+                      </div>
+                      {bankingConfig.usdtQrImageUrl && (
+                        <div className="flex flex-col items-center mb-4">
+                          <p className="text-xs text-slate-600 mb-2">Quét mã QR địa chỉ ví</p>
+                          <img src={bankingConfig.usdtQrImageUrl} alt="USDT QR" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Admin chưa cấu hình địa chỉ ví USDT.</p>
+                  )}
+                  
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">3. Mã giao dịch (TxHash) hoặc link Tx *</label>
+                    <input
+                      type="text"
+                      value={depositForm.txHash}
+                      onChange={(e) => setDepositForm((f) => ({ ...f, txHash: e.target.value }))}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
+                      placeholder="Nhập mã giao dịch tại đây..."
+                    />
+                  </div>
+                </>
               )}
+
+              <div className="border-t border-slate-200 pt-4 mt-4">
+                <p className="text-sm font-semibold text-slate-700 mb-3">
+                   {depositForm.method === 'BANKING' ? "3." : "4."} Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> (có thể tải lên ảnh biên lai).
+                </p>
+              </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh chứng từ chuyển khoản (tùy chọn)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh chụp màn hình (tùy chọn)</label>
                   <input type="file" accept="image/*" onChange={handleDepositProofChange} className="hidden" id="deposit-proof" />
-                  <label htmlFor="deposit-proof" className="flex items-center gap-2 cursor-pointer text-sm text-primary-dark">
-                    {proofUploading ? "Đang tải lên..." : depositForm.proofImageUrl ? "Đã tải ảnh ✓" : "Chọn ảnh"}
+                  <label htmlFor="deposit-proof" className="flex items-center justify-center py-2 px-4 rounded-xl border border-dashed border-gray-300 cursor-pointer text-sm text-primary-dark w-full bg-slate-50/50">
+                    {proofUploading ? "Đang tải lên..." : depositForm.proofImageUrl ? "✓ Đã tải xong (Bấm để tải lại)" : "Chọn ảnh biên lai giao dịch"}
                   </label>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú (mã GD, ngân hàng...) (tùy chọn)</label>
-                  <textarea
-                    value={depositForm.transferNote}
-                    onChange={(e) => setDepositForm((f) => ({ ...f, transferNote: e.target.value }))}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 min-h-[80px]"
-                    placeholder="Mã giao dịch, ngân hàng chuyển..."
-                  />
                 </div>
                 {depositError && <p className="text-sm text-red-600">{depositError}</p>}
               </div>
+
               <div className="flex gap-3 mt-6">
                 <button type="button" onClick={() => !depositSubmitting && setShowDepositModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-300 font-medium">Hủy</button>
                 <button type="button" onClick={handleSubmitDeposit} disabled={depositSubmitting} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-medium disabled:opacity-70">
