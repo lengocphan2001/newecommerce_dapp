@@ -468,7 +468,16 @@ export default function WalletsPage() {
   // Recent transactions - combine commissions and orders
   const allTransactions: Transaction[] = [
     // Commissions
-    ...(referralInfo?.recentActivity?.map((activity: any) => {
+    ...(referralInfo?.recentActivity
+      ?.filter((activity: any) => {
+        const activityType = String(activity?.type || "").toUpperCase();
+        const notes = String(activity?.notes || "");
+        return (
+          activityType === "DIRECT" ||
+          (activityType === "PRODUCT" && notes.startsWith("Product direct"))
+        );
+      })
+      .map((activity: any) => {
       // Normalize activity type to handle both uppercase and lowercase
       const activityType = String(activity.type || '').toUpperCase();
 

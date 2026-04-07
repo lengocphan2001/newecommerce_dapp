@@ -174,16 +174,15 @@ export default function ActivityPage() {
       referralInfo.recentActivity.forEach((activity: any) => {
         // Normalize activity type to handle both uppercase and lowercase
         const activityType = String(activity.type || '').toUpperCase();
+        const notes = String(activity?.notes || '');
+        const isDirectOnly =
+          activityType === 'DIRECT' ||
+          (activityType === 'PRODUCT' && notes.startsWith('Product direct'));
+        if (!isDirectOnly) {
+          return;
+        }
 
-        // Determine commission type label
-        // Determine commission type label
-        const commissionType = activityType === 'DIRECT'
-          ? t("directCommission")
-          : activityType === 'GROUP'
-            ? t("groupCommission")
-            : activityType === 'MILESTONE'
-              ? t("milestoneReward")
-              : t("managementCommission");
+        const commissionType = t("directCommission");
 
         // Use the same simple logic as order items
         let activityDate: Date;
@@ -223,9 +222,9 @@ export default function ActivityPage() {
           amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
           status: ``,
           statusColor: 'text-primary',
-          icon: activityType === 'GROUP' ? 'account_tree' : 'card_membership',
-          iconColor: activityType === 'GROUP' ? 'text-amber-500' : 'text-amber-500',
-          iconBgColor: activityType === 'GROUP' ? 'bg-amber-500/10' : 'bg-amber-500/10',
+          icon: 'card_membership',
+          iconColor: 'text-amber-500',
+          iconBgColor: 'bg-amber-500/10',
           date: activityDate,
           fromUserId: activity.fromUserId,
           fromUsername: activity.fromUsername,
