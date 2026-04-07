@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { orderService, Order } from '../services/orderService';
 
 const Orders: React.FC = () => {
@@ -9,6 +9,7 @@ const Orders: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -38,6 +39,30 @@ const Orders: React.FC = () => {
   const handleClearSearch = () => {
     setSearchText('');
     fetchOrders(undefined);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const response = await orderService.exportOrders(getQueryParams());
+      const blob =
+        response.data instanceof Blob
+          ? response.data
+          : new Blob([response.data], { type: 'text/csv;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'orders.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      message.success('Export orders thành công');
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Export orders thất bại');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleStatusChange = async (orderId: string, status: string) => {
@@ -217,6 +242,9 @@ const Orders: React.FC = () => {
           style={{ width: 420 }}
         />
         <Button onClick={handleClearSearch} disabled={!searchText.trim()}>Xóa</Button>
+        <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exporting}>
+          Export Excel
+        </Button>
       </Space>
       <Table
         columns={columns}

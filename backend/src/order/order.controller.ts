@@ -8,7 +8,9 @@ import {
   Query,
   Request,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
@@ -29,6 +31,81 @@ export class OrderController {
       query.userId = req.user.userId || req.user.sub;
     }
     return this.orderService.findAll(query);
+  }
+
+  @Get('export')
+  @UseGuards(JwtAuthGuard)
+  async exportOrders(
+    @Query() query: any,
+    @Request() req: any,
+    @Res() res: Response,
+  ) {
+    if (!req.user.isAdmin) {
+      throw new Error('Unauthorized');
+    }
+    const orders = await this.orderService.findAll(query);
+    const headers = [
+      'Order ID',
+      'User ID',
+      'Username',
+      'Full Name',
+      'Phone Number',
+      'Total Amount',
+      'Status',
+      'Items',
+      'Product IDs',
+      'Shipping Address',
+      'Transaction Hash',
+      'Created At',
+      'Updated At',
+    ];
+    const escapeCsv = (val: string | number | null | undefined): string => {
+      if (val === null || val === undefined) return '';
+      const s = String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const rows = (orders || []).map((order: any) => {
+      const items = Array.isArray(order.items) ? order.items : [];
+      const itemsString = items
+        .map((item: any) => {
+          let itemStr = `${item.productName || ''} (x${item.quantity || 0})`;
+          if (item.properties && Object.keys(item.properties).length > 0) {
+            const propsStr = Object.entries(item.properties)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ');
+            itemStr += ` [${propsStr}]`;
+          }
+          return itemStr;
+        })
+        .join(', ');
+      const productIdsString = items
+        .map((item: any) => item.productId || '')
+        .filter(Boolean)
+        .join(', ');
+      return [
+        escapeCsv(order.id),
+        escapeCsv(order.userId),
+        escapeCsv(order.user?.username || ''),
+        escapeCsv(order.shippingName ?? order.user?.fullName ?? ''),
+        escapeCsv(order.shippingPhone ?? order.user?.phone ?? ''),
+        escapeCsv(order.totalAmount ?? 0),
+        escapeCsv(order.status ?? ''),
+        escapeCsv(itemsString),
+        escapeCsv(productIdsString),
+        escapeCsv(order.shippingAddress ?? ''),
+        escapeCsv(order.transactionHash ?? ''),
+        escapeCsv(order.createdAt),
+        escapeCsv(order.updatedAt),
+      ];
+    });
+    const csvContent = [headers.join(','), ...rows.map((row: string[]) => row.join(','))].join('\n');
+    const BOM = '\uFEFF';
+    res.header('Content-Type', 'text/csv; charset=utf-8');
+    res.header('Content-Disposition', 'attachment; filename="orders.csv"');
+    return res.send(BOM + csvContent);
   }
 
   @Get(':id')

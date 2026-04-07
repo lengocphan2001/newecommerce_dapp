@@ -28,6 +28,8 @@ export interface OrderItem {
 
 export const orderService = {
   getAll: (params?: any) => api.get('/orders', { params }),
+  exportOrders: (params?: any) =>
+    api.get('/orders/export', { params, responseType: 'blob' }),
   getById: (id: string) => api.get(`/orders/${id}`),
   create: (data: Partial<Order>) => api.post('/orders', data),
   updateStatus: (id: string, data: { status: string }) => api.put(`/orders/${id}/status`, data),
