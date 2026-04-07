@@ -31,10 +31,10 @@ export class PasswordResetToken {
   @Column({ type: 'timestamp', nullable: true })
   usedAt?: Date | null;
 
-  @Column({ nullable: true, length: 64 })
+  @Column({ type: 'varchar', nullable: true, length: 64 })
   requestIp?: string | null;
 
-  @Column({ nullable: true, length: 512 })
+  @Column({ type: 'varchar', nullable: true, length: 512 })
   requestUa?: string | null;
 
   @CreateDateColumn()
