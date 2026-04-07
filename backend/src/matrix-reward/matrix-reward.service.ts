@@ -1286,11 +1286,11 @@ export class MatrixRewardService {
       const exclusionsDeleted = await exclusionRepo.count();
       const processedDeleted = await processedRepo.count();
 
-      await ledgerRepo.clear();
-      await nodeRepo.clear();
-      await exclusionRepo.clear();
-      await processedRepo.clear();
-      await treeRepo.clear();
+      await manager.createQueryBuilder().delete().from(MatrixRewardLedger).execute();
+      await manager.createQueryBuilder().delete().from(MatrixRewardNode).execute();
+      await manager.createQueryBuilder().delete().from(MatrixTreeExclusion).execute();
+      await manager.createQueryBuilder().delete().from(MatrixRewardOrderProcessed).execute();
+      await manager.createQueryBuilder().delete().from(MatrixRewardTree).execute();
 
       this.logger.warn(
         `[MATRIX] Admin cleared all trees and rewards: trees=${treesDeleted}, nodes=${nodesDeleted}, ledgers=${ledgersDeleted}`,
