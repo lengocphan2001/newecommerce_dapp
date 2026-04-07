@@ -6,6 +6,7 @@ import {
   MaxLength,
   Matches,
   IsIn,
+  IsEmail,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -32,6 +33,10 @@ export class UsernameRegisterDto {
   @IsString()
   @IsNotEmpty()
   phoneNumber: string;
+
+  @IsEmail({}, { message: 'Email is invalid' })
+  @IsNotEmpty({ message: 'Email is required' })
+  email: string;
 
   @IsString()
   @IsOptional()

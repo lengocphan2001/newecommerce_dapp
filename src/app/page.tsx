@@ -26,6 +26,9 @@ export default function HomePage() {
   const [otpInfo, setOtpInfo] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [forgotMode, setForgotMode] = useState<boolean>(false);
+  const [forgotIdentifier, setForgotIdentifier] = useState<string>("");
+  const [forgotMessage, setForgotMessage] = useState<string>("");
 
   const sendLoginOtp = useCallback(async () => {
     setError("");
@@ -113,6 +116,29 @@ export default function HomePage() {
     [username, password, otpCode, router]
   );
 
+  const handleForgotPassword = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setError("");
+    setForgotMessage("");
+    const identifier = forgotIdentifier.trim();
+    if (!identifier) {
+      setError("Vui lòng nhập email hoặc username");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await api.forgotPassword(identifier);
+      setForgotMessage(
+        res?.message ||
+          "Nếu tài khoản tồn tại, email khôi phục mật khẩu đã được gửi."
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Không thể gửi yêu cầu");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [forgotIdentifier]);
+
   return (
     <div className="bg-background text-text-main font-display antialiased h-screen w-full overflow-hidden relative selection:bg-primary/30">
       <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white pointer-events-none"></div>
@@ -147,7 +173,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          {otpStep === "credentials" ? (
+          {otpStep === "credentials" && !forgotMode ? (
             <form onSubmit={handleUsernameLogin} className="w-full space-y-4 mb-4">
               <div>
                 <label htmlFor="login-username" className="block text-sm font-medium text-slate-700 mb-1">
@@ -187,6 +213,59 @@ export default function HomePage() {
                 ) : (
                   t("loginButton")
                 )}
+              </button>
+              <button
+                type="button"
+                className="w-full py-2 text-sm font-semibold text-primary hover:text-primary-dark"
+                onClick={() => {
+                  setForgotMode(true);
+                  setForgotMessage("");
+                  setError("");
+                  setForgotIdentifier(username || "");
+                }}
+              >
+                Quên mật khẩu?
+              </button>
+            </form>
+          ) : otpStep === "credentials" && forgotMode ? (
+            <form onSubmit={handleForgotPassword} className="w-full space-y-4 mb-4">
+              <p className="text-sm text-slate-600">
+                Nhập email hoặc username để nhận link đặt lại mật khẩu.
+              </p>
+              <div>
+                <label htmlFor="forgot-identifier" className="block text-sm font-medium text-slate-700 mb-1">
+                  Email hoặc username
+                </label>
+                <input
+                  id="forgot-identifier"
+                  type="text"
+                  value={forgotIdentifier}
+                  onChange={(e) => setForgotIdentifier(e.target.value)}
+                  placeholder="email@example.com / username"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-purple-500 hover:from-primary-dark hover:to-purple-600 active:scale-[0.98] text-purple-950 h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(147,51,234,0.4)] border border-purple-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-purple-950/60 border-t-purple-950" />
+                ) : (
+                  "Gửi link đặt lại mật khẩu"
+                )}
+              </button>
+              <button
+                type="button"
+                className="w-full py-2 text-sm text-slate-600 hover:text-slate-800"
+                onClick={() => {
+                  setForgotMode(false);
+                  setForgotMessage("");
+                  setError("");
+                }}
+              >
+                ← Quay lại đăng nhập
               </button>
             </form>
           ) : (
@@ -254,6 +333,11 @@ export default function HomePage() {
           {error && (
             <div className="mb-4 w-full rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+          {forgotMessage && (
+            <div className="mb-4 w-full rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">
+              {forgotMessage}
             </div>
           )}
 

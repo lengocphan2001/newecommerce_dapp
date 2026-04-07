@@ -52,6 +52,7 @@ import { MatrixRewardLedger } from './matrix-reward/entities/matrix-reward-ledge
 import { MatrixTreeExclusion } from './matrix-reward/entities/matrix-tree-exclusion.entity';
 import { MatrixRewardOrderProcessed } from './matrix-reward/entities/matrix-reward-order-processed.entity';
 import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
+import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
 @Module({
   imports: [
@@ -110,6 +111,7 @@ import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
           MatrixRewardLedger,
           MatrixTreeExclusion,
           MatrixRewardOrderProcessed,
+          PasswordResetToken,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||

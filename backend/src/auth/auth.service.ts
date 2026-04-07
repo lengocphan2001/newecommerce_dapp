@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
@@ -24,10 +25,20 @@ import {
 } from './dto';
 import * as bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+  private readonly forgotRateByIdentifier = new Map<
+    string,
+    { count: number; windowStart: number }
+  >();
+
   constructor(
     private userService: UserService,
     private staffService: StaffService,
@@ -41,6 +52,8 @@ export class AuthService {
     private packagesService: PackagesService,
     @Inject(forwardRef(() => AdminService))
     private adminService: AdminService,
+    @InjectRepository(PasswordResetToken)
+    private passwordResetTokenRepo: Repository<PasswordResetToken>,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -898,8 +911,166 @@ export class AuthService {
     if (!isCurrentValid) {
       throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
     }
-    await this.userService.update(userId, { password: newPassword });
+    this.assertStrongPassword(newPassword);
+    await this.userService.update(userId, {
+      password: newPassword,
+      passwordChangedAt: new Date(),
+    } as any);
     return { message: 'Password updated successfully' };
+  }
+
+  private hashResetToken(rawToken: string): string {
+    return createHash('sha256').update(rawToken).digest('hex');
+  }
+
+  private async ensureUniformResetResponse(startedAtMs: number): Promise<void> {
+    const minLatencyMs = 450;
+    const elapsed = Date.now() - startedAtMs;
+    if (elapsed < minLatencyMs) {
+      await new Promise((resolve) => setTimeout(resolve, minLatencyMs - elapsed));
+    }
+  }
+
+  private assertStrongPassword(password: string): void {
+    const p = String(password || '');
+    const hasMinLen = p.length >= 12;
+    const hasUpper = /[A-Z]/.test(p);
+    const hasLower = /[a-z]/.test(p);
+    const hasNumber = /[0-9]/.test(p);
+    const hasSpecial = /[^A-Za-z0-9]/.test(p);
+    if (!(hasMinLen && hasUpper && hasLower && hasNumber && hasSpecial)) {
+      throw new BadRequestException(
+        'Password must be at least 12 characters and include uppercase, lowercase, number, and special character',
+      );
+    }
+  }
+
+  private hitForgotIdentifierRateLimit(identifier: string): void {
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000;
+    const maxRequests = 5;
+    const key = identifier.toLowerCase();
+    const state = this.forgotRateByIdentifier.get(key);
+    if (!state || now - state.windowStart > windowMs) {
+      this.forgotRateByIdentifier.set(key, { count: 1, windowStart: now });
+      return;
+    }
+    state.count += 1;
+    if (state.count > maxRequests) {
+      throw new BadRequestException(
+        'Too many reset requests. Please try again later.',
+      );
+    }
+  }
+
+  private async findUserByIdentifier(identifier: string): Promise<User | null> {
+    const normalized = String(identifier || '').trim();
+    if (!normalized) return null;
+    const byEmail = await this.userService.findByEmail(normalized.toLowerCase());
+    if (byEmail) return byEmail;
+    return this.userService.findByUsername(normalized);
+  }
+
+  async forgotPassword(
+    identifier: string,
+    requestMeta?: { ip?: string; userAgent?: string },
+  ) {
+    const startedAt = Date.now();
+    const normalized = String(identifier || '').trim();
+    if (!normalized) {
+      throw new BadRequestException('Identifier is required');
+    }
+    this.hitForgotIdentifierRateLimit(normalized);
+
+    const genericMessage =
+      'If the account exists, a reset link has been sent to the registered email.';
+
+    try {
+      const user = await this.findUserByIdentifier(normalized);
+      if (!user || !user.email) {
+        return { message: genericMessage };
+      }
+
+      const rawToken = randomBytes(32).toString('hex');
+      const tokenHash = this.hashResetToken(rawToken);
+      const ttlMinutes = Math.max(
+        5,
+        Number(this.configService.get<string>('PASSWORD_RESET_TTL_MINUTES') || 15),
+      );
+      const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+      await this.passwordResetTokenRepo
+        .createQueryBuilder()
+        .update(PasswordResetToken)
+        .set({ usedAt: new Date() })
+        .where('userId = :userId AND usedAt IS NULL', { userId: user.id })
+        .execute();
+
+      await this.passwordResetTokenRepo.save(
+        this.passwordResetTokenRepo.create({
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+          requestIp: requestMeta?.ip
+            ? String(requestMeta.ip).slice(0, 64)
+            : null,
+          requestUa: requestMeta?.userAgent
+            ? String(requestMeta.userAgent).slice(0, 512)
+            : null,
+        }),
+      );
+
+      const frontendBase =
+        this.configService.get<string>('FRONTEND_BASE_URL') ||
+        this.configService.get<string>('APP_URL') ||
+        'http://localhost:3000';
+      const resetUrl = `${frontendBase.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(rawToken)}`;
+      await this.mailService.sendPasswordResetLink(user.email, resetUrl, ttlMinutes);
+      this.logger.log(`Password reset requested for userId=${user.id}`);
+      return { message: genericMessage };
+    } finally {
+      await this.ensureUniformResetResponse(startedAt);
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const rawToken = String(token || '').trim();
+    if (!rawToken) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+    this.assertStrongPassword(newPassword);
+
+    const tokenHash = this.hashResetToken(rawToken);
+    const resetRecord = await this.passwordResetTokenRepo.findOne({
+      where: { tokenHash },
+    });
+
+    if (
+      !resetRecord ||
+      resetRecord.usedAt ||
+      !resetRecord.expiresAt ||
+      resetRecord.expiresAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    const user = await this.userService.findOne(resetRecord.userId);
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    await this.userService.update(user.id, {
+      password: newPassword,
+      passwordChangedAt: new Date(),
+      loginOtpCode: null as any,
+      loginOtpExpiresAt: null as any,
+    } as any);
+
+    resetRecord.usedAt = new Date();
+    await this.passwordResetTokenRepo.save(resetRecord);
+    this.logger.log(`Password reset completed for userId=${user.id}`);
+
+    return { message: 'Password reset successful' };
   }
 
   async walletRegister(walletRegisterDto: WalletRegisterDto) {
@@ -1056,7 +1227,7 @@ export class AuthService {
 
   /** Đăng ký bằng username + password (không cần ví) */
   async usernameRegister(dto: UsernameRegisterDto) {
-    const email = `${dto.username.trim().toLowerCase()}@user.local`;
+    const email = dto.email.trim().toLowerCase();
     const existingEmail = await this.userService.findByEmail(email);
     if (existingEmail) {
       throw new ConflictException('Email already exists');

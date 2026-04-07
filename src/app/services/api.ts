@@ -106,12 +106,39 @@ export const api = {
     return response.json();
   },
 
+  async forgotPassword(identifier: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: identifier.trim() }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to request password reset');
+    }
+    return response.json();
+  },
+
+  async resetPassword(token: string, newPassword: string) {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Failed to reset password');
+    }
+    return response.json();
+  },
+
   /** Đăng ký bằng username + password (không cần ví) */
   async usernameRegister(data: {
     username: string;
     password: string;
     fullName?: string;
     phoneNumber: string;
+    email: string;
     referralUser?: string;
     leg?: 'left' | 'right';
   }) {

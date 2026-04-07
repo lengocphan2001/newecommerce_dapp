@@ -7,3 +7,5 @@ export * from './username-login.dto';
 export * from './username-login-verify.dto';
 export * from './username-register.dto';
 export * from './change-password.dto';
+export * from './forgot-password.dto';
+export * from './reset-password.dto';

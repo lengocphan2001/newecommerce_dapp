@@ -244,4 +244,29 @@ export class MailService implements OnModuleDestroy {
     `;
     return this.send({ to, subject, text, html });
   }
+
+  async sendPasswordResetLink(
+    to: string,
+    resetUrl: string,
+    expiresInMinutes: number = 15,
+  ): Promise<boolean> {
+    const subject = '[2026] Password reset link';
+    const text = `We received a password reset request for your account. Open this link to set a new password: ${resetUrl}\n\nThis link expires in ${expiresInMinutes} minutes. If you did not request this, you can ignore this email.`;
+    const html = `
+      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2 style="color: #333;">Reset your password</h2>
+        <p style="color: #555;">
+          We received a request to reset your password. Click the button below to continue.
+        </p>
+        <p style="margin: 24px 0;">
+          <a href="${resetUrl}" style="background: #7c3aed; color: #fff; text-decoration: none; padding: 12px 18px; border-radius: 8px; display: inline-block; font-weight: 600;">
+            Reset password
+          </a>
+        </p>
+        <p style="color: #666;">This link expires in <strong>${expiresInMinutes} minutes</strong> and can only be used once.</p>
+        <p style="color: #666;">If you did not request this, you can ignore this email.</p>
+      </div>
+    `;
+    return this.send({ to, subject, text, html });
+  }
 }

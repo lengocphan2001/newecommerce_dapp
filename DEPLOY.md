@@ -678,7 +678,7 @@ npm run build:prod
 
 | Module   | File env                | Biến quan trọng |
 |----------|-------------------------|------------------|
-| Backend  | `backend/.env`          | `PORT`, `DB_*`, `JWT_SECRET`, `CORS_ORIGINS` |
+| Backend  | `backend/.env`          | `PORT`, `DB_*`, `JWT_SECRET`, `CORS_ORIGINS`, `FRONTEND_BASE_URL`, `PASSWORD_RESET_TTL_MINUTES` |
 | Frontend | `.env` (root)           | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` |
 | Admin    | `admin/.env.production` | `REACT_APP_API_URL` |
 

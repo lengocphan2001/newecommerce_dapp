@@ -31,6 +31,14 @@ import { Web3Service } from '../blockchain/web3.service';
 import { CommissionPayoutService as BlockchainCommissionPayoutService } from '../blockchain/commission-payout.service';
 @Injectable()
 export class WalletService {
+  private toSafeNumber(value: unknown): number {
+    if (typeof value === 'number') return value;
+    const normalized = String(value ?? '')
+      .trim()
+      .replace(/,/g, '');
+    return Number(normalized);
+  }
+
   constructor(
     @InjectRepository(WalletDepositRequest)
     private readonly depositRequestRepo: Repository<WalletDepositRequest>,
@@ -423,8 +431,12 @@ export class WalletService {
       });
       if (user) {
         const current = Number(user.withdrawWalletBalance ?? 0);
+        const refundAmount = this.toSafeNumber(request.amount);
+        if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+          throw new BadRequestException('Số tiền rút không hợp lệ');
+        }
         await this.userRepo.update(request.userId, {
-          withdrawWalletBalance: current + Number(request.amount || 0),
+          withdrawWalletBalance: current + refundAmount,
         });
       }
     } else if (dto.status === WalletWithdrawStatus.APPROVED && request.method === WalletWithdrawMethod.USDT) {
@@ -436,9 +448,8 @@ export class WalletService {
         const toAddress = this.web3Service.formatAddress(request.usdtWalletAddress);
 
         // Withdraw from COMMISSION_PAYOUT_CONTRACT_ADDRESS (contract treasury).
-        const requestedAmountRaw = String(request.amount ?? '').trim();
-        const requestedAmount = Number(requestedAmountRaw);
-        if (!requestedAmountRaw || !Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+        const requestedAmount = this.toSafeNumber(request.amount);
+        if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
           throw new Error('Số tiền rút không hợp lệ');
         }
         const actualAmount = requestedAmount;
@@ -446,7 +457,7 @@ export class WalletService {
 
         const result = await this.blockchainPayoutService.emergencyWithdraw(
           toAddress,
-          requestedAmountRaw,
+          requestedAmount.toString(),
         );
         request.txHash = result.txHash;
 
@@ -459,6 +470,14 @@ export class WalletService {
           'Unknown error';
         throw new BadRequestException(`Lỗi xuất quỹ USDT: ${reason}`);
       }
+    }
+
+    if (
+      request.actualAmount !== null &&
+      request.actualAmount !== undefined &&
+      !Number.isFinite(Number(request.actualAmount))
+    ) {
+      throw new BadRequestException('Giá trị thực nhận không hợp lệ');
     }
 
     await this.withdrawRequestRepo.save(request);

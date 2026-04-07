@@ -186,6 +186,9 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   loginOtpExpiresAt?: Date;
 
+  @Column({ type: 'timestamp', nullable: true })
+  passwordChangedAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

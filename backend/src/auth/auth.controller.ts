@@ -20,6 +20,8 @@ import {
   UsernameLoginVerifyDto,
   UsernameRegisterDto,
   ChangePasswordDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
 } from './dto';
 import { JwtAuthGuard } from '../common/guards';
 import { PackagesService } from '../packages/packages.service';
@@ -118,6 +120,19 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body() refreshDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshDto);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Request() req: any) {
+    return this.authService.forgotPassword(dto.identifier, {
+      ip: req?.ip || req?.headers?.['x-forwarded-for'],
+      userAgent: req?.headers?.['user-agent'],
+    });
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Get('referral/check')

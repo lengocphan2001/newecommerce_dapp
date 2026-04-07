@@ -105,6 +105,26 @@ async function bootstrap() {
         message: 'Too many login attempts, please try again later.',
       },
     });
+    const forgotPasswordLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      standardHeaders: true,
+      legacyHeaders: false,
+      skip: skipOptions,
+      message: {
+        message: 'Too many reset requests, please try again later.',
+      },
+    });
+    const resetPasswordLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 10,
+      standardHeaders: true,
+      legacyHeaders: false,
+      skip: skipOptions,
+      message: {
+        message: 'Too many reset attempts, please try again later.',
+      },
+    });
     const walletMutationLimiter = rateLimit({
       windowMs: 10 * 60 * 1000,
       max: 25,
@@ -141,6 +161,8 @@ async function bootstrap() {
     app.use('/auth/admin/login', authLoginLimiter);
     app.use('/auth/wallet/login', authLoginLimiter);
     app.use('/auth/username-login', authLoginLimiter);
+    app.use('/auth/forgot-password', forgotPasswordLimiter);
+    app.use('/auth/reset-password', resetPasswordLimiter);
     app.use('/wallet/deposit-requests', walletMutationLimiter);
     app.use('/wallet/withdraw-requests', walletMutationLimiter);
     app.use('/uploads', uploadLimiter);

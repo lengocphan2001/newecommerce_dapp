@@ -10,6 +10,8 @@ import { StaffModule } from '../staff/staff.module';
 import { AffiliateModule } from '../affiliate/affiliate.module';
 import { AdminModule } from '../admin/admin.module';
 import { PackagesModule } from '../packages/packages.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { PackagesModule } from '../packages/packages.module';
     PackagesModule,
     forwardRef(() => AffiliateModule),
     forwardRef(() => AdminModule),
+    TypeOrmModule.forFeature([PasswordResetToken]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

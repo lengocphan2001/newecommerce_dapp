@@ -42,6 +42,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
+    if (user.passwordChangedAt && payload?.iat) {
+      const issuedAtMs = Number(payload.iat) * 1000;
+      if (Number.isFinite(issuedAtMs) && issuedAtMs < user.passwordChangedAt.getTime()) {
+        throw new UnauthorizedException('Session expired. Please login again.');
+      }
+    }
     return {
       sub: user.id,
       userId: user.id,
