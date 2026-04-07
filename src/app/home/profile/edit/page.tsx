@@ -29,9 +29,11 @@ export default function EditProfilePage() {
     accountNumber: '',
     accountName: '',
     bankCode: '',
+    qrImageUrl: '',
     isDefault: false,
   });
   const [bankLoading, setBankLoading] = useState(false);
+  const [bankQrUploading, setBankQrUploading] = useState(false);
   const [bankMessage, setBankMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [passwordForm, setPasswordForm] = useState({
@@ -267,6 +269,7 @@ export default function EditProfilePage() {
       accountNumber: '',
       accountName: '',
       bankCode: '',
+      qrImageUrl: '',
       isDefault: bankAccounts.length === 0,
     });
   };
@@ -278,14 +281,34 @@ export default function EditProfilePage() {
       accountNumber: item.accountNumber || '',
       accountName: item.accountName || '',
       bankCode: item.bankCode || '',
+      qrImageUrl: item.qrImageUrl || '',
       isDefault: Boolean(item.isDefault),
     });
+  };
+
+  const handleBankQrChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBankQrUploading(true);
+    setBankMessage(null);
+    try {
+      const { url } = await api.uploadDepositProof(file);
+      setBankForm((f) => ({ ...f, qrImageUrl: url }));
+    } catch (err: any) {
+      setBankMessage({ type: 'error', text: err?.message || 'Tải QR thất bại' });
+    } finally {
+      setBankQrUploading(false);
+    }
   };
 
   const handleSaveBank = async () => {
     setBankMessage(null);
     if (!bankForm.bankName || !bankForm.accountNumber || !bankForm.accountName) {
       setBankMessage({ type: 'error', text: 'Vui lòng nhập đầy đủ tên ngân hàng, số tài khoản, chủ tài khoản' });
+      return;
+    }
+    if (!bankForm.qrImageUrl) {
+      setBankMessage({ type: 'error', text: 'Vui lòng tải lên QR thanh toán của tài khoản ngân hàng' });
       return;
     }
     setBankLoading(true);
@@ -295,6 +318,7 @@ export default function EditProfilePage() {
         accountNumber: bankForm.accountNumber,
         accountName: bankForm.accountName,
         bankCode: bankForm.bankCode || undefined,
+        qrImageUrl: bankForm.qrImageUrl,
         isDefault: bankForm.isDefault,
       };
       if (bankForm.id) {
@@ -566,6 +590,33 @@ export default function EditProfilePage() {
                 className="form-input w-full rounded-xl border border-[#cfd7e7] bg-white h-12 px-3 text-base"
                 placeholder="Mã ngân hàng (tùy chọn)"
               />
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1 px-1">QR thanh toán *</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBankQrChange}
+                  className="hidden"
+                  id="profile-bank-qr-upload"
+                />
+                <label
+                  htmlFor="profile-bank-qr-upload"
+                  className="flex items-center justify-center py-2.5 px-4 rounded-xl border border-dashed border-[#cfd7e7] cursor-pointer text-sm text-[#135bec] bg-white"
+                >
+                  {bankQrUploading
+                    ? 'Đang tải QR...'
+                    : bankForm.qrImageUrl
+                      ? '✓ Đã tải QR (Bấm để đổi)'
+                      : 'Chọn ảnh QR ngân hàng'}
+                </label>
+                {bankForm.qrImageUrl && (
+                  <img
+                    src={bankForm.qrImageUrl}
+                    alt="Bank QR"
+                    className="mt-2 w-24 h-24 object-contain rounded border border-[#cfd7e7] bg-white"
+                  />
+                )}
+              </div>
               <label className="flex items-center gap-2 text-sm text-slate-700 px-1">
                 <input
                   type="checkbox"
