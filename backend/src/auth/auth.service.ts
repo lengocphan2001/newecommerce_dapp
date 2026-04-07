@@ -945,6 +945,15 @@ export class AuthService {
     }
   }
 
+  private assertMinPasswordLength(password: string): void {
+    const p = String(password || '');
+    if (p.length < 6) {
+      throw new BadRequestException(
+        'Password must be at least 6 characters',
+      );
+    }
+  }
+
   private hitForgotIdentifierRateLimit(identifier: string): void {
     const now = Date.now();
     const windowMs = 15 * 60 * 1000;
@@ -1038,7 +1047,7 @@ export class AuthService {
     if (!rawToken) {
       throw new BadRequestException('Invalid or expired reset token');
     }
-    this.assertStrongPassword(newPassword);
+    this.assertMinPasswordLength(newPassword);
 
     const tokenHash = this.hashResetToken(rawToken);
     const resetRecord = await this.passwordResetTokenRepo.findOne({

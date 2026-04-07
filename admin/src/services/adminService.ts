@@ -71,5 +71,9 @@ export const adminService = {
   reverseAllMatrixRewardOutstanding: () => api.post('/admin/matrix-reward/reverse-all'),
   setMatrixRewardTreeRoot: (level: number, userId: string) =>
     api.put(`/admin/matrix-reward/trees/${level}/root`, { userId }),
+  addUserToMatrixRewardTree: (level: number, data: { userId: string }) =>
+    api.post(`/admin/matrix-reward/trees/${level}/add-user`, data),
+  clearAllMatrixRewardTreesAndRewards: () =>
+    api.post('/admin/matrix-reward/trees/clear-all'),
 };
 

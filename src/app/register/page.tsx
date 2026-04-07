@@ -169,7 +169,7 @@ function RegisterForm() {
               <input
                 type="text"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value.replace(/[^a-zA-Z0-9]/g, "") })}
+                readOnly
                 className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 font-mono text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 placeholder="abc123"
                 minLength={3}
@@ -184,7 +184,7 @@ function RegisterForm() {
               </button>
             </div>
             <p className="mt-1 text-xs text-zinc-500">
-              Chữ và số, 3–20 ký tự. Bấm &quot;Tạo mới&quot; để tạo ngẫu nhiên.
+              Tên đăng nhập được tạo tự động. Bạn có thể bấm &quot;Tạo mới&quot; để đổi sang mã khác.
             </p>
           </div>
 

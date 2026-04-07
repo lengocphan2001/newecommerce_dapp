@@ -19,7 +19,7 @@ import {
   Table,
   Statistic,
 } from 'antd';
-import { ReloadOutlined, SearchOutlined, SaveOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SearchOutlined, SaveOutlined, PoweroffOutlined, DeleteOutlined } from '@ant-design/icons';
 import { adminService } from '../services/adminService';
 import {
   ReactFlow,
@@ -143,6 +143,9 @@ const MatrixPool: React.FC = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [rootUserId, setRootUserId] = useState('');
   const [settingRoot, setSettingRoot] = useState(false);
+  const [addingUser, setAddingUser] = useState(false);
+  const [addUserId, setAddUserId] = useState('');
+  const [clearingAll, setClearingAll] = useState(false);
   const [prepareMaxLevel, setPrepareMaxLevel] = useState<number>(10);
   const [preparingTrees, setPreparingTrees] = useState(false);
   const [backfillLimit, setBackfillLimit] = useState<number>(500);
@@ -465,6 +468,66 @@ const MatrixPool: React.FC = () => {
           throw e;
         } finally {
           setSettingRoot(false);
+        }
+      },
+    });
+  };
+
+  const addUserToTree = async () => {
+    const uid = addUserId.trim();
+    if (!uid) {
+      message.warning('Nhập User ID cần thêm');
+      return;
+    }
+    try {
+      setAddingUser(true);
+      await adminService.addUserToMatrixRewardTree(treeLevel, {
+        userId: uid,
+      });
+      message.success('Đã thêm user vào cây');
+      setAddUserId('');
+      await fetchTree();
+      await loadLevels();
+    } catch (e: any) {
+      message.error(
+        e?.response?.data?.message ||
+          e?.message ||
+          'Không thể thêm user vào cây',
+      );
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
+  const clearAllTreesAndRewards = () => {
+    Modal.confirm({
+      title: 'Xóa toàn bộ cây Matrix + bản ghi hoa hồng?',
+      content:
+        'Sẽ xóa TẤT CẢ cây, node, ledger, exclusion, processed records của Matrix Pool. Không thể hoàn tác.',
+      okText: 'Xóa toàn bộ',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setClearingAll(true);
+          const res = await adminService.clearAllMatrixRewardTreesAndRewards();
+          const data = (res as any)?.data ?? res;
+          message.success(
+            `Đã xóa: trees=${data?.treesDeleted ?? 0}, nodes=${data?.nodesDeleted ?? 0}, ledger=${data?.ledgersDeleted ?? 0}`,
+          );
+          setTreeData(null);
+          await loadLevels();
+          await loadLedgerHistory(1, historyLimit);
+          await loadLedgerSummary();
+        } catch (e: any) {
+          message.error(
+            e?.response?.data?.message ||
+              e?.message ||
+              'Không thể xóa toàn bộ cây matrix',
+          );
+          throw e;
+        } finally {
+          setClearingAll(false);
         }
       },
     });
@@ -855,6 +918,30 @@ const MatrixPool: React.FC = () => {
               Đặt làm gốc
             </Button>
           </div>
+        </Space>
+        <Space align="end" wrap style={{ width: '100%', marginBottom: 16 }}>
+          <div>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              User ID thêm vào cây
+            </div>
+            <Input
+              style={{ width: 280 }}
+              placeholder="UUID user"
+              value={addUserId}
+              onChange={(e) => setAddUserId(e.target.value)}
+            />
+          </div>
+          <Button type="primary" loading={addingUser} onClick={addUserToTree}>
+            Thêm user vào cây
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            loading={clearingAll}
+            onClick={clearAllTreesAndRewards}
+          >
+            Xóa toàn bộ cây + hoa hồng
+          </Button>
         </Space>
       </Card>
 

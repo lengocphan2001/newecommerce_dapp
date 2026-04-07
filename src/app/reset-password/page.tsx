@@ -17,12 +17,7 @@ function ResetPasswordForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const validatePassword = (value: string) => {
-    const hasMinLen = value.length >= 12;
-    const hasUpper = /[A-Z]/.test(value);
-    const hasLower = /[a-z]/.test(value);
-    const hasNumber = /[0-9]/.test(value);
-    const hasSpecial = /[^A-Za-z0-9]/.test(value);
-    return hasMinLen && hasUpper && hasLower && hasNumber && hasSpecial;
+    return value.length >= 6;
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -36,7 +31,7 @@ function ResetPasswordForm() {
     }
     if (!validatePassword(newPassword)) {
       setError(
-        "Mật khẩu cần tối thiểu 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt."
+        "Mật khẩu cần tối thiểu 6 ký tự."
       );
       return;
     }

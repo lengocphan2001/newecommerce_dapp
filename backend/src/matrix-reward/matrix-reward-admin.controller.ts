@@ -105,6 +105,22 @@ export class MatrixRewardAdminController {
     return this.matrixRewardService.setAdminTreeRoot(level, body.userId ?? '');
   }
 
+  @Post('trees/:level/add-user')
+  addUserToTree(
+    @Param('level', ParseIntPipe) level: number,
+    @Body()
+    body: {
+      userId?: string;
+    },
+  ) {
+    return this.matrixRewardService.addUserToTree(level, body.userId ?? '');
+  }
+
+  @Post('trees/clear-all')
+  clearAllTreesAndRewards() {
+    return this.matrixRewardService.clearAllTreesAndRewards();
+  }
+
   @Post('reverse')
   reverseRewardByOrder(
     @Body()

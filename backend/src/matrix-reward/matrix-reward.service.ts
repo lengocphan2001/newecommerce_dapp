@@ -538,9 +538,19 @@ export class MatrixRewardService {
     const userRepo = manager.getRepository(User);
     const u = await userRepo.findOne({
       where: { id: beneficiaryUserId },
-      select: ['id', 'withdrawWalletBalance'],
+      select: [
+        'id',
+        'withdrawWalletBalance',
+        'packageType',
+        'totalPurchaseAmount',
+        'totalCommissionReceived',
+      ],
     });
     if (!u) return false;
+    const eligible = await this.isMatrixPayoutEligible(u);
+    if (!eligible) {
+      return false;
+    }
 
     const bal = roundMoney(Number(u.withdrawWalletBalance ?? 0));
     await userRepo.update(beneficiaryUserId, {
@@ -568,6 +578,22 @@ export class MatrixRewardService {
       );
     }
     return true;
+  }
+
+  private async isMatrixPayoutEligible(
+    user: Pick<
+      User,
+      'packageType' | 'totalPurchaseAmount' | 'totalCommissionReceived'
+    >,
+  ): Promise<boolean> {
+    if (!user.packageType || user.packageType === 'NONE') return false;
+    const pkg = await this.packagesService.findByCode(user.packageType);
+    if (!pkg) return false;
+    const effectiveThreshold = this.packagesService.getEffectiveThreshold(
+      Number(user.totalPurchaseAmount || 0),
+      pkg,
+    );
+    return Number(user.totalCommissionReceived || 0) < effectiveThreshold;
   }
 
   private async removeUserFromTreeAndExclude(
@@ -1179,6 +1205,103 @@ export class MatrixRewardService {
         treeId,
         rootNodeId: root.id,
         userId: uid,
+      };
+    });
+  }
+
+  async addUserToTree(
+    treeLevel: number,
+    userId: string,
+  ): Promise<{
+    treeLevel: number;
+    treeId: string;
+    nodeId: string;
+    userId: string;
+    parentNodeId: string | null;
+    side: 'left' | 'right' | null;
+  }> {
+    const uid = (userId || '').trim();
+    if (!uid) throw new BadRequestException('userId is required');
+    const user = await this.userRepo.findOne({ where: { id: uid }, select: ['id'] });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.dataSource.transaction(async (manager) => {
+      const treeRepo = manager.getRepository(MatrixRewardTree);
+      const nodeRepo = manager.getRepository(MatrixRewardNode);
+      let tree = await treeRepo.findOne({ where: { treeLevel } });
+      if (!tree) {
+        tree = treeRepo.create({ treeLevel });
+        await treeRepo.save(tree);
+      }
+      const treeId = tree.id;
+
+      const existed = await nodeRepo.findOne({ where: { treeId, userId: uid } });
+      if (existed) {
+        throw new BadRequestException('User đã tồn tại trên cây này');
+      }
+
+      const placement = await this.findBfsPlacement(manager, treeId);
+
+      const node = manager.create(MatrixRewardNode, {
+        treeId,
+        userId: uid,
+        parentNodeId: placement.parentNodeId,
+        side: placement.side,
+        placementOrderId: null,
+      });
+      await manager.save(MatrixRewardNode, node);
+      return {
+        treeLevel,
+        treeId,
+        nodeId: node.id,
+        userId: uid,
+        parentNodeId: placement.parentNodeId,
+        side:
+          placement.side === MatrixNodeSide.LEFT
+            ? 'left'
+            : placement.side === MatrixNodeSide.RIGHT
+              ? 'right'
+              : null,
+      };
+    });
+  }
+
+  async clearAllTreesAndRewards(): Promise<{
+    treesDeleted: number;
+    nodesDeleted: number;
+    ledgersDeleted: number;
+    exclusionsDeleted: number;
+    processedDeleted: number;
+  }> {
+    return this.dataSource.transaction(async (manager) => {
+      const treeRepo = manager.getRepository(MatrixRewardTree);
+      const nodeRepo = manager.getRepository(MatrixRewardNode);
+      const ledgerRepo = manager.getRepository(MatrixRewardLedger);
+      const exclusionRepo = manager.getRepository(MatrixTreeExclusion);
+      const processedRepo = manager.getRepository(MatrixRewardOrderProcessed);
+
+      const treesDeleted = await treeRepo.count();
+      const nodesDeleted = await nodeRepo.count();
+      const ledgersDeleted = await ledgerRepo.count();
+      const exclusionsDeleted = await exclusionRepo.count();
+      const processedDeleted = await processedRepo.count();
+
+      await ledgerRepo.clear();
+      await nodeRepo.clear();
+      await exclusionRepo.clear();
+      await processedRepo.clear();
+      await treeRepo.clear();
+
+      this.logger.warn(
+        `[MATRIX] Admin cleared all trees and rewards: trees=${treesDeleted}, nodes=${nodesDeleted}, ledgers=${ledgersDeleted}`,
+      );
+
+      return {
+        treesDeleted,
+        nodesDeleted,
+        ledgersDeleted,
+        exclusionsDeleted,
+        processedDeleted,
       };
     });
   }
