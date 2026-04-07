@@ -45,6 +45,7 @@ import { MatrixRewardNode } from '../src/matrix-reward/entities/matrix-reward-no
 import { MatrixRewardLedger } from '../src/matrix-reward/entities/matrix-reward-ledger.entity';
 import { MatrixTreeExclusion } from '../src/matrix-reward/entities/matrix-tree-exclusion.entity';
 import { MatrixRewardOrderProcessed } from '../src/matrix-reward/entities/matrix-reward-order-processed.entity';
+import { PasswordResetToken } from '../src/auth/entities/password-reset-token.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -141,6 +142,7 @@ async function initializeDatabase() {
       MatrixRewardLedger,
       MatrixTreeExclusion,
       MatrixRewardOrderProcessed,
+      PasswordResetToken,
     ],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
