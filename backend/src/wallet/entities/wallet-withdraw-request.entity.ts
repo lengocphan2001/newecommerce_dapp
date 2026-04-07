@@ -48,8 +48,9 @@ export class WalletWithdrawRequest {
     scale: 18,
     nullable: true,
     transformer: {
-      to: (value: number) => value,
-      from: (value: string) => parseFloat(value),
+      to: (value: number | null) => value,
+      from: (value: string | null) =>
+        value === null || value === undefined ? null : parseFloat(value),
     },
   })
   actualAmount: number | null;

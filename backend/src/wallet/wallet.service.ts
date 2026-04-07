@@ -439,7 +439,16 @@ export class WalletService {
           withdrawWalletBalance: current + refundAmount,
         });
       }
-    } else if (dto.status === WalletWithdrawStatus.APPROVED && request.method === WalletWithdrawMethod.USDT) {
+    } else if (dto.status === WalletWithdrawStatus.APPROVED) {
+      const requestedAmount = this.toSafeNumber(request.amount);
+      if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+        throw new BadRequestException('Số tiền rút không hợp lệ');
+      }
+      // Banking approve không có tx on-chain, nhưng vẫn cần actualAmount hợp lệ để lưu lịch sử.
+      request.actualAmount = requestedAmount;
+    }
+
+    if (dto.status === WalletWithdrawStatus.APPROVED && request.method === WalletWithdrawMethod.USDT) {
       if (!request.usdtWalletAddress) {
          throw new BadRequestException('Bắt buộc phải có địa chỉ ví USDT để chuyển tiền');
       }
@@ -449,11 +458,6 @@ export class WalletService {
 
         // Withdraw from COMMISSION_PAYOUT_CONTRACT_ADDRESS (contract treasury).
         const requestedAmount = this.toSafeNumber(request.amount);
-        if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-          throw new Error('Số tiền rút không hợp lệ');
-        }
-        const actualAmount = requestedAmount;
-        request.actualAmount = actualAmount;
 
         const result = await this.blockchainPayoutService.emergencyWithdraw(
           toAddress,
