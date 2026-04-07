@@ -33,6 +33,9 @@ export class UserBankAccount {
   @Column({ type: 'varchar', length: 32, nullable: true })
   bankCode?: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  qrImageUrl?: string | null;
+
   @Column({ default: false })
   isDefault: boolean;
 

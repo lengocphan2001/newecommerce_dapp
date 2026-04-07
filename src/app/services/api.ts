@@ -698,6 +698,7 @@ export const api = {
     accountNumber: string;
     accountName: string;
     bankCode?: string;
+    qrImageUrl: string;
     isDefault?: boolean;
   }) {
     const token = localStorage.getItem('token');
@@ -719,6 +720,7 @@ export const api = {
     accountNumber?: string;
     accountName?: string;
     bankCode?: string;
+    qrImageUrl?: string;
     isDefault?: boolean;
   }) {
     const token = localStorage.getItem('token');

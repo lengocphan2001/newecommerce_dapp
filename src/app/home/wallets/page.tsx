@@ -45,11 +45,13 @@ export default function WalletsPage() {
     accountNumber: "",
     accountName: "",
     bankCode: "",
+    qrImageUrl: "",
     isDefault: false,
   });
   const [depositSubmitting, setDepositSubmitting] = useState(false);
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
   const [bankAccountSubmitting, setBankAccountSubmitting] = useState(false);
+  const [bankQrUploading, setBankQrUploading] = useState(false);
   const [proofUploading, setProofUploading] = useState(false);
   const [depositError, setDepositError] = useState("");
   const [withdrawError, setWithdrawError] = useState("");
@@ -311,6 +313,7 @@ export default function WalletsPage() {
       accountNumber: "",
       accountName: "",
       bankCode: "",
+      qrImageUrl: "",
       isDefault: bankAccounts.length === 0,
     });
     setShowBankAccountModal(true);
@@ -324,6 +327,7 @@ export default function WalletsPage() {
       accountNumber: item.accountNumber || "",
       accountName: item.accountName || "",
       bankCode: item.bankCode || "",
+      qrImageUrl: item.qrImageUrl || "",
       isDefault: Boolean(item.isDefault),
     });
     setShowBankAccountModal(true);
@@ -335,6 +339,10 @@ export default function WalletsPage() {
       setBankAccountError("Vui lòng nhập đầy đủ tên ngân hàng, số tài khoản, chủ tài khoản");
       return;
     }
+    if (!bankAccountForm.qrImageUrl) {
+      setBankAccountError("Vui lòng tải lên ảnh QR thanh toán của tài khoản ngân hàng");
+      return;
+    }
     setBankAccountSubmitting(true);
     try {
       const payload = {
@@ -342,6 +350,7 @@ export default function WalletsPage() {
         accountNumber: bankAccountForm.accountNumber,
         accountName: bankAccountForm.accountName,
         bankCode: bankAccountForm.bankCode || undefined,
+        qrImageUrl: bankAccountForm.qrImageUrl,
         isDefault: bankAccountForm.isDefault,
       };
       if (bankAccountForm.id) {
@@ -355,6 +364,21 @@ export default function WalletsPage() {
       setBankAccountError(err?.message || "Lưu tài khoản ngân hàng thất bại");
     } finally {
       setBankAccountSubmitting(false);
+    }
+  };
+
+  const handleBankQrChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBankQrUploading(true);
+    setBankAccountError("");
+    try {
+      const { url } = await api.uploadDepositProof(file);
+      setBankAccountForm((f) => ({ ...f, qrImageUrl: url }));
+    } catch (err: any) {
+      setBankAccountError(err?.message || "Tải QR thất bại");
+    } finally {
+      setBankQrUploading(false);
     }
   };
 
@@ -678,6 +702,13 @@ export default function WalletsPage() {
                           {b.bankName} {b.isDefault ? "(Mặc định)" : ""}
                         </p>
                         <p className="text-xs text-slate-500">{b.accountName} - {b.accountNumber}</p>
+                        {b.qrImageUrl && (
+                          <img
+                            src={b.qrImageUrl}
+                            alt="Bank QR"
+                            className="mt-2 w-16 h-16 object-contain rounded border border-slate-200 bg-white"
+                          />
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => openEditBankAccount(b)} className="text-xs text-primary-dark">Sửa</button>
@@ -1054,6 +1085,20 @@ export default function WalletsPage() {
                   className="w-full rounded-xl border border-gray-300 px-4 py-2.5"
                   placeholder="Mã ngân hàng (tùy chọn)"
                 />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">QR thanh toán *</label>
+                  <input type="file" accept="image/*" onChange={handleBankQrChange} className="hidden" id="bank-qr-upload" />
+                  <label htmlFor="bank-qr-upload" className="flex items-center justify-center py-2 px-4 rounded-xl border border-dashed border-gray-300 cursor-pointer text-sm text-primary-dark w-full bg-slate-50/50">
+                    {bankQrUploading ? "Đang tải QR..." : bankAccountForm.qrImageUrl ? "✓ Đã tải QR (Bấm để đổi)" : "Chọn ảnh QR ngân hàng"}
+                  </label>
+                  {bankAccountForm.qrImageUrl && (
+                    <img
+                      src={bankAccountForm.qrImageUrl}
+                      alt="QR preview"
+                      className="mt-2 w-28 h-28 object-contain rounded border border-slate-200 bg-white"
+                    />
+                  )}
+                </div>
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input
                     type="checkbox"

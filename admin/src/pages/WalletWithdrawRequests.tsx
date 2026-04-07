@@ -11,6 +11,7 @@ import {
   walletWithdrawRequestService,
   WalletWithdrawRequest,
 } from '../services/walletWithdrawRequestService';
+import { bankingService } from '../services/bankingService';
 
 const WalletWithdrawRequests: React.FC = () => {
   const [list, setList] = useState<WalletWithdrawRequest[]>([]);
@@ -26,6 +27,7 @@ const WalletWithdrawRequests: React.FC = () => {
     'APPROVED' | 'REJECTED' | null
   >(null);
   const [adminNote, setAdminNote] = useState('');
+  const [usdtWithdrawRateVnd, setUsdtWithdrawRateVnd] = useState<number>(0);
 
   const fetchList = async () => {
     setLoading(true);
@@ -49,6 +51,17 @@ const WalletWithdrawRequests: React.FC = () => {
   useEffect(() => {
     fetchList();
   }, [statusFilter]);
+
+  useEffect(() => {
+    bankingService
+      .getConfig()
+      .then((res: any) => {
+        const data = (res as any)?.data ?? res;
+        const rate = Number(data?.usdtWithdrawPriceVnd ?? 0);
+        setUsdtWithdrawRateVnd(Number.isFinite(rate) && rate > 0 ? rate : 0);
+      })
+      .catch(() => setUsdtWithdrawRateVnd(0));
+  }, []);
 
   const handleSearch = () => {
     fetchList();
@@ -298,6 +311,14 @@ const WalletWithdrawRequests: React.FC = () => {
                 ${Number(selectedRequest.amount || 0).toFixed(2)}
               </span>
             </p>
+            {selectedRequest.method === 'BANKING' && usdtWithdrawRateVnd > 0 && (
+              <p>
+                <strong>Số tiền VND nhận:</strong>{' '}
+                <span style={{ fontWeight: 'bold', color: '#389e0d' }}>
+                  {Math.round(Number(selectedRequest.amount || 0) * usdtWithdrawRateVnd).toLocaleString('vi-VN')} VND
+                </span>
+              </p>
+            )}
             <p>
               <strong>Phương thức:</strong> {selectedRequest.method}
             </p>
@@ -307,6 +328,25 @@ const WalletWithdrawRequests: React.FC = () => {
                 ? selectedRequest.usdtWalletAddress
                 : `${selectedRequest.bankName || ''} / ${selectedRequest.bankAccountName || ''} / ${selectedRequest.bankAccountNumber || ''}`}
             </p>
+            {selectedRequest.method === 'BANKING' && selectedRequest.bankQrImageUrl && (
+              <div>
+                <strong>QR thanh toán:</strong>
+                <div style={{ marginTop: 8 }}>
+                  <img
+                    src={selectedRequest.bankQrImageUrl}
+                    alt="Bank QR"
+                    style={{
+                      width: 220,
+                      height: 220,
+                      objectFit: 'contain',
+                      border: '1px solid #f0f0f0',
+                      borderRadius: 8,
+                      background: '#fff',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             {selectedRequest.note && (
               <p>
                 <strong>Ghi chú user:</strong> {selectedRequest.note}

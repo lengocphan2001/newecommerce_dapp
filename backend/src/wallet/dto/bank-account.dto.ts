@@ -27,6 +27,11 @@ export class CreateBankAccountDto {
   @MaxLength(32)
   bankCode?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  qrImageUrl: string;
+
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
@@ -55,6 +60,12 @@ export class UpdateBankAccountDto {
   @IsString()
   @MaxLength(32)
   bankCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  qrImageUrl?: string;
 
   @IsOptional()
   @IsBoolean()

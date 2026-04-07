@@ -10,6 +10,7 @@ export interface WalletWithdrawRequest {
   bankName?: string | null;
   bankAccountNumber?: string | null;
   bankAccountName?: string | null;
+  bankQrImageUrl?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   note?: string | null;
   adminNote?: string | null;
