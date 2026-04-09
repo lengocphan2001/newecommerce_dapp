@@ -225,7 +225,7 @@ export class WalletService {
       accountNumber: dto.accountNumber.trim(),
       accountName: dto.accountName.trim(),
       bankCode: dto.bankCode?.trim() || null,
-      qrImageUrl: dto.qrImageUrl.trim(),
+      qrImageUrl: dto.qrImageUrl?.trim() || null,
       isDefault: Boolean(dto.isDefault),
     });
     const saved = await this.userBankAccountRepo.save(account);
@@ -334,11 +334,6 @@ export class WalletService {
       bankAccountNumber = bankAccount.accountNumber;
       bankAccountName = bankAccount.accountName;
       bankQrImageUrl = bankAccount.qrImageUrl || null;
-      if (!bankQrImageUrl) {
-        throw new BadRequestException(
-          'Tài khoản ngân hàng chưa có QR thanh toán. Vui lòng cập nhật QR trước khi rút.',
-        );
-      }
     } else {
       throw new BadRequestException('Invalid withdraw method');
     }

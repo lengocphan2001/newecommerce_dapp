@@ -57,7 +57,7 @@ const WalletWithdrawRequests: React.FC = () => {
       .getConfig()
       .then((res: any) => {
         const data = (res as any)?.data ?? res;
-        const rate = Number(data?.usdtWithdrawPriceVnd ?? 0);
+        const rate = Number(data?.usdtWithdrawPriceVnd ?? data?.usdtPriceVnd ?? 0);
         setUsdtWithdrawRateVnd(Number.isFinite(rate) && rate > 0 ? rate : 0);
       })
       .catch(() => setUsdtWithdrawRateVnd(0));
@@ -315,8 +315,14 @@ const WalletWithdrawRequests: React.FC = () => {
               <p>
                 <strong>Số tiền VND nhận:</strong>{' '}
                 <span style={{ fontWeight: 'bold', color: '#389e0d' }}>
-                  {Math.round(Number(selectedRequest.amount || 0) * usdtWithdrawRateVnd).toLocaleString('vi-VN')} VND
+                  {Math.round(Number(selectedRequest.actualAmount ?? selectedRequest.amount || 0) * usdtWithdrawRateVnd).toLocaleString('vi-VN')} VND
                 </span>
+              </p>
+            )}
+            {selectedRequest.method === 'BANKING' && usdtWithdrawRateVnd <= 0 && (
+              <p>
+                <strong>Số tiền VND nhận:</strong>{' '}
+                <span style={{ color: '#999' }}>Chưa cấu hình tỷ giá USDT/VND trong Banking Settings</span>
               </p>
             )}
             <p>

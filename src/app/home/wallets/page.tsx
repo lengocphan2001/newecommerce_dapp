@@ -339,10 +339,6 @@ export default function WalletsPage() {
       setBankAccountError("Vui lòng nhập đầy đủ tên ngân hàng, số tài khoản, chủ tài khoản");
       return;
     }
-    if (!bankAccountForm.qrImageUrl) {
-      setBankAccountError("Vui lòng tải lên ảnh QR thanh toán của tài khoản ngân hàng");
-      return;
-    }
     setBankAccountSubmitting(true);
     try {
       const payload = {
@@ -455,15 +451,15 @@ export default function WalletsPage() {
     }
   };
 
-  const shoppingBalance = parseFloat(referralInfo?.accumulatedPurchases || "0");
   const affiliateBalanceGross = parseFloat(referralInfo?.bonusCommission || "0");
+  const fakeReceivedCommission = parseFloat(referralInfo?.fakeReceivedCommission || "0");
+  const affiliateBalance = affiliateBalanceGross + fakeReceivedCommission;
+
+  // Preserve the following if needed elsewhere, otherwise we can just compute it. 
+  // Looks like depositPercent / withdrawPercent are used later for feePercent, so keep them.
   const depositPercent = referralInfo?.commissionDepositWalletPercent ?? 12;
   const withdrawPercent = referralInfo?.commissionWithdrawWalletPercent ?? 80;
   const feePercent = referralInfo?.payoutFeePercent ?? Math.max(0, 100 - (depositPercent + withdrawPercent));
-  const affiliateBalanceNet = referralInfo?.bonusCommissionNet != null
-    ? parseFloat(String(referralInfo.bonusCommissionNet))
-    : affiliateBalanceGross * ((depositPercent + withdrawPercent) / 100);
-  const affiliateBalance = affiliateBalanceNet;
 
   // Helper function to safely format date
   const formatDateSafe = (dateString: string | null | undefined): string => {
@@ -1086,7 +1082,7 @@ export default function WalletsPage() {
                   placeholder="Mã ngân hàng (tùy chọn)"
                 />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">QR thanh toán *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">QR thanh toán (tùy chọn)</label>
                   <input type="file" accept="image/*" onChange={handleBankQrChange} className="hidden" id="bank-qr-upload" />
                   <label htmlFor="bank-qr-upload" className="flex items-center justify-center py-2 px-4 rounded-xl border border-dashed border-gray-300 cursor-pointer text-sm text-primary-dark w-full bg-slate-50/50">
                     {bankQrUploading ? "Đang tải QR..." : bankAccountForm.qrImageUrl ? "✓ Đã tải QR (Bấm để đổi)" : "Chọn ảnh QR ngân hàng"}
