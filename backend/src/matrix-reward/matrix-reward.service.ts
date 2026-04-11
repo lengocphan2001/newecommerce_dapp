@@ -986,7 +986,14 @@ export class MatrixRewardService {
     const qb = this.orderRepo
       .createQueryBuilder('o')
       .leftJoin(MatrixRewardOrderProcessed, 'p', 'p.orderId = o.id')
-      .where('o.status = :status', { status: OrderStatus.CONFIRMED })
+      .where('o.status IN (:...statuses)', {
+        statuses: [
+          OrderStatus.CONFIRMED,
+          OrderStatus.PROCESSING,
+          OrderStatus.SHIPPED,
+          OrderStatus.DELIVERED,
+        ],
+      })
       .orderBy('o.createdAt', 'ASC')
       .addOrderBy('o.id', 'ASC')
       // Dùng limit() thay vì take() để tránh TypeORM sinh subquery DISTINCT

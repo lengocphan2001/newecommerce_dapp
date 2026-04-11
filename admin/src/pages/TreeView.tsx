@@ -352,7 +352,34 @@ const TreeView: React.FC = () => {
   return (
     <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
       <Card
-        title="Binary Tree View"
+        title={
+          <Space>
+            <span>Binary Tree View</span>
+            {treeData && nodes.length > 0 && (() => {
+              const countSubtree = (n?: TreeNode): number => {
+                if (!n) return 0;
+                let count = 1;
+                if (n.children) n.children.forEach(c => count += countSubtree(c));
+                return count;
+              };
+              const leftNode = treeData.children?.find(c => c.position === 'left');
+              const rightNode = treeData.children?.find(c => c.position === 'right');
+              const leftCount = countSubtree(leftNode);
+              const rightCount = countSubtree(rightNode);
+              return (
+                <Space>
+                  <Tag color="cyan">Total Nodes Loaded: {nodes.length}</Tag>
+                  {(leftCount > 0 || rightCount > 0) && (
+                    <>
+                      <Tag color="blue">Left Nodes: {leftCount}</Tag>
+                      <Tag color="green">Right Nodes: {rightCount}</Tag>
+                    </>
+                  )}
+                </Space>
+              );
+            })()}
+          </Space>
+        }
         extra={
           <Space>
             <Button icon={<ReloadOutlined />} onClick={fetchTree} loading={loading}>
