@@ -315,7 +315,7 @@ const WalletWithdrawRequests: React.FC = () => {
               <p>
                 <strong>Số tiền VND nhận:</strong>{' '}
                 <span style={{ fontWeight: 'bold', color: '#389e0d' }}>
-                  {Math.round(Number(selectedRequest.actualAmount ?? selectedRequest.amount || 0) * usdtWithdrawRateVnd).toLocaleString('vi-VN')} VND
+                  {Math.round(Number((selectedRequest.actualAmount ?? selectedRequest.amount) || 0) * usdtWithdrawRateVnd).toLocaleString('vi-VN')} VND
                 </span>
               </p>
             )}
