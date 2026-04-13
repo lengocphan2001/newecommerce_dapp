@@ -7,8 +7,10 @@ import {
   Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 import { MatrixRewardService } from './matrix-reward.service';
 
@@ -94,6 +96,66 @@ export class MatrixRewardAdminController {
   @Get('trees/:level/view')
   getTreeView(@Param('level', ParseIntPipe) level: number) {
     return this.matrixRewardService.getTreeViewForLevel(level);
+  }
+
+  @Get('trees/:level/export')
+  async exportTreeNodes(
+    @Param('level', ParseIntPipe) level: number,
+    @Query('limit') limit?: string,
+    @Res() res?: Response,
+  ) {
+    const data = await this.matrixRewardService.getRecentNodesForTreeLevel(
+      level,
+      Number(limit ?? 200),
+    );
+    const escapeCsv = (val: unknown): string => {
+      if (val === null || val === undefined) return '';
+      const s = val instanceof Date ? val.toISOString() : String(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const headers = [
+      'Tree Level',
+      'Tree ID',
+      'Total Node Count',
+      'Node ID',
+      'User ID',
+      'Username',
+      'Full Name',
+      'Email',
+      'Package Type',
+      'Position',
+      'Parent Node ID',
+      'Placement Order ID',
+      'Matrix Earned On Tree',
+      'Created At',
+    ];
+    const rows = data.items.map((item) => [
+      data.treeLevel,
+      data.treeId ?? '',
+      data.totalNodeCount,
+      item.nodeId,
+      item.userId,
+      item.username ?? '',
+      item.fullName ?? '',
+      item.email ?? '',
+      item.packageType ?? '',
+      item.position,
+      item.parentNodeId ?? '',
+      item.placementOrderId ?? '',
+      item.matrixEarnedOnTree,
+      item.createdAt,
+    ]);
+    const csv = '\uFEFF' + [headers.join(','), ...rows.map((row) => row.map(escapeCsv).join(','))].join('\n');
+    if (!res) return csv;
+    res.header('Content-Type', 'text/csv; charset=utf-8');
+    res.header(
+      'Content-Disposition',
+      `attachment; filename="matrix-tree-${level}-recent-nodes.csv"`,
+    );
+    return res.send(csv);
   }
 
   /** Đặt user làm gốc cây (cây trống hoặc chỉ có gốc, chưa có con). */

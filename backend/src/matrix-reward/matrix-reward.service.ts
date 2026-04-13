@@ -227,17 +227,6 @@ export class MatrixRewardService {
 
         try {
           const buyerId = order.userId;
-          const alreadyPlaced = await manager
-            .getRepository(MatrixRewardNode)
-            .findOne({
-              where: { userId: buyerId },
-              select: ['id'],
-            });
-          if (alreadyPlaced) {
-            result = 'already_in_tree';
-            return;
-          }
-
           const nextLevel = await this.computeNextTreeLevel(buyerId, manager);
           const tree = await this.getOrCreateTree(nextLevel, manager);
           const treeId = tree.id;
@@ -821,6 +810,87 @@ export class MatrixRewardService {
   async listTreeLevels(): Promise<number[]> {
     const trees = await this.treeRepo.find({ order: { treeLevel: 'ASC' } });
     return trees.map((t) => t.treeLevel);
+  }
+
+  async getRecentNodesForTreeLevel(
+    treeLevel: number,
+    limit = 200,
+  ): Promise<{
+    treeLevel: number;
+    treeId: string | null;
+    totalNodeCount: number;
+    items: Array<{
+      nodeId: string;
+      userId: string;
+      username: string | null;
+      fullName: string;
+      email: string;
+      packageType: string;
+      parentNodeId: string | null;
+      position: 'left' | 'right' | 'root';
+      placementOrderId: string | null;
+      matrixEarnedOnTree: number;
+      createdAt: Date;
+    }>;
+  }> {
+    const safeLimit = Math.max(1, Math.min(5000, Math.floor(Number(limit) || 200)));
+    const tree = await this.treeRepo.findOne({ where: { treeLevel } });
+    if (!tree) {
+      return {
+        treeLevel,
+        treeId: null,
+        totalNodeCount: 0,
+        items: [],
+      };
+    }
+
+    const totalNodeCount = await this.nodeRepo.count({ where: { treeId: tree.id } });
+    const nodes = await this.nodeRepo.find({
+      where: { treeId: tree.id },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+      take: safeLimit,
+    });
+
+    const userIds = [...new Set(nodes.map((node) => node.userId))];
+    const earnedByUser = new Map<string, number>();
+    if (userIds.length > 0) {
+      const ledgerRows = await this.ledgerRepo
+        .createQueryBuilder('l')
+        .select('l.beneficiaryUserId', 'beneficiaryUserId')
+        .addSelect('COALESCE(SUM(l.amount),0)', 'total')
+        .where('l.treeId = :treeId', { treeId: tree.id })
+        .andWhere('l.beneficiaryUserId IN (:...userIds)', { userIds })
+        .groupBy('l.beneficiaryUserId')
+        .getRawMany<{ beneficiaryUserId: string; total: string }>();
+      for (const row of ledgerRows) {
+        earnedByUser.set(row.beneficiaryUserId, roundMoney(Number(row.total) || 0));
+      }
+    }
+
+    return {
+      treeLevel,
+      treeId: tree.id,
+      totalNodeCount,
+      items: nodes.map((node) => ({
+        nodeId: node.id,
+        userId: node.userId,
+        username: node.user?.username ?? null,
+        fullName: node.user?.fullName ?? node.user?.email ?? '',
+        email: node.user?.email ?? '',
+        packageType: (node.user?.packageType as string) || 'NONE',
+        parentNodeId: node.parentNodeId ?? null,
+        position:
+          node.side === MatrixNodeSide.LEFT
+            ? 'left'
+            : node.side === MatrixNodeSide.RIGHT
+              ? 'right'
+              : 'root',
+        placementOrderId: node.placementOrderId ?? null,
+        matrixEarnedOnTree: earnedByUser.get(node.userId) ?? 0,
+        createdAt: node.createdAt,
+      })),
+    };
   }
 
   async getLedgerHistory(params?: {

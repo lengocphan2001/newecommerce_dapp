@@ -137,6 +137,7 @@ const MatrixPool: React.FC = () => {
   const [levels, setLevels] = useState<number[]>([1]);
   const [treeData, setTreeData] = useState<MatrixTreeNode | null>(null);
   const [loading, setLoading] = useState(false);
+  const [treeNodeCount, setTreeNodeCount] = useState(0);
   const [configLoading, setConfigLoading] = useState(false);
   const [matrixEnabled, setMatrixEnabled] = useState(true);
   const [togglingEnabled, setTogglingEnabled] = useState(false);
@@ -151,6 +152,8 @@ const MatrixPool: React.FC = () => {
   const [clearingAll, setClearingAll] = useState(false);
   const [prepareMaxLevel, setPrepareMaxLevel] = useState<number>(10);
   const [preparingTrees, setPreparingTrees] = useState(false);
+  const [exportLimit, setExportLimit] = useState<number>(200);
+  const [exportingTree, setExportingTree] = useState(false);
   const [backfillLimit, setBackfillLimit] = useState<number>(500);
   const [backfillingOrders, setBackfillingOrders] = useState(false);
   const [reverseUserId, setReverseUserId] = useState('');
@@ -292,14 +295,45 @@ const MatrixPool: React.FC = () => {
       const res = await adminService.getMatrixRewardTreeView(treeLevel);
       const data = (res as any)?.data ?? res;
       setTreeData(data?.root ?? null);
+      setTreeNodeCount(Number(data?.nodeCount ?? 0));
       if (!data?.root) {
         message.info(`Tree level ${treeLevel} is empty or not created yet.`);
       }
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to fetch matrix tree');
       setTreeData(null);
+      setTreeNodeCount(0);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const exportTreeNodes = async () => {
+    try {
+      setExportingTree(true);
+      const response = await adminService.exportMatrixRewardTreeNodes(
+        treeLevel,
+        exportLimit,
+      );
+      const blob =
+        (response as any)?.data instanceof Blob
+          ? (response as any).data
+          : new Blob([(response as any)?.data], {
+              type: 'text/csv;charset=utf-8',
+            });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `matrix-tree-${treeLevel}-recent-nodes.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.parentNode?.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      message.success('Đã export tree');
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || e?.message || 'Export tree thất bại');
+    } finally {
+      setExportingTree(false);
     }
   };
 
@@ -955,6 +989,17 @@ const MatrixPool: React.FC = () => {
         title="Matrix tree view (theo cây số)"
         extra={
           <Space>
+            <InputNumber
+              min={1}
+              max={5000}
+              step={50}
+              value={exportLimit}
+              onChange={(v) => setExportLimit(Number(v || 1))}
+              placeholder="Số node export"
+            />
+            <Button onClick={exportTreeNodes} loading={exportingTree}>
+              Export tree
+            </Button>
             <Button icon={<ReloadOutlined />} onClick={() => loadLevels()}>
               Refresh levels
             </Button>
@@ -974,6 +1019,7 @@ const MatrixPool: React.FC = () => {
           <Button type="primary" icon={<SearchOutlined />} onClick={fetchTree} loading={loading}>
             Load
           </Button>
+          <Tag color="purple">Node count: {treeNodeCount}</Tag>
         </Space>
       </Card>
 

@@ -45,6 +45,11 @@ export const adminService = {
   getMatrixRewardLevels: () => api.get('/admin/matrix-reward/trees/levels'),
   getMatrixRewardTreeView: (level: number) =>
     api.get(`/admin/matrix-reward/trees/${level}/view`),
+  exportMatrixRewardTreeNodes: (level: number, limit?: number) =>
+    api.get(`/admin/matrix-reward/trees/${level}/export`, {
+      params: { limit },
+      responseType: 'blob',
+    }),
   prepareMatrixRewardTrees: (maxLevel: number) =>
     api.post('/admin/matrix-reward/trees/prepare', { maxLevel }),
   backfillMatrixRewardOrders: (data?: {
