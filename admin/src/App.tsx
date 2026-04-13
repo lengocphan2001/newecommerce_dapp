@@ -23,6 +23,7 @@ import MilestoneReward from './pages/MilestoneReward';
 import AuditLog from './pages/AuditLog';
 import TreeView from './pages/TreeView';
 import MatrixPool from './pages/MatrixPool';
+import MatrixRecords from './pages/MatrixRecords';
 import Staffs from './pages/Staffs';
 import Roles from './pages/Roles';
 import Login from './pages/Login';
@@ -279,6 +280,18 @@ function App() {
                   <AdminOnlyRoute>
                     <AdminLayout>
                       <MatrixPool />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/matrix-records"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <MatrixRecords />
                     </AdminLayout>
                   </AdminOnlyRoute>
                 </PrivateRoute>

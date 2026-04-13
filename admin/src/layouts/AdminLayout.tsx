@@ -184,6 +184,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       adminOnly: true,
     },
     {
+      key: '/matrix-records',
+      icon: <AuditOutlined />,
+      label: 'Matrix records',
+      permission: null,
+      adminOnly: true,
+    },
+    {
       key: '/staffs',
       icon: <UsergroupAddOutlined />,
       label: 'Staff',
