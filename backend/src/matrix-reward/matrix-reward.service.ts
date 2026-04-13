@@ -30,6 +30,7 @@ const CFG_ENABLED = 'matrixRewardEnabled';
 type ProcessResult =
   | 'system_disabled'   // hệ thống matrix đang tắt
   | 'already_done'      // đã xử lý từ trước (idempotent)
+  | 'already_in_tree'   // buyer đã có vị trí trong matrix -> bỏ qua
   | 'invalid_order'     // đơn không tồn tại / chưa CONFIRMED
   | 'below_min_order'   // giá trị đơn < minOrderUsd
   | 'prev_tree_not_met' // chưa đủ điều kiện cây trước (không mark processed)
@@ -215,23 +216,18 @@ export class MatrixRewardService {
 
         try {
           const buyerId = order.userId;
-          const nextLevel = await this.computeNextTreeLevel(buyerId, manager);
-          const prevTreeQualifyPercent = await this.getConfigNumber(
-            CFG_PREV_TREE_QUALIFY_PERCENT,
-            100,
-          );
-          const passedPrevTreeRule = await this.checkPrevTreeEligibility({
-            manager,
-            userId: buyerId,
-            nextTreeLevel: nextLevel,
-            prevTreeQualifyPercent,
-          });
-          if (!passedPrevTreeRule) {
-            // Xóa mark để cho phép retry sau khi user đủ điều kiện cây trước
-            await manager.delete(MatrixRewardOrderProcessed, { orderId });
-            result = 'prev_tree_not_met';
+          const alreadyPlaced = await manager
+            .getRepository(MatrixRewardNode)
+            .findOne({
+              where: { userId: buyerId },
+              select: ['id'],
+            });
+          if (alreadyPlaced) {
+            result = 'already_in_tree';
             return;
           }
+
+          const nextLevel = await this.computeNextTreeLevel(buyerId, manager);
           const tree = await this.getOrCreateTree(nextLevel, manager);
           const treeId = tree.id;
 
@@ -974,6 +970,7 @@ export class MatrixRewardService {
     placedNoUpline: number;
     prevTreeNotMet: number;
     alreadyDone: number;
+    alreadyInTree: number;
     failedOrderIds: string[];
     systemDisabled: boolean;
   }> {
@@ -1026,6 +1023,7 @@ export class MatrixRewardService {
         placedNoUpline: 0,
         prevTreeNotMet: 0,
         alreadyDone: 0,
+        alreadyInTree: 0,
         failedOrderIds: [],
         systemDisabled: true,
       };
@@ -1038,6 +1036,7 @@ export class MatrixRewardService {
     let placedNoUpline = 0;
     let prevTreeNotMet = 0;
     let alreadyDone = 0;
+    let alreadyInTree = 0;
     const failedOrderIds: string[] = [];
 
     for (const order of orders) {
@@ -1049,6 +1048,7 @@ export class MatrixRewardService {
         else if (result === 'placed_no_upline') placedNoUpline++;
         else if (result === 'prev_tree_not_met') prevTreeNotMet++;
         else if (result === 'already_done') alreadyDone++;
+        else if (result === 'already_in_tree') alreadyInTree++;
       } catch (error) {
         failed += 1;
         failedOrderIds.push(order.id);
@@ -1068,6 +1068,7 @@ export class MatrixRewardService {
       placedNoUpline,
       prevTreeNotMet,
       alreadyDone,
+      alreadyInTree,
       failedOrderIds,
       systemDisabled: false,
     };

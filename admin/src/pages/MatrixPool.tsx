@@ -122,6 +122,9 @@ const MatrixCustomNode = ({ data }: { data: CustomNodeData }) => {
         <div style={{ fontSize: '10px', color: '#8c8c8c', marginBottom: 6, wordBreak: 'break-all' }}>
           {node.email}
         </div>
+        <div style={{ fontSize: '11px', color: '#389e0d', fontWeight: 700 }}>
+          Earned: ${Number(node.matrixEarnedOnTree || 0).toFixed(2)}
+        </div>
       </div>
     </div>
   );
@@ -584,6 +587,7 @@ const MatrixPool: React.FC = () => {
       const root = data?.placedRoot ?? 0;
       const noUpline = data?.placedNoUpline ?? 0;
       const notMet = data?.prevTreeNotMet ?? 0;
+      const alreadyInTree = data?.alreadyInTree ?? 0;
       const failed = data?.failed ?? 0;
       if (paid > 0) {
         message.success(
@@ -591,6 +595,7 @@ const MatrixPool: React.FC = () => {
           (root ? `, ${root} node gốc (chưa có upline)` : '') +
           (noUpline ? `, ${noUpline} upline đã đạt trần` : '') +
           (notMet ? `, ${notMet} chưa đủ điều kiện cây trước` : '') +
+          (alreadyInTree ? `, ${alreadyInTree} user đã ở trong cây` : '') +
           (failed ? `, ${failed} lỗi` : ''),
         );
       } else {
@@ -600,6 +605,7 @@ const MatrixPool: React.FC = () => {
           (root ? `, placed_root=${root} (user đầu tiên vào cây, chưa có upline)` : '') +
           (noUpline ? `, no_upline=${noUpline} (upline đạt maxEarn)` : '') +
           (notMet ? `, prev_tree_not_met=${notMet} (chưa đủ điều kiện cây trước)` : '') +
+          (alreadyInTree ? `, already_in_tree=${alreadyInTree} (buyer đã có vị trí trong matrix)` : '') +
           (data?.alreadyDone ? `, already_done=${data.alreadyDone}` : '') +
           (failed ? `, failed=${failed}` : ''),
         );
