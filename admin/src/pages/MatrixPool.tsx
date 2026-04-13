@@ -664,7 +664,7 @@ const MatrixPool: React.FC = () => {
           `Backfill xong: ${paid} đơn tạo hoa hồng cho upline` +
           (root ? `, ${root} node gốc (chưa có upline)` : '') +
           (noUpline ? `, ${noUpline} upline đã đạt trần` : '') +
-          (notMet ? `, ${notMet} chưa đủ điều kiện F1 lên cây kế tiếp` : '') +
+          (notMet ? `, ${notMet} chưa đủ F1 (chỉ áp dụng lên cây 2–4)` : '') +
           (alreadyInTree ? `, ${alreadyInTree} user đã ở trong cây` : '') +
           (failed ? `, ${failed} lỗi` : ''),
         );
@@ -674,7 +674,9 @@ const MatrixPool: React.FC = () => {
           `scanned=${data?.scanned ?? 0}` +
           (root ? `, placed_root=${root} (user đầu tiên vào cây, chưa có upline)` : '') +
           (noUpline ? `, no_upline=${noUpline} (upline đạt maxEarn)` : '') +
-          (notMet ? `, prev_tree_not_met=${notMet} (chưa đủ F1 đạt >= 100$ để lên cây kế)` : '') +
+          (notMet
+            ? `, prev_tree_not_met=${notMet} (F1 >= 100$/đơn khi lên cây 2–4; từ cây 5 không cần)`
+            : '') +
           (alreadyInTree ? `, already_in_tree=${alreadyInTree} (buyer đã có vị trí trong matrix)` : '') +
           (data?.alreadyDone ? `, already_done=${data.alreadyDone}` : '') +
           (failed ? `, failed=${failed}` : ''),

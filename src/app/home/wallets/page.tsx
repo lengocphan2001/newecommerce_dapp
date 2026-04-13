@@ -25,7 +25,6 @@ export default function WalletsPage() {
   const [loading, setLoading] = useState(true);
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
-  const [copied, setCopied] = useState(false);
   const [depositRequests, setDepositRequests] = useState<any[]>([]);
   const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
@@ -72,9 +71,9 @@ export default function WalletsPage() {
   } | null>(null);
   const [copiedDeposit, setCopiedDeposit] = useState<string | null>(null);
 
-  const walletAddress = referralInfo?.walletAddress || "";
   const walletBalance = parseFloat(referralInfo?.walletBalance || "0") || 0;
   const withdrawWalletBalance = parseFloat(referralInfo?.withdrawWalletBalance || "0") || 0;
+  const walletAddress = referralInfo?.walletAddress || "";
 
   const parseVndAmount = (value: string): number => {
     const digitsOnly = (value || "").replace(/[^\d]/g, "");
@@ -422,39 +421,6 @@ export default function WalletsPage() {
       ? Math.round(withdrawWalletBalance * usdtWithdrawRateVnd)
       : null;
 
-  const copyAddress = async (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    if (walletAddress) {
-      try {
-        await navigator.clipboard.writeText(walletAddress);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = walletAddress;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-          document.execCommand('copy');
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch (fallbackErr) {
-          console.error('Failed to copy:', fallbackErr);
-        }
-        document.body.removeChild(textArea);
-      }
-    }
-  };
-
-  const affiliateBalanceGross = parseFloat(referralInfo?.bonusCommission || "0");
-  const fakeReceivedCommission = parseFloat(referralInfo?.fakeReceivedCommission || "0");
-  const affiliateBalance = affiliateBalanceGross + fakeReceivedCommission;
-
   // Preserve the following if needed elsewhere, otherwise we can just compute it. 
   // Looks like depositPercent / withdrawPercent are used later for feePercent, so keep them.
   const depositPercent = referralInfo?.commissionDepositWalletPercent ?? 12;
@@ -589,54 +555,77 @@ export default function WalletsPage() {
       </header>
 
       <main className="flex-1 flex flex-col gap-6 px-4 bg-white mt-4">
-        {/* Số dư hoa hồng + Địa chỉ ví nhận hoa hồng */}
+        {/* Thông tin cá nhân */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-violet-200">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
           <div className="relative z-10 flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-600">
-                  Hoa hồng đã phân bổ
-                </p>
-                <button
-                  onClick={() => setBalanceVisible(!balanceVisible)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {balanceVisible ? "visibility" : "visibility_off"}
-                  </span>
-                </button>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {referralInfo?.avatar ? (
+                  <img
+                    src={referralInfo.avatar}
+                    alt=""
+                    className="h-14 w-14 rounded-full object-cover border border-violet-100 shrink-0"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-violet-600 text-[28px]">person</span>
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-600">Thông tin cá nhân</p>
+                  <h2 className="text-xl font-bold tracking-tight text-text-dark truncate">
+                    {referralInfo?.fullName?.trim() || referralInfo?.username || "—"}
+                  </h2>
+                  {referralInfo?.username ? (
+                    <p className="text-sm text-gray-500 truncate">@{referralInfo.username}</p>
+                  ) : null}
+                </div>
               </div>
-              <h2 className="text-4xl font-bold tracking-tight text-text-dark">
-                {balanceVisible ? `$${formatUSDT(affiliateBalance)}` : "••••••"}
-              </h2>
-            </div>
-            <div className="border-t border-gray-100 pt-4">
-              <p className="text-xs font-medium text-gray-600 mb-2">Địa chỉ ví nhận hoa hồng (USDT BEP20)</p>
-              {walletAddress ? (
-                <button
-                  onClick={copyAddress}
-                  type="button"
-                  className="flex items-center gap-2 cursor-pointer group hover:opacity-80 transition-opacity w-full text-left"
-                >
-                  <p className="text-sm font-mono text-gray-600 group-hover:text-primary-dark transition-colors truncate flex-1">
-                    {walletAddress}
-                  </p>
-                  <span className={`material-symbols-outlined text-[16px] shrink-0 ${copied ? "text-primary-dark" : "text-gray-400 group-hover:text-primary-dark"}`}>
-                    {copied ? "check" : "content_copy"}
-                  </span>
-                </button>
-              ) : (
-                <p className="text-sm text-gray-500 mb-2">Chưa cập nhật. Cập nhật tại trang cá nhân.</p>
-              )}
               <button
                 type="button"
                 onClick={() => router.push("/home/profile/edit")}
-                className="mt-2 text-sm font-medium text-primary-dark hover:text-primary"
+                className="shrink-0 text-sm font-semibold text-primary-dark hover:text-primary"
               >
-                {walletAddress ? "Đổi địa chỉ ví" : "Thêm địa chỉ ví"}
+                Chỉnh sửa
               </button>
             </div>
+            <dl className="grid gap-3 text-sm border-t border-gray-100 pt-4">
+              <div>
+                <dt className="text-xs font-medium text-gray-500">Email</dt>
+                <dd className="text-text-dark break-all">{referralInfo?.email || "—"}</dd>
+              </div>
+              {(referralInfo?.phone || referralInfo?.phoneNumber) ? (
+                <div>
+                  <dt className="text-xs font-medium text-gray-500">Điện thoại</dt>
+                  <dd className="text-text-dark">{referralInfo.phone || referralInfo.phoneNumber}</dd>
+                </div>
+              ) : null}
+              {referralInfo?.address?.trim() ? (
+                <div>
+                  <dt className="text-xs font-medium text-gray-500">Địa chỉ</dt>
+                  <dd className="text-text-dark">{referralInfo.address.trim()}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt className="text-xs font-medium text-gray-500">Mã thành viên</dt>
+                <dd className="font-mono text-xs text-gray-700 break-all">{referralInfo?.id || "—"}</dd>
+              </div>
+              {referralInfo?.packageType && referralInfo.packageType !== "NONE" ? (
+                <div>
+                  <dt className="text-xs font-medium text-gray-500">Gói</dt>
+                  <dd className="text-text-dark">{referralInfo.packageType}</dd>
+                </div>
+              ) : null}
+              {referralInfo?.createdAt ? (
+                <div>
+                  <dt className="text-xs font-medium text-gray-500">Tham gia</dt>
+                  <dd className="text-text-dark">
+                    {new Date(referralInfo.createdAt).toLocaleDateString("vi-VN")}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
           </div>
         </div>
 

@@ -15,8 +15,8 @@ export default function AffiliatePage() {
   const [referralInfo, setReferralInfo] = useState<{
     referralCode: string;
     referralLink: string;
-    leftLink: string;
-    rightLink: string;
+    leftLink?: string;
+    rightLink?: string;
     username: string;
     fullName: string;
     treeStats: {
@@ -47,7 +47,7 @@ export default function AffiliatePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-  const [showQR, setShowQR] = useState<"left" | "right" | null>(null);
+  const [showReferralQr, setShowReferralQr] = useState(false);
   const [commissionConfigs, setCommissionConfigs] = useState<{
     CTV?: { packageValue: number };
     NPP?: { packageValue: number };
@@ -564,110 +564,54 @@ export default function AffiliatePage() {
             </div>
           </div>
 
-          {/* Referral Tools */}
+          {/* Referral Tools — một link; team trái/phải chọn ở trang đăng ký */}
           <div className="px-4 py-4 mb-2">
             <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">
               {t("referralTools")}
             </h3>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <div className="flex flex-col gap-4">
-                {/* Left Branch Link */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-4 items-center">
-                    <div className="flex-1 min-w-0">
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        {t("leftBranchLink")}
-                      </label>
-                      <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
-                        <input
-                          className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
-                          readOnly
-                          type="text"
-                          value={referralInfo.leftLink}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) =>
-                            copyToClipboard(referralInfo.leftLink, "left", e)
-                          }
-                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            {copied === "left" ? "check" : "content_copy"}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowQR(showQR === "left" ? null : "left")
-                          }
-                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            qr_code
-                          </span>
-                        </button>
-                      </div>
-                    </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex-1 min-w-0">
+                  <label className="text-xs text-gray-600 mb-1 block">
+                    {t("referralRegisterLink")}
+                  </label>
+                  <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
+                    <input
+                      className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
+                      readOnly
+                      type="text"
+                      value={referralInfo.referralLink || ""}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) =>
+                        copyToClipboard(referralInfo.referralLink || "", "referral", e)
+                      }
+                      disabled={!referralInfo.referralLink}
+                      className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10 disabled:opacity-40"
+                    >
+                      <span className="material-symbols-outlined text-lg">
+                        {copied === "referral" ? "check" : "content_copy"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowReferralQr((v) => !v)}
+                      disabled={!referralInfo.referralLink}
+                      className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10 disabled:opacity-40"
+                    >
+                      <span className="material-symbols-outlined text-lg">qr_code</span>
+                    </button>
                   </div>
-                  {showQR === "left" && (
-                    <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <QRCodeSVG value={referralInfo.leftLink} size={200} />
-                      <p className="text-xs text-gray-500 text-center">
-                        {t("scanToRegister") || "Quét để đăng ký"}
-                      </p>
-                    </div>
-                  )}
                 </div>
-
-                {/* Right Branch Link */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex gap-4 items-center">
-                    <div className="flex-1 min-w-0">
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        {t("rightBranchLink")}
-                      </label>
-                      <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1 pr-1 border border-gray-200">
-                        <input
-                          className="bg-transparent border-none text-text-dark text-sm w-full focus:ring-0 px-2 truncate font-mono"
-                          readOnly
-                          type="text"
-                          value={referralInfo.rightLink}
-                        />
-                        <button
-                          type="button"
-                          onClick={(e) =>
-                            copyToClipboard(referralInfo.rightLink, "right", e)
-                          }
-                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            {copied === "right" ? "check" : "content_copy"}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowQR(showQR === "right" ? null : "right")
-                          }
-                          className="bg-primary/10 hover:bg-primary/20 text-primary-dark p-2 rounded-md transition-colors shrink-0 relative z-10"
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            qr_code
-                          </span>
-                        </button>
-                      </div>
-                    </div>
+                {showReferralQr && referralInfo.referralLink ? (
+                  <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <QRCodeSVG value={referralInfo.referralLink} size={200} />
+                    <p className="text-xs text-gray-500 text-center">
+                      {t("scanToRegister")}
+                    </p>
                   </div>
-                  {showQR === "right" && (
-                    <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <QRCodeSVG value={referralInfo.rightLink} size={200} />
-                      <p className="text-xs text-gray-500 text-center">
-                        {t("scanToRegister") || "Quét để đăng ký"}
-                      </p>
-                    </div>
-                  )}
-                </div>
+                ) : null}
               </div>
             </div>
           </div>

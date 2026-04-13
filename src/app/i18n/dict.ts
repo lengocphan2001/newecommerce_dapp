@@ -298,6 +298,7 @@ export type I18nKey =
   | "activeUsers"
   | "newToday"
   | "referralTools"
+  | "referralRegisterLink"
   | "f1ListTitle"
   | "f1Performance"
   | "f1DirectReferrals"
@@ -736,6 +737,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     activeUsers: "Người dùng hoạt động",
     newToday: "Mới hôm nay",
     referralTools: "Công cụ giới thiệu",
+    referralRegisterLink: "Link mời đăng ký (chọn team tại trang đăng ký)",
     f1ListTitle: "Danh sách F1",
     f1Performance: "Hiệu suất",
     f1DirectReferrals: "Số F1",
@@ -1170,6 +1172,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     activeUsers: "Active Users",
     newToday: "New today",
     referralTools: "Referral Tools",
+    referralRegisterLink: "Registration link (choose team on register page)",
     f1ListTitle: "F1 List",
     f1Performance: "Performance",
     f1DirectReferrals: "Direct referrals",
@@ -1604,6 +1607,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     activeUsers: "활성 사용자",
     newToday: "오늘 신규",
     referralTools: "추천 도구",
+    referralRegisterLink: "가입 초대 링크 (등록 페이지에서 팀 선택)",
     f1ListTitle: "F1 목록",
     f1Performance: "성과",
     f1DirectReferrals: "직접 추천 수",

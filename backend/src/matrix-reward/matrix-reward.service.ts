@@ -62,6 +62,8 @@ function isProcessableMatrixOrderStatus(
 }
 
 const NEXT_TREE_F1_SALES_THRESHOLD_USD = 100;
+/** Từ cây này trở đi không áp dụng điều kiện F1 doanh số để vào cây kế tiếp (chỉ cần đơn đủ điều kiện matrix). */
+const MATRIX_F1_SALES_RULE_MAX_TARGET_LEVEL = 4;
 
 @Injectable()
 export class MatrixRewardService {
@@ -234,7 +236,7 @@ export class MatrixRewardService {
             where: { userId: buyerId },
             select: ['id'],
           });
-          if (existingNode) {
+          if (existingNode && nextLevel <= MATRIX_F1_SALES_RULE_MAX_TARGET_LEVEL) {
             const minQualifiedF1 = Math.max(0, nextLevel - 1);
             if (minQualifiedF1 > 0) {
               const qualifiedF1 = await this.countQualifiedF1BySales(
