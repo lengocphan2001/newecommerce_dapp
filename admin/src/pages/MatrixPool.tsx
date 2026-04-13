@@ -149,6 +149,8 @@ const MatrixPool: React.FC = () => {
   const [settingRoot, setSettingRoot] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [addUserId, setAddUserId] = useState('');
+  const [addingUserList, setAddingUserList] = useState(false);
+  const [addUserListText, setAddUserListText] = useState('');
   const [clearingAll, setClearingAll] = useState(false);
   const [prepareMaxLevel, setPrepareMaxLevel] = useState<number>(10);
   const [preparingTrees, setPreparingTrees] = useState(false);
@@ -533,6 +535,40 @@ const MatrixPool: React.FC = () => {
       );
     } finally {
       setAddingUser(false);
+    }
+  };
+
+  const addUserListToTree = async () => {
+    const userIds = addUserListText
+      .split(/[\n,;\s]+/)
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (userIds.length === 0) {
+      message.warning('Nhập danh sách userId cần thêm');
+      return;
+    }
+    try {
+      setAddingUserList(true);
+      const res = await adminService.addUsersToMatrixRewardTree(treeLevel, { userIds });
+      const data = (res as any)?.data ?? res;
+      const success = Number(data?.successCount ?? 0);
+      const failed = Number(data?.failedCount ?? 0);
+      if (failed > 0) {
+        message.warning(`Đã thêm ${success}/${success + failed} user. ${failed} user lỗi, xem log response API để biết chi tiết.`);
+      } else {
+        message.success(`Đã thêm ${success} user vào cây theo thứ tự.`);
+      }
+      setAddUserListText('');
+      await fetchTree();
+      await loadLevels();
+    } catch (e: any) {
+      message.error(
+        e?.response?.data?.message ||
+          e?.message ||
+          'Không thể thêm danh sách user vào cây',
+      );
+    } finally {
+      setAddingUserList(false);
     }
   };
 
@@ -983,6 +1019,22 @@ const MatrixPool: React.FC = () => {
             Xóa toàn bộ cây + hoa hồng
           </Button>
         </Space>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+            Thêm danh sách userId theo thứ tự (mỗi dòng 1 userId hoặc phân tách bằng dấu phẩy)
+          </div>
+          <Input.TextArea
+            value={addUserListText}
+            onChange={(e) => setAddUserListText(e.target.value)}
+            rows={5}
+            placeholder={`user-id-1\nuser-id-2\nuser-id-3`}
+            style={{ maxWidth: 560, marginBottom: 8 }}
+          />
+          <br />
+          <Button type="primary" loading={addingUserList} onClick={addUserListToTree}>
+            Thêm list user theo thứ tự
+          </Button>
+        </div>
       </Card>
 
       <Card

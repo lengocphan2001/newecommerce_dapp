@@ -178,6 +178,20 @@ export class MatrixRewardAdminController {
     return this.matrixRewardService.addUserToTree(level, body.userId ?? '');
   }
 
+  @Post('trees/:level/add-users')
+  addUsersToTree(
+    @Param('level', ParseIntPipe) level: number,
+    @Body()
+    body: {
+      userIds?: string[];
+    },
+  ) {
+    return this.matrixRewardService.addUsersToTreeInOrder(
+      level,
+      Array.isArray(body.userIds) ? body.userIds : [],
+    );
+  }
+
   @Post('trees/clear-all')
   clearAllTreesAndRewards() {
     return this.matrixRewardService.clearAllTreesAndRewards();

@@ -78,6 +78,8 @@ export const adminService = {
     api.put(`/admin/matrix-reward/trees/${level}/root`, { userId }),
   addUserToMatrixRewardTree: (level: number, data: { userId: string }) =>
     api.post(`/admin/matrix-reward/trees/${level}/add-user`, data),
+  addUsersToMatrixRewardTree: (level: number, data: { userIds: string[] }) =>
+    api.post(`/admin/matrix-reward/trees/${level}/add-users`, data),
   clearAllMatrixRewardTreesAndRewards: () =>
     api.post('/admin/matrix-reward/trees/clear-all'),
 };

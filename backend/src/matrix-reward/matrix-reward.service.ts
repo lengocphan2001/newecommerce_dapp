@@ -1411,6 +1411,80 @@ export class MatrixRewardService {
     });
   }
 
+  async addUsersToTreeInOrder(
+    treeLevel: number,
+    userIds: string[],
+  ): Promise<{
+    treeLevel: number;
+    total: number;
+    successCount: number;
+    failedCount: number;
+    results: Array<{
+      userId: string;
+      success: boolean;
+      nodeId?: string;
+      parentNodeId?: string | null;
+      side?: 'left' | 'right' | null;
+      error?: string;
+    }>;
+  }> {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw new BadRequestException('userIds is required');
+    }
+
+    const normalized = userIds
+      .map((id) => (id || '').trim())
+      .filter(Boolean);
+    if (normalized.length === 0) {
+      throw new BadRequestException('userIds is required');
+    }
+
+    const seen = new Set<string>();
+    const orderedUnique: string[] = [];
+    for (const uid of normalized) {
+      if (seen.has(uid)) continue;
+      seen.add(uid);
+      orderedUnique.push(uid);
+    }
+
+    const results: Array<{
+      userId: string;
+      success: boolean;
+      nodeId?: string;
+      parentNodeId?: string | null;
+      side?: 'left' | 'right' | null;
+      error?: string;
+    }> = [];
+
+    for (const uid of orderedUnique) {
+      try {
+        const added = await this.addUserToTree(treeLevel, uid);
+        results.push({
+          userId: uid,
+          success: true,
+          nodeId: added.nodeId,
+          parentNodeId: added.parentNodeId,
+          side: added.side,
+        });
+      } catch (e: any) {
+        results.push({
+          userId: uid,
+          success: false,
+          error: e?.response?.message || e?.message || 'Unknown error',
+        });
+      }
+    }
+
+    const successCount = results.filter((r) => r.success).length;
+    return {
+      treeLevel,
+      total: results.length,
+      successCount,
+      failedCount: results.length - successCount,
+      results,
+    };
+  }
+
   async clearAllTreesAndRewards(): Promise<{
     treesDeleted: number;
     nodesDeleted: number;
