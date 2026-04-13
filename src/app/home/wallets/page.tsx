@@ -261,8 +261,8 @@ export default function WalletsPage() {
   const handleSubmitWithdraw = async () => {
     setWithdrawError("");
     const amount = parseUsdtAmount(withdrawForm.amount || "");
-    if (!amount || amount <= 0) {
-      setWithdrawError("Nhập số USDT rút hợp lệ");
+    if (!amount || amount < 30) {
+      setWithdrawError("Số tiền rút tối thiểu là 30 USDT");
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {

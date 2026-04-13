@@ -11,7 +11,7 @@ import { WalletWithdrawMethod } from '../entities/wallet-withdraw-request.entity
 export class CreateWithdrawRequestDto {
   @IsNumber()
   @IsNotEmpty()
-  @Min(0.01)
+  @Min(30, { message: 'Số tiền rút tối thiểu là 30 USDT' })
   amount: number;
 
   @IsEnum(WalletWithdrawMethod)

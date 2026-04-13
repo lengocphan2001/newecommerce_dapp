@@ -298,8 +298,8 @@ export class WalletService {
     if (!user) throw new NotFoundException('User not found');
 
     const amount = Number(dto.amount || 0);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new BadRequestException('Invalid withdraw amount');
+    if (!Number.isFinite(amount) || amount < 30) {
+      throw new BadRequestException('Số tiền rút tối thiểu là 30 USDT');
     }
     const currentBalance = Number(user.withdrawWalletBalance ?? 0);
     if (amount > currentBalance) {
