@@ -33,7 +33,7 @@ type ProcessResult =
   | 'already_in_tree'   // buyer đã có vị trí trong matrix -> bỏ qua
   | 'invalid_order'     // đơn không tồn tại / chưa CONFIRMED
   | 'below_min_order'   // giá trị đơn < minOrderUsd
-  | 'prev_tree_not_met' // chưa đủ điều kiện cây trước (không mark processed)
+  | 'prev_tree_not_met' // chưa đủ điều kiện F1 để lên cây kế tiếp (không mark processed)
   | 'placed_root'       // đặt thành root cây, chưa có upline để trả
   | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
   | 'placed_no_upline'; // đặt vào cây nhưng tất cả upline đã đạt maxEarn
@@ -60,6 +60,8 @@ function isProcessableMatrixOrderStatus(
     status === OrderStatus.DELIVERED
   );
 }
+
+const NEXT_TREE_F1_SALES_THRESHOLD_USD = 100;
 
 @Injectable()
 export class MatrixRewardService {
@@ -228,6 +230,26 @@ export class MatrixRewardService {
         try {
           const buyerId = order.userId;
           const nextLevel = await this.computeNextTreeLevel(buyerId, manager);
+          const existingNode = await manager.getRepository(MatrixRewardNode).findOne({
+            where: { userId: buyerId },
+            select: ['id'],
+          });
+          if (existingNode) {
+            const minQualifiedF1 = Math.max(0, nextLevel - 1);
+            if (minQualifiedF1 > 0) {
+              const qualifiedF1 = await this.countQualifiedF1BySales(
+                manager,
+                buyerId,
+                NEXT_TREE_F1_SALES_THRESHOLD_USD,
+              );
+              if (qualifiedF1 < minQualifiedF1) {
+                // Xóa mark để cho phép retry sau khi user đủ điều kiện F1.
+                await manager.delete(MatrixRewardOrderProcessed, { orderId });
+                result = 'prev_tree_not_met';
+                return;
+              }
+            }
+          }
           const tree = await this.getOrCreateTree(nextLevel, manager);
           const treeId = tree.id;
 
@@ -295,6 +317,40 @@ export class MatrixRewardService {
     }
 
     return result;
+  }
+
+  private async countQualifiedF1BySales(
+    manager: EntityManager,
+    userId: string,
+    thresholdUsd: number,
+  ): Promise<number> {
+    const f1Users = await manager.getRepository(User).find({
+      where: { referralUserId: userId },
+      select: ['id'],
+    });
+    const f1Ids = f1Users.map((u) => u.id).filter(Boolean);
+    if (f1Ids.length === 0) return 0;
+
+    const rows = await manager
+      .getRepository(Order)
+      .createQueryBuilder('o')
+      .select('o.userId', 'userId')
+      .where('o.userId IN (:...f1Ids)', { f1Ids })
+      .andWhere('o.status IN (:...statuses)', {
+        statuses: [
+          OrderStatus.CONFIRMED,
+          OrderStatus.PROCESSING,
+          OrderStatus.SHIPPED,
+          OrderStatus.DELIVERED,
+        ],
+      })
+      .andWhere('o.totalAmount >= :threshold', {
+        threshold: thresholdUsd,
+      })
+      .groupBy('o.userId')
+      .getRawMany<{ userId: string }>();
+
+    return rows.length;
   }
 
   private async checkPrevTreeEligibility(opts: {
