@@ -50,6 +50,17 @@ function isDuplicateKeyError(err: unknown): boolean {
   return /duplicate|unique constraint/i.test(msg);
 }
 
+function isProcessableMatrixOrderStatus(
+  status: OrderStatus | null | undefined,
+): boolean {
+  return (
+    status === OrderStatus.CONFIRMED ||
+    status === OrderStatus.PROCESSING ||
+    status === OrderStatus.SHIPPED ||
+    status === OrderStatus.DELIVERED
+  );
+}
+
 @Injectable()
 export class MatrixRewardService {
   private readonly logger = new Logger(MatrixRewardService.name);
@@ -168,7 +179,7 @@ export class MatrixRewardService {
 
 
   /**
-   * Gọi khi đơn CONFIRMED. Idempotent theo orderId.
+   * Gọi khi đơn đủ điều kiện trạng thái matrix. Idempotent theo orderId.
    * Trả về kết quả chi tiết để backfill có thể thống kê đúng.
    */
   async processOrderIfEligible(orderId: string): Promise<ProcessResult> {
@@ -180,7 +191,7 @@ export class MatrixRewardService {
     if (done) return 'already_done';
 
     const order = await this.orderRepo.findOne({ where: { id: orderId } });
-    if (!order || order.status !== OrderStatus.CONFIRMED || !order.userId) {
+    if (!order || !isProcessableMatrixOrderStatus(order.status) || !order.userId) {
       return 'invalid_order';
     }
 
