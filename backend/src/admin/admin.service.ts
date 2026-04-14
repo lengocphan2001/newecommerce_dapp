@@ -43,6 +43,8 @@ function roundWithdrawBalance(n: number): number {
   return Math.round(n * 1e8) / 1e8;
 }
 
+const COMMISSION_PAYOUT_FEE_PERCENT = 12;
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
@@ -643,18 +645,20 @@ export class AdminService {
       };
     });
 
-    // Tổng commission đã PAID và được phân bổ vào ví rút tiền (không tính payout tx USDT trực tiếp).
+    // Tổng commission đã PAID, sau khi trừ phí 12% (net vào ví rút),
+    // chỉ lấy phần phân bổ nội bộ, loại payout USDT on-chain.
     const paidCommissionToWithdrawRaw = await this.commissionRepository
       .createQueryBuilder('c')
       .select('COALESCE(SUM(c.amount),0)', 's')
       .where('c.userId = :userId', { userId })
       .andWhere('c.status = :paid', { paid: CommissionStatus.PAID })
-      .andWhere('COALESCE(c.notes, \'\') LIKE :note', {
-        note: '%Distributed to withdraw wallet%',
-      })
+      .andWhere('c.payoutTxHash IS NULL')
       .getRawOne<{ s: string }>();
-    const paidCommissionToWithdrawWallet = roundWithdrawBalance(
+    const paidCommissionGross = roundWithdrawBalance(
       Number(paidCommissionToWithdrawRaw?.s ?? 0),
+    );
+    const paidCommissionToWithdrawWallet = roundWithdrawBalance(
+      paidCommissionGross * (1 - COMMISSION_PAYOUT_FEE_PERCENT / 100),
     );
 
     // Tổng matrix đã cộng/trừ ròng vào ví rút tiền.

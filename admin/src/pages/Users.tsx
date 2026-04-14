@@ -792,10 +792,10 @@ const Users: React.FC = () => {
                       style={{ width: '100%' }}
                     >
                       <Text type="secondary">
-                        Chỉ tính commission đã phân bổ vào ví rút (không tính payout USDT tx), cộng matrix ròng, trừ số đã rút được duyệt.
+                        Commission PAID hiển thị sau khi trừ 12%, loại trừ payout USDT on-chain; cộng matrix ròng và trừ số đã rút được duyệt.
                       </Text>
                       <Descriptions size="small" bordered column={1}>
-                        <Descriptions.Item label="Commission PAID vào ví rút">
+                        <Descriptions.Item label="Commission PAID (net, đã trừ 12%)">
                           <span style={{ color: '#389e0d', fontWeight: 600 }}>
                             ${toNum(editWalletReconciliation?.paidCommissionToWithdrawWallet).toFixed(8)} USDT
                           </span>
