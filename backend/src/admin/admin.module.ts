@@ -21,6 +21,9 @@ import { Order } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
 import { SystemConfig } from './entities/system-config.entity';
+import { Commission } from '../affiliate/entities/commission.entity';
+import { WalletWithdrawRequest } from '../wallet/entities/wallet-withdraw-request.entity';
+import { MatrixRewardLedger } from '../matrix-reward/entities/matrix-reward-ledger.entity';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { SystemConfig } from './entities/system-config.entity';
       Product,
       BankingConfig,
       SystemConfig,
+      Commission,
+      WalletWithdrawRequest,
+      MatrixRewardLedger,
     ]),
     forwardRef(() => AffiliateModule),
     forwardRef(() => UserModule),

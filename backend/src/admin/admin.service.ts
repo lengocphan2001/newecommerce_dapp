@@ -17,6 +17,15 @@ import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
 import { SystemConfig } from './entities/system-config.entity';
+import {
+  Commission,
+  CommissionStatus,
+} from '../affiliate/entities/commission.entity';
+import {
+  WalletWithdrawRequest,
+  WalletWithdrawStatus,
+} from '../wallet/entities/wallet-withdraw-request.entity';
+import { MatrixRewardLedger } from '../matrix-reward/entities/matrix-reward-ledger.entity';
 import { FakeAnalyticsDashboardPayload } from './dto/fake-analytics-dashboard.dto';
 import {
   FAKE_ANALYTICS_DASHBOARD_KEY,
@@ -55,6 +64,12 @@ export class AdminService {
     private bankingConfigRepository: Repository<BankingConfig>,
     @InjectRepository(SystemConfig)
     private systemConfigRepository: Repository<SystemConfig>,
+    @InjectRepository(Commission)
+    private commissionRepository: Repository<Commission>,
+    @InjectRepository(WalletWithdrawRequest)
+    private walletWithdrawRequestRepository: Repository<WalletWithdrawRequest>,
+    @InjectRepository(MatrixRewardLedger)
+    private matrixRewardLedgerRepository: Repository<MatrixRewardLedger>,
     private userService: UserService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
@@ -628,6 +643,47 @@ export class AdminService {
       };
     });
 
+    // Tổng commission đã PAID và được phân bổ vào ví rút tiền (không tính payout tx USDT trực tiếp).
+    const paidCommissionToWithdrawRaw = await this.commissionRepository
+      .createQueryBuilder('c')
+      .select('COALESCE(SUM(c.amount),0)', 's')
+      .where('c.userId = :userId', { userId })
+      .andWhere('c.status = :paid', { paid: CommissionStatus.PAID })
+      .andWhere('COALESCE(c.notes, \'\') LIKE :note', {
+        note: '%Distributed to withdraw wallet%',
+      })
+      .getRawOne<{ s: string }>();
+    const paidCommissionToWithdrawWallet = roundWithdrawBalance(
+      Number(paidCommissionToWithdrawRaw?.s ?? 0),
+    );
+
+    // Tổng matrix đã cộng/trừ ròng vào ví rút tiền.
+    const matrixLedgerNetRaw = await this.matrixRewardLedgerRepository
+      .createQueryBuilder('m')
+      .select('COALESCE(SUM(m.amount),0)', 's')
+      .where('m.beneficiaryUserId = :userId', { userId })
+      .getRawOne<{ s: string }>();
+    const matrixPoolNetAmount = roundWithdrawBalance(
+      Number(matrixLedgerNetRaw?.s ?? 0),
+    );
+
+    // Tổng user đã rút và được admin duyệt.
+    const approvedWithdrawRaw = await this.walletWithdrawRequestRepository
+      .createQueryBuilder('w')
+      .select('COALESCE(SUM(COALESCE(w.actualAmount, w.amount)),0)', 's')
+      .where('w.userId = :userId', { userId })
+      .andWhere('w.status = :approved', {
+        approved: WalletWithdrawStatus.APPROVED,
+      })
+      .getRawOne<{ s: string }>();
+    const approvedWithdrawnAmount = roundWithdrawBalance(
+      Number(approvedWithdrawRaw?.s ?? 0),
+    );
+
+    const expectedWithdrawWalletBalance = roundWithdrawBalance(
+      paidCommissionToWithdrawWallet + matrixPoolNetAmount - approvedWithdrawnAmount,
+    );
+
     // Format decimal numbers
     const formatDecimal = (value: number | string): string => {
       if (value === null || value === undefined || value === 0) return '0.00';
@@ -657,6 +713,8 @@ export class AdminService {
         packageType: user.packageType,
         status: user.status,
         isAdmin: user.isAdmin,
+        walletBalance: formatDecimal(user.walletBalance ?? 0),
+        withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
         totalPurchaseAmount: formatDecimal(user.totalPurchaseAmount),
         totalCommissionReceived: formatDecimal(user.totalCommissionReceived),
         fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
@@ -687,6 +745,14 @@ export class AdminService {
       },
       parentInfo,
       referrerInfo,
+      walletReconciliation: {
+        paidCommissionToWithdrawWallet: formatDecimal(
+          paidCommissionToWithdrawWallet,
+        ),
+        matrixPoolNetAmount: formatDecimal(matrixPoolNetAmount),
+        approvedWithdrawnAmount: formatDecimal(approvedWithdrawnAmount),
+        expectedWithdrawWalletBalance: formatDecimal(expectedWithdrawWalletBalance),
+      },
       f1: f1Users,
       f1PurchaseDetails,
       f2: f2Users,

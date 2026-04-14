@@ -86,6 +86,12 @@ const Users: React.FC = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [packagesForEdit, setPackagesForEdit] = useState<Package[]>([]);
+  const [editWalletReconciliation, setEditWalletReconciliation] = useState<{
+    paidCommissionToWithdrawWallet: number;
+    matrixPoolNetAmount: number;
+    approvedWithdrawnAmount: number;
+    expectedWithdrawWalletBalance: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -111,6 +117,7 @@ const Users: React.FC = () => {
   const handleCreate = () => {
     setEditingUser(null);
     setPackagesForEdit([]);
+    setEditWalletReconciliation(null);
     form.resetFields();
     setIsModalVisible(true);
   };
@@ -122,18 +129,34 @@ const Users: React.FC = () => {
     setEditLoading(true);
     try {
       const [userRes, pkgRes] = await Promise.all([
-        userService.getById(row.id),
+        adminService.getUserDetail(row.id),
         packagesService.getAll().catch(() => []),
       ]);
-      const u = userRes.data as Record<string, unknown>;
-      setEditingUser(userRes.data as User);
+      const detail = (userRes as any)?.data ?? userRes;
+      const u = (detail?.user || {}) as Record<string, unknown>;
+      setEditingUser(detail?.user as User);
       const pkgs = Array.isArray(pkgRes) ? pkgRes : [];
       setPackagesForEdit(pkgs);
+      setEditWalletReconciliation({
+        paidCommissionToWithdrawWallet: toNum(
+          (detail as any)?.walletReconciliation?.paidCommissionToWithdrawWallet,
+        ),
+        matrixPoolNetAmount: toNum(
+          (detail as any)?.walletReconciliation?.matrixPoolNetAmount,
+        ),
+        approvedWithdrawnAmount: toNum(
+          (detail as any)?.walletReconciliation?.approvedWithdrawnAmount,
+        ),
+        expectedWithdrawWalletBalance: toNum(
+          (detail as any)?.walletReconciliation?.expectedWithdrawWalletBalance,
+        ),
+      });
       form.setFieldsValue(buildEditFormValues(u));
     } catch {
       message.error('Failed to load user for edit');
       setIsModalVisible(false);
       setEditingUser(null);
+      setEditWalletReconciliation(null);
     } finally {
       setEditLoading(false);
     }
@@ -157,6 +180,18 @@ const Users: React.FC = () => {
     } catch (error) {
       message.error('Failed to update user status');
     }
+  };
+
+  const applyExpectedWithdrawWalletBalance = () => {
+    if (!editWalletReconciliation) {
+      message.warning('Chưa có dữ liệu đối soát ví rút tiền');
+      return;
+    }
+    const expected = toNum(editWalletReconciliation.expectedWithdrawWalletBalance);
+    form.setFieldValue('withdrawWalletBalance', expected);
+    message.success(
+      `Đã set Withdraw wallet balance = ${expected.toFixed(8)} USDT`,
+    );
   };
 
   const handleSubmit = async (values: Record<string, unknown>) => {
@@ -612,6 +647,7 @@ const Users: React.FC = () => {
         onCancel={() => {
           setIsModalVisible(false);
           setEditingUser(null);
+          setEditWalletReconciliation(null);
           form.resetFields();
         }}
         onOk={() => form.submit()}
@@ -745,6 +781,50 @@ const Users: React.FC = () => {
                         ))}
                     </Select>
                   </Form.Item>
+                  <Card
+                    size="small"
+                    style={{ marginBottom: 16, borderColor: '#ffe58f' }}
+                    title="Wallet reconciliation (withdraw wallet)"
+                  >
+                    <Space
+                      direction="vertical"
+                      size={10}
+                      style={{ width: '100%' }}
+                    >
+                      <Text type="secondary">
+                        Chỉ tính commission đã phân bổ vào ví rút (không tính payout USDT tx), cộng matrix ròng, trừ số đã rút được duyệt.
+                      </Text>
+                      <Descriptions size="small" bordered column={1}>
+                        <Descriptions.Item label="Commission PAID vào ví rút">
+                          <span style={{ color: '#389e0d', fontWeight: 600 }}>
+                            ${toNum(editWalletReconciliation?.paidCommissionToWithdrawWallet).toFixed(8)} USDT
+                          </span>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Matrix pool (net)">
+                          <span style={{ color: '#722ed1', fontWeight: 600 }}>
+                            ${toNum(editWalletReconciliation?.matrixPoolNetAmount).toFixed(8)} USDT
+                          </span>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Đã rút (APPROVED)">
+                          <span style={{ color: '#cf1322', fontWeight: 600 }}>
+                            ${toNum(editWalletReconciliation?.approvedWithdrawnAmount).toFixed(8)} USDT
+                          </span>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="Số dư ví rút đề xuất">
+                          <span style={{ color: '#1677ff', fontWeight: 700 }}>
+                            ${toNum(editWalletReconciliation?.expectedWithdrawWalletBalance).toFixed(8)} USDT
+                          </span>
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Button
+                        type="primary"
+                        onClick={applyExpectedWithdrawWalletBalance}
+                        disabled={!editWalletReconciliation}
+                      >
+                        Set Withdraw wallet balance = số dư đề xuất
+                      </Button>
+                    </Space>
+                  </Card>
                   <Divider plain>Amounts (USDT)</Divider>
                   <Form.Item name="totalPurchaseAmount" label="Total purchase amount">
                     <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
