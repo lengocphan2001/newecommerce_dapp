@@ -77,6 +77,9 @@ const Users: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
+  const [deductWithdrawAmount, setDeductWithdrawAmount] = useState<number | null>(null);
+  const [deductWithdrawReason, setDeductWithdrawReason] = useState('');
+  const [deductWithdrawLoading, setDeductWithdrawLoading] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
   const [generatingPasswordForUser, setGeneratingPasswordForUser] = useState<string | null>(null);
   const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
@@ -324,6 +327,8 @@ const Users: React.FC = () => {
         map[String(p.code).toUpperCase()] = p;
       }
       setPackagesByCode(map);
+      setDeductWithdrawAmount(null);
+      setDeductWithdrawReason('');
       setIsDetailModalVisible(true);
     } catch (error: any) {
       message.error('Failed to load user details: ' + (error.message || 'Unknown error'));
@@ -343,6 +348,39 @@ const Users: React.FC = () => {
       message.error(error.response?.data?.message || 'Failed to update fake commission');
     } finally {
       setSavingFakeCommission(false);
+    }
+  };
+
+  const handleDeductWithdrawWallet = async () => {
+    if (!userDetail?.user?.id) return;
+    const amt = Number(deductWithdrawAmount ?? 0);
+    const bal = Number(userDetail.user.withdrawWalletBalance ?? 0);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      message.warning('Nhập số USDT cần trừ (> 0)');
+      return;
+    }
+    if (amt > bal + 1e-10) {
+      message.warning(`Số trừ vượt quá số dư hiện tại (${bal.toFixed(2)} USDT)`);
+      return;
+    }
+    try {
+      setDeductWithdrawLoading(true);
+      const response = await adminService.deductUserWithdrawWallet(userDetail.user.id, {
+        amount: amt,
+        reason: deductWithdrawReason.trim() || undefined,
+      });
+      setUserDetail(response.data);
+      setDeductWithdrawAmount(null);
+      setDeductWithdrawReason('');
+      message.success('Đã trừ số dư ví rút tiền');
+      fetchUsers(searchText || undefined);
+    } catch (error: any) {
+      const msg = error.response?.data?.message;
+      message.error(
+        typeof msg === 'string' ? msg : Array.isArray(msg) ? msg.join(', ') : 'Không thể trừ số dư',
+      );
+    } finally {
+      setDeductWithdrawLoading(false);
     }
   };
 
@@ -775,11 +813,15 @@ const Users: React.FC = () => {
         onCancel={() => {
           setIsDetailModalVisible(false);
           setUserDetail(null);
+          setDeductWithdrawAmount(null);
+          setDeductWithdrawReason('');
         }}
         footer={[
           <Button key="close" onClick={() => {
             setIsDetailModalVisible(false);
             setUserDetail(null);
+            setDeductWithdrawAmount(null);
+            setDeductWithdrawReason('');
           }}>
             Close
           </Button>,
@@ -875,6 +917,65 @@ const Users: React.FC = () => {
                   ${userDetail.user.rightBranchTotal} USDT
                 </Descriptions.Item>
               </Descriptions>
+
+              <Card
+                type="inner"
+                size="small"
+                title={
+                  <span style={{ color: '#d4380d', fontWeight: 600 }}>
+                    Trừ số dư ví rút tiền (admin)
+                  </span>
+                }
+                style={{ marginTop: 16, borderColor: '#ffccc7' }}
+              >
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="Trừ trực tiếp USDT trong ví rút của user"
+                  description="Không tạo yêu cầu rút tiền. Chỉ dùng khi điều chỉnh sai sót / thu hồi. Hành động được ghi log server."
+                />
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', marginBottom: 6 }}>
+                      Số USDT cần trừ (tối đa {Number(userDetail.user.withdrawWalletBalance ?? 0).toFixed(8)})
+                    </Text>
+                    <InputNumber
+                      min={0.00000001}
+                      step={0.01}
+                      style={{ width: '100%', maxWidth: 280 }}
+                      placeholder="VD: 10.5"
+                      value={deductWithdrawAmount ?? undefined}
+                      onChange={(v) => setDeductWithdrawAmount(v ?? null)}
+                    />
+                  </div>
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', marginBottom: 6 }}>
+                      Lý do (ghi log, tùy chọn)
+                    </Text>
+                    <Input.TextArea
+                      rows={2}
+                      maxLength={500}
+                      showCount
+                      value={deductWithdrawReason}
+                      onChange={(e) => setDeductWithdrawReason(e.target.value)}
+                      placeholder="VD: điều chỉnh cộng nhầm matrix / hoàn tiền nội bộ"
+                    />
+                  </div>
+                  <Popconfirm
+                    title="Xác nhận trừ số dư ví rút?"
+                    description={`Trừ ${Number(deductWithdrawAmount ?? 0) || '…'} USDT khỏi ví rút của user này.`}
+                    okText="Trừ"
+                    cancelText="Hủy"
+                    okButtonProps={{ danger: true }}
+                    onConfirm={handleDeductWithdrawWallet}
+                  >
+                    <Button danger loading={deductWithdrawLoading} disabled={!userDetail.user.id}>
+                      Trừ số dư ví rút
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              </Card>
 
               <Divider />
 

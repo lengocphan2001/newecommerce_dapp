@@ -8,6 +8,10 @@ export const adminService = {
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
   updateUserFakeCommission: (id: string, fakeReceivedCommission: number) =>
     api.patch(`/admin/users/${id}/fake-commission`, { fakeReceivedCommission }),
+  deductUserWithdrawWallet: (
+    id: string,
+    data: { amount: number; reason?: string },
+  ) => api.post(`/admin/users/${id}/withdraw-wallet/deduct`, data),
   getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
   withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
   exportUsers: () => api.get('/admin/users/export', { responseType: 'blob' }),

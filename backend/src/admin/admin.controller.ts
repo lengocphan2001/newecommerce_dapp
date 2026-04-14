@@ -9,10 +9,15 @@ import {
   Query,
   Res,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
-import { UpdateUserStatusDto, UpdateFakeCommissionDto } from './dto';
+import {
+  UpdateUserStatusDto,
+  UpdateFakeCommissionDto,
+  DeductWithdrawWalletDto,
+} from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
 @Controller('admin')
@@ -141,6 +146,24 @@ export class AdminController {
     return this.adminService.updateUserFakeReceivedCommission(
       id,
       dto.fakeReceivedCommission,
+    );
+  }
+
+  /** Trừ số dư ví rút tiền (USDT) — không tạo yêu cầu rút; dùng khi điều chỉnh sai sót. */
+  @Post('users/:id/withdraw-wallet/deduct')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async deductUserWithdrawWallet(
+    @Param('id') id: string,
+    @Body() dto: DeductWithdrawWalletDto,
+    @Request() req: any,
+  ) {
+    const performedBy =
+      req.user?.sub || req.user?.id || req.user?.email || 'unknown';
+    return this.adminService.deductUserWithdrawWalletBalance(
+      id,
+      dto.amount,
+      dto.reason,
+      String(performedBy),
     );
   }
 

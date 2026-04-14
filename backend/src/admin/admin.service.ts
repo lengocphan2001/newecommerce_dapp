@@ -2,6 +2,7 @@ import {
   Injectable,
   Inject,
   forwardRef,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -28,8 +29,14 @@ import { CommissionPayoutService } from '../affiliate/commission-payout.service'
 import { Web3Service } from '../blockchain/web3.service';
 import { MailService } from '../mail/mail.service';
 
+function roundWithdrawBalance(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 1e8) / 1e8;
+}
+
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
   private readonly defaultMinPayoutThreshold = 50;
   private readonly defaultCommissionDepositWalletPercent = 12;
@@ -382,6 +389,53 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
     await this.userRepository.update(userId, { fakeReceivedCommission });
+    return this.getUserDetail(userId);
+  }
+
+  /**
+   * Trừ số dư ví rút tiền (withdrawWalletBalance). Không tạo WalletWithdrawRequest.
+   * Dùng transaction + khóa dòng để tránh race khi trừ.
+   */
+  async deductUserWithdrawWalletBalance(
+    userId: string,
+    amountRaw: number,
+    reason: string | undefined,
+    performedBy: string,
+  ) {
+    const amount = roundWithdrawBalance(Number(amountRaw));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Số tiền trừ không hợp lệ');
+    }
+
+    await this.userRepository.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(User);
+      const user = await repo
+        .createQueryBuilder('u')
+        .setLock('pessimistic_write')
+        .where('u.id = :id', { id: userId })
+        .getOne();
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      const current = roundWithdrawBalance(Number(user.withdrawWalletBalance ?? 0));
+      if (current + 1e-12 < amount) {
+        throw new BadRequestException(
+          `Số dư ví rút không đủ. Hiện có: ${current} USDT, yêu cầu trừ: ${amount} USDT`,
+        );
+      }
+
+      const next = roundWithdrawBalance(current - amount);
+      await repo.update(userId, { withdrawWalletBalance: next });
+    });
+
+    const reasonText = (reason || '').trim();
+    this.logger.warn(
+      `[ADMIN] deduct withdraw wallet userId=${userId} amount=${amount} USDT by=${performedBy}` +
+        (reasonText ? ` reason=${reasonText.slice(0, 200)}` : ''),
+    );
+
     return this.getUserDetail(userId);
   }
 
