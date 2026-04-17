@@ -27,6 +27,7 @@ export default function AffiliatePage() {
     };
     accumulatedPurchases?: string;
     bonusCommission?: string;
+    currentMonthCommission?: string;
     fakeReceivedCommission?: string;
     packageType?: string;
     totalReconsumptionAmount?: string;
@@ -343,8 +344,8 @@ export default function AffiliatePage() {
                   </span>
                 </div>
                 <p className="text-primary-dark text-sm font-medium">
-                  {t("balance")}:{" "}
-                  {formatPrice(referralInfo.bonusCommission || "0")} USDT
+                  Hoa hồng tháng này:{" "}
+                  {formatPrice(referralInfo.currentMonthCommission || "0")} USDT
                 </p>
               </div>
             </div>

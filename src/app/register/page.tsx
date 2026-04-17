@@ -97,11 +97,6 @@ function RegisterForm() {
       setError("Vui lòng nhập mã giới thiệu");
       return;
     }
-    if (!isFirstUser && !formData.leg) {
-      setError(t("selectSide"));
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -271,14 +266,13 @@ function RegisterForm() {
           {(!isFirstUser || formData.referralUser) && (
             <div>
               <label htmlFor="leg" className="mb-1 block text-sm font-medium text-zinc-700">
-                {t("selectSide")} <span className="text-red-500">*</span>
+                {t("selectSide")} <span className="text-xs text-zinc-500 ml-2">(Tùy chọn)</span>
               </label>
               <select
                 id="leg"
                 value={formData.leg}
                 onChange={(e) => setFormData({ ...formData, leg: e.target.value })}
                 className="w-full appearance-none rounded-lg border border-zinc-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M6%209L1%204h10z%22/%3E%3C/svg%3E')] bg-[length:12px_12px] bg-[right_12px_center] bg-no-repeat px-4 py-2.5 pr-10 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                required={!isFirstUser}
               >
                 <option value="" className="text-zinc-400">{t("selectSide")}</option>
                 <option value="left" className="text-zinc-900">{t("affiliateLeftBranchLabel")}</option>

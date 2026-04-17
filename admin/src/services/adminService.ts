@@ -13,7 +13,6 @@ export const adminService = {
     data: { amount: number; reason?: string },
   ) => api.post(`/admin/users/${id}/withdraw-wallet/deduct`, data),
   getFullTree: (userId: string, maxDepth?: number) => api.get(`/admin/tree/${userId}`, { params: { maxDepth } }),
-  withdrawFromContract: (recipient: string, amount: string) => api.post('/admin/commission-payout/withdraw', { recipient, amount }),
   exportUsers: () => api.get('/admin/users/export', { responseType: 'blob' }),
   exportLoginCredentials: () =>
     api.post<{ csvContent: string; stats: { total: number; emailQueued: number; emailSkipped: number; emailEnabled: boolean } }>(

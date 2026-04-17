@@ -75,6 +75,8 @@ const Users: React.FC = () => {
   const [userDetail, setUserDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [withdrawWalletMin, setWithdrawWalletMin] = useState<number | null>(null);
+  const [withdrawWalletMax, setWithdrawWalletMax] = useState<number | null>(null);
   const [fakeCommissionValue, setFakeCommissionValue] = useState<number>(0);
   const [savingFakeCommission, setSavingFakeCommission] = useState(false);
   const [deductWithdrawAmount, setDeductWithdrawAmount] = useState<number | null>(null);
@@ -113,6 +115,13 @@ const Users: React.FC = () => {
     setSearchText(value);
     fetchUsers(value);
   };
+
+  const filteredUsers = users.filter((u) => {
+    const bal = toNum(u.withdrawWalletBalance);
+    if (withdrawWalletMin != null && bal < withdrawWalletMin) return false;
+    if (withdrawWalletMax != null && bal > withdrawWalletMax) return false;
+    return true;
+  });
 
   const handleCreate = () => {
     setEditingUser(null);
@@ -624,6 +633,34 @@ const Users: React.FC = () => {
           </Button>
         </Space>
       </div>
+      <Card size="small" style={{ marginBottom: 12 }}>
+        <Space wrap>
+          <Text type="secondary">Lọc ví rút tiền (USDT):</Text>
+          <InputNumber
+            min={0}
+            step={0.01}
+            placeholder="Từ"
+            value={withdrawWalletMin ?? undefined}
+            onChange={(v) => setWithdrawWalletMin(v ?? null)}
+          />
+          <InputNumber
+            min={0}
+            step={0.01}
+            placeholder="Đến"
+            value={withdrawWalletMax ?? undefined}
+            onChange={(v) => setWithdrawWalletMax(v ?? null)}
+          />
+          <Button
+            onClick={() => {
+              setWithdrawWalletMin(null);
+              setWithdrawWalletMax(null);
+            }}
+          >
+            Xóa lọc
+          </Button>
+          <Text type="secondary">Kết quả: {filteredUsers.length}</Text>
+        </Space>
+      </Card>
       <Alert
         style={{ marginBottom: 12 }}
         type="warning"
@@ -632,7 +669,7 @@ const Users: React.FC = () => {
       />
       <Table
         columns={columns}
-        dataSource={users}
+        dataSource={filteredUsers}
         loading={loading}
         rowKey="id"
         pagination={{ pageSize: 10 }}

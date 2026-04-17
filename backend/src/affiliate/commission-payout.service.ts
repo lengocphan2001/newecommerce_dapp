@@ -713,16 +713,4 @@ export class CommissionPayoutService {
     };
   }
 
-  /**
-   * Withdraw funds from contract to specific wallet
-   */
-  async withdrawToWallet(
-    recipientAddress: string,
-    amount: string,
-  ): Promise<{ txHash: string; blockNumber: number }> {
-    return this.blockchainPayoutService.emergencyWithdraw(
-      recipientAddress,
-      amount,
-    );
-  }
 }

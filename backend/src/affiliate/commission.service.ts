@@ -1544,6 +1544,31 @@ export class CommissionService {
     return this.roundCommission(Number(raw?.sum ?? 0));
   }
 
+  async getCurrentMonthPaidCommissionSum(userId: string): Promise<number> {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const nextMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const raw = await this.commissionRepository
+      .createQueryBuilder('c')
+      .select('COALESCE(SUM(c.amount), 0)', 'sum')
+      .where('c.userId = :userId', { userId })
+      .andWhere('c.status = :status', { status: CommissionStatus.PAID })
+      .andWhere('c.createdAt >= :monthStart', { monthStart })
+      .andWhere('c.createdAt < :nextMonthStart', { nextMonthStart })
+      .getRawOne<{ sum: string }>();
+
+    return this.roundCommission(Number(raw?.sum ?? 0));
+  }
+
   async getCommissionsLimited(
     userId: string,
     query: { type?: CommissionType; status?: CommissionStatus },

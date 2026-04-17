@@ -58,11 +58,6 @@ const Dashboard: React.FC = () => {
   const [isAddFundsModalOpen, setIsAddFundsModalOpen] = useState(false);
   const [addFundAmount, setAddFundAmount] = useState('');
   const [addFundLoading, setAddFundLoading] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [withdrawAddress, setWithdrawAddress] = useState('');
-  const [withdrawLoading, setWithdrawLoading] = useState(false);
-
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [deployLoading, setDeployLoading] = useState(false);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
   const [deployTokenAddress, setDeployTokenAddress] = useState('');
@@ -95,47 +90,6 @@ const Dashboard: React.FC = () => {
       message.error(error.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleWithdraw = () => {
-    const defaultWallet =
-      paymentWallet ||
-      process.env.REACT_APP_PAYMENT_WALLET ||
-      process.env.NEXT_PUBLIC_PAYMENT_WALLET ||
-      '0x65c03707C17EA9F7Dc1C1Eb2c0C12D3AfC3e7fe1';
-    setWithdrawAddress(defaultWallet);
-    setWithdrawAmount(contractBalance.toFixed(18));
-    setIsWithdrawModalOpen(true);
-  };
-
-  const handleConfirmWithdrawal = async () => {
-    if (!withdrawAddress || !ethers.isAddress(withdrawAddress)) {
-      message.error('Please enter a valid wallet address');
-      return;
-    }
-
-    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
-      message.error('Please enter a valid amount');
-      return;
-    }
-
-    if (parseFloat(withdrawAmount) > contractBalance) {
-      message.error('Amount exceeds contract balance');
-      return;
-    }
-
-    setWithdrawLoading(true);
-    try {
-      await adminService.withdrawFromContract(withdrawAddress, withdrawAmount);
-      message.success('Withdrawal initiated successfully');
-      setIsWithdrawModalOpen(false);
-      fetchDashboardData();
-    } catch (error: any) {
-      console.error(error);
-      message.error(error.response?.data?.message || 'Withdrawal failed');
-    } finally {
-      setWithdrawLoading(false);
     }
   };
 
@@ -321,17 +275,8 @@ const Dashboard: React.FC = () => {
             {user?.isSuperAdmin && (
               <>
                 <Button
-                  type="primary"
                   size="small"
                   style={{ marginTop: 8 }}
-                  onClick={handleWithdraw}
-                  disabled={contractBalance < 0.0001 || !contractAddress}
-                >
-                  Withdraw
-                </Button>
-                <Button
-                  size="small"
-                  style={{ marginTop: 8, marginLeft: 8 }}
                   onClick={() => setIsAddFundsModalOpen(true)}
                   icon={<WalletOutlined />}
                   disabled={!contractAddress}
@@ -416,68 +361,6 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setAddFundAmount(e.target.value)}
             type="number"
           />
-        </div>
-      </Modal>
-
-      <Modal
-        title="Withdraw from Contract"
-        open={isWithdrawModalOpen}
-        onCancel={() => setIsWithdrawModalOpen(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setIsWithdrawModalOpen(false)}>
-            Cancel
-          </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            danger
-            loading={withdrawLoading}
-            onClick={handleConfirmWithdrawal}
-          >
-            Confirm Withdrawal
-          </Button>,
-        ]}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <Text strong>Contract Balance:</Text>
-          <div style={{ fontSize: '18px', color: '#1890ff', fontWeight: 'bold' }}>
-            {(contractBalance).toFixed(4)} USDT
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <Text strong>Target Wallet Address:</Text>
-          <Input
-            placeholder="0x..."
-            value={withdrawAddress}
-            onChange={(e) => setWithdrawAddress(e.target.value)}
-            style={{ marginTop: 8 }}
-          />
-        </div>
-
-        <div>
-          <Text strong>Amount to Withdraw:</Text>
-          <div style={{ position: 'relative', marginTop: 8 }}>
-            <Input
-              placeholder="0.00"
-              value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
-              type="number"
-              suffix="USDT"
-            />
-            <Button
-              size="small"
-              type="link"
-              onClick={() => setWithdrawAmount(contractBalance.toString())}
-              style={{ position: 'absolute', right: 60, top: 4, zIndex: 1 }}
-            >
-              Max
-            </Button>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 16, color: '#ff4d4f', fontSize: '12px' }}>
-          ⚠️ Warning: This will execute a real blockchain transaction from the backend.
         </div>
       </Modal>
 

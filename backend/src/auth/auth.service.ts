@@ -648,6 +648,8 @@ export class AuthService {
 
     const pendingRewardsTotal =
       await this.commissionService.getPendingCommissionSum(userId);
+    const currentMonthCommission =
+      await this.commissionService.getCurrentMonthPaidCommissionSum(userId);
     const recentCommissions = await this.commissionService.getCommissionsLimited(
       userId,
       {},
@@ -729,6 +731,7 @@ export class AuthService {
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
+      currentMonthCommission: formatDecimal(currentMonthCommission),
       /** Tổng phần hoa hồng đã được phân bổ vào 2 ví nội bộ theo cấu hình */
       bonusCommissionNet: formatDecimal(distributedCommission),
       payoutFeePercent: Math.max(0, 100 - (depositPercent + withdrawPercent)),
