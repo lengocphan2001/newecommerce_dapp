@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
+import { Order } from '../../order/entities/order.entity';
 
 @Entity('heap_reward_placements')
 export class HeapRewardPlacement {
@@ -38,4 +39,11 @@ export class HeapRewardPlacement {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'uuid', nullable: true })
+  triggerOrderId: string;
+
+  @ManyToOne(() => Order, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'triggerOrderId' })
+  triggerOrder: Order;
 }

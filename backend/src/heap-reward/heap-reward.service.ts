@@ -62,8 +62,11 @@ export class HeapRewardService {
 
       if (timesEntered === 0) {
         // Lần đầu vào Heap, tự động được vào
-        await this.createNewPlacement(user.id, 0);
+        await this.createNewPlacement(user.id, 0, order.id);
         this.logger.log(`User ${user.id} joins Heap (first time).`);
+        
+        // Chia thưởng ngay lập tức 5% của đơn hàng này
+        await this.distributeInstantPayout(orderTotal);
         return;
       }
 
@@ -72,8 +75,11 @@ export class HeapRewardService {
       const f1Count = await this.countQualifiedF1s(user.id, qualifyAmount);
 
       if (f1Count >= timesEntered) {
-        await this.createNewPlacement(user.id, timesEntered);
+        await this.createNewPlacement(user.id, timesEntered, order.id);
         this.logger.log(`User ${user.id} joins Heap (timesEntered: ${timesEntered}). Qualified F1s: ${f1Count}`);
+        
+        // Chia thưởng ngay lập tức 5% của đơn hàng này
+        await this.distributeInstantPayout(orderTotal);
       } else {
         this.logger.log(`User ${user.id} cannot join Heap. Needs ${timesEntered} qualified F1s, has ${f1Count}.`);
       }
@@ -103,50 +109,28 @@ export class HeapRewardService {
     return Number(result?.count || 0);
   }
 
-  private async createNewPlacement(userId: string, currentTimesEntered: number) {
+  private async createNewPlacement(userId: string, currentTimesEntered: number, triggerOrderId: string) {
     const placement = this.placementRepo.create({
       userId,
       totalRewarded: 0,
       timesEntered: currentTimesEntered,
       isActive: true,
+      triggerOrderId,
     });
     await this.placementRepo.save(placement);
   }
 
   /**
-   * Cron job chạy hàng ngày lúc 00:05 (vd: 0 5 0 * * *) để duyệt tổng kết hôm qua
+   * Tính và chia phần trăm ngay lập tức khi có người VÀO Heap
    */
-  @Cron('0 5 0 * * *')
-  async dailyHeapPayout() {
-    this.logger.log('Starting daily Heap Reward calculation...');
+  async distributeInstantPayout(orderTotal: number) {
+    this.logger.log(`Starting instant Heap Reward payout for order total: ${orderTotal}`);
     try {
-      const qualifyAmount = await this.getConfigValue('HEAP_QUALIFY_ORDER_AMOUNT', 500);
       const rewardPercent = await this.getConfigValue('HEAP_DAILY_REWARD_PERCENT', 5);
       const maxPayout = await this.getConfigValue('HEAP_MAX_PAYOUT', 1000);
 
-      // Lấy thời gian từ đầu ngày hôm qua (0:00:00) đến cuối ngày hôm qua (23:59:59)
-      const now = new Date();
-      const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
-      const endOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59);
-
-      // Tính tổng doanh số trong ngày hôm qua từ các đơn >= 500$
-      const builder = this.orderRepo.createQueryBuilder('order');
-      builder.select('SUM(order.totalAmount)', 'total');
-      builder.where('order.status IN (:...statuses)', { statuses: [OrderStatus.CONFIRMED, OrderStatus.DELIVERED] });
-      builder.andWhere('order.totalAmount >= :qualifyAmount', { qualifyAmount });
-      builder.andWhere('order.createdAt >= :start', { start: startOfYesterday });
-      builder.andWhere('order.createdAt <= :end', { end: endOfYesterday });
-      
-      const salesResult = await builder.getRawOne();
-      const totalSales = Number(salesResult?.total || 0);
-
-      if (totalSales <= 0) {
-        this.logger.log('No qualified sales from yesterday. Skipping Heap Reward.');
-        return;
-      }
-
-      const poolAmount = totalSales * (rewardPercent / 100);
-      this.logger.log(`Yesterday's qualified sales: ${totalSales}. Pool Amount: ${poolAmount}`);
+      const poolAmount = orderTotal * (rewardPercent / 100);
+      this.logger.log(`Pool Amount to distribute: ${poolAmount}`);
 
       const activePlacements = await this.placementRepo.find({
         where: { isActive: true },
@@ -208,9 +192,9 @@ export class HeapRewardService {
         }
       });
       
-      this.logger.log('Daily Heap Reward calculation completed.');
+      this.logger.log('Instant Heap Reward calculation completed.');
     } catch (e) {
-      this.logger.error('Daily Heap Reward cron failed.', e);
+      this.logger.error('Instant Heap Reward failed.', e);
     }
   }
 
@@ -218,13 +202,14 @@ export class HeapRewardService {
   async getPlacements(query: any) {
     const builder = this.placementRepo.createQueryBuilder('p')
        .leftJoinAndSelect('p.user', 'user')
+       .leftJoinAndSelect('p.triggerOrder', 'triggerOrder')
        .orderBy('p.createdAt', 'DESC');
 
     if (query.userId) {
        builder.andWhere('p.userId = :userId', { userId: query.userId });
     }
     if (query.isActive !== undefined) {
-       const isActiveBool = query.isActive === 'true' || query.isActive === true;
+      const isActiveBool = query.isActive === 'true' || query.isActive === true;
        builder.andWhere('p.isActive = :isActive', { isActive: isActiveBool });
     }
 
@@ -234,6 +219,10 @@ export class HeapRewardService {
     }
 
     return builder.getMany();
+  }
+
+  async deletePlacement(id: string) {
+    return this.placementRepo.delete(id);
   }
 
   async getHistories(query: any) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Delete, Param } from '@nestjs/common';
 import { HeapRewardService } from './heap-reward.service';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
@@ -10,6 +10,11 @@ export class HeapRewardController {
   @Get('placements')
   async getPlacements(@Query() query: any) {
     return this.heapRewardService.getPlacements(query);
+  }
+
+  @Delete('placements/:id')
+  async deletePlacement(@Param('id') id: string) {
+    return this.heapRewardService.deletePlacement(id);
   }
 
   @Get('histories')

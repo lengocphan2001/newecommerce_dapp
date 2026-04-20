@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Typography, Spin, Form, InputNumber, Button, notification } from 'antd';
+import { Table, Card, Typography, Spin, Form, InputNumber, Button, notification, Space, Modal, Popconfirm } from 'antd';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,6 +15,11 @@ const HeapReward: React.FC = () => {
   const [placements, setPlacements] = useState<any[]>([]);
   const [form] = Form.useForm();
   
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedPlacement, setSelectedPlacement] = useState<any>(null);
+  const [placementHistories, setPlacementHistories] = useState<any[]>([]);
+
   const fetchPlacements = async () => {
     try {
       setLoading(true);
@@ -24,6 +29,32 @@ const HeapReward: React.FC = () => {
       notification.error({ message: 'Error fetching heap placements' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deletePlacement = async (id: string) => {
+    try {
+      setLoading(true);
+      await api.delete(`/admin/heap-reward/placements/${id}`);
+      notification.success({ message: 'Deleted placement safely' });
+      fetchPlacements();
+    } catch (e) {
+      notification.error({ message: 'Error deleting placement' });
+      setLoading(false);
+    }
+  };
+
+  const showDetails = async (record: any) => {
+    setSelectedPlacement(record);
+    setDetailsModalVisible(true);
+    try {
+      setHistoryLoading(true);
+      const res = await api.get(`/admin/heap-reward/histories?placementId=${record.id}`);
+      setPlacementHistories(res.data);
+    } catch (e) {
+      notification.error({ message: 'Error fetching histories' });
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -96,6 +127,38 @@ const HeapReward: React.FC = () => {
       key: 'createdAt',
       render: (text: string) => new Date(text).toLocaleString(),
     },
+    {
+      title: 'Trigger Order',
+      key: 'triggerOrder',
+      render: (_: any, record: any) => record.triggerOrder?.code ? record.triggerOrder.code : '—',
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: any) => (
+        <Space>
+          <Button size="small" type="primary" onClick={() => showDetails(record)}>Chi tiết</Button>
+          <Popconfirm title="Chắc chắn xóa vị trí này (kéo theo xóa lịch sử nhận của nó)?" onConfirm={() => deletePlacement(record.id)}>
+            <Button size="small" danger>Xóa</Button>
+          </Popconfirm>
+        </Space>
+      ),
+    }
+  ];
+
+  const historyColumns = [
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      render: (val: any) => `$${Number(val).toFixed(2)}`
+    },
+    {
+      title: 'Reward Date',
+      dataIndex: 'rewardDate',
+      key: 'rewardDate',
+      render: (text: string, rec: any) => text || new Date(rec.createdAt).toLocaleDateString()
+    },
   ];
 
   return (
@@ -130,6 +193,30 @@ const HeapReward: React.FC = () => {
            pagination={{ pageSize: 20 }}
          />
       </Card>
+
+      <Modal
+        title={`Chi tiết vị trí - ${selectedPlacement?.user?.username || ''}`}
+        open={detailsModalVisible}
+        onCancel={() => setDetailsModalVisible(false)}
+        footer={null}
+        width={700}
+      >
+        {selectedPlacement && (
+          <div style={{ marginBottom: 16 }}>
+             <p><b>Đơn hàng kích hoạt:</b> {selectedPlacement.triggerOrder ? `${selectedPlacement.triggerOrder.code} ($${selectedPlacement.triggerOrder.totalAmount})` : 'Không lưu / Hệ thống cũ'}</p>
+             <p><b>Số tiền đã nhận từ Heap này:</b> ${Number(selectedPlacement.totalRewarded).toLocaleString()}</p>
+             <p><b>Đang active:</b> {selectedPlacement.isActive ? 'Có' : 'Không (Đã out)'}</p>
+          </div>
+        )}
+        <Table 
+           dataSource={placementHistories}
+           columns={historyColumns}
+           rowKey="id"
+           loading={historyLoading}
+           size="small"
+           pagination={false}
+        />
+      </Modal>
     </div>
   );
 };
