@@ -34,7 +34,7 @@ export default function WalletsPage() {
   const [depositForm, setDepositForm] = useState({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING" as "BANKING" | "USDT", requestedUsdt: "", txHash: "" });
   const [withdrawForm, setWithdrawForm] = useState({
     amount: "",
-    method: "USDT" as "USDT" | "BANKING",
+    method: "BANKING",
     bankAccountId: "",
     note: "",
   });
@@ -250,7 +250,7 @@ export default function WalletsPage() {
     setWithdrawError("");
     setWithdrawForm({
       amount: "",
-      method: "USDT",
+      method: "BANKING",
       bankAccountId: "",
       note: "",
     });
@@ -268,12 +268,7 @@ export default function WalletsPage() {
       setWithdrawError("Số dư ví rút không đủ");
       return;
     }
-    if (withdrawForm.method === "USDT" && !walletAddress) {
-      setShowWithdrawModal(false);
-      router.push("/home/profile/edit");
-      return;
-    }
-    if (withdrawForm.method === "BANKING" && !withdrawForm.bankAccountId) {
+    if (!withdrawForm.bankAccountId) {
       setWithdrawError("Vui lòng chọn tài khoản ngân hàng nhận tiền");
       return;
     }
@@ -282,11 +277,8 @@ export default function WalletsPage() {
     try {
       await api.createWithdrawRequest({
         amount,
-        method: withdrawForm.method,
-        bankAccountId:
-          withdrawForm.method === "BANKING"
-            ? withdrawForm.bankAccountId
-            : undefined,
+        method: "BANKING",
+        bankAccountId: withdrawForm.bankAccountId,
         note: withdrawForm.note || undefined,
       });
       setShowWithdrawModal(false);
@@ -927,7 +919,7 @@ export default function WalletsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền rút (USDT)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền rút ($)</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -958,7 +950,7 @@ export default function WalletsPage() {
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Số dư khả dụng:{" "}
-                    <span className="font-mono text-gray-700">${formatUSDT(withdrawWalletBalance)}</span> USDT
+                    <span className="font-mono text-gray-700">${formatUSDT(withdrawWalletBalance)}</span>
                     {balanceApproxVnd != null && (
                       <span className="text-gray-600">
                         {" "}
@@ -973,31 +965,6 @@ export default function WalletsPage() {
                     </p>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phương thức rút</label>
-                  <select
-                    value={withdrawForm.method}
-                    onChange={(e) => setWithdrawForm((f) => ({ ...f, method: e.target.value as "USDT" | "BANKING" }))}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5"
-                  >
-                    <option value="USDT">USDT</option>
-                    <option value="BANKING">Banking</option>
-                  </select>
-                </div>
-                {withdrawForm.method === "USDT" && (
-                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                    <p className="text-xs text-slate-500">Ví USDT nhận tiền</p>
-                    <p className="font-mono text-sm text-slate-800 break-all mt-1">
-                      {walletAddress || "Chưa cấu hình"}
-                    </p>
-                    {!walletAddress && (
-                      <p className="text-xs text-amber-700 mt-2">
-                        Bạn chưa cấu hình ví USDT. Khi bấm gửi, hệ thống sẽ chuyển bạn tới màn hình cấu hình.
-                      </p>
-                    )}
-                  </div>
-                )}
-                {withdrawForm.method === "BANKING" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Chọn tài khoản ngân hàng</label>
                     <select
@@ -1013,7 +980,6 @@ export default function WalletsPage() {
                       ))}
                     </select>
                   </div>
-                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú (tùy chọn)</label>
                   <textarea
