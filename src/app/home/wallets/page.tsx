@@ -33,7 +33,7 @@ export default function WalletsPage() {
   const [showBankAccountModal, setShowBankAccountModal] = useState(false);
   const [depositForm, setDepositForm] = useState({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING" as "BANKING" | "USDT", requestedUsdt: "", txHash: "" });
   const [withdrawForm, setWithdrawForm] = useState({
-    amount: "",
+    amountVnd: "",
     method: "BANKING",
     bankAccountId: "",
     note: "",
@@ -249,7 +249,7 @@ export default function WalletsPage() {
   const handleOpenWithdraw = () => {
     setWithdrawError("");
     setWithdrawForm({
-      amount: "",
+      amountVnd: "",
       method: "BANKING",
       bankAccountId: "",
       note: "",
@@ -259,9 +259,12 @@ export default function WalletsPage() {
 
   const handleSubmitWithdraw = async () => {
     setWithdrawError("");
-    const amount = parseUsdtAmount(withdrawForm.amount || "");
+    const amountVnd = parseVndAmount(withdrawForm.amountVnd || "");
+    const rate = usdtWithdrawRateVnd > 0 ? usdtWithdrawRateVnd : 24000;
+    const amount = amountVnd / rate;
+
     if (!amount || amount < 30) {
-      setWithdrawError("Số tiền rút tối thiểu là 30 USDT");
+      setWithdrawError(`Số tiền rút tối thiểu là 30 USDT (~${(30 * rate).toLocaleString("vi-VN")} ₫)`);
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {
@@ -403,15 +406,11 @@ export default function WalletsPage() {
     Number(bankingConfig.usdtWithdrawPriceVnd) > 0
       ? Number(bankingConfig.usdtWithdrawPriceVnd)
       : 0;
-  const withdrawAmountUsdt = parseUsdtAmount(withdrawForm.amount);
-  const withdrawApproxVnd =
-    usdtWithdrawRateVnd > 0 && withdrawAmountUsdt > 0
-      ? Math.round(withdrawAmountUsdt * usdtWithdrawRateVnd)
-      : null;
-  const balanceApproxVnd =
-    usdtWithdrawRateVnd > 0 && withdrawWalletBalance > 0
-      ? Math.round(withdrawWalletBalance * usdtWithdrawRateVnd)
-      : Math.round(withdrawWalletBalance * 24000); // fallback
+  const activeWithdrawRate = usdtWithdrawRateVnd > 0 ? usdtWithdrawRateVnd : 24000;
+  const withdrawAmountVnd = parseVndAmount(withdrawForm.amountVnd || "");
+  const withdrawEquivalentUsdt = withdrawAmountVnd / activeWithdrawRate;
+  
+  const balanceApproxVnd = Math.round(withdrawWalletBalance * activeWithdrawRate);
 
   const usdtDepositRateVnd =
     bankingConfig?.usdtPriceVnd != null && Number(bankingConfig.usdtPriceVnd) > 0
@@ -936,20 +935,20 @@ export default function WalletsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền rút ($)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền rút (VND)</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      inputMode="decimal"
-                      value={withdrawForm.amount}
+                      inputMode="numeric"
+                      value={withdrawForm.amountVnd}
                       onChange={(e) =>
                         setWithdrawForm((f) => ({
                           ...f,
-                          amount: sanitizeUsdtInput(e.target.value),
+                          amountVnd: formatVndInput(e.target.value),
                         }))
                       }
                       className="flex-1 min-w-0 rounded-xl border border-gray-300 px-4 py-2.5 font-mono"
-                      placeholder="VD: 10.5"
+                      placeholder="VD: 500.000"
                     />
                     <button
                       type="button"
@@ -957,7 +956,7 @@ export default function WalletsPage() {
                       onClick={() =>
                         setWithdrawForm((f) => ({
                           ...f,
-                          amount: usdtToMaxInputString(withdrawWalletBalance),
+                          amountVnd: balanceApproxVnd.toLocaleString("vi-VN"),
                         }))
                       }
                       className="shrink-0 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary-dark disabled:opacity-50"
@@ -967,18 +966,16 @@ export default function WalletsPage() {
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Số dư khả dụng:{" "}
-                    <span className="font-mono text-gray-700">${formatUSDT(withdrawWalletBalance)}</span>
-                    {balanceApproxVnd != null && (
-                      <span className="text-gray-600">
-                        {" "}
-                        (≈ {balanceApproxVnd.toLocaleString("vi-VN")} ₫)
-                      </span>
-                    )}
+                    <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} ₫</span>
+                    <span className="text-gray-600">
+                      {" "}
+                      (≈ ${formatUSDT(withdrawWalletBalance)})
+                    </span>
                   </p>
                   
-                  {withdrawApproxVnd != null && (
+                  {withdrawAmountVnd > 0 && (
                     <p className="text-xs text-emerald-700 mt-1">
-                      Số nhập tương đương khoảng {withdrawApproxVnd.toLocaleString("vi-VN")} ₫
+                      Số nhập tương đương khoảng ${formatUSDT(withdrawEquivalentUsdt)}
                     </p>
                   )}
                 </div>
