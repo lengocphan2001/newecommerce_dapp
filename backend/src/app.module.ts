@@ -53,6 +53,8 @@ import { MatrixTreeExclusion } from './matrix-reward/entities/matrix-tree-exclus
 import { MatrixRewardOrderProcessed } from './matrix-reward/entities/matrix-reward-order-processed.entity';
 import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
 import { HeapRewardModule } from './heap-reward/heap-reward.module';
+import { HeapRewardPlacement } from './heap-reward/entities/heap-reward-placement.entity';
+import { HeapRewardHistory } from './heap-reward/entities/heap-reward-history.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
 @Module({
