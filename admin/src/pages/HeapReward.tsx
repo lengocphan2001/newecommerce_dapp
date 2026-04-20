@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Card, Typography, Spin, Form, InputNumber, Button, notification } from 'antd';
-import api from '../utils/api';
+import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const { Title } = Typography;
