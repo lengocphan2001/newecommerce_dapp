@@ -24,7 +24,7 @@ import { SystemConfig } from '../admin/entities/system-config.entity';
     forwardRef(() => UserModule),
     forwardRef(() => OrderModule),
     forwardRef(() => WalletModule),
-    AdminModule,
+    forwardRef(() => AdminModule),
   ],
   controllers: [HeapRewardController],
   providers: [HeapRewardService],
