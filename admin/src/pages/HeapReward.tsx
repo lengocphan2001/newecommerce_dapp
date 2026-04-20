@@ -29,7 +29,7 @@ const HeapReward: React.FC = () => {
 
   const fetchConfigs = async () => {
     try {
-      const res = await api.get('/admin/system-config');
+      const res = await api.get('/admin/system-config/all');
       const configArray = res.data;
       const getVal = (key: string, def: number) => {
         const item = configArray.find((c: any) => c.key === key);
@@ -56,7 +56,7 @@ const HeapReward: React.FC = () => {
     try {
       setLoading(true);
       for (const [key, value] of Object.entries(values)) {
-        await api.patch('/admin/system-config', { key, value: String(value) });
+        await api.patch('/admin/system-config/single', { key, value: String(value) });
       }
       notification.success({ message: 'Configs updated successfully' });
       fetchConfigs();
