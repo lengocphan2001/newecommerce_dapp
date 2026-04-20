@@ -1036,6 +1036,26 @@ export class AdminService {
     return this.getSystemConfig();
   }
 
+  /**
+   * Get raw array of all system configurations
+   */
+  async getAllSystemConfigs() {
+    return this.systemConfigRepository.find();
+  }
+
+  /**
+   * Update a generic single configuration by key
+   */
+  async updateSingleSystemConfig(key: string, value: string) {
+    let row = await this.systemConfigRepository.findOne({ where: { key } });
+    if (!row) {
+      row = this.systemConfigRepository.create({ key, value });
+    } else {
+      row.value = value;
+    }
+    return this.systemConfigRepository.save(row);
+  }
+
   /** Factory template for demo analytics (not persisted until admin saves). */
   getDefaultFakeAnalyticsDashboard(): FakeAnalyticsDashboardPayload {
     return getDefaultFakeAnalyticsDashboardPayload();

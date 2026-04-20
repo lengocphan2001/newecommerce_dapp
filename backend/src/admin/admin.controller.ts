@@ -10,6 +10,7 @@ import {
   Res,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
@@ -224,6 +225,19 @@ export class AdminController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async updateSystemConfig(@Body() dto: any) {
     return this.adminService.updateSystemConfig(dto);
+  }
+
+  @Get('system-config/all')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getAllSystemConfigs() {
+    return this.adminService.getAllSystemConfigs();
+  }
+
+  @Patch('system-config/single')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateSingleSystemConfig(@Body() dto: { key: string; value: string }) {
+    if (!dto.key) throw new BadRequestException('key is required');
+    return this.adminService.updateSingleSystemConfig(dto.key, dto.value);
   }
 
   @Get('fake-analytics/default')
