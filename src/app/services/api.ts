@@ -154,8 +154,8 @@ export const api = {
     return response.json();
   },
 
-  async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string): Promise<unknown> {
-    const cacheKey = `products:${country ?? 'all'}:${categoryId ?? 'all'}`;
+  async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string, productType?: 'STRATEGIC' | 'COMMON'): Promise<unknown> {
+    const cacheKey = `products:${country ?? 'all'}:${categoryId ?? 'all'}:${productType ?? 'all'}`;
     const cached = apiCache.getProducts(cacheKey);
     if (cached != null) return cached;
     const params = new URLSearchParams();
@@ -164,6 +164,9 @@ export const api = {
     }
     if (categoryId) {
       params.append('categoryId', categoryId);
+    }
+    if (productType) {
+      params.append('productType', productType);
     }
     const url = params.toString()
       ? `${API_BASE_URL}/products?${params.toString()}`

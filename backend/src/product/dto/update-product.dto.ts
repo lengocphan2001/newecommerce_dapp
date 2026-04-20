@@ -66,6 +66,10 @@ export class UpdateProductDto {
   countries?: ('VIETNAM' | 'USA')[];
 
   @IsArray()
+  @IsOptional()
+  productTypes?: ('STRATEGIC' | 'COMMON')[];
+
+  @IsArray()
   @IsString({ each: true })
   @IsOptional()
   tags?: string[];

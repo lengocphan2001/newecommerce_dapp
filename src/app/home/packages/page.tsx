@@ -94,7 +94,7 @@ export default function PackagesPage() {
       <AppHeader title="Packages" showBack />
       <main className="flex-1 pb-24 px-4 max-w-md mx-auto w-full" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}>
         <p className="text-sm text-zinc-600 mt-2 mb-4">
-          Buy a package to activate your commission level (CTV, NPP, TV). After payment, admin will confirm and your package will be activated.
+          Buy a package to activate your commission level (CTV, Đối tác, TV). After payment, admin will confirm and your package will be activated.
         </p>
 
         {error && (
@@ -134,7 +134,7 @@ export default function PackagesPage() {
                     )}
                     <div className="mt-2 text-xs text-zinc-500 space-y-0.5">
                       <p>Direct: {(Number(pkg.directCommissionRate) * 100).toFixed(1)}% · Group: {(Number(pkg.groupCommissionRate) * 100).toFixed(1)}%</p>
-                      <p>Management F1: {(Number(pkg.managementRateF1) * 100).toFixed(1)}%</p>
+                      <p>Management C1: {(Number(pkg.managementRateF1) * 100).toFixed(1)}%</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0">

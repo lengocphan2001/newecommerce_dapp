@@ -67,6 +67,10 @@ export class Product {
   @Column({ type: 'simple-json', nullable: true })
   countries?: string[]; // Array of 'VIETNAM' | 'USA'
 
+  // 'STRATEGIC' | 'COMMON'
+  @Column({ type: 'simple-json', nullable: true })
+  productTypes?: string[];
+
   // Product tags/status e.g. 'SALE', 'COMING_SOON', 'new', 'hot'
   @Column({ type: 'simple-json', nullable: true })
   tags?: string[];

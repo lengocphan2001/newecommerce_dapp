@@ -411,7 +411,18 @@ export default function WalletsPage() {
   const balanceApproxVnd =
     usdtWithdrawRateVnd > 0 && withdrawWalletBalance > 0
       ? Math.round(withdrawWalletBalance * usdtWithdrawRateVnd)
-      : null;
+      : Math.round(withdrawWalletBalance * 24000); // fallback
+
+  const usdtDepositRateVnd =
+    bankingConfig?.usdtPriceVnd != null && Number(bankingConfig.usdtPriceVnd) > 0
+      ? Number(bankingConfig.usdtPriceVnd)
+      : 25000;
+  
+  const walletApproxVnd =
+    usdtDepositRateVnd > 0 && walletBalance > 0
+      ? Math.round(walletBalance * usdtDepositRateVnd)
+      : Math.round(walletBalance * 25000); // fallback
+
 
   // Preserve the following if needed elsewhere, otherwise we can just compute it. 
   // Looks like depositPercent / withdrawPercent are used later for feePercent, so keep them.
@@ -628,7 +639,10 @@ export default function WalletsPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Ví rút tiền</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `$${formatUSDT(withdrawWalletBalance)}` : "••••••"}
+                {balanceVisible ? `${balanceApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
+              </p>
+              <p className="text-sm text-rose-600 mt-0.5 font-medium">
+                {balanceVisible ? `~ $${formatUSDT(withdrawWalletBalance)}` : ""}
               </p>
             </div>
             <button
@@ -706,7 +720,10 @@ export default function WalletsPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Ví nạp tiền</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `$${formatUSDT(walletBalance)}` : "••••••"}
+                {balanceVisible ? `${walletApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
+              </p>
+              <p className="text-sm text-cyan-600 mt-0.5 font-medium">
+                {balanceVisible ? `~ $${formatUSDT(walletBalance)}` : ""}
               </p>
             </div>
             <button

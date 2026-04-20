@@ -10,6 +10,7 @@ import { AdminModule } from '../admin/admin.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PackagesModule } from '../packages/packages.module';
 import { MatrixRewardModule } from '../matrix-reward/matrix-reward.module';
+import { HeapRewardModule } from '../heap-reward/heap-reward.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MatrixRewardModule } from '../matrix-reward/matrix-reward.module';
     forwardRef(() => AffiliateModule),
     forwardRef(() => AdminModule),
     forwardRef(() => MatrixRewardModule),
+    forwardRef(() => HeapRewardModule),
     NotificationsModule,
     PackagesModule,
   ],

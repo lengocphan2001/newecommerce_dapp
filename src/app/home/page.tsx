@@ -67,6 +67,7 @@ export default function HomePage() {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [selectedCountry, setSelectedCountry] = useState<'VIETNAM' | 'USA' | null>('VIETNAM');
+  const [selectedProductType, setSelectedProductType] = useState<'STRATEGIC' | 'COMMON' | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sliders, setSliders] = useState<Slider[]>([]);
@@ -106,7 +107,7 @@ export default function HomePage() {
       return;
     }
     fetchProducts();
-  }, [selectedCountry, selectedCategoryId]);
+  }, [selectedCountry, selectedCategoryId, selectedProductType]);
 
   // Load categories, sliders, featured, referral song song (cache 10 phút cho categories/sliders)
   useEffect(() => {
@@ -178,7 +179,7 @@ export default function HomePage() {
     try {
       setLoading(true);
       // Fetch products with filters
-      const data = await api.getProducts(selectedCountry || undefined, selectedCategoryId || undefined);
+      const data = await api.getProducts(selectedCountry || undefined, selectedCategoryId || undefined, selectedProductType || undefined);
       let filtered = Array.isArray(data) ? data : [];
 
       // Additional frontend filtering if needed
@@ -403,7 +404,7 @@ export default function HomePage() {
           >
             <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
               <span className="material-symbols-outlined text-slate-600 text-xl">tune</span>
-              {selectedCountry === "USA" ? "USA" : "Vietnam"}
+              {selectedProductType === "STRATEGIC" ? "Chiến lược" : selectedProductType === "COMMON" ? "Thông dụng" : (selectedCountry === "USA" ? "USA" : "Vietnam")}
               <span className="text-slate-400">•</span>
               {selectedCategoryId
                 ? categories.find((c) => c.id === selectedCategoryId)?.name ?? "Category"
@@ -469,6 +470,33 @@ export default function HomePage() {
                         <img src="https://flagcdn.com/w40/us.png" alt="" className="w-8 h-8 object-contain rounded" onError={() => setFlagImageError((prev) => ({ ...prev, usa: true }))} />
                       )}
                       <span className="font-semibold text-sm">USA</span>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-700 mb-3">{lang === 'vi' ? 'Loại sản phẩm' : 'Product Type'}</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSelectedProductType(selectedProductType === "STRATEGIC" ? null : "STRATEGIC")}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        selectedProductType === "STRATEGIC"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">star</span>
+                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Chiến lược' : 'Strategic'}</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedProductType(selectedProductType === "COMMON" ? null : "COMMON")}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        selectedProductType === "COMMON"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">category</span>
+                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Thông dụng' : 'Common'}</span>
                     </button>
                   </div>
                 </div>

@@ -46,6 +46,8 @@ import { MatrixRewardLedger } from '../src/matrix-reward/entities/matrix-reward-
 import { MatrixTreeExclusion } from '../src/matrix-reward/entities/matrix-tree-exclusion.entity';
 import { MatrixRewardOrderProcessed } from '../src/matrix-reward/entities/matrix-reward-order-processed.entity';
 import { PasswordResetToken } from '../src/auth/entities/password-reset-token.entity';
+import { HeapRewardPlacement } from '../src/heap-reward/entities/heap-reward-placement.entity';
+import { HeapRewardHistory } from '../src/heap-reward/entities/heap-reward-history.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -143,6 +145,8 @@ async function initializeDatabase() {
       MatrixTreeExclusion,
       MatrixRewardOrderProcessed,
       PasswordResetToken,
+      HeapRewardPlacement,
+      HeapRewardHistory,
     ],
     synchronize: true, // Enable synchronize to create tables
     logging: true,
@@ -205,6 +209,9 @@ async function initializeDatabase() {
       { key: 'matrixRewardMaxEarnPerTreeUsd', value: '1500' },
       { key: 'matrixRewardMaxUplines', value: '11' },
       { key: 'matrixRewardPrevTreeQualifyPercent', value: '100' },
+      { key: 'HEAP_QUALIFY_ORDER_AMOUNT', value: '500' },
+      { key: 'HEAP_DAILY_REWARD_PERCENT', value: '5' },
+      { key: 'HEAP_MAX_PAYOUT', value: '1000' },
     ];
     for (const item of defaults) {
       const existed = await systemConfigRepo.findOne({ where: { key: item.key } });

@@ -64,6 +64,17 @@ export class ProductService {
       });
     }
 
+    // Filter by productTypes if provided (check if productTypes array contains the requested type)
+    if (
+      query.productType &&
+      (query.productType === 'STRATEGIC' || query.productType === 'COMMON')
+    ) {
+      allProducts = allProducts.filter((product) => {
+        const types = product.productTypes || [];
+        return Array.isArray(types) && types.includes(query.productType);
+      });
+    }
+
     // List: soldCount chỉ từ fakeSold (không quét orders).
     return allProducts.map((product) => ({
       ...product,

@@ -17,6 +17,7 @@ import { PackagesService } from '../packages/packages.service';
 import { GoogleSheetsService } from '../common/google-sheets.service';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { MatrixRewardService } from '../matrix-reward/matrix-reward.service';
+import { HeapRewardService } from '../heap-reward/heap-reward.service';
 
 @Injectable()
 export class OrderService {
@@ -36,6 +37,8 @@ export class OrderService {
     private milestoneRewardService: MilestoneRewardService,
     @Inject(forwardRef(() => MatrixRewardService))
     private matrixRewardService: MatrixRewardService,
+    @Inject(forwardRef(() => HeapRewardService))
+    private heapRewardService: HeapRewardService,
   ) {}
 
   private getOrderItems(order: Order): Array<{
@@ -413,6 +416,13 @@ export class OrderService {
       .processOrderIfEligible(order.id)
       .catch((err) =>
         console.error(`[MATRIX] Error processing order ${order.id}:`, err),
+      );
+
+    // 6. Heap Reward
+    this.heapRewardService
+      .processOrderIfEligible(order.id)
+      .catch((err) =>
+        console.error(`[HEAP] Error processing order ${order.id}:`, err),
       );
   }
 

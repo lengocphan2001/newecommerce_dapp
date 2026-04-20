@@ -191,6 +191,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       adminOnly: true,
     },
     {
+      key: '/heap-reward',
+      icon: <GiftOutlined />,
+      label: 'Heap Reward',
+      permission: null,
+      adminOnly: true,
+    },
+    {
       key: '/staffs',
       icon: <UsergroupAddOutlined />,
       label: 'Staff',

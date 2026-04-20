@@ -103,7 +103,7 @@ export default function AccountPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-zinc-900">
-                  Packages (CTV, NPP, TV)
+                  Packages (CTV, Đối tác, TV)
                 </p>
                 <p className="mt-0.5 text-xs text-zinc-500">
                   Buy a package to activate your commission level

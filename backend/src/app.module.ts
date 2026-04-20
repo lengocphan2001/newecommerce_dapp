@@ -52,6 +52,7 @@ import { MatrixRewardLedger } from './matrix-reward/entities/matrix-reward-ledge
 import { MatrixTreeExclusion } from './matrix-reward/entities/matrix-tree-exclusion.entity';
 import { MatrixRewardOrderProcessed } from './matrix-reward/entities/matrix-reward-order-processed.entity';
 import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
+import { HeapRewardModule } from './heap-reward/heap-reward.module';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 
 @Module({
@@ -112,6 +113,8 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
           MatrixTreeExclusion,
           MatrixRewardOrderProcessed,
           PasswordResetToken,
+          HeapRewardPlacement,
+          HeapRewardHistory,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
@@ -140,6 +143,7 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
     PackagesModule,
     AnalyticsModule,
     MatrixRewardModule,
+    HeapRewardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

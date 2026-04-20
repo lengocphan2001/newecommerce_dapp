@@ -33,6 +33,7 @@ import BankingSettings from './pages/BankingSettings';
 import WalletDepositRequests from './pages/WalletDepositRequests';
 import WalletWithdrawRequests from './pages/WalletWithdrawRequests';
 import BlockchainSettings from './pages/BlockchainSettings';
+import HeapReward from './pages/HeapReward';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -380,6 +381,16 @@ function App() {
                       <BlockchainSettings />
                     </AdminLayout>
                   </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/heap-reward"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <HeapReward />
+                  </AdminLayout>
                 </PrivateRoute>
               }
             />
