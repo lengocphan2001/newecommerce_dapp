@@ -164,7 +164,7 @@ function RegisterForm() {
               <input
                 type="text"
                 value={formData.username}
-                readOnly
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                 className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 font-mono text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 placeholder="abc123"
                 minLength={3}
@@ -178,9 +178,6 @@ function RegisterForm() {
                 Tạo mới
               </button>
             </div>
-            <p className="mt-1 text-xs text-zinc-500">
-              Tên đăng nhập được tạo tự động. Bạn có thể bấm &quot;Tạo mới&quot; để đổi sang mã khác.
-            </p>
           </div>
 
           {/* Password */}
