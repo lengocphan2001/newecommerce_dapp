@@ -103,6 +103,12 @@ const Staffs: React.FC = () => {
       key: 'fullName',
     },
     {
+      title: 'Linked User ID',
+      dataIndex: 'linkedUserId',
+      key: 'linkedUserId',
+      render: (id: string) => id ? <Tag color="blue">{id}</Tag> : '-',
+    },
+    {
       title: 'Phone',
       dataIndex: 'phone',
       key: 'phone',
@@ -254,6 +260,15 @@ const Staffs: React.FC = () => {
               <Select.Option value="INACTIVE">Inactive</Select.Option>
               <Select.Option value="SUSPENDED">Suspended</Select.Option>
             </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="linkedUserId"
+            label="Linked User ID (Proxy Admin)"
+            tooltip="If set, this staff account acts as a proxy for the user. They can only view data for this user ID in the User Admin panel."
+            rules={[]}
+          >
+            <Input placeholder="Enter a User ID" />
           </Form.Item>
 
           {editingStaff && (

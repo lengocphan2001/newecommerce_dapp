@@ -35,4 +35,8 @@ export class UpdateStaffDto {
   @IsBoolean()
   @IsOptional()
   isSuperAdmin?: boolean;
+
+  @IsString()
+  @IsOptional()
+  linkedUserId?: string;
 }

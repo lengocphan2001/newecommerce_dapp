@@ -108,6 +108,7 @@ export class AuthService {
         staffId: staff.id,
         isSuperAdmin: staff.isSuperAdmin,
         type: 'staff',
+        linkedUserId: staff.linkedUserId,
       };
       const expiresIn = process.env.JWT_EXPIRES_IN || '24h';
       const token = this.jwtService.sign(payload, {
@@ -136,6 +137,7 @@ export class AuthService {
           isAdmin: true,
           isSuperAdmin: staff.isSuperAdmin,
           type: 'staff',
+          linkedUserId: staff.linkedUserId,
         },
       };
     }
@@ -854,6 +856,25 @@ export class AuthService {
           ? item.createdAt.toISOString()
           : item.createdAt,
     }));
+  }
+
+  async getF1Details(userId: string, f1UserId: string) {
+    const f1User = await this.userService.findOne(f1UserId);
+    if (!f1User || f1User.referralUserId !== userId) {
+      throw new UnauthorizedException('User is not your F1');
+    }
+    
+    // Use AdminService to get the full details (orders, commissions, etc)
+    const detail = await this.adminService.getUserDetail(f1UserId);
+    
+    // Remove sensitive info that a sponsor shouldn't see
+    if (detail.user) {
+      delete detail.user.password;
+      delete detail.user.walletAddress;
+      delete detail.user.walletPrivateKey;
+    }
+    
+    return detail;
   }
 
   async getChildren(userId: string, position?: 'left' | 'right') {

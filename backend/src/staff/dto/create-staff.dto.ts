@@ -31,4 +31,8 @@ export class CreateStaffDto {
   @IsEnum(['ACTIVE', 'INACTIVE', 'SUSPENDED'])
   @IsOptional()
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+
+  @IsString()
+  @IsOptional()
+  linkedUserId?: string;
 }

@@ -26,6 +26,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       if (!staff || staff.status !== 'ACTIVE') {
         throw new UnauthorizedException();
       }
+      if (payload.linkedUserId) {
+        return {
+          sub: payload.linkedUserId,
+          userId: payload.linkedUserId,
+          email: staff.email,
+          isAdmin: false,
+          type: 'user',
+          isProxy: true,
+          staffId: staff.id,
+        };
+      }
+
       return {
         sub: staff.id,
         staffId: staff.id,

@@ -10,6 +10,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Role } from '../../role/entities/role.entity';
+import { User } from '../../user/entities/user.entity';
 
 @Entity('staffs')
 export class Staff {
@@ -44,6 +45,13 @@ export class Staff {
     inverseJoinColumn: { name: 'roleId', referencedColumnName: 'id' },
   })
   roles: Role[];
+
+  @Column({ nullable: true })
+  linkedUserId: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'linkedUserId' })
+  linkedUser: User;
 
   @Column({ nullable: true })
   createdById: string; // ID của staff/admin tạo tài khoản này

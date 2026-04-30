@@ -189,6 +189,15 @@ export class AuthController {
     return this.authService.getF1List(req.user.sub);
   }
 
+  @Get('referral/f1/:f1UserId/details')
+  @UseGuards(JwtAuthGuard)
+  async getF1Details(
+    @Param('f1UserId') f1UserId: string,
+    @Request() req: any,
+  ) {
+    return this.authService.getF1Details(req.user.sub, f1UserId);
+  }
+
   @Get('commission-config/:packageType')
   async getCommissionConfig(@Param('packageType') packageType: string) {
     const config = await this.packagesService.findByCode(

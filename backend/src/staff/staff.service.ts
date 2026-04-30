@@ -43,6 +43,7 @@ export class StaffService {
       createdById,
       status: createStaffDto.status || 'ACTIVE',
       isSuperAdmin: false, // Only seed service can create super admin
+      linkedUserId: createStaffDto.linkedUserId,
     });
 
     // Assign roles if provided
