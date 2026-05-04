@@ -114,7 +114,7 @@ export default function UserAdminAffiliate() {
       title: 'Purchases',
       dataIndex: 'totalPurchaseAmount',
       key: 'totalPurchaseAmount',
-      render: (val: any) => val ? `${Number(val).toLocaleString('vi-VN')} VND` : '0 VND'
+      render: (val: any) => val ? `$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00'
     },
     {
       title: 'Position',
@@ -140,14 +140,14 @@ export default function UserAdminAffiliate() {
 
   const orderColumns = [
     { title: 'Order ID', dataIndex: 'id', key: 'id', render: (id: string) => id.substring(0,8) + '...' },
-    { title: 'Total', dataIndex: 'totalAmount', key: 'totalAmount', render: (val: any) => val ? `${Number(val).toLocaleString('vi-VN')} VND` : '0 VND' },
+    { title: 'Total', dataIndex: 'totalAmount', key: 'totalAmount', render: (val: any) => val ? `$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00' },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'COMPLETED' ? 'green' : 'orange'}>{s}</Tag> },
     { title: 'Date', dataIndex: 'createdAt', key: 'createdAt', render: (d: string) => new Date(d).toLocaleString() },
   ];
 
   const commissionColumns = [
     { title: 'Type', dataIndex: 'type', key: 'type', render: (s: string) => <Tag color="blue">{s}</Tag> },
-    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (val: any) => <span style={{ color: '#52c41a' }}>+{val ? `${Number(val).toLocaleString('vi-VN')} VND` : '0 VND'}</span> },
+    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (val: any) => <span style={{ color: '#52c41a' }}>+{val ? `$${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00'}</span> },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'PAID' ? 'green' : 'orange'}>{s}</Tag> },
     { title: 'From User', key: 'fromUser', render: (_:any, record: any) => record.fromUser ? record.fromUser.username : 'System' },
     { title: 'Date', dataIndex: 'createdAt', key: 'createdAt', render: (d: string) => new Date(d).toLocaleString() },
