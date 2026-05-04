@@ -640,9 +640,6 @@ export default function WalletsPage() {
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${balanceApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
-              <p className="text-sm text-rose-600 mt-0.5 font-medium">
-                {balanceVisible ? `~ $${formatUSDT(withdrawWalletBalance)}` : ""}
-              </p>
             </div>
             <button
               type="button"
@@ -659,7 +656,7 @@ export default function WalletsPage() {
               <div className="space-y-2">
                 {withdrawRequests.slice(0, 5).map((r: any) => (
                   <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
-                    <span className="font-mono">${formatUSDT(Number(r.amount || 0))}</span>
+                    <span className="font-mono">{`${Math.round(Number(r.amount || 0) * activeWithdrawRate).toLocaleString("vi-VN")} VND`}</span>
                     <span className="text-xs text-gray-600">{r.method}</span>
                     <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
                       {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? "Đã duyệt" : "Từ chối"}
@@ -721,9 +718,6 @@ export default function WalletsPage() {
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${walletApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
-              <p className="text-sm text-cyan-600 mt-0.5 font-medium">
-                {balanceVisible ? `~ $${formatUSDT(walletBalance)}` : ""}
-              </p>
             </div>
             <button
               type="button"
@@ -741,9 +735,9 @@ export default function WalletsPage() {
               <div className="space-y-2">
                 {depositRequests.slice(0, 5).map((r: any) => (
                   <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
-                    <span className="font-mono">{r.amountVnd != null ? `${Number(r.amountVnd).toLocaleString("vi-VN")} VND` : `$${formatUSDT(Number(r.amount || 0))}`}</span>
+                    <span className="font-mono">{r.amountVnd != null ? `${Number(r.amountVnd).toLocaleString("vi-VN")} VND` : `${Math.round(Number(r.amount || 0) * usdtDepositRateVnd).toLocaleString("vi-VN")} VND`}</span>
                     <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
-                      {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? (r.amount != null ? `Đã cộng $${formatUSDT(Number(r.amount))}` : "Đã duyệt") : "Từ chối"}
+                      {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? (r.amount != null ? `Đã cộng ${Math.round(Number(r.amount) * usdtDepositRateVnd).toLocaleString("vi-VN")} VND` : "Đã duyệt") : "Từ chối"}
                     </span>
                     <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
                   </div>
@@ -967,17 +961,7 @@ export default function WalletsPage() {
                   <p className="text-xs text-gray-500 mt-1">
                     Số dư khả dụng:{" "}
                     <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} ₫</span>
-                    <span className="text-gray-600">
-                      {" "}
-                      (≈ ${formatUSDT(withdrawWalletBalance)})
-                    </span>
                   </p>
-                  
-                  {withdrawAmountVnd > 0 && (
-                    <p className="text-xs text-emerald-700 mt-1">
-                      Số nhập tương đương khoảng ${formatUSDT(withdrawEquivalentUsdt)}
-                    </p>
-                  )}
                 </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Chọn tài khoản ngân hàng</label>
