@@ -190,10 +190,11 @@ export class CommissionPayoutService {
         );
       }
 
-      const feePercent = COMMISSION_FEE_PERCENT;
-      const withdrawPercent = Math.max(0, 100 - feePercent);
+      const feePercent = COMMISSION_FEE_PERCENT; // 12%
+      const withdrawPercent = 75; // 75%
+      const depositPercent = 13; // 13%
       this.logger.log(
-        `Internal payout distribution: withdraw=${withdrawPercent}%, fee=${feePercent}%`,
+        `Internal payout distribution: withdraw=${withdrawPercent}%, deposit(ví nạp)=${depositPercent}%, fee=${feePercent}%`,
       );
 
       const batchId =
@@ -213,12 +214,12 @@ export class CommissionPayoutService {
         commissionMap.get(commission.userId)!.push(commission);
       }
 
-      // Update each commission and credit withdraw wallet only (after fixed fee deduction)
+      // Update each commission and credit withdraw wallet and deposit wallet (ví nạp)
       const recipientUserIds = dto.recipients.map((recipient) => recipient.userId);
       const recipientsUsers = recipientUserIds.length
         ? await queryRunner.manager.find(User, {
             where: { id: In(recipientUserIds) },
-            select: ['id', 'withdrawWalletBalance'],
+            select: ['id', 'withdrawWalletBalance', 'walletBalance'],
           })
         : [];
       const usersById = new Map(recipientsUsers.map((user) => [user.id, user]));
@@ -233,9 +234,14 @@ export class CommissionPayoutService {
           0,
         );
         const withdrawAmount = roundMoney((gross * withdrawPercent) / 100);
+        const depositAmount = roundMoney((gross * depositPercent) / 100);
+        
         const currentWithdraw = Number(user.withdrawWalletBalance || 0);
+        const currentDeposit = Number(user.walletBalance || 0);
+        
         await queryRunner.manager.update(User, user.id, {
           withdrawWalletBalance: currentWithdraw + withdrawAmount,
+          walletBalance: currentDeposit + depositAmount,
         });
 
         for (const commission of userCommissions) {
@@ -246,7 +252,7 @@ export class CommissionPayoutService {
           commission.payoutDate = new Date();
           const parts = [
             commission.notes,
-            `Distributed to withdraw wallet (${withdrawPercent}%) after ${feePercent}% fee`,
+            `Distributed: withdraw wallet (${withdrawPercent}%), deposit wallet (${depositPercent}%), fee (${feePercent}%)`,
           ]
             .filter(Boolean)
             .join('; ');

@@ -727,6 +727,8 @@ export class AuthService {
       walletBalance: formatDecimal(user.walletBalance ?? 0),
       /** Số dư ví rút tiền - nhận hoa hồng theo tỷ lệ cấu hình */
       withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
+      /** Số dư ví tích lũy (tiêu dùng) */
+      reconsumptionWalletBalance: formatDecimal(user.reconsumptionWalletBalance ?? 0),
       phone: user.phone,
       phoneNumber: user.phone, // Alias for compatibility
       address: user.address,

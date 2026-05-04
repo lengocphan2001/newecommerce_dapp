@@ -170,6 +170,19 @@ export class User {
   })
   withdrawWalletBalance: number;
 
+  /** Số dư ví tích lũy (ví tiêu dùng). */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  reconsumptionWalletBalance: number;
+
   @Column({ default: false })
   emailVerified: boolean;
 

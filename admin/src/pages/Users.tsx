@@ -62,6 +62,7 @@ function buildEditFormValues(u: Record<string, unknown>) {
     rightBranchTotal: toNum(u.rightBranchTotal),
     walletBalance: toNum(u.walletBalance),
     withdrawWalletBalance: toNum(u.withdrawWalletBalance),
+    reconsumptionWalletBalance: toNum(u.reconsumptionWalletBalance),
   };
 }
 
@@ -236,6 +237,7 @@ const Users: React.FC = () => {
           rightBranchTotal: values.rightBranchTotal,
           walletBalance: values.walletBalance,
           withdrawWalletBalance: values.withdrawWalletBalance,
+          reconsumptionWalletBalance: values.reconsumptionWalletBalance,
         };
         if (pw.length >= 6) {
           payload.password = pw;
@@ -517,6 +519,12 @@ const Users: React.FC = () => {
       dataIndex: 'withdrawWalletBalance',
       key: 'withdrawWalletBalance',
       render: (val: number) => <span style={{ color: '#1890ff', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
+    },
+    {
+      title: 'Ví tích lũy',
+      dataIndex: 'reconsumptionWalletBalance',
+      key: 'reconsumptionWalletBalance',
+      render: (val: number) => <span style={{ color: '#eb2f96', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
     },
     {
       title: 'Status',
@@ -885,6 +893,9 @@ const Users: React.FC = () => {
                     <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
                   </Form.Item>
                   <Form.Item name="withdrawWalletBalance" label="Withdraw wallet balance">
+                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                  </Form.Item>
+                  <Form.Item name="reconsumptionWalletBalance" label="Reconsumption wallet balance">
                     <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
                   </Form.Item>
                 </TabPane>

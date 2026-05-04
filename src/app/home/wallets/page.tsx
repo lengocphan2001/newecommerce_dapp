@@ -73,6 +73,7 @@ export default function WalletsPage() {
 
   const walletBalance = parseFloat(referralInfo?.walletBalance || "0") || 0;
   const withdrawWalletBalance = parseFloat(referralInfo?.withdrawWalletBalance || "0") || 0;
+  const reconsumptionWalletBalance = parseFloat(referralInfo?.reconsumptionWalletBalance || "0") || 0;
   const walletAddress = referralInfo?.walletAddress || "";
 
   const parseVndAmount = (value: string): number => {
@@ -263,8 +264,8 @@ export default function WalletsPage() {
     const rate = usdtWithdrawRateVnd > 0 ? usdtWithdrawRateVnd : 24000;
     const amount = amountVnd / rate;
 
-    if (!amount || amount < 30) {
-      setWithdrawError(`Số tiền rút tối thiểu là 30 USDT (~${(30 * rate).toLocaleString("vi-VN")} ₫)`);
+    if (!amount || amount < 20) {
+      setWithdrawError(`Số tiền rút tối thiểu là 20 USDT (~${(20 * rate).toLocaleString("vi-VN")} ₫)`);
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {
@@ -411,6 +412,7 @@ export default function WalletsPage() {
   const withdrawEquivalentUsdt = withdrawAmountVnd / activeWithdrawRate;
   
   const balanceApproxVnd = Math.round(withdrawWalletBalance * activeWithdrawRate);
+  const reconsumptionApproxVnd = Math.round(reconsumptionWalletBalance * activeWithdrawRate);
 
   const usdtDepositRateVnd =
     bankingConfig?.usdtPriceVnd != null && Number(bankingConfig.usdtPriceVnd) > 0
@@ -628,6 +630,22 @@ export default function WalletsPage() {
                 </div>
               ) : null}
             </dl>
+          </div>
+        </div>
+
+        {/* Ví tích lũy */}
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-fuchsia-200">
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-fuchsia-500 to-pink-500" />
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Ví tích lũy</p>
+              <p className="text-2xl font-bold text-text-dark mt-1">
+                {balanceVisible ? `${reconsumptionApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
+              </p>
+            </div>
+            <div className="rounded-xl bg-fuchsia-100 text-fuchsia-600 p-2.5 flex items-center justify-center">
+              <span className="material-symbols-outlined text-xl">savings</span>
+            </div>
           </div>
         </div>
 

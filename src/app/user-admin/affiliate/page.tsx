@@ -94,10 +94,27 @@ export default function UserAdminAffiliate() {
       }
     },
     {
+      title: 'Full Name',
+      dataIndex: 'fullName',
+      key: 'fullName',
+    },
+    {
+      title: 'Phone',
+      dataIndex: 'phone',
+      key: 'phone',
+      render: (phone: string) => phone || '-'
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (s: string) => <Tag color={s === 'ACTIVE' ? 'green' : 'red'}>{s || 'N/A'}</Tag>
+    },
+    {
       title: 'Purchases',
       dataIndex: 'totalPurchaseAmount',
       key: 'totalPurchaseAmount',
-      render: (val: number) => `$${Number(val).toFixed(2)}`
+      render: (val: any) => val ? `${Number(val).toLocaleString('vi-VN')} VND` : '0 VND'
     },
     {
       title: 'Position',
@@ -123,14 +140,14 @@ export default function UserAdminAffiliate() {
 
   const orderColumns = [
     { title: 'Order ID', dataIndex: 'id', key: 'id', render: (id: string) => id.substring(0,8) + '...' },
-    { title: 'Total', dataIndex: 'total', key: 'total', render: (val: number) => `$${Number(val).toFixed(2)}` },
+    { title: 'Total', dataIndex: 'totalAmount', key: 'totalAmount', render: (val: any) => val ? `${Number(val).toLocaleString('vi-VN')} VND` : '0 VND' },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'COMPLETED' ? 'green' : 'orange'}>{s}</Tag> },
     { title: 'Date', dataIndex: 'createdAt', key: 'createdAt', render: (d: string) => new Date(d).toLocaleString() },
   ];
 
   const commissionColumns = [
     { title: 'Type', dataIndex: 'type', key: 'type', render: (s: string) => <Tag color="blue">{s}</Tag> },
-    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (val: number) => <span style={{ color: '#52c41a' }}>+${Number(val).toFixed(2)}</span> },
+    { title: 'Amount', dataIndex: 'amount', key: 'amount', render: (val: any) => <span style={{ color: '#52c41a' }}>+{val ? `${Number(val).toLocaleString('vi-VN')} VND` : '0 VND'}</span> },
     { title: 'Status', dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={s === 'PAID' ? 'green' : 'orange'}>{s}</Tag> },
     { title: 'From User', key: 'fromUser', render: (_:any, record: any) => record.fromUser ? record.fromUser.username : 'System' },
     { title: 'Date', dataIndex: 'createdAt', key: 'createdAt', render: (d: string) => new Date(d).toLocaleString() },

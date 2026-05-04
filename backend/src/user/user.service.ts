@@ -62,6 +62,7 @@ export class UserService {
         'u.createdAt AS createdAt',
         'u.walletBalance AS walletBalance',
         'u.withdrawWalletBalance AS withdrawWalletBalance',
+        'u.reconsumptionWalletBalance AS reconsumptionWalletBalance',
         'kyc_latest.status AS kycStatus',
         'kyc_latest.createdAt AS kycSubmittedAt',
       ])
@@ -85,6 +86,7 @@ export class UserService {
       createdAt: Date | string;
       walletBalance: number | string;
       withdrawWalletBalance: number | string;
+      reconsumptionWalletBalance: number | string;
       kycStatus: string | null;
       kycSubmittedAt: Date | string | null;
     }>();
@@ -99,6 +101,7 @@ export class UserService {
       createdAt: row.createdAt,
       walletBalance: Number(row.walletBalance || 0),
       withdrawWalletBalance: Number(row.withdrawWalletBalance || 0),
+      reconsumptionWalletBalance: Number(row.reconsumptionWalletBalance || 0),
       kycStatus: row.kycStatus ?? 'UNVERIFIED',
       kycSubmittedAt: row.kycSubmittedAt ?? null,
     }));
@@ -340,8 +343,12 @@ export class UserService {
       username: string | null;
       fullName: string;
       email: string;
+      phone: string | null;
+      status: string;
       packageType: string;
       createdAt: Date;
+      totalPurchaseAmount: number;
+      position: string | null;
       directReferralCount: number;
     }>
   > {
@@ -352,8 +359,12 @@ export class UserService {
         'username',
         'fullName',
         'email',
+        'phone',
+        'status',
         'packageType',
         'createdAt',
+        'totalPurchaseAmount',
+        'position',
       ],
       order: { createdAt: 'ASC' },
     });
@@ -379,8 +390,12 @@ export class UserService {
       username: u.username,
       fullName: u.fullName,
       email: u.email,
+      phone: u.phone,
+      status: u.status,
       packageType: u.packageType || 'NONE',
       createdAt: u.createdAt,
+      totalPurchaseAmount: u.totalPurchaseAmount,
+      position: u.position,
       directReferralCount: countsByReferrer.get(u.id) || 0,
     }));
 

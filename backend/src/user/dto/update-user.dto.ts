@@ -150,4 +150,10 @@ export class UpdateUserDto {
   @Min(0)
   @IsOptional()
   withdrawWalletBalance?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  reconsumptionWalletBalance?: number;
 }
