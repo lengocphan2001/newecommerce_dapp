@@ -328,25 +328,25 @@ export default function OrderDetailClient() {
                             <p className="text-slate-500 text-xs font-bold uppercase tracking-wide mb-1">{t("paymentMethodSafePal")}</p>
                             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                 {order.paymentMethod === "deposit_wallet" && (
-                                  <>
-                                    <span className="text-slate-900 text-sm font-bold">Ví nạp tiền</span>
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 border border-green-200 font-bold">Đã trừ ví</span>
-                                  </>
+                                    <>
+                                        <span className="text-slate-900 text-sm font-bold">Ví tiêu dùng</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 border border-green-200 font-bold">Đã trừ ví</span>
+                                    </>
                                 )}
                                 {order.paymentMethod === "banking" && (
-                                  <span className="text-slate-900 text-sm font-bold">Chuyển khoản ngân hàng</span>
+                                    <span className="text-slate-900 text-sm font-bold">Chuyển khoản ngân hàng</span>
                                 )}
                                 {order.paymentMethod === "usdt" && (
-                                  <>
-                                    <span className="text-slate-900 text-sm font-bold">Chuyển USDT thủ công</span>
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">Chờ duyệt</span>
-                                  </>
+                                    <>
+                                        <span className="text-slate-900 text-sm font-bold">Chuyển USDT thủ công</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">Chờ duyệt</span>
+                                    </>
                                 )}
                                 {order.paymentMethod !== "deposit_wallet" && order.paymentMethod !== "banking" && order.paymentMethod !== "usdt" && (
-                                  <>
-                                    <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>
-                                  </>
+                                    <>
+                                        <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>
+                                    </>
                                 )}
                             </div>
                             {order.transactionHash && (

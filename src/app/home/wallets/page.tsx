@@ -205,7 +205,7 @@ export default function WalletsPage() {
 
   const handleSubmitDeposit = async () => {
     setDepositError("");
-    
+
     let payload: any = {
       method: depositForm.method,
       proofImageUrl: depositForm.proofImageUrl || undefined,
@@ -226,8 +226,8 @@ export default function WalletsPage() {
         return;
       }
       if (!depositForm.txHash && !depositForm.proofImageUrl) {
-         setDepositError("Vui lòng nhập TxHash hoặc tải lên ảnh chứng từ");
-         return;
+        setDepositError("Vui lòng nhập TxHash hoặc tải lên ảnh chứng từ");
+        return;
       }
       payload.requestedUsdt = requestedUsdt;
       payload.txHash = depositForm.txHash || undefined;
@@ -404,13 +404,13 @@ export default function WalletsPage() {
   /** Tỷ giá chỉ cho modal rút ví — tách với tỷ giá nạp/checkout (`usdtPriceVnd`). */
   const usdtWithdrawRateVnd =
     bankingConfig?.usdtWithdrawPriceVnd != null &&
-    Number(bankingConfig.usdtWithdrawPriceVnd) > 0
+      Number(bankingConfig.usdtWithdrawPriceVnd) > 0
       ? Number(bankingConfig.usdtWithdrawPriceVnd)
       : 0;
   const activeWithdrawRate = usdtWithdrawRateVnd > 0 ? usdtWithdrawRateVnd : 24000;
   const withdrawAmountVnd = parseVndAmount(withdrawForm.amountVnd || "");
   const withdrawEquivalentUsdt = withdrawAmountVnd / activeWithdrawRate;
-  
+
   const balanceApproxVnd = Math.round(withdrawWalletBalance * activeWithdrawRate);
   const reconsumptionApproxVnd = Math.round(reconsumptionWalletBalance * activeWithdrawRate);
 
@@ -418,7 +418,7 @@ export default function WalletsPage() {
     bankingConfig?.usdtPriceVnd != null && Number(bankingConfig.usdtPriceVnd) > 0
       ? Number(bankingConfig.usdtPriceVnd)
       : 25000;
-  
+
   const walletApproxVnd =
     usdtDepositRateVnd > 0 && walletBalance > 0
       ? Math.round(walletBalance * usdtDepositRateVnd)
@@ -468,28 +468,28 @@ export default function WalletsPage() {
         );
       })
       .map((activity: any) => {
-      // Normalize activity type to handle both uppercase and lowercase
-      const activityType = String(activity.type || '').toUpperCase();
+        // Normalize activity type to handle both uppercase and lowercase
+        const activityType = String(activity.type || '').toUpperCase();
 
-      // Determine commission type label
-      const commissionTitle = activityType === 'DIRECT'
-        ? t("directCommission")
-        : activityType === 'GROUP'
-          ? t("groupCommission")
-          : t("managementCommission");
+        // Determine commission type label
+        const commissionTitle = activityType === 'DIRECT'
+          ? t("directCommission")
+          : activityType === 'GROUP'
+            ? t("groupCommission")
+            : t("managementCommission");
 
-      return {
-        id: activity.id,
-        type: 'commission' as const,
-        title: commissionTitle,
-        amount: parseFloat(activity.amount),
-        status: activity.status === 'PENDING' ? t("pending") : t("completed"),
-        date: formatDateSafe(activity.createdAt),
-        createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
-        icon: 'call_received',
-        iconColor: 'text-[#13ec5b]',
-      };
-    }) || []),
+        return {
+          id: activity.id,
+          type: 'commission' as const,
+          title: commissionTitle,
+          amount: parseFloat(activity.amount),
+          status: activity.status === 'PENDING' ? t("pending") : t("completed"),
+          date: formatDateSafe(activity.createdAt),
+          createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
+          icon: 'call_received',
+          iconColor: 'text-[#13ec5b]',
+        };
+      }) || []),
     // Orders
     ...(orders.map((order: any) => ({
       id: order.id,
@@ -654,7 +654,7 @@ export default function WalletsPage() {
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 to-orange-400" />
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-sm font-medium text-gray-600">Ví rút tiền</p>
+              <p className="text-sm font-medium text-gray-600">Ví thưởng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${balanceApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
@@ -732,7 +732,7 @@ export default function WalletsPage() {
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm font-medium text-gray-600">Ví nạp tiền</p>
+              <p className="text-sm font-medium text-gray-600">Ví tiên dùng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${walletApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
@@ -898,7 +898,7 @@ export default function WalletsPage() {
                   ) : (
                     <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Admin chưa cấu hình địa chỉ ví USDT.</p>
                   )}
-                  
+
                   <div className="mb-4">
                     <label className="block text-sm font-semibold text-slate-700 mb-2">3. Mã giao dịch (TxHash) hoặc link Tx *</label>
                     <input
@@ -914,7 +914,7 @@ export default function WalletsPage() {
 
               <div className="border-t border-slate-200 pt-4 mt-4">
                 <p className="text-sm font-semibold text-slate-700 mb-3">
-                   {depositForm.method === 'BANKING' ? "3." : "4."} Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> (có thể tải lên ảnh biên lai).
+                  {depositForm.method === 'BANKING' ? "3." : "4."} Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> (có thể tải lên ảnh biên lai).
                 </p>
               </div>
 
@@ -981,21 +981,21 @@ export default function WalletsPage() {
                     <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} ₫</span>
                   </p>
                 </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chọn tài khoản ngân hàng</label>
-                    <select
-                      value={withdrawForm.bankAccountId}
-                      onChange={(e) => setWithdrawForm((f) => ({ ...f, bankAccountId: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5"
-                    >
-                      <option value="">-- Chọn tài khoản --</option>
-                      {bankAccounts.map((b: any) => (
-                        <option key={b.id} value={b.id}>
-                          {b.bankName} - {b.accountNumber} ({b.accountName})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Chọn tài khoản ngân hàng</label>
+                  <select
+                    value={withdrawForm.bankAccountId}
+                    onChange={(e) => setWithdrawForm((f) => ({ ...f, bankAccountId: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5"
+                  >
+                    <option value="">-- Chọn tài khoản --</option>
+                    {bankAccounts.map((b: any) => (
+                      <option key={b.id} value={b.id}>
+                        {b.bankName} - {b.accountNumber} ({b.accountName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú (tùy chọn)</label>
                   <textarea

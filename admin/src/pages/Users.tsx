@@ -515,7 +515,7 @@ const Users: React.FC = () => {
       render: (val: number) => <span style={{ color: '#52c41a', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
     },
     {
-      title: 'Ví rút tiền',
+      title: 'Ví thưởng',
       dataIndex: 'withdrawWalletBalance',
       key: 'withdrawWalletBalance',
       render: (val: number) => <span style={{ color: '#1890ff', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
@@ -727,207 +727,207 @@ const Users: React.FC = () => {
               </>
             ) : (
               <>
-              <Tabs defaultActiveKey="account" destroyInactiveTabPane={false}>
-                <TabPane tab="Account" key="account">
-                  <Form.Item
-                    name="email"
-                    label="Email"
-                    rules={[{ required: true, type: 'email' }]}
-                  >
-                    <Input />
-                  </Form.Item>
-                  <Form.Item
-                    name="fullName"
-                    label="Full Name"
-                    rules={[{ required: true }]}
-                  >
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="phone" label="Phone">
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="username" label="Username">
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="country" label="Country">
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="address" label="Address (text)">
-                    <Input.TextArea rows={2} />
-                  </Form.Item>
-                  <Form.Item name="status" label="Status">
-                    <Select>
-                      <Select.Option value="ACTIVE">ACTIVE</Select.Option>
-                      <Select.Option value="INACTIVE">INACTIVE</Select.Option>
-                      <Select.Option value="SUSPENDED">SUSPENDED</Select.Option>
-                      <Select.Option value="BANNED">BANNED</Select.Option>
-                    </Select>
-                  </Form.Item>
-                  <Form.Item name="isAdmin" label="Admin" valuePropName="checked">
-                    <Switch />
-                  </Form.Item>
-                  <Form.Item name="emailVerified" label="Email verified" valuePropName="checked">
-                    <Switch />
-                  </Form.Item>
-                </TabPane>
-
-                <TabPane tab="Wallet" key="wallet">
-                  <Form.Item name="walletAddress" label="Wallet address">
-                    <Input placeholder="0x..." />
-                  </Form.Item>
-                  <Form.Item name="chainId" label="Chain ID">
-                    <Input placeholder="e.g. 56" />
-                  </Form.Item>
-                  <Form.Item name="avatar" label="Avatar (URL or data)">
-                    <Input.TextArea rows={2} placeholder="URL or base64 — can be long" />
-                  </Form.Item>
-                </TabPane>
-
-                <TabPane tab="Tree & referral" key="tree">
-                  <Alert
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                    message="parentId / referralUserId must be valid user UUIDs. Clear field + save to set null."
-                  />
-                  <Form.Item name="referralUser" label="Referral username (display)">
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="referralUserId" label="Referral user ID (UUID)">
-                    <Input placeholder="UUID of referrer" allowClear />
-                  </Form.Item>
-                  <Form.Item name="parentId" label="Parent ID (binary tree)">
-                    <Input placeholder="UUID of parent in tree" allowClear />
-                  </Form.Item>
-                  <Form.Item name="position" label="Position under parent">
-                    <Select allowClear placeholder="Clear to remove">
-                      <Select.Option value="left">Left</Select.Option>
-                      <Select.Option value="right">Right</Select.Option>
-                    </Select>
-                  </Form.Item>
-                </TabPane>
-
-                <TabPane tab="Package & volumes" key="finance">
-                  <Alert
-                    type="warning"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                    message="These fields affect commissions and binary volume. Change only when you understand the impact."
-                  />
-                  <Form.Item name="packageType" label="Package type">
-                    <Select showSearch optionFilterProp="children" allowClear placeholder="NONE">
-                      <Select.Option value="NONE">NONE</Select.Option>
-                      {packagesForEdit
-                        .filter((p) => p?.code)
-                        .map((p) => (
-                          <Select.Option key={p.code} value={p.code}>
-                            {p.code}
-                          </Select.Option>
-                        ))}
-                    </Select>
-                  </Form.Item>
-                  <Card
-                    size="small"
-                    style={{ marginBottom: 16, borderColor: '#ffe58f' }}
-                    title="Wallet reconciliation (withdraw wallet)"
-                  >
-                    <Space
-                      direction="vertical"
-                      size={10}
-                      style={{ width: '100%' }}
+                <Tabs defaultActiveKey="account" destroyInactiveTabPane={false}>
+                  <TabPane tab="Account" key="account">
+                    <Form.Item
+                      name="email"
+                      label="Email"
+                      rules={[{ required: true, type: 'email' }]}
                     >
-                      <Text type="secondary">
-                        Commission PAID hiển thị sau khi trừ 12%, loại trừ payout USDT on-chain; cộng matrix ròng và trừ số đã rút được duyệt.
-                      </Text>
-                      <Descriptions size="small" bordered column={1}>
-                        <Descriptions.Item label="Commission PAID (net, đã trừ 12%)">
-                          <span style={{ color: '#389e0d', fontWeight: 600 }}>
-                            ${toNum(editWalletReconciliation?.paidCommissionToWithdrawWallet).toFixed(8)} USDT
-                          </span>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Matrix pool (net)">
-                          <span style={{ color: '#722ed1', fontWeight: 600 }}>
-                            ${toNum(editWalletReconciliation?.matrixPoolNetAmount).toFixed(8)} USDT
-                          </span>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Đã rút (APPROVED)">
-                          <span style={{ color: '#cf1322', fontWeight: 600 }}>
-                            ${toNum(editWalletReconciliation?.approvedWithdrawnAmount).toFixed(8)} USDT
-                          </span>
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Số dư ví rút đề xuất">
-                          <span style={{ color: '#1677ff', fontWeight: 700 }}>
-                            ${toNum(editWalletReconciliation?.expectedWithdrawWalletBalance).toFixed(8)} USDT
-                          </span>
-                        </Descriptions.Item>
-                      </Descriptions>
-                      <Button
-                        type="primary"
-                        onClick={applyExpectedWithdrawWalletBalance}
-                        disabled={!editWalletReconciliation}
+                      <Input />
+                    </Form.Item>
+                    <Form.Item
+                      name="fullName"
+                      label="Full Name"
+                      rules={[{ required: true }]}
+                    >
+                      <Input />
+                    </Form.Item>
+                    <Form.Item name="phone" label="Phone">
+                      <Input />
+                    </Form.Item>
+                    <Form.Item name="username" label="Username">
+                      <Input />
+                    </Form.Item>
+                    <Form.Item name="country" label="Country">
+                      <Input />
+                    </Form.Item>
+                    <Form.Item name="address" label="Address (text)">
+                      <Input.TextArea rows={2} />
+                    </Form.Item>
+                    <Form.Item name="status" label="Status">
+                      <Select>
+                        <Select.Option value="ACTIVE">ACTIVE</Select.Option>
+                        <Select.Option value="INACTIVE">INACTIVE</Select.Option>
+                        <Select.Option value="SUSPENDED">SUSPENDED</Select.Option>
+                        <Select.Option value="BANNED">BANNED</Select.Option>
+                      </Select>
+                    </Form.Item>
+                    <Form.Item name="isAdmin" label="Admin" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item name="emailVerified" label="Email verified" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </TabPane>
+
+                  <TabPane tab="Wallet" key="wallet">
+                    <Form.Item name="walletAddress" label="Wallet address">
+                      <Input placeholder="0x..." />
+                    </Form.Item>
+                    <Form.Item name="chainId" label="Chain ID">
+                      <Input placeholder="e.g. 56" />
+                    </Form.Item>
+                    <Form.Item name="avatar" label="Avatar (URL or data)">
+                      <Input.TextArea rows={2} placeholder="URL or base64 — can be long" />
+                    </Form.Item>
+                  </TabPane>
+
+                  <TabPane tab="Tree & referral" key="tree">
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="parentId / referralUserId must be valid user UUIDs. Clear field + save to set null."
+                    />
+                    <Form.Item name="referralUser" label="Referral username (display)">
+                      <Input />
+                    </Form.Item>
+                    <Form.Item name="referralUserId" label="Referral user ID (UUID)">
+                      <Input placeholder="UUID of referrer" allowClear />
+                    </Form.Item>
+                    <Form.Item name="parentId" label="Parent ID (binary tree)">
+                      <Input placeholder="UUID of parent in tree" allowClear />
+                    </Form.Item>
+                    <Form.Item name="position" label="Position under parent">
+                      <Select allowClear placeholder="Clear to remove">
+                        <Select.Option value="left">Left</Select.Option>
+                        <Select.Option value="right">Right</Select.Option>
+                      </Select>
+                    </Form.Item>
+                  </TabPane>
+
+                  <TabPane tab="Package & volumes" key="finance">
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="These fields affect commissions and binary volume. Change only when you understand the impact."
+                    />
+                    <Form.Item name="packageType" label="Package type">
+                      <Select showSearch optionFilterProp="children" allowClear placeholder="NONE">
+                        <Select.Option value="NONE">NONE</Select.Option>
+                        {packagesForEdit
+                          .filter((p) => p?.code)
+                          .map((p) => (
+                            <Select.Option key={p.code} value={p.code}>
+                              {p.code}
+                            </Select.Option>
+                          ))}
+                      </Select>
+                    </Form.Item>
+                    <Card
+                      size="small"
+                      style={{ marginBottom: 16, borderColor: '#ffe58f' }}
+                      title="Wallet reconciliation (withdraw wallet)"
+                    >
+                      <Space
+                        direction="vertical"
+                        size={10}
+                        style={{ width: '100%' }}
                       >
-                        Set Withdraw wallet balance = số dư đề xuất
-                      </Button>
-                    </Space>
-                  </Card>
-                  <Divider plain>Amounts (USDT)</Divider>
-                  <Form.Item name="totalPurchaseAmount" label="Total purchase amount">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="totalCommissionReceived" label="Total commission received">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="fakeReceivedCommission" label="Fake received commission">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="totalReconsumptionAmount" label="Total reconsumption">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="leftBranchTotal" label="Left branch total">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="rightBranchTotal" label="Right branch total">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="walletBalance" label="Wallet balance (deposit)">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="withdrawWalletBalance" label="Withdraw wallet balance">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                  <Form.Item name="reconsumptionWalletBalance" label="Reconsumption wallet balance">
-                    <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
-                  </Form.Item>
-                </TabPane>
-              </Tabs>
-              <Divider />
-              <Title level={5} style={{ marginTop: 0 }}>
-                Mật khẩu đăng nhập Web2
-              </Title>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                Luôn hiển thị phía dưới — để trống nếu không đổi. Tối thiểu 6 ký tự nếu nhập mật khẩu mới.
-              </Text>
-              <Form.Item
-                name="password"
-                label="Mật khẩu mới"
-                rules={[
-                  {
-                    validator: (_, v) => {
-                      const s = String(v || '').trim();
-                      if (!s) return Promise.resolve();
-                      if (s.length < 6) {
-                        return Promise.reject(new Error('Tối thiểu 6 ký tự'));
-                      }
-                      return Promise.resolve();
+                        <Text type="secondary">
+                          Commission PAID hiển thị sau khi trừ 12%, loại trừ payout USDT on-chain; cộng matrix ròng và trừ số đã rút được duyệt.
+                        </Text>
+                        <Descriptions size="small" bordered column={1}>
+                          <Descriptions.Item label="Commission PAID (net, đã trừ 12%)">
+                            <span style={{ color: '#389e0d', fontWeight: 600 }}>
+                              ${toNum(editWalletReconciliation?.paidCommissionToWithdrawWallet).toFixed(8)} USDT
+                            </span>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Matrix pool (net)">
+                            <span style={{ color: '#722ed1', fontWeight: 600 }}>
+                              ${toNum(editWalletReconciliation?.matrixPoolNetAmount).toFixed(8)} USDT
+                            </span>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Đã rút (APPROVED)">
+                            <span style={{ color: '#cf1322', fontWeight: 600 }}>
+                              ${toNum(editWalletReconciliation?.approvedWithdrawnAmount).toFixed(8)} USDT
+                            </span>
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Số dư ví rút đề xuất">
+                            <span style={{ color: '#1677ff', fontWeight: 700 }}>
+                              ${toNum(editWalletReconciliation?.expectedWithdrawWalletBalance).toFixed(8)} USDT
+                            </span>
+                          </Descriptions.Item>
+                        </Descriptions>
+                        <Button
+                          type="primary"
+                          onClick={applyExpectedWithdrawWalletBalance}
+                          disabled={!editWalletReconciliation}
+                        >
+                          Set Withdraw wallet balance = số dư đề xuất
+                        </Button>
+                      </Space>
+                    </Card>
+                    <Divider plain>Amounts (USDT)</Divider>
+                    <Form.Item name="totalPurchaseAmount" label="Total purchase amount">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="totalCommissionReceived" label="Total commission received">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="fakeReceivedCommission" label="Fake received commission">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="totalReconsumptionAmount" label="Total reconsumption">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="leftBranchTotal" label="Left branch total">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="rightBranchTotal" label="Right branch total">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="walletBalance" label="Wallet balance (deposit)">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="withdrawWalletBalance" label="Withdraw wallet balance">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                    <Form.Item name="reconsumptionWalletBalance" label="Reconsumption wallet balance">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
+                  </TabPane>
+                </Tabs>
+                <Divider />
+                <Title level={5} style={{ marginTop: 0 }}>
+                  Mật khẩu đăng nhập Web2
+                </Title>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                  Luôn hiển thị phía dưới — để trống nếu không đổi. Tối thiểu 6 ký tự nếu nhập mật khẩu mới.
+                </Text>
+                <Form.Item
+                  name="password"
+                  label="Mật khẩu mới"
+                  rules={[
+                    {
+                      validator: (_, v) => {
+                        const s = String(v || '').trim();
+                        if (!s) return Promise.resolve();
+                        if (s.length < 6) {
+                          return Promise.reject(new Error('Tối thiểu 6 ký tự'));
+                        }
+                        return Promise.resolve();
+                      },
                     },
-                  },
-                ]}
-              >
-                <Input.Password
-                  autoComplete="new-password"
-                  placeholder="Chỉ điền khi muốn đổi mật khẩu"
-                />
-              </Form.Item>
+                  ]}
+                >
+                  <Input.Password
+                    autoComplete="new-password"
+                    placeholder="Chỉ điền khi muốn đổi mật khẩu"
+                  />
+                </Form.Item>
               </>
             )}
           </Form>
@@ -1000,10 +1000,10 @@ const Users: React.FC = () => {
 
               <Title level={5}>Financial Information</Title>
               <Descriptions bordered column={2}>
-                <Descriptions.Item label="Ví nạp tiền (Deposit Wallet)">
+                <Descriptions.Item label="Ví tiêu dùng (Deposit Wallet)">
                   <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
                 </Descriptions.Item>
-                <Descriptions.Item label="Ví rút tiền (Withdraw Wallet)">
+                <Descriptions.Item label="Ví thưởng (Withdraw Wallet)">
                   <span style={{ color: '#1890ff', fontWeight: 600 }}>${userDetail.user.withdrawWalletBalance ?? 0} USDT</span>
                 </Descriptions.Item>
                 <Descriptions.Item label="Total Purchase Amount">

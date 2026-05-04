@@ -396,24 +396,22 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => setPaymentTab("deposit_wallet")}
-                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${
-                  paymentTab === "deposit_wallet"
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${paymentTab === "deposit_wallet"
                     ? "bg-primary/10 text-primary border-b-2 border-primary"
                     : "text-slate-500 hover:bg-slate-50"
-                }`}
-                title="Ví nạp tiền"
+                  }`}
+                title="Ví tiêu dùng"
               >
                 <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                Ví nạp
+                Ví tiêu dùng
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentTab("banking")}
-                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${
-                  paymentTab === "banking"
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${paymentTab === "banking"
                     ? "bg-primary/10 text-primary border-b-2 border-primary"
                     : "text-slate-500 hover:bg-slate-50"
-                }`}
+                  }`}
                 title="Chuyển khoản ngân hàng"
               >
                 <span className="material-symbols-outlined text-[18px]">account_balance</span>
@@ -422,11 +420,10 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => setPaymentTab("usdt")}
-                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${
-                  paymentTab === "usdt"
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${paymentTab === "usdt"
                     ? "bg-primary/10 text-primary border-b-2 border-primary"
                     : "text-slate-500 hover:bg-slate-50"
-                }`}
+                  }`}
                 title="USDT"
               >
                 <span className="material-symbols-outlined text-[18px]">currency_bitcoin</span>
@@ -455,129 +452,129 @@ export default function CheckoutPage() {
             {/* Nội dung tab Chuyển khoản */}
             {paymentTab === "banking" && (
               <>
-          {!bankingConfig?.isEnabled && (
-            <div className="p-4 text-center text-slate-500 text-sm">
-              Phương thức chuyển khoản tạm thời không khả dụng. Vui lòng liên hệ admin.
-            </div>
-          )}
-          {bankingConfig && bankingConfig.isEnabled && (
-            <div className="p-4 space-y-4">
-              <p className="text-sm text-slate-600">Chuyển khoản đến tài khoản sau. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận đã nhận tiền.</p>
-              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền chuyển khoản</p>
-                <p className="font-bold text-slate-900 text-lg">{formatPrice(finalTotal)} USDT</p>
-                {usdtToVnd != null && (
-                  <p className="text-sm text-slate-600 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)} </p>
-                )}
-                {usdtToVnd == null && (
-                  <p className="text-xs text-slate-400 mt-0.5">Đang lấy tỷ giá USDT/VND...</p>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-2 text-sm">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-text-sub font-medium shrink-0">Ngân hàng</span>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold text-slate-900 truncate">{bankingConfig.bankName || "—"}</span>
-                    {bankingConfig.bankName && (
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(bankingConfig.bankName, "bankName")}
-                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
-                      >
-                        {copiedField === "bankName" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-text-sub font-medium shrink-0">Số tài khoản</span>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold font-mono text-slate-900 truncate">{bankingConfig.accountNumber || "—"}</span>
-                    {bankingConfig.accountNumber && (
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(bankingConfig.accountNumber, "accountNumber")}
-                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
-                      >
-                        {copiedField === "accountNumber" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-text-sub font-medium shrink-0">Chủ tài khoản</span>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-bold text-slate-900 uppercase truncate">{bankingConfig.accountName || "—"}</span>
-                    {bankingConfig.accountName && (
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(bankingConfig.accountName, "accountName")}
-                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
-                      >
-                        {copiedField === "accountName" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-col items-center pt-2">
-                {vietQrUrl ? (
-                  <>
-                    <span className="text-xs text-text-sub font-medium mb-2">
-                      Quét mã QR để chuyển khoản (số tiền + nội dung đã điền sẵn)
-                    </span>
-                    <img src={vietQrUrl} alt="VietQR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
-                    <a
-                      href={vietQrUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">download</span>
-                      Mở / tải ảnh QR
-                    </a>
-                  </>
-                ) : bankingConfig.qrImageUrl ? (
-                  <>
-                    <span className="text-xs text-text-sub font-medium mb-2">Quét mã QR để chuyển khoản</span>
-                    <img src={bankingConfig.qrImageUrl} alt="QR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
-                    <button
-                      type="button"
-                      onClick={downloadQrImage}
-                      className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">download</span>
-                      Tải ảnh QR
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-center py-4 px-3 rounded-lg bg-slate-100 border border-slate-200 w-full max-w-sm">
-                    <p className="text-sm font-medium text-slate-700 mb-1">Chưa có mã QR</p>
-                    <p className="text-xs text-slate-500">
-                      Để hiển thị mã QR quét chuyển khoản, Admin cần vào <strong>Banking Settings</strong> → chọn <strong>VietQR Bank</strong> (hoặc tải ảnh QR lên) rồi lưu.
-                    </p>
+                {!bankingConfig?.isEnabled && (
+                  <div className="p-4 text-center text-slate-500 text-sm">
+                    Phương thức chuyển khoản tạm thời không khả dụng. Vui lòng liên hệ admin.
                   </div>
                 )}
-              </div>
-              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-2">
-                <strong>Nội dung chuyển khoản (Binary ID của bạn):</strong>
-                <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <code className="flex-1 min-w-0 break-all font-mono bg-amber-100/80 px-2 py-1.5 rounded text-slate-800">
-                    {checkoutUser?.username || "Đăng nhập để hiện Binary ID"}
-                  </code>
-                  {checkoutUser?.username && (
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(checkoutUser.username!, "content")}
-                      className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-200/80 text-amber-900 text-xs font-semibold hover:bg-amber-300/80 transition"
-                    >
-                      {copiedField === "content" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+                {bankingConfig && bankingConfig.isEnabled && (
+                  <div className="p-4 space-y-4">
+                    <p className="text-sm text-slate-600">Chuyển khoản đến tài khoản sau. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận đã nhận tiền.</p>
+                    <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                      <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền chuyển khoản</p>
+                      <p className="font-bold text-slate-900 text-lg">{formatPrice(finalTotal)} USDT</p>
+                      {usdtToVnd != null && (
+                        <p className="text-sm text-slate-600 mt-0.5">≈ {formatVnd(finalTotal * usdtToVnd)} </p>
+                      )}
+                      {usdtToVnd == null && (
+                        <p className="text-xs text-slate-400 mt-0.5">Đang lấy tỷ giá USDT/VND...</p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 text-sm">
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-text-sub font-medium shrink-0">Ngân hàng</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-bold text-slate-900 truncate">{bankingConfig.bankName || "—"}</span>
+                          {bankingConfig.bankName && (
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(bankingConfig.bankName, "bankName")}
+                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                            >
+                              {copiedField === "bankName" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-text-sub font-medium shrink-0">Số tài khoản</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-bold font-mono text-slate-900 truncate">{bankingConfig.accountNumber || "—"}</span>
+                          {bankingConfig.accountNumber && (
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(bankingConfig.accountNumber, "accountNumber")}
+                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                            >
+                              {copiedField === "accountNumber" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-text-sub font-medium shrink-0">Chủ tài khoản</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-bold text-slate-900 uppercase truncate">{bankingConfig.accountName || "—"}</span>
+                          {bankingConfig.accountName && (
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(bankingConfig.accountName, "accountName")}
+                              className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition"
+                            >
+                              {copiedField === "accountName" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center pt-2">
+                      {vietQrUrl ? (
+                        <>
+                          <span className="text-xs text-text-sub font-medium mb-2">
+                            Quét mã QR để chuyển khoản (số tiền + nội dung đã điền sẵn)
+                          </span>
+                          <img src={vietQrUrl} alt="VietQR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
+                          <a
+                            href={vietQrUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">download</span>
+                            Mở / tải ảnh QR
+                          </a>
+                        </>
+                      ) : bankingConfig.qrImageUrl ? (
+                        <>
+                          <span className="text-xs text-text-sub font-medium mb-2">Quét mã QR để chuyển khoản</span>
+                          <img src={bankingConfig.qrImageUrl} alt="QR chuyển khoản" className="w-64 h-64 min-w-[256px] min-h-[256px] object-contain rounded-lg border border-slate-200 bg-white" />
+                          <button
+                            type="button"
+                            onClick={downloadQrImage}
+                            className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">download</span>
+                            Tải ảnh QR
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-center py-4 px-3 rounded-lg bg-slate-100 border border-slate-200 w-full max-w-sm">
+                          <p className="text-sm font-medium text-slate-700 mb-1">Chưa có mã QR</p>
+                          <p className="text-xs text-slate-500">
+                            Để hiển thị mã QR quét chuyển khoản, Admin cần vào <strong>Banking Settings</strong> → chọn <strong>VietQR Bank</strong> (hoặc tải ảnh QR lên) rồi lưu.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-2">
+                      <strong>Nội dung chuyển khoản (Binary ID của bạn):</strong>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <code className="flex-1 min-w-0 break-all font-mono bg-amber-100/80 px-2 py-1.5 rounded text-slate-800">
+                          {checkoutUser?.username || "Đăng nhập để hiện Binary ID"}
+                        </code>
+                        {checkoutUser?.username && (
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(checkoutUser.username!, "content")}
+                            className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg bg-amber-200/80 text-amber-900 text-xs font-semibold hover:bg-amber-300/80 transition"
+                          >
+                            {copiedField === "content" ? "Đã copy" : <><span className="material-symbols-outlined text-[14px]">content_copy</span> Copy</>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
             {paymentTab === "usdt" && (
@@ -713,9 +710,9 @@ export default function CheckoutPage() {
         bankingSuccess={
           processingStep === "success" && bankingOrderId && (paymentTab === "banking" || paymentTab === "usdt")
             ? {
-                orderId: bankingOrderId,
-                transferContent: checkoutUser?.username || "",
-              }
+              orderId: bankingOrderId,
+              transferContent: checkoutUser?.username || "",
+            }
             : undefined
         }
       />
