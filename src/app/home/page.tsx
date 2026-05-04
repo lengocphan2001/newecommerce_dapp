@@ -67,7 +67,7 @@ export default function HomePage() {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [selectedCountry, setSelectedCountry] = useState<'VIETNAM' | 'USA' | null>('VIETNAM');
-  const [selectedProductType, setSelectedProductType] = useState<'STRATEGIC' | 'COMMON' | null>('STRATEGIC');
+  const [selectedProductType, setSelectedProductType] = useState<'STRATEGIC' | 'COMMON' | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sliders, setSliders] = useState<Slider[]>([]);
@@ -395,50 +395,47 @@ export default function HomePage() {
             </div>
           </div>
         )}
-        {/* Product Type Tabs */}
-        <div className="bg-white border-b border-gray-100 px-4 py-3 sticky top-[64px] z-30">
-          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 max-w-md mx-auto">
+        {/* Sticky Filter Row */}
+        <div className="bg-white border-b border-gray-100 px-4 py-3 sticky top-[64px] z-30 flex items-center gap-2">
+          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 flex-1">
             <button
-              onClick={() => setSelectedProductType("STRATEGIC")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                selectedProductType === "STRATEGIC"
-                  ? "bg-white text-primary shadow-sm scale-[1.02]"
+              onClick={() => setSelectedProductType(null)}
+              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${
+                selectedProductType === null
+                  ? "bg-white text-primary shadow-sm"
                   : "text-slate-500 hover:text-slate-600"
               }`}
             >
-              <span className="material-symbols-outlined text-[20px]">star</span>
+              {lang === 'vi' ? 'Tất cả' : 'All'}
+            </button>
+            <button
+              onClick={() => setSelectedProductType("STRATEGIC")}
+              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${
+                selectedProductType === "STRATEGIC"
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-600"
+              }`}
+            >
               {lang === 'vi' ? 'Chiến lược' : 'Strategic'}
             </button>
             <button
               onClick={() => setSelectedProductType("COMMON")}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${
                 selectedProductType === "COMMON"
-                  ? "bg-white text-primary shadow-sm scale-[1.02]"
+                  ? "bg-white text-primary shadow-sm"
                   : "text-slate-500 hover:text-slate-600"
               }`}
             >
-              <span className="material-symbols-outlined text-[20px]">category</span>
               {lang === 'vi' ? 'Thông dụng' : 'Common'}
             </button>
           </div>
-        </div>
-
-        {/* Filter bar - opens modal (Categories & Countries) */}
-        <div className="bg-white mb-2 px-4 py-2 border-b border-gray-100">
           <button
             type="button"
             onClick={() => setFilterModalOpen(true)}
-            className="flex items-center justify-between w-full max-w-md mx-auto py-2.5 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors text-left"
+            className="flex items-center justify-center h-10 w-10 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors text-slate-600 shrink-0"
+            title={t("filter") || "Filter"}
           >
-            <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <span className="material-symbols-outlined text-slate-600 text-xl">tune</span>
-              {selectedCountry === "USA" ? "USA" : "Vietnam"}
-              <span className="text-slate-400">•</span>
-              {selectedCategoryId
-                ? categories.find((c) => c.id === selectedCategoryId)?.name ?? "Category"
-                : t("all")}
-            </span>
-            <span className="material-symbols-outlined text-slate-500 text-xl">expand_more</span>
+            <span className="material-symbols-outlined text-[20px]">tune</span>
           </button>
         </div>
 
@@ -498,6 +495,34 @@ export default function HomePage() {
                         <img src="https://flagcdn.com/w40/us.png" alt="" className="w-8 h-8 object-contain rounded" onError={() => setFlagImageError((prev) => ({ ...prev, usa: true }))} />
                       )}
                       <span className="font-semibold text-sm">USA</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold text-slate-700 mb-3">{lang === 'vi' ? 'Loại sản phẩm' : 'Product Type'}</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setSelectedProductType(selectedProductType === "STRATEGIC" ? null : "STRATEGIC")}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        selectedProductType === "STRATEGIC"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">star</span>
+                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Chiến lược' : 'Strategic'}</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedProductType(selectedProductType === "COMMON" ? null : "COMMON")}
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                        selectedProductType === "COMMON"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl">category</span>
+                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Thông dụng' : 'Common'}</span>
                     </button>
                   </div>
                 </div>
