@@ -81,7 +81,7 @@ export default function HomePage() {
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const productsSectionRef = useRef<HTMLDivElement>(null);
   const filterChangedOnce = useRef(false);
-  const fetchProductsRef = useRef<() => void>(() => {});
+  const fetchProductsRef = useRef<() => void>(() => { });
 
   // Lazy-load products when the products section scrolls into view
   useEffect(() => {
@@ -396,35 +396,32 @@ export default function HomePage() {
           </div>
         )}
         {/* Sticky Filter Row */}
-        <div className="bg-white border-b border-gray-100 px-4 py-3 sticky top-[64px] z-30 flex items-center gap-2">
+        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-2">
           <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 flex-1">
             <button
               onClick={() => setSelectedProductType(null)}
-              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${
-                selectedProductType === null
+              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === null
                   ? "bg-white text-primary shadow-sm"
                   : "text-slate-500 hover:text-slate-600"
-              }`}
+                }`}
             >
               {lang === 'vi' ? 'Tất cả' : 'All'}
             </button>
             <button
               onClick={() => setSelectedProductType("STRATEGIC")}
-              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${
-                selectedProductType === "STRATEGIC"
+              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === "STRATEGIC"
                   ? "bg-white text-primary shadow-sm"
                   : "text-slate-500 hover:text-slate-600"
-              }`}
+                }`}
             >
               {lang === 'vi' ? 'Chiến lược' : 'Strategic'}
             </button>
             <button
               onClick={() => setSelectedProductType("COMMON")}
-              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${
-                selectedProductType === "COMMON"
+              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === "COMMON"
                   ? "bg-white text-primary shadow-sm"
                   : "text-slate-500 hover:text-slate-600"
-              }`}
+                }`}
             >
               {lang === 'vi' ? 'Thông dụng' : 'Common'}
             </button>
@@ -468,11 +465,10 @@ export default function HomePage() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => toggleCountry("VIETNAM")}
-                      className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                        selectedCountry === "VIETNAM"
+                      className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedCountry === "VIETNAM"
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       {flagImageError.vietnam ? (
                         <span className="text-2xl">🇻🇳</span>
@@ -483,11 +479,10 @@ export default function HomePage() {
                     </button>
                     <button
                       onClick={() => toggleCountry("USA")}
-                      className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                        selectedCountry === "USA"
+                      className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedCountry === "USA"
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       {flagImageError.usa ? (
                         <span className="text-2xl">🇺🇸</span>
@@ -504,22 +499,20 @@ export default function HomePage() {
                   <div className="flex gap-3">
                     <button
                       onClick={() => setSelectedProductType(selectedProductType === "STRATEGIC" ? null : "STRATEGIC")}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                        selectedProductType === "STRATEGIC"
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedProductType === "STRATEGIC"
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       <span className="material-symbols-outlined text-xl">star</span>
                       <span className="font-semibold text-sm">{lang === 'vi' ? 'Chiến lược' : 'Strategic'}</span>
                     </button>
                     <button
                       onClick={() => setSelectedProductType(selectedProductType === "COMMON" ? null : "COMMON")}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
-                        selectedProductType === "COMMON"
+                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedProductType === "COMMON"
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                      }`}
+                        }`}
                     >
                       <span className="material-symbols-outlined text-xl">category</span>
                       <span className="font-semibold text-sm">{lang === 'vi' ? 'Thông dụng' : 'Common'}</span>
@@ -533,9 +526,8 @@ export default function HomePage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => setSelectedCategoryId(null)}
-                        className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
-                          selectedCategoryId === null ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedCategoryId === null ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                          }`}
                       >
                         {t("all")}
                       </button>
@@ -543,9 +535,8 @@ export default function HomePage() {
                         <button
                           key={cat.id}
                           onClick={() => setSelectedCategoryId(cat.id)}
-                          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${
-                            selectedCategoryId === cat.id ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                          }`}
+                          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedCategoryId === cat.id ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                            }`}
                         >
                           {cat.imageUrl && <img src={cat.imageUrl} alt="" className="w-5 h-5 rounded-full object-cover" />}
                           {cat.name}
