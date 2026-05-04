@@ -869,9 +869,10 @@ export class AuthService {
     
     // Remove sensitive info that a sponsor shouldn't see
     if (detail.user) {
-      delete detail.user.password;
-      delete detail.user.walletAddress;
-      delete detail.user.walletPrivateKey;
+      const userRef = detail.user as any;
+      delete userRef.password;
+      delete userRef.walletAddress;
+      delete userRef.walletPrivateKey;
     }
     
     return detail;
