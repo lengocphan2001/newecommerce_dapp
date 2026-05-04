@@ -732,7 +732,7 @@ export default function WalletsPage() {
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="text-sm font-medium text-gray-600">Ví tiên dùng</p>
+              <p className="text-sm font-medium text-gray-600">Ví tiêu dùng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${walletApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
