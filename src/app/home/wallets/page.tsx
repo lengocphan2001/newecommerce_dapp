@@ -464,6 +464,7 @@ export default function WalletsPage() {
         const notes = String(activity?.notes || "");
         return (
           activityType === "DIRECT" ||
+          activityType === "HEAP_REWARD" ||
           (activityType === "PRODUCT" && notes.startsWith("Product direct"))
         );
       })
@@ -474,9 +475,11 @@ export default function WalletsPage() {
         // Determine commission type label
         const commissionTitle = activityType === 'DIRECT'
           ? t("directCommission")
-          : activityType === 'GROUP'
-            ? t("groupCommission")
-            : t("managementCommission");
+          : activityType === 'HEAP_REWARD'
+            ? 'Heap Reward Commission'
+            : activityType === 'GROUP'
+              ? t("groupCommission")
+              : t("managementCommission");
 
         return {
           id: activity.id,
