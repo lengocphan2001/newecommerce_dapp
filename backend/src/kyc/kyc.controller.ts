@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -98,5 +99,17 @@ export class KycController {
     res.header('Content-Type', 'text/csv; charset=utf-8');
     res.header('Content-Disposition', 'attachment; filename="kyc-export.csv"');
     return res.send(BOM + csvContent);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('my-request/:id')
+  async deleteMyKyc(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user.userId;
+    return this.kycService.deleteKycByUser(userId, id);
+  }
+
+  @Delete(':id')
+  async deleteKycAdmin(@Param('id') id: string) {
+    return this.kycService.deleteKycByAdmin(id);
   }
 }

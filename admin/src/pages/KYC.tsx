@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Space, Modal, Form, Input, Switch, message, Image } from 'antd';
-import { CheckOutlined, DownloadOutlined } from '@ant-design/icons';
+import { CheckOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { kycService, Kyc } from '../services/kycService';
 
 const KYC: React.FC = () => {
@@ -70,6 +70,25 @@ const KYC: React.FC = () => {
     }
   };
 
+  const handleDelete = (id: string) => {
+    Modal.confirm({
+      title: 'Are you sure you want to delete this KYC request?',
+      content: 'This action cannot be undone.',
+      okText: 'Yes',
+      okType: 'danger',
+      cancelText: 'No',
+      onOk: async () => {
+        try {
+          await kycService.delete(id);
+          message.success('KYC request deleted successfully');
+          fetchKYC();
+        } catch (error) {
+          message.error('Failed to delete KYC request');
+        }
+      },
+    });
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -130,6 +149,13 @@ const KYC: React.FC = () => {
             onClick={() => handleVerify(record)}
           >
             Verify
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          >
+            Delete
           </Button>
         </Space>
       ),

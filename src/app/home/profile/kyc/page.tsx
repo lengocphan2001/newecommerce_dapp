@@ -21,6 +21,7 @@ export default function KycPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadingFront, setUploadingFront] = useState(false);
     const [uploadingBack, setUploadingBack] = useState(false);
+    const [kycId, setKycId] = useState<string>("");
 
     useEffect(() => {
         loadKycStatus();
@@ -31,6 +32,7 @@ export default function KycPage() {
             const kyc = await api.getKycStatus();
             if (kyc.status) {
                 setStatus(kyc.status);
+                if (kyc.id) setKycId(kyc.id);
                 if (kyc.notes) setNotes(kyc.notes);
                 if (kyc.bankName) setBankName(kyc.bankName);
                 if (kyc.bankAccountNumber) setBankAccountNumber(kyc.bankAccountNumber);
@@ -91,6 +93,28 @@ export default function KycPage() {
         }
     };
 
+    const handleDeleteKyc = async () => {
+        if (!kycId) return;
+        if (!confirm("Bạn có chắc chắn muốn xóa yêu cầu KYC này không?")) return;
+        try {
+            await api.deleteMyKyc(kycId);
+            alert("Đã xóa yêu cầu KYC thành công.");
+            
+            // Reset form
+            setDocumentNumber("");
+            setFrontImage("");
+            setBackImage("");
+            setBankName("");
+            setBankAccountNumber("");
+            setBankAccountHolder("");
+            setBankBranch("");
+            
+            loadKycStatus();
+        } catch (e: any) {
+            alert(e.message || "Xóa KYC thất bại");
+        }
+    };
+
     if (status === "LOADING") {
         return <div className="p-8 text-center text-slate-500">{t("loading")}</div>;
     }
@@ -113,7 +137,10 @@ export default function KycPage() {
                     <div className="bg-orange-50 text-orange-600 p-4 rounded-2xl border border-orange-100 flex flex-col items-center text-center">
                         <span className="material-symbols-outlined text-4xl mb-2">hourglass_empty</span>
                         <h2 className="font-bold text-lg mb-1">{t("kycStatusPending")}</h2>
-                        <p className="text-sm">{t("kycStatusPendingDesc")}</p>
+                        <p className="text-sm mb-4">{t("kycStatusPendingDesc")}</p>
+                        <button type="button" onClick={handleDeleteKyc} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-semibold py-2 px-6 rounded-xl text-sm transition-colors">
+                            Xóa yêu cầu
+                        </button>
                     </div>
                 )}
 
@@ -135,7 +162,10 @@ export default function KycPage() {
                                 </div>
                                 <p className="text-sm mb-2">{t("kycStatusRejectedDesc")}</p>
                                 {notes && <p className="text-xs bg-red-100 p-2 rounded-lg italic">{t("kycAdminNote")} {notes}</p>}
-                                <p className="text-sm mt-2">{t("kycPleaseResubmit")}</p>
+                                <p className="text-sm mt-2 mb-4">{t("kycPleaseResubmit")}</p>
+                                <button type="button" onClick={handleDeleteKyc} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-xl text-sm transition-colors w-full">
+                                    Xóa yêu cầu cũ để tạo lại
+                                </button>
                             </div>
                         )}
 

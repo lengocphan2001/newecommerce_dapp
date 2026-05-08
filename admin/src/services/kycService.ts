@@ -24,5 +24,6 @@ export const kycService = {
   /** Export all KYC records to CSV (Excel-compatible). Returns blob for download. */
   exportToExcel: () =>
     api.get('/kyc/export', { responseType: 'blob' }),
+  delete: (id: string) => api.delete(`/kyc/${id}`),
 };
 

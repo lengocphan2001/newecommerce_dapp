@@ -38,16 +38,7 @@ export class KycService {
       throw new BadRequestException('You already have a pending KYC request');
     }
 
-    // Mỗi CCCD/ID chỉ được submit 1 lần trên toàn hệ thống.
-    const duplicateDocument = await this.kycRepository.findOne({
-      where: { documentNumber: normalizedDocumentNumber },
-      select: ['id', 'userId', 'status'],
-    });
-    if (duplicateDocument) {
-      throw new BadRequestException(
-        'This CCCD/ID number has already been used for KYC',
-      );
-    }
+
 
     const kyc = this.kycRepository.create({
       user: { id: userId },
@@ -93,5 +84,27 @@ export class KycService {
       order: { createdAt: 'DESC' },
       relations: ['user'],
     });
+  }
+
+  async deleteKycByUser(userId: string, id: string) {
+    const kyc = await this.kycRepository.findOne({ where: { id, userId } });
+    if (!kyc) {
+      throw new NotFoundException('KYC request not found or unauthorized');
+    }
+    // Chỉ cho phép xóa nếu đang PENDING hoặc REJECTED (tùy theo logic)
+    if (kyc.status === KycStatus.APPROVED) {
+      throw new BadRequestException('Cannot delete an approved KYC request');
+    }
+    await this.kycRepository.remove(kyc);
+    return { success: true, message: 'KYC request deleted successfully' };
+  }
+
+  async deleteKycByAdmin(id: string) {
+    const kyc = await this.kycRepository.findOne({ where: { id } });
+    if (!kyc) {
+      throw new NotFoundException('KYC request not found');
+    }
+    await this.kycRepository.remove(kyc);
+    return { success: true, message: 'KYC request deleted successfully' };
   }
 }
