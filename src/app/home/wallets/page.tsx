@@ -16,6 +16,8 @@ interface Transaction {
   date: string;
   icon: string;
   iconColor: string;
+  /** Heap reward is credited in full to withdraw wallet; do not apply commission wallet split display. */
+  skipWalletSplitDisplay?: boolean;
 }
 
 export default function WalletsPage() {
@@ -476,7 +478,7 @@ export default function WalletsPage() {
         const commissionTitle = activityType === 'DIRECT'
           ? t("directCommission")
           : activityType === 'HEAP_REWARD'
-            ? 'Heap Reward Commission'
+            ? t("heapRewardCommission")
             : activityType === 'GROUP'
               ? t("groupCommission")
               : t("managementCommission");
@@ -491,6 +493,7 @@ export default function WalletsPage() {
           createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
           icon: 'call_received',
           iconColor: 'text-[#13ec5b]',
+          skipWalletSplitDisplay: activityType === 'HEAP_REWARD',
         };
       }) || []),
     // Orders
@@ -1120,7 +1123,11 @@ export default function WalletsPage() {
                   <div className="text-right">
                     <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-primary-dark' : 'text-text-dark'}`}>
                       {tx.type === 'commission' || tx.type === 'deposit'
-                        ? `+$${formatUSDT(Math.abs(tx.amount) * (1 - feePercent / 100))}`
+                        ? `+$${formatUSDT(
+                            tx.skipWalletSplitDisplay
+                              ? Math.abs(tx.amount)
+                              : Math.abs(tx.amount) * (1 - feePercent / 100),
+                          )}`
                         : `-$${formatUSDT(Math.abs(tx.amount))}`}
                     </p>
                     <p className="text-xs text-gray-500">{tx.status}</p>

@@ -169,20 +169,23 @@ export default function ActivityPage() {
       });
     });
 
-    // Add commission activities
+    // Add commission activities (direct / product direct + Heap Reward pool payouts)
     if (referralInfo?.recentActivity) {
       referralInfo.recentActivity.forEach((activity: any) => {
         // Normalize activity type to handle both uppercase and lowercase
         const activityType = String(activity.type || '').toUpperCase();
         const notes = String(activity?.notes || '');
-        const isDirectOnly =
+        const isHeapReward = activityType === 'HEAP_REWARD';
+        const isDirectOrProductDirect =
           activityType === 'DIRECT' ||
           (activityType === 'PRODUCT' && notes.startsWith('Product direct'));
-        if (!isDirectOnly) {
+        if (!isDirectOrProductDirect && !isHeapReward) {
           return;
         }
 
-        const commissionType = t("directCommission");
+        const commissionType = isHeapReward
+          ? t('heapRewardCommission')
+          : t('directCommission');
 
         // Use the same simple logic as order items
         let activityDate: Date;
@@ -205,13 +208,18 @@ export default function ActivityPage() {
           ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-        const description = datetimeStr
-          ? `${datetimeStr} • ${fromMemberInfo}`
-          : fromMemberInfo;
+        const heapDetail = t('heapRewardFromPool');
+        const description = isHeapReward
+          ? (datetimeStr ? `${datetimeStr} • ${heapDetail}` : heapDetail)
+          : (datetimeStr
+            ? `${datetimeStr} • ${fromMemberInfo}`
+            : fromMemberInfo);
 
         const feePercent = referralInfo?.payoutFeePercent ?? 10;
         const grossAmount = parseFloat(activity.amount) || 0;
-        const netAmount = grossAmount * (1 - feePercent / 100);
+        const netAmount = isHeapReward
+          ? grossAmount
+          : grossAmount * (1 - feePercent / 100);
 
         allActivities.push({
           id: activity.id,
@@ -222,9 +230,9 @@ export default function ActivityPage() {
           amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
           status: ``,
           statusColor: 'text-primary',
-          icon: 'card_membership',
-          iconColor: 'text-amber-500',
-          iconBgColor: 'bg-amber-500/10',
+          icon: isHeapReward ? 'savings' : 'card_membership',
+          iconColor: isHeapReward ? 'text-emerald-600' : 'text-amber-500',
+          iconBgColor: isHeapReward ? 'bg-emerald-500/10' : 'bg-amber-500/10',
           date: activityDate,
           fromUserId: activity.fromUserId,
           fromUsername: activity.fromUsername,

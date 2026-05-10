@@ -219,6 +219,8 @@ export type I18nKey =
   | "shareOnSocial"
   | "recentActivity"
   | "directCommission"
+  | "heapRewardCommission"
+  | "heapRewardFromPool"
   | "groupCommission"
   | "managementCommission"
   | "commissionReceived"
@@ -657,6 +659,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     shareOnSocial: "Chia sẻ trên mạng xã hội",
     recentActivity: "Hoạt động gần đây",
     directCommission: "Hoa hồng trực tiếp",
+    heapRewardCommission: "Hoa hồng đồng chia",
+    heapRewardFromPool: "Pool Heap",
     groupCommission: "Hoa hồng nhóm",
     managementCommission: "Hoa hồng quản lý",
     milestoneReward: "Thưởng cột mốc",
@@ -1092,6 +1096,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     shareOnSocial: "Share on Social Media",
     recentActivity: "Recent Activity",
     directCommission: "Direct Commission",
+    heapRewardCommission: "Heap Reward Commission",
+    heapRewardFromPool: "Heap pool",
     groupCommission: "Group Commission",
     managementCommission: "Management Commission",
     milestoneReward: "Milestone Reward",
@@ -1527,6 +1533,8 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     shareOnSocial: "소셜 미디어에 공유",
     recentActivity: "최근 활동",
     directCommission: "직접 커미션",
+    heapRewardCommission: "Heap 리워드 커미션",
+    heapRewardFromPool: "Heap 풀",
     groupCommission: "그룹 커미션",
     managementCommission: "관리 커미션",
     milestoneReward: "마일스톤 보상",
