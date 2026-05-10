@@ -171,16 +171,18 @@ export default function WalletsPage() {
     try {
       setLoading(true);
       try {
-        const [info, requests, withdraws, banks] = await Promise.all([
+        const [info, requests, withdraws, banks, bankCfg] = await Promise.all([
           api.getReferralInfo(),
           api.getMyDepositRequests().catch(() => []),
           api.getMyWithdrawRequests().catch(() => []),
           api.getMyBankAccounts().catch(() => []),
+          api.getBankingConfig().catch(() => null),
         ]);
         setReferralInfo(info);
         setDepositRequests(Array.isArray(requests) ? requests : []);
         setWithdrawRequests(Array.isArray(withdraws) ? withdraws : []);
         setBankAccounts(Array.isArray(banks) ? banks : []);
+        if (bankCfg) setBankingConfig(bankCfg);
       } catch (err: any) {
         if (handleAuthError(err, router)) return;
       }
