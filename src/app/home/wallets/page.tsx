@@ -269,7 +269,7 @@ export default function WalletsPage() {
     const amount = amountVnd / rate;
 
     if (!amount || amount < 30) {
-      setWithdrawError(`Số tiền rút tối thiểu là 30 USDT (~${(30 * rate).toLocaleString("vi-VN")} ₫)`);
+      setWithdrawError(`Số tiền rút tối thiểu là 30 PV (~${(30 * rate).toLocaleString("vi-VN")} ₫)`);
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {
@@ -818,42 +818,7 @@ export default function WalletsPage() {
                   {bankingConfig?.isEnabled && (bankingConfig.accountNumber || bankingConfig.bankName) ? (
                     <>
                       <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển khoản đến tài khoản sau:</p>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2 mb-3">
-                        {bankingConfig.bankName && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-500">Ngân hàng</span>
-                            <span className="font-semibold text-slate-900">{bankingConfig.bankName}</span>
-                            <button type="button" onClick={() => copyDeposit(bankingConfig.bankName!, "bank")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                              {copiedDeposit === "bank" ? "Đã copy" : "Copy"}
-                            </button>
-                          </div>
-                        )}
-                        {bankingConfig.accountNumber && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-500">Số tài khoản</span>
-                            <span className="font-mono font-semibold text-slate-900">{bankingConfig.accountNumber}</span>
-                            <button type="button" onClick={() => copyDeposit(bankingConfig.accountNumber!, "account")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                              {copiedDeposit === "account" ? "Đã copy" : "Copy"}
-                            </button>
-                          </div>
-                        )}
-                        {bankingConfig.accountName && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-500">Chủ tài khoản</span>
-                            <span className="font-semibold text-slate-900 uppercase">{bankingConfig.accountName}</span>
-                            <button type="button" onClick={() => copyDeposit(bankingConfig.accountName!, "name")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                              {copiedDeposit === "name" ? "Đã copy" : "Copy"}
-                            </button>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between gap-2 pt-1">
-                          <span className="text-xs text-slate-500">Nội dung chuyển khoản</span>
-                          <button type="button" onClick={() => copyDeposit(depositTransferContent, "content")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                            {copiedDeposit === "content" ? "Đã copy" : "Copy"}
-                          </button>
-                        </div>
-                        <p className="font-semibold text-slate-900 break-all">{depositTransferContent}</p>
-                      </div>
+                      
                       {depositVietQrUrl && parseVndAmount(depositForm.amountVnd) >= 1000 ? (
                         <div className="flex flex-col items-center mb-4">
                           <p className="text-xs text-slate-600 mb-2">Quét mã QR để chuyển khoản</p>
@@ -862,7 +827,7 @@ export default function WalletsPage() {
                       ) : null}
                     </>
                   ) : (
-                    <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Admin chưa cấu hình ngân hàng.</p>
+                    <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Chưa có cấu hình ngân hàng.</p>
                   )}
                 </>
               ) : (
@@ -1125,12 +1090,12 @@ export default function WalletsPage() {
                   <div className="text-right">
                     <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-primary-dark' : 'text-text-dark'}`}>
                       {tx.type === 'commission' || tx.type === 'deposit'
-                        ? `+$${formatUSDT(
+                        ? `+${formatUSDT(
                             tx.skipWalletSplitDisplay
                               ? Math.abs(tx.amount)
                               : Math.abs(tx.amount) * (1 - feePercent / 100),
-                          )}`
-                        : `-$${formatUSDT(Math.abs(tx.amount))}`}
+                          )} PV`
+                        : `-${formatUSDT(Math.abs(tx.amount))} PV`}
                     </p>
                     <p className="text-xs text-gray-500">{tx.status}</p>
                   </div>

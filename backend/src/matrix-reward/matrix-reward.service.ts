@@ -20,6 +20,7 @@ import { SystemConfig } from '../admin/entities/system-config.entity';
 import { PackagesService } from '../packages/packages.service';
 
 const CFG_MIN_ORDER = 'matrixRewardMinOrderUsd';
+const CFG_MAX_ORDER = 'matrixRewardMaxOrderUsd';
 const CFG_PER_SLOT = 'matrixRewardPerSlotUsd';
 const CFG_MAX_EARN = 'matrixRewardMaxEarnPerTreeUsd';
 const CFG_MAX_UPLINES = 'matrixRewardMaxUplines';
@@ -33,6 +34,7 @@ type ProcessResult =
   | 'already_in_tree'   // buyer đã có vị trí trong matrix -> bỏ qua
   | 'invalid_order'     // đơn không tồn tại / chưa CONFIRMED
   | 'below_min_order'   // giá trị đơn < minOrderUsd
+  | 'above_max_order'   // giá trị đơn > maxOrderUsd (nếu cấu hình > 0)
   | 'prev_tree_not_met' // chưa đủ điều kiện F1 để lên cây kế tiếp (không mark processed)
   | 'placed_root'       // đặt thành root cây, chưa có upline để trả
   | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
@@ -91,9 +93,10 @@ export class MatrixRewardService {
   ) {}
 
   async getPublicConfig() {
-    const [minOrder, perSlot, maxEarn, maxUplines, prevTreeQualifyPercent, enabled] =
+    const [minOrder, maxOrder, perSlot, maxEarn, maxUplines, prevTreeQualifyPercent, enabled] =
       await Promise.all([
       this.getConfigNumber(CFG_MIN_ORDER, 100),
+      this.getConfigNumber(CFG_MAX_ORDER, 0),
       this.getConfigNumber(CFG_PER_SLOT, 0.5),
       this.getConfigNumber(CFG_MAX_EARN, 1500),
       this.getConfigNumber(CFG_MAX_UPLINES, 11),
@@ -102,6 +105,7 @@ export class MatrixRewardService {
       ]);
     return {
       minOrderUsd: minOrder,
+      maxOrderUsd: maxOrder,
       perSlotUsd: perSlot,
       maxEarnPerTreeUsd: maxEarn,
       maxUplines,
@@ -114,6 +118,7 @@ export class MatrixRewardService {
     const rows = await this.systemConfigRepo.find({
       where: [
         { key: CFG_MIN_ORDER },
+        { key: CFG_MAX_ORDER },
         { key: CFG_PER_SLOT },
         { key: CFG_MAX_EARN },
         { key: CFG_MAX_UPLINES },
@@ -124,6 +129,7 @@ export class MatrixRewardService {
     const map = new Map(rows.map((r) => [r.key, r.value]));
     return {
       minOrderUsd: Number(map.get(CFG_MIN_ORDER) ?? 100),
+      maxOrderUsd: Number(map.get(CFG_MAX_ORDER) ?? 0),
       perSlotUsd: Number(map.get(CFG_PER_SLOT) ?? 0.5),
       maxEarnPerTreeUsd: Number(map.get(CFG_MAX_EARN) ?? 1500),
       maxUplines: Number(map.get(CFG_MAX_UPLINES) ?? 11),
@@ -134,6 +140,7 @@ export class MatrixRewardService {
 
   async setAdminConfig(body: {
     minOrderUsd?: number;
+    maxOrderUsd?: number;
     perSlotUsd?: number;
     maxEarnPerTreeUsd?: number;
     maxUplines?: number;
@@ -143,6 +150,8 @@ export class MatrixRewardService {
     const entries: Array<{ key: string; value: string }> = [];
     if (body.minOrderUsd != null)
       entries.push({ key: CFG_MIN_ORDER, value: String(body.minOrderUsd) });
+    if (body.maxOrderUsd != null)
+      entries.push({ key: CFG_MAX_ORDER, value: String(body.maxOrderUsd) });
     if (body.perSlotUsd != null)
       entries.push({ key: CFG_PER_SLOT, value: String(body.perSlotUsd) });
     if (body.maxEarnPerTreeUsd != null)
@@ -200,10 +209,15 @@ export class MatrixRewardService {
     }
 
     const minOrder = await this.getConfigNumber(CFG_MIN_ORDER, 100);
+    const maxOrder = await this.getConfigNumber(CFG_MAX_ORDER, 0);
     const orderTotal = roundMoney(Number(order.totalAmount));
     if (!Number.isFinite(orderTotal) || orderTotal < minOrder) {
       await this.safeMarkProcessed(orderId);
       return 'below_min_order';
+    }
+    if (maxOrder > 0 && orderTotal > maxOrder) {
+      await this.safeMarkProcessed(orderId);
+      return 'above_max_order';
     }
 
     const perSlot = await this.getConfigNumber(CFG_PER_SLOT, 0.5);

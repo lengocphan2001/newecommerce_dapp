@@ -29,6 +29,7 @@ export class MatrixRewardAdminController {
     @Body()
     body: {
       minOrderUsd?: number;
+      maxOrderUsd?: number;
       perSlotUsd?: number;
       maxEarnPerTreeUsd?: number;
       maxUplines?: number;

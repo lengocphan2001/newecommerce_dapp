@@ -39,6 +39,7 @@ export const adminService = {
   getMatrixRewardConfig: () => api.get('/admin/matrix-reward/config'),
   updateMatrixRewardConfig: (data: {
     minOrderUsd?: number;
+    maxOrderUsd?: number;
     perSlotUsd?: number;
     maxEarnPerTreeUsd?: number;
     maxUplines?: number;

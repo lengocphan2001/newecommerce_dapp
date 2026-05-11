@@ -206,6 +206,7 @@ const MatrixPool: React.FC = () => {
       const c = (res as any)?.data ?? res;
       form.setFieldsValue({
         minOrderUsd: c.minOrderUsd,
+        maxOrderUsd: c.maxOrderUsd ?? 0,
         perSlotUsd: c.perSlotUsd,
         maxEarnPerTreeUsd: c.maxEarnPerTreeUsd,
         maxUplines: c.maxUplines,
@@ -830,6 +831,9 @@ const MatrixPool: React.FC = () => {
           <Form.Item name="minOrderUsd" label="Min đơn (USDT)" rules={[{ required: true }]}>
             <InputNumber min={1} step={1} />
           </Form.Item>
+          <Form.Item name="maxOrderUsd" label="Max đơn (USDT)">
+            <InputNumber min={0} step={1} />
+          </Form.Item>
           <Form.Item name="perSlotUsd" label="$ / upline / lần" rules={[{ required: true }]}>
             <InputNumber min={0.01} step={0.1} />
           </Form.Item>
@@ -853,8 +857,9 @@ const MatrixPool: React.FC = () => {
           </Form.Item>
         </Form>
         <Text type="secondary">
-          Đơn CONFIRMED ≥ min order → user vào cây BFS theo level; mỗi upline (tối đa N) nhận per-slot; đủ trần → xóa
-          node + loại khỏi cây đó. Với cây từ level 2 trở lên, user chỉ được vào nếu hoa hồng ở cây trước đạt ngưỡng
+          Đơn CONFIRMED trong khoảng min/max order (max=0 nghĩa là không giới hạn) → user vào cây BFS theo level; mỗi
+          upline (tối đa N) nhận per-slot; đủ trần → xóa node + loại khỏi cây đó. Với cây từ level 2 trở lên, user chỉ
+          được vào nếu hoa hồng ở cây trước đạt ngưỡng
           (% cấu hình) × max effective threshold.
         </Text>
       </Card>

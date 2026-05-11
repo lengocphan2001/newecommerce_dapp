@@ -345,7 +345,7 @@ export default function AffiliatePage() {
                 </div>
                 <p className="text-primary-dark text-sm font-medium">
                   Hoa hồng tháng này:{" "}
-                  {formatPrice(referralInfo.currentMonthCommission || "0")} USDT
+                  {formatPrice(referralInfo.currentMonthCommission || "0")} PV
                 </p>
               </div>
             </div>
@@ -381,7 +381,7 @@ export default function AffiliatePage() {
                         ? 'bg-green-100 text-green-700'
                         : 'bg-amber-100 text-amber-700'
                       }`}>
-                      ${formatPrice(pending)} / ${formatPrice(threshold)}
+                      {formatPrice(pending)} PV / {formatPrice(threshold)} PV
                     </span>
                   </div>
 
@@ -397,10 +397,10 @@ export default function AffiliatePage() {
                   <p className={`text-xs ${isReady ? 'text-green-700' : 'text-amber-700'
                     }`}>
                     {isReady
-                      ? t("affiliatePayoutReadyMessage").replace("{{amount}}", `$${formatPrice(pending)}`)
+                      ? t("affiliatePayoutReadyMessage").replace("{{amount}}", `${formatPrice(pending)} PV`)
                       : t("affiliatePayoutPendingMessage")
-                          .replace("{{remaining}}", `$${formatPrice(remaining)}`)
-                          .replace("{{threshold}}", `$${formatPrice(threshold)}`)
+                          .replace("{{remaining}}", `${formatPrice(remaining)} PV`)
+                          .replace("{{threshold}}", `${formatPrice(threshold)} PV`)
                     }
                   </p>
                 </div>
@@ -432,7 +432,7 @@ export default function AffiliatePage() {
                           {t("received")}
                         </span>
                         <span className="text-lg font-bold text-primary-dark">
-                          ${formatVolume(receivedCommission)}
+                          {formatVolume(receivedCommission)} PV
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -440,7 +440,7 @@ export default function AffiliatePage() {
                           {t("maximum")}
                         </span>
                         <span className="text-lg font-bold text-primary-dark">
-                          ${formatVolume(maxCommission)}
+                          {formatVolume(maxCommission)} PV
                         </span>
                       </div>
                     {maxCommission > 0 && (
@@ -460,7 +460,7 @@ export default function AffiliatePage() {
                       </span>
                     </div>
                     <p className="text-base font-bold text-text-dark">
-                      ${formatVolume(leftVolume)}
+                      {formatVolume(leftVolume)} PV
                     </p>
                   </div>
                   <div className="p-3 bg-green-50 rounded-lg border border-green-200">
@@ -470,7 +470,7 @@ export default function AffiliatePage() {
                       </span>
                     </div>
                     <p className="text-base font-bold text-text-dark">
-                      ${formatVolume(rightVolume)}
+                      {formatVolume(rightVolume)} PV
                     </p>
                   </div>
                 </div>
@@ -738,8 +738,11 @@ export default function AffiliatePage() {
                           className={`text-sm font-bold ${isBlocked ? "text-orange-600" : (isPending ? "text-yellow-600" : "text-primary-dark")
                             }`}
                         >
-                          {isBlocked ? "" : (isPending ? t("pending") : "+")} $
-                          {formatPrice(activity.amount)}
+                          {isBlocked
+                            ? ""
+                            : isPending
+                              ? `${t("pending")} ${formatPrice(activity.amount)} PV`
+                              : `+${formatPrice(activity.amount)} PV`}
                         </p>
                         <p className="text-[10px] text-gray-400">
                           {formatTimeAgo(activity.createdAt)}
