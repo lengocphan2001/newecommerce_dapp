@@ -75,7 +75,33 @@ export class ProductService {
       });
     }
 
-    // List: soldCount chỉ từ fakeSold (không quét orders).
+    const compactHome =
+      query?.compact === 'home' ||
+      query?.view === 'home' ||
+      query?.fields === 'home';
+
+    // Home list/strip only needs a subset of fields to reduce payload.
+    if (compactHome) {
+      return allProducts.map((product) => ({
+        id: product.id,
+        name: product.name,
+        nameEn: product.nameEn,
+        price: product.price,
+        stock: product.stock,
+        thumbnailUrl: product.thumbnailUrl,
+        countries: product.countries,
+        tags: product.tags,
+        salePercentage: product.salePercentage,
+        useProductCommission: product.useProductCommission,
+        commissionPercentNPP: product.commissionPercentNPP,
+        commissionPercentTV: product.commissionPercentTV,
+        commissionConfigByPackage: product.commissionConfigByPackage,
+        featuredOnHome: product.featuredOnHome,
+        soldCount: product.fakeSold ?? 0,
+      }));
+    }
+
+    // Default list: keep legacy shape for existing screens.
     return allProducts.map((product) => ({
       ...product,
       soldCount: product.fakeSold ?? 0,

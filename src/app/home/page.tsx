@@ -149,7 +149,7 @@ export default function HomePage() {
 
   const fetchFeaturedProducts = async () => {
     try {
-      const data = await api.getFeaturedProducts();
+      const data = await api.getFeaturedProducts({ compactHome: true });
       setFeaturedProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       setFeaturedProducts([]);
@@ -179,7 +179,12 @@ export default function HomePage() {
     try {
       setLoading(true);
       // Fetch products with filters
-      const data = await api.getProducts(selectedCountry || undefined, selectedCategoryId || undefined, selectedProductType || undefined);
+      const data = await api.getProducts(
+        selectedCountry || undefined,
+        selectedCategoryId || undefined,
+        selectedProductType || undefined,
+        { compactHome: true },
+      );
       let filtered = Array.isArray(data) ? data : [];
 
       // Additional frontend filtering if needed

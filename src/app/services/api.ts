@@ -154,8 +154,14 @@ export const api = {
     return response.json();
   },
 
-  async getProducts(country?: 'VIETNAM' | 'USA', categoryId?: string, productType?: 'STRATEGIC' | 'COMMON'): Promise<unknown> {
-    const cacheKey = `products:${country ?? 'all'}:${categoryId ?? 'all'}:${productType ?? 'all'}`;
+  async getProducts(
+    country?: 'VIETNAM' | 'USA',
+    categoryId?: string,
+    productType?: 'STRATEGIC' | 'COMMON',
+    options?: { compactHome?: boolean },
+  ): Promise<unknown> {
+    const compactHome = options?.compactHome === true;
+    const cacheKey = `products:${country ?? 'all'}:${categoryId ?? 'all'}:${productType ?? 'all'}:${compactHome ? 'home' : 'full'}`;
     const cached = apiCache.getProducts(cacheKey);
     if (cached != null) return cached;
     const params = new URLSearchParams();
@@ -167,6 +173,9 @@ export const api = {
     }
     if (productType) {
       params.append('productType', productType);
+    }
+    if (compactHome) {
+      params.append('compact', 'home');
     }
     const url = params.toString()
       ? `${API_BASE_URL}/products?${params.toString()}`
@@ -181,8 +190,13 @@ export const api = {
   },
 
   /** Products marked "Featured on home" for the home page image strip */
-  async getFeaturedProducts() {
-    const response = await fetch(`${API_BASE_URL}/products?featuredOnHome=true`);
+  async getFeaturedProducts(options?: { compactHome?: boolean }) {
+    const params = new URLSearchParams();
+    params.append('featuredOnHome', 'true');
+    if (options?.compactHome) {
+      params.append('compact', 'home');
+    }
+    const response = await fetch(`${API_BASE_URL}/products?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch featured products');
     }

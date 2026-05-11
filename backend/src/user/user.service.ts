@@ -205,17 +205,22 @@ export class UserService {
   }
 
   /**
-   * Xác định nhánh yếu (nhánh có ít direct children hơn)
-   * Mỗi node chỉ có tối đa 1 left và 1 right direct child
+   * Xác định nhánh yếu theo doanh số nhánh (volume):
+   * - weak leg = nhánh có total volume thấp hơn
+   * - nếu bằng nhau, ưu tiên left để giữ hành vi deterministic
    */
   async getWeakLeg(parentId: string): Promise<'left' | 'right'> {
-    const leftCount = await this.countChildren(parentId, 'left');
-    const rightCount = await this.countChildren(parentId, 'right');
+    const parent = await this.userRepository.findOne({
+      where: { id: parentId },
+      select: ['id', 'leftBranchTotal', 'rightBranchTotal'],
+    });
+    if (!parent) {
+      throw new NotFoundException(`Parent user with ID ${parentId} not found`);
+    }
 
-    // Return the leg with fewer children (weak leg)
-    // If equal, default to left
-    // Note: leftCount và rightCount chỉ có thể là 0 hoặc 1 (vì mỗi node chỉ có tối đa 1 left và 1 right)
-    return leftCount <= rightCount ? 'left' : 'right';
+    const leftVolume = Number(parent.leftBranchTotal ?? 0);
+    const rightVolume = Number(parent.rightBranchTotal ?? 0);
+    return leftVolume <= rightVolume ? 'left' : 'right';
   }
 
   /**
