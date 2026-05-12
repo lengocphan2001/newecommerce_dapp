@@ -155,20 +155,18 @@ function RegisterForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Username */}
+          {/* Username - tự động tạo, không cho chỉnh sửa */}
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700">
-              {t("username")} <span className="text-red-500">*</span>
+              {t("username")}{" "}
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 font-mono text-base text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                placeholder="abc123"
-                minLength={3}
-                maxLength={20}
+                readOnly
+                disabled
+                className="flex-1 rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-2.5 font-mono text-base text-zinc-500 cursor-not-allowed select-none"
               />
               <button
                 type="button"
