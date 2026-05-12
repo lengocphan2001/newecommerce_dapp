@@ -401,12 +401,12 @@ export default function ProductsPage() {
                               </span>
                             </div>
                             <p className="text-lg font-bold text-red-600 leading-none">
-                              {formatPrice(product.price * (1 - product.salePercentage / 100))} <span className="text-[10px] font-normal text-red-600">USDT</span>
+                              {formatPrice(product.price * (1 - product.salePercentage / 100))} <span className="text-[10px] font-normal text-red-600">PV</span>
                             </p>
                           </div>
                         ) : (
                           <p className="text-lg font-bold text-primary-dark">
-                            {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">USDT</span>
+                            {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">PV</span>
                           </p>
                         )}
                       </div>

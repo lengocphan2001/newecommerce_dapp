@@ -331,8 +331,9 @@ export class CommissionService {
 
     if (commissionAmount <= 0) return;
 
+    const directStatus = canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
     this.logger.log(
-      `Creating direct commission (package config): referrer ${referrer.id}, packageOrderValue: ${packageOrderValue}, amount: ${commissionAmount}, status: PENDING, reconsumptionEligible: ${canReceiveCommission}`,
+      `Creating direct commission (package config): referrer ${referrer.id}, packageOrderValue: ${packageOrderValue}, amount: ${commissionAmount}, status: ${directStatus}, reconsumptionEligible: ${canReceiveCommission}`,
     );
 
     try {
@@ -341,7 +342,7 @@ export class CommissionService {
         orderId: order.id,
         fromUserId: buyer.id,
         type: CommissionType.DIRECT,
-        status: CommissionStatus.PENDING,
+        status: directStatus,
         amount: commissionAmount,
         orderAmount: packageOrderValue,
         notes: canReceiveCommission
@@ -547,7 +548,7 @@ export class CommissionService {
         const rawDirect = itemAmount * directRate;
         const commissionAmount = this.roundCommission(rawDirect);
         if (commissionAmount > 0) {
-          const directStatus = CommissionStatus.PENDING;
+          const directStatus = referrerCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
           this.logger.log(
             `[PRODUCT COMMISSION] Direct: Referrer ${referrer.id}, product ${product.name}, rate ${directRate} of ${itemAmount} = ${commissionAmount}, status=${directStatus}`,
           );
@@ -615,7 +616,7 @@ export class CommissionService {
             ancestor,
             ancestorProductConfig,
           );
-        const groupStatus = CommissionStatus.PENDING;
+        const groupStatus = ancestorCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
 
         this.logger.log(
           `[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`,
@@ -849,7 +850,7 @@ export class CommissionService {
       orderId: order.id,
       fromUserId: buyer.id,
       type: CommissionType.GROUP,
-      status: CommissionStatus.PENDING,
+      status: canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
       amount: commissionAmount,
       orderAmount: baseAmount,
       side: side,
@@ -1134,7 +1135,7 @@ export class CommissionService {
       orderId: order.id,
       fromUserId: buyer.id,
       type: CommissionType.MANAGEMENT,
-      status: CommissionStatus.PENDING,
+      status: canReceiveCommission ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
       amount: commissionAmount,
       orderAmount: orderValue,
       level: level,
@@ -1744,7 +1745,7 @@ export class CommissionService {
       userId,
       amount,
       type: CommissionType.MILESTONE,
-      status: CommissionStatus.PENDING,
+      status: canReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED,
       notes: notes || `Milestone Reward #${milestoneId}`,
       orderAmount: 0,
       orderId: null,
