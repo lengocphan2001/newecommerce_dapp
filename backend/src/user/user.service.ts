@@ -33,6 +33,8 @@ export class UserService {
     private milestoneRepository: Repository<UserMilestone>,
     @InjectRepository(AuditLog)
     private auditLogRepository: Repository<AuditLog>,
+    @InjectRepository(Kyc)
+    private kycRepository: Repository<Kyc>,
   ) {}
 
   async findAll(search?: string) {
@@ -720,17 +722,20 @@ export class UserService {
     // 6. Delete all addresses associated with this user
     await this.addressRepository.delete({ userId: id });
 
-    // 7. Delete all milestones and audit logs
+    // 7. Delete KYC records — phải xóa trước user do FK constraint không có CASCADE
+    await this.kycRepository.delete({ userId: id });
+
+    // 8. Delete all milestones and audit logs
     await this.milestoneRepository.delete({ userId: id });
     await this.auditLogRepository.delete({ userId: id });
 
-    // 8. Update children in the referral tree (orphan them)
+    // 9. Update children in the referral tree (orphan them)
     await this.userRepository.update(
       { parentId: id },
       { parentId: null as any },
     );
 
-    // 9. Finally delete the user
+    // 10. Finally delete the user
     return this.userRepository.delete(id);
   }
 
