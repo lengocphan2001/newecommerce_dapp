@@ -211,12 +211,20 @@ export class CommissionService {
 
       this.logger.log(`Commission calculation completed for order ${orderId}`);
     } catch (error: any) {
-      // Log error để debug
+      // Log toàn bộ thông tin lỗi để debug — bao gồm SQL, error code, stack trace
       this.logger.error(
-        `Error calculating commissions for order ${orderId}:`,
-        error.stack || error.message,
+        `Error calculating commissions for order ${orderId}: ${error?.message ?? 'unknown error'}`,
       );
-      // Không throw để không block order update, nhưng log để debug
+      if (error?.stack) {
+        this.logger.error(`Stack: ${error.stack}`);
+      }
+      if (error?.sql) {
+        this.logger.error(`Failed SQL: ${error.sql}`);
+      }
+      if (error?.sqlMessage) {
+        this.logger.error(`SQL message: ${error.sqlMessage} (code: ${error?.code ?? 'N/A'})`);
+      }
+      // Không throw để không block order update
     }
   }
 
