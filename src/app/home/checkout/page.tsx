@@ -37,6 +37,8 @@ export default function CheckoutPage() {
   const [paymentTab, setPaymentTab] = useState<"deposit_wallet" | "banking" | "usdt">("deposit_wallet");
   /** Số dư ví nạp tiền (từ referral info hoặc wallet/balance) */
   const [depositBalance, setDepositBalance] = useState<number | null>(null);
+  /** Giỏ có sản phẩm chiến lược → không thanh toán bằng ví tiêu dùng */
+  const [hasStrategicProducts, setHasStrategicProducts] = useState(false);
 
   // USDT/VND rate for banking: use admin-set price when set, else fetch from CoinGecko
   useEffect(() => {
@@ -117,6 +119,31 @@ export default function CheckoutPage() {
     };
     window.addEventListener('focus', handleStorageChange);
     return () => window.removeEventListener('focus', handleStorageChange);
+  }, [items]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkStrategic = async () => {
+      if (items.length === 0) {
+        if (!cancelled) setHasStrategicProducts(false);
+        return;
+      }
+      try {
+        const results = await Promise.all(
+          items.map((item) => api.getProduct(item.productId).catch(() => null)),
+        );
+        if (cancelled) return;
+        const strategic = results.some(
+          (p) => p && Array.isArray(p.productTypes) && p.productTypes.includes("STRATEGIC"),
+        );
+        setHasStrategicProducts(strategic);
+        if (strategic) setPaymentTab((tab) => (tab === "deposit_wallet" ? "banking" : tab));
+      } catch {
+        if (!cancelled) setHasStrategicProducts(false);
+      }
+    };
+    checkStrategic();
+    return () => { cancelled = true; };
   }, [items]);
 
   const calculateShippingFee = async () => {
@@ -203,6 +230,10 @@ export default function CheckoutPage() {
 
 
   const handleDepositWalletOrder = async () => {
+    if (hasStrategicProducts) {
+      setError("Ví tiêu dùng chỉ dùng cho sản phẩm thông dụng. Vui lòng chọn Chuyển khoản hoặc USDT.");
+      return;
+    }
     if (!shippingAddress.trim()) {
       setError("Vui lòng nhập địa chỉ giao hàng");
       return;
@@ -315,7 +346,8 @@ export default function CheckoutPage() {
     else await handleUsdtOrder();
   };
 
-  const canPayWithDepositWallet = (depositBalance ?? 0) >= finalTotal;
+  const canPayWithDepositWallet =
+    !hasStrategicProducts && (depositBalance ?? 0) >= finalTotal;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -395,12 +427,13 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-3 border-b border-slate-100">
               <button
                 type="button"
-                onClick={() => setPaymentTab("deposit_wallet")}
-                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors ${paymentTab === "deposit_wallet"
+                onClick={() => !hasStrategicProducts && setPaymentTab("deposit_wallet")}
+                disabled={hasStrategicProducts}
+                className={`min-w-0 py-3 px-2 text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentTab === "deposit_wallet"
                     ? "bg-primary/10 text-primary border-b-2 border-primary"
                     : "text-slate-500 hover:bg-slate-50"
                   }`}
-                title="Ví tiêu dùng"
+                title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví tiêu dùng"}
               >
                 <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
                 Ví tiêu dùng
@@ -434,9 +467,14 @@ export default function CheckoutPage() {
             {/* Nội dung tab Ví nạp tiền */}
             {paymentTab === "deposit_wallet" && (
               <div className="p-4 space-y-3">
-                <p className="text-sm text-slate-600">Thanh toán bằng số dư ví nạp tiền. Đơn hàng được xác nhận ngay.</p>
+                <p className="text-sm text-slate-600">Thanh toán bằng số dư ví tiêu dùng. Đơn hàng được xác nhận ngay. Chỉ áp dụng cho sản phẩm thông dụng.</p>
+                {hasStrategicProducts && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    Giỏ hàng có sản phẩm chiến lược — không thể thanh toán bằng ví tiêu dùng. Vui lòng chọn Chuyển khoản hoặc USDT.
+                  </div>
+                )}
                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                  <p className="text-xs text-slate-500 font-medium mb-0.5">Số dư ví nạp tiền</p>
+                  <p className="text-xs text-slate-500 font-medium mb-0.5">Số dư ví tiêu dùng</p>
                   <p className="font-bold text-slate-900 text-lg">
                     {depositBalance != null ? formatPrice(depositBalance) : "—"} USDT
                   </p>

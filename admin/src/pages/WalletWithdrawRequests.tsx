@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Input, message } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Table, Tag, Button, Space, Modal, Input, message, Select } from 'antd';
 import {
   CheckOutlined,
   CloseOutlined,
@@ -12,6 +12,17 @@ import {
   WalletWithdrawRequest,
 } from '../services/walletWithdrawRequestService';
 import { bankingService } from '../services/bankingService';
+import { buildVietQrImageUrl } from '../utils/vietqr';
+
+const VIETQR_BANKS_API = 'https://api.vietqr.io/v2/banks';
+
+interface VietQRBank {
+  id: number;
+  name: string;
+  code: string;
+  bin: string;
+  shortName: string;
+}
 
 const WalletWithdrawRequests: React.FC = () => {
   const [list, setList] = useState<WalletWithdrawRequest[]>([]);
@@ -28,6 +39,11 @@ const WalletWithdrawRequests: React.FC = () => {
   >(null);
   const [adminNote, setAdminNote] = useState('');
   const [usdtWithdrawRateVnd, setUsdtWithdrawRateVnd] = useState<number>(0);
+  const [bankList, setBankList] = useState<VietQRBank[]>([]);
+  const [qrBankId, setQrBankId] = useState('');
+  const [qrBankName, setQrBankName] = useState('');
+  const [qrAccountNumber, setQrAccountNumber] = useState('');
+  const [qrAccountName, setQrAccountName] = useState('');
 
   const fetchList = async () => {
     setLoading(true);
@@ -62,6 +78,52 @@ const WalletWithdrawRequests: React.FC = () => {
       })
       .catch(() => setUsdtWithdrawRateVnd(0));
   }, []);
+
+  useEffect(() => {
+    fetch(VIETQR_BANKS_API)
+      .then((res) => res.json())
+      .then((data: { data?: VietQRBank[] }) => {
+        if (data?.data && Array.isArray(data.data)) {
+          setBankList(
+            data.data.sort((a, b) =>
+              (a.shortName || a.name).localeCompare(b.shortName || b.name),
+            ),
+          );
+        }
+      })
+      .catch(() => setBankList([]));
+  }, []);
+
+  const withdrawVndAmount = useMemo(() => {
+    if (!selectedRequest || usdtWithdrawRateVnd <= 0) return 0;
+    const usdt =
+      Number(selectedRequest.actualAmount ?? selectedRequest.amount) || 0;
+    return Math.round(usdt * usdtWithdrawRateVnd);
+  }, [selectedRequest, usdtWithdrawRateVnd]);
+
+  const vietQrUrl = useMemo(() => {
+    if (
+      pendingAction !== 'APPROVED' ||
+      selectedRequest?.method !== 'BANKING' ||
+      withdrawVndAmount <= 0
+    ) {
+      return null;
+    }
+    return buildVietQrImageUrl({
+      bankId: qrBankId,
+      accountNumber: qrAccountNumber,
+      amountVnd: withdrawVndAmount,
+      accountName: qrAccountName,
+      addInfo: selectedRequest.user?.username || selectedRequest.id.slice(0, 8),
+    });
+  }, [
+    pendingAction,
+    selectedRequest,
+    withdrawVndAmount,
+    qrBankId,
+    qrAccountNumber,
+    qrAccountName,
+  ]);
 
   const handleSearch = () => {
     fetchList();
@@ -101,6 +163,19 @@ const WalletWithdrawRequests: React.FC = () => {
     setSelectedRequest(request);
     setPendingAction(action);
     setAdminNote('');
+    setQrBankId('');
+    setQrBankName(request.bankName || '');
+    setQrAccountNumber(request.bankAccountNumber || '');
+    setQrAccountName(request.bankAccountName || '');
+    if (request.bankName && bankList.length > 0) {
+      const matched = bankList.find(
+        (b) =>
+          b.name === request.bankName ||
+          b.shortName === request.bankName ||
+          b.code === request.bankName,
+      );
+      if (matched) setQrBankId(matched.bin);
+    }
     setModalVisible(true);
   };
 
@@ -358,6 +433,104 @@ const WalletWithdrawRequests: React.FC = () => {
                 <strong>Ghi chú user:</strong> {selectedRequest.note}
               </p>
             )}
+            {pendingAction === 'APPROVED' &&
+              selectedRequest.method === 'BANKING' && (
+                <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Tạo mã QR VietQR chuyển tiền cho user
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tên ngân hàng
+                    </label>
+                    <Select
+                      showSearch
+                      placeholder="Chọn ngân hàng"
+                      value={qrBankId || undefined}
+                      onChange={(bin, option) => {
+                        setQrBankId(bin);
+                        const label =
+                          (option as { label?: string })?.label?.toString() || '';
+                        setQrBankName(label);
+                      }}
+                      optionFilterProp="label"
+                      style={{ width: '100%' }}
+                      options={bankList.map((b) => ({
+                        value: b.bin,
+                        label: `${b.shortName || b.name} (${b.code})`,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Số tài khoản
+                    </label>
+                    <Input
+                      value={qrAccountNumber}
+                      onChange={(e) => setQrAccountNumber(e.target.value)}
+                      placeholder="Nhập số tài khoản nhận tiền"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tên chủ tài khoản
+                    </label>
+                    <Input
+                      value={qrAccountName}
+                      onChange={(e) => setQrAccountName(e.target.value)}
+                      placeholder="Tên chủ tài khoản (hiển thị trên QR)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Số tiền chuyển (VND) — tự điền
+                    </label>
+                    <Input
+                      value={
+                        withdrawVndAmount > 0
+                          ? withdrawVndAmount.toLocaleString('vi-VN')
+                          : ''
+                      }
+                      readOnly
+                      placeholder={
+                        usdtWithdrawRateVnd <= 0
+                          ? 'Chưa cấu hình tỷ giá rút VND'
+                          : '—'
+                      }
+                    />
+                  </div>
+                  {vietQrUrl ? (
+                    <div className="flex flex-col items-center pt-1">
+                      <img
+                        src={vietQrUrl}
+                        alt="VietQR"
+                        style={{
+                          width: 220,
+                          height: 220,
+                          objectFit: 'contain',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 8,
+                          background: '#fff',
+                        }}
+                      />
+                      <a
+                        href={vietQrUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 mt-2"
+                      >
+                        Mở / tải ảnh QR
+                      </a>
+                    </div>
+                  ) : (
+                    withdrawVndAmount > 0 && (
+                      <p className="text-xs text-slate-500">
+                        Chọn ngân hàng và nhập số tài khoản để tự động tạo QR.
+                      </p>
+                    )
+                  )}
+                </div>
+              )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Ghi chú admin (tùy chọn)

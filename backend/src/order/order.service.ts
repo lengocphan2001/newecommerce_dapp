@@ -211,6 +211,19 @@ export class OrderService {
 
     const paymentMethod = createOrderDto.paymentMethod || 'wallet';
 
+    // Ví tiêu dùng chỉ dùng cho sản phẩm thông dụng (COMMON), không cho sản phẩm chiến lược
+    if (paymentMethod === 'deposit_wallet') {
+      const strategicProducts = products.filter((p) =>
+        (p.productTypes || []).includes('STRATEGIC'),
+      );
+      if (strategicProducts.length > 0) {
+        const names = strategicProducts.map((p) => p.name).join(', ');
+        throw new BadRequestException(
+          `Ví tiêu dùng chỉ được dùng để mua sản phẩm thông dụng. Giỏ hàng có sản phẩm chiến lược: ${names}`,
+        );
+      }
+    }
+
     // Ví nạp tiền: trừ số dư và xác nhận đơn ngay
     if (paymentMethod === 'deposit_wallet') {
       const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -385,31 +398,27 @@ export class OrderService {
         );
     }
 
-    // 4. Trigger Commission Calculation and auto payout after order approval.
-    this.commissionService
-      .calculateCommissions(order.id)
-      .then(async () => {
-        console.log(
-          `[AUTO-CONFIRM] Calculated commissions for order ${order.id}. Triggering auto payout...`,
-        );
-        try {
-          await this.commissionPayoutService.payoutOrderCommissions(order.id);
-          console.log(
-            `[AUTO-CONFIRM] Auto payout completed for order ${order.id}.`,
-          );
-        } catch (payoutErr) {
-          console.error(
-            `[AUTO-CONFIRM] Auto payout failed for order ${order.id}:`,
-            payoutErr,
-          );
-        }
-      })
-      .catch((err) => {
-        console.error(
-          `[AUTO-CONFIRM] Error processing commissions for order ${order.id}:`,
-          err,
-        );
-      });
+    // 4. Tính hoa hồng — nếu lỗi thì rollback order về PENDING để tránh duyệt thiếu commission
+    try {
+      await this.commissionService.calculateCommissions(order.id);
+      // Sau khi tính xong, tự động payout
+      try {
+        await this.commissionPayoutService.payoutOrderCommissions(order.id);
+        console.log(`[AUTO-CONFIRM] Auto payout completed for order ${order.id}.`);
+      } catch (payoutErr) {
+        console.error(`[AUTO-CONFIRM] Auto payout failed for order ${order.id}:`, payoutErr);
+      }
+    } catch (commissionErr) {
+      console.error(
+        `[AUTO-CONFIRM] Commission calculation failed for order ${order.id} — rolling back to PENDING:`,
+        commissionErr,
+      );
+      // Rollback order về PENDING để admin có thể re-approve sau khi fix
+      await this.orderRepository.update(order.id, { status: OrderStatus.PENDING });
+      throw new Error(
+        `Duyệt đơn thất bại: lỗi tính hoa hồng — ${(commissionErr as any)?.message ?? 'unknown error'}. Đơn hàng đã được rollback về PENDING.`,
+      );
+    }
 
     // 5. Matrix reward pool (binary trees per level) — đơn ≥ config USDT
     this.matrixRewardService

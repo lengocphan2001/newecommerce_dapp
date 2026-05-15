@@ -224,7 +224,8 @@ export class CommissionService {
       if (error?.sqlMessage) {
         this.logger.error(`SQL message: ${error.sqlMessage} (code: ${error?.code ?? 'N/A'})`);
       }
-      // Không throw để không block order update
+      // Ném lại lỗi để caller biết commission thất bại và có thể rollback
+      throw error;
     }
   }
 
