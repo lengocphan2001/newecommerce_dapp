@@ -40,7 +40,7 @@ export class CommissionService {
     private productRepository: Repository<Product>,
     private dataSource: DataSource,
     private packagesService: PackagesService,
-  ) {}
+  ) { }
 
   /**
    * Get package config by code (with caching)
@@ -107,10 +107,16 @@ export class CommissionService {
   /**
    * Order value used for commission (excludes shipping fee).
    */
+  /**
+   * Order value used for commission (sum of product price * quantity).
+   */
   private getOrderValueForCommission(order: Order): number {
-    const total = Number(order.totalAmount) || 0;
-    const shipping = Number(order.shippingFee) || 0;
-    return Math.max(0, total - shipping);
+    const items = Array.isArray(order.items) ? order.items : [];
+    return items.reduce((sum, item) => {
+      const price = Number(item.price) || 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + price * quantity;
+    }, 0);
   }
 
   /**
