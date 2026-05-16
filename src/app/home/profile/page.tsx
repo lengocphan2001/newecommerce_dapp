@@ -165,23 +165,23 @@ export default function ProfilePage() {
 
   return (
     <div className="bg-white text-slate-900 min-h-screen flex flex-col font-display">
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(16,185,129,0.15)]">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-emerald-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("profileTitle")}</h1>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
             <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shopii</span>
           </div>
-          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-emerald-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
         </div>
@@ -236,7 +236,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-2 mt-1">
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
-                <span className="bg-yellow-50 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                <span className="bg-emerald-50 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   {userInfo?.packageType === 'NONE' ? 'User' : userInfo?.packageType}
                 </span>
               </div>
@@ -371,7 +371,7 @@ export default function ProfilePage() {
               onClick={() => router.push('/home/profile/address')}
               className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
             >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-yellow-50 text-primary-dark">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 text-primary-dark">
                 <span className="material-symbols-outlined text-xl font-medium">location_on</span>
               </div>
               <span className="flex-1 font-medium text-slate-800 text-left">{t("shippingAddress")}</span>

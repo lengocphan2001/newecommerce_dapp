@@ -42,10 +42,10 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
-        <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+        <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-emerald-100 shadow-[0_1px_3px_rgba(16,185,129,0.05)]">
           <button
             onClick={() => router.back()}
-            className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+            className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-emerald-50 transition-colors"
           >
             <span className="material-symbols-outlined text-slate-800">arrow_back</span>
           </button>
@@ -76,10 +76,10 @@ export default function CartPage() {
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-emerald-100 shadow-[0_1px_3px_rgba(16,185,129,0.05)]">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-emerald-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
@@ -148,7 +148,7 @@ export default function CartPage() {
                       {item.properties && Object.keys(item.properties).length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {Object.entries(item.properties).map(([key, value]) => (
-                            <span key={key} className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full font-medium">
+                            <span key={key} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
                               {key}: {value}
                             </span>
                           ))}
@@ -219,7 +219,7 @@ export default function CartPage() {
           </div>
           <button
             onClick={() => router.push("/home/checkout")}
-            className="group w-full bg-primary hover:bg-[#0fd650] active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(19,236,91,0.25)] hover:shadow-[0_12px_24px_rgba(19,236,91,0.35)]"
+            className="group w-full bg-primary hover:bg-primary-dark active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_12px_24px_rgba(16,185,129,0.35)]"
           >
             {t("proceedToPayment")}
             <span className="material-symbols-outlined text-black font-bold group-hover:translate-x-1 transition-transform">arrow_forward</span>

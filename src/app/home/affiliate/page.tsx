@@ -453,9 +453,9 @@ export default function AffiliatePage() {
                 )}
                 {/* Branch Totals */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="p-3 bg-teal-50 rounded-lg border border-teal-200">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-blue-800">
+                      <span className="text-xs font-bold text-teal-800">
                         {t("affiliateLeftBranchLabel")}
                       </span>
                     </div>

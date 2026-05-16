@@ -157,7 +157,7 @@ export default function OrderDetailClient() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-yellow-50">
+            <div className="min-h-screen flex items-center justify-center bg-emerald-50">
                 <span className="material-symbols-outlined animate-spin text-primary-dark text-3xl">refresh</span>
             </div>
         );
@@ -165,7 +165,7 @@ export default function OrderDetailClient() {
 
     if (!order) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-yellow-50 p-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-50 p-4">
                 <p className="text-slate-600 font-medium mb-4">{t("noOrders")}</p>
                 <button onClick={() => router.back()} className="text-primary-dark font-bold">{t("back")}</button>
             </div>
@@ -194,7 +194,7 @@ export default function OrderDetailClient() {
             <div className="flex-1 px-4 pt-4 flex flex-col gap-5">
 
                 {/* Status Card */}
-                <div className="rounded-2xl overflow-hidden shadow-[0_4px_20px_-2px_rgba(240,185,11,0.15)] bg-white relative group border border-yellow-100">
+                <div className="rounded-2xl overflow-hidden shadow-[0_4px_20px_-2px_rgba(16,185,129,0.15)] bg-white relative group border border-emerald-100">
                     {/* Background Image Overlay */}
                     <div className="absolute inset-0 opacity-10 bg-center bg-cover grayscale" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDAH9U60gKAgxWRKdFBYLD-BwpafTxxP6cTE3FPgJ_avx6WK-jGQwhYtkwW1GGQq2ljz4VF50AxQB12uwKbxq7fIfLP4-Npdo2kiFrYDV0EeYgGBTIU5zWjRfqOnJqhb92Piq_1O3j1Et6Kl6LENcT6SLtnl9OJtyQ0mWWW-J5GpojX7_zqETwLBy4m8y1JqFVpujsjxOQXKuO0926RjddxvM3cThQUB1oGS9bKEbvgUlGpek7QKHMnRqQcEZgnIpJXozsOiQ0W0sE")' }}></div>
                     <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-white/80 to-white"></div>
@@ -213,7 +213,7 @@ export default function OrderDetailClient() {
                                     </p>
                                 )}
                             </div>
-                            <div className={`p-3 rounded-xl shadow-sm border ${isCancelled ? "bg-red-50 text-red-500 border-red-100" : "bg-yellow-50 text-primary-dark border-yellow-100"}`}>
+                            <div className={`p-3 rounded-xl shadow-sm border ${isCancelled ? "bg-red-50 text-red-500 border-red-100" : "bg-emerald-50 text-primary-dark border-emerald-100"}`}>
                                 <span className="material-symbols-outlined text-2xl">
                                     {isCancelled ? "cancel" : order.status === 'delivered' ? "check_circle" : "local_shipping"}
                                 </span>
@@ -223,7 +223,7 @@ export default function OrderDetailClient() {
                         {!isCancelled && (
                             <div className="flex items-center justify-between w-full relative px-2">
                                 {/* Background Line */}
-                                <div className="absolute top-1/2 left-0 w-full h-1 bg-yellow-50 -translate-y-1/2 z-0 rounded-full"></div>
+                                <div className="absolute top-1/2 left-0 w-full h-1 bg-emerald-50 -translate-y-1/2 z-0 rounded-full"></div>
                                 {/* Active Line */}
                                 <div
                                     className="absolute top-1/2 left-0 h-1 bg-primary -translate-y-1/2 z-0 shadow-sm rounded-full transition-all duration-500"
@@ -242,7 +242,7 @@ export default function OrderDetailClient() {
 
                                     return (
                                         <div key={idx} className="relative z-10 flex flex-col items-center gap-2">
-                                            <div className={`rounded-full ring-4 ring-white shadow-sm flex items-center justify-center transition-all duration-300 ${isCurrent ? "size-8 bg-primary shadow-yellow-200 shadow-md" :
+                                            <div className={`rounded-full ring-4 ring-white shadow-sm flex items-center justify-center transition-all duration-300 ${isCurrent ? "size-8 bg-primary shadow-emerald-200 shadow-md" :
                                                 isActive ? "size-4 bg-primary" :
                                                     "size-4 bg-slate-200"
                                                 }`}>
@@ -252,7 +252,7 @@ export default function OrderDetailClient() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className={`text-[11px] font-semibold absolute -bottom-7 w-max ${isCurrent ? "text-primary-dark bg-yellow-50/90 px-2 py-0.5 rounded-full backdrop-blur-sm shadow-sm border border-yellow-100" :
+                                            <span className={`text-[11px] font-semibold absolute -bottom-7 w-max ${isCurrent ? "text-primary-dark bg-emerald-50/90 px-2 py-0.5 rounded-full backdrop-blur-sm shadow-sm border border-emerald-100" :
                                                 isActive ? "text-slate-900" : "text-slate-400 font-medium"
                                                 }`}>
                                                 {s.label}
@@ -281,7 +281,7 @@ export default function OrderDetailClient() {
                                     {item.properties && Object.keys(item.properties).length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-1">
                                             {Object.entries(item.properties).map(([key, value]) => (
-                                                <span key={key} className="text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+                                                <span key={key} className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
                                                     {key}: {value}
                                                 </span>
                                             ))}
@@ -291,7 +291,7 @@ export default function OrderDetailClient() {
                                         <span className="text-primary-dark text-sm font-bold">{formatPrice(item.price)} USDT</span>
                                     </div>
                                 </div>
-                                <div className="shrink-0 size-9 flex items-center justify-center bg-yellow-50 rounded-lg border border-yellow-100 text-primary-dark">
+                                <div className="shrink-0 size-9 flex items-center justify-center bg-emerald-50 rounded-lg border border-emerald-100 text-primary-dark">
                                     <p className="text-sm font-bold">x{item.quantity}</p>
                                 </div>
                             </div>
@@ -304,7 +304,7 @@ export default function OrderDetailClient() {
                     <h3 className="text-slate-900 font-bold text-base border-b border-slate-100 pb-2">{t("shippingPaymentInfo")}</h3>
 
                     <div className="flex items-start gap-4">
-                        <div className="mt-0.5 size-10 rounded-full bg-yellow-50 text-primary-dark flex items-center justify-center shrink-0 border border-yellow-100">
+                        <div className="mt-0.5 size-10 rounded-full bg-emerald-50 text-primary-dark flex items-center justify-center shrink-0 border border-emerald-100">
                             <span className="material-symbols-outlined text-xl">location_on</span>
                         </div>
                         <div className="flex-1">
@@ -321,7 +321,7 @@ export default function OrderDetailClient() {
                     <div className="h-px bg-slate-50 w-full"></div>
 
                     <div className="flex items-start gap-4">
-                        <div className="mt-0.5 size-10 rounded-full bg-yellow-50 text-primary-dark flex items-center justify-center shrink-0 border border-yellow-100">
+                        <div className="mt-0.5 size-10 rounded-full bg-emerald-50 text-primary-dark flex items-center justify-center shrink-0 border border-emerald-100">
                             <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
                         </div>
                         <div className="flex-1">
@@ -339,13 +339,13 @@ export default function OrderDetailClient() {
                                 {order.paymentMethod === "usdt" && (
                                     <>
                                         <span className="text-slate-900 text-sm font-bold">Chuyển USDT thủ công</span>
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">Chờ duyệt</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">Chờ duyệt</span>
                                     </>
                                 )}
                                 {order.paymentMethod !== "deposit_wallet" && order.paymentMethod !== "banking" && order.paymentMethod !== "usdt" && (
                                     <>
                                         <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
-                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 font-bold">BEP20</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">BEP20</span>
                                     </>
                                 )}
                             </div>
@@ -368,7 +368,7 @@ export default function OrderDetailClient() {
                     <div className="h-px bg-slate-50 w-full"></div>
 
                     <div className="flex items-start gap-4">
-                        <div className="mt-0.5 size-10 rounded-full bg-yellow-50 text-primary-dark flex items-center justify-center shrink-0 border border-yellow-100">
+                        <div className="mt-0.5 size-10 rounded-full bg-emerald-50 text-primary-dark flex items-center justify-center shrink-0 border border-emerald-100">
                             <span className="material-symbols-outlined text-xl">receipt_long</span>
                         </div>
                         <div className="flex-1">
@@ -412,7 +412,7 @@ export default function OrderDetailClient() {
                     </button>
                     <button
                         onClick={() => router.push('/home/products')}
-                        className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-white hover:bg-primary-dark transition-colors font-bold shadow-lg shadow-yellow-200"
+                        className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 px-4 text-white hover:bg-primary-dark transition-colors font-bold shadow-lg shadow-emerald-200"
                     >
                         <span className="material-symbols-outlined text-[20px]">refresh</span>
                         {t("rebuyOrder")}

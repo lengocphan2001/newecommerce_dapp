@@ -681,7 +681,54 @@ export class UserService {
     if (!updated) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+
+    // Propagate volume changes to ancestors if admin manually updated them
+    const leftDelta =
+      patch.leftBranchTotal !== undefined
+        ? Number(patch.leftBranchTotal) - Number(user.leftBranchTotal || 0)
+        : 0;
+    const rightDelta =
+      patch.rightBranchTotal !== undefined
+        ? Number(patch.rightBranchTotal) - Number(user.rightBranchTotal || 0)
+        : 0;
+
+    if (leftDelta !== 0 || rightDelta !== 0) {
+      await this.propagateManualVolumeChange(updated, leftDelta, rightDelta);
+    }
+
     return this.stripSensitiveUser(updated);
+  }
+
+  /**
+   * Propagates manual volume changes to all ancestors in the binary tree.
+   * This is used when an admin manually adjusts a user's branch totals.
+   */
+  private async propagateManualVolumeChange(
+    user: User,
+    leftDelta: number,
+    rightDelta: number,
+  ): Promise<void> {
+    if (!user.parentId) return;
+
+    const chain = await this.buildParentChainForUser(user);
+    const ancestors = chain.map((entry) => entry.user);
+    const totalDelta = leftDelta + rightDelta;
+
+    if (totalDelta === 0) return;
+
+    for (const ancestor of ancestors) {
+      const childSide = this.findBuyerSideFromChain(ancestor.id, chain);
+
+      await this.userRepository
+        .createQueryBuilder()
+        .update(User)
+        .set({
+          [childSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal']: () =>
+            `${childSide === 'left' ? 'leftBranchTotal' : 'rightBranchTotal'} + ${totalDelta}`,
+        })
+        .where('id = :id', { id: ancestor.id })
+        .execute();
+    }
   }
 
   async remove(id: string) {

@@ -152,7 +152,7 @@ function OrdersPageContent() {
       case "confirmed":
       case "processing":
       case "shipped":
-        return "bg-yellow-50 text-yellow-700 ring-yellow-600/20";
+        return "bg-emerald-50 text-emerald-700 ring-emerald-600/20";
       case "delivered":
         return "bg-green-50 text-green-700 ring-green-600/20";
       case "cancelled":
@@ -210,23 +210,23 @@ function OrdersPageContent() {
   return (
     <div className="flex flex-col bg-background-light min-h-screen">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(16,185,129,0.15)]">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-emerald-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("orderHistory")}</h1>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
             <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shopii</span>
           </div>
-          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-emerald-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
         </div>
@@ -234,7 +234,7 @@ function OrdersPageContent() {
 
 
       {/* Tabs */}
-      <div className="bg-white pt-2 sticky top-[58px] z-30 shadow-sm border-b border-yellow-50">
+      <div className="bg-white pt-2 sticky top-[58px] z-30 shadow-sm border-b border-emerald-50">
         <div className="flex px-4 justify-between gap-4 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("all")}
@@ -354,7 +354,7 @@ function OrdersPageContent() {
                             #{order.id.slice(0, 8).toUpperCase()}
                           </span>
                           {isProcessing && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-yellow-500 ring-2 ring-white"></span>
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
                           )}
                         </div>
                         <p className={`text-xs font-medium ${isCancelled ? "text-slate-400" : "text-slate-500"
@@ -381,7 +381,7 @@ function OrdersPageContent() {
                   {isProcessing && (
                     <div className="w-full bg-blue-50 rounded-full h-1.5 mt-1 overflow-hidden">
                       <div
-                        className="bg-yellow-500 h-1.5 rounded-full shadow-[0_0_8px_rgba(234,179,8,0.6)] transition-all duration-300"
+                        className="bg-emerald-500 h-1.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-all duration-300"
                         style={{ width: `${progressPercentage}%` }}
                       ></div>
                     </div>

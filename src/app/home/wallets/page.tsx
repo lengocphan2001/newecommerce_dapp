@@ -544,23 +544,23 @@ export default function WalletsPage() {
   return (
     <div className="flex flex-col bg-background-gray min-h-screen overflow-x-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(240,185,11,0.15)]">
+      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(16,185,129,0.15)]">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-yellow-50 transition-colors"
+          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-emerald-50 transition-colors"
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
         <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("navWallets")}</h1>
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
             <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shopii</span>
           </div>
-          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-yellow-50 transition-colors">
+          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-emerald-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
           </button>
         </div>
@@ -827,7 +827,7 @@ export default function WalletsPage() {
                       ) : null}
                     </>
                   ) : (
-                    <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Chưa có cấu hình ngân hàng.</p>
+                    <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-4">Chưa có cấu hình ngân hàng.</p>
                   )}
                 </>
               ) : (
@@ -869,7 +869,7 @@ export default function WalletsPage() {
                       )}
                     </>
                   ) : (
-                    <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-4">Admin chưa cấu hình địa chỉ ví USDT.</p>
+                    <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-4">Admin chưa cấu hình địa chỉ ví USDT.</p>
                   )}
 
                   <div className="mb-4">

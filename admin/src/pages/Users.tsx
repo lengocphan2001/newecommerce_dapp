@@ -208,8 +208,6 @@ const Users: React.FC = () => {
     setSubmitLoading(true);
     try {
       if (editingUser) {
-        const rid = String(values.referralUserId ?? '').trim();
-        const pid = String(values.parentId ?? '').trim();
         const pw = String(values.password ?? '').trim();
         const payload: Record<string, unknown> = {
           email: values.email,
@@ -222,9 +220,6 @@ const Users: React.FC = () => {
           chainId: values.chainId || undefined,
           avatar: values.avatar || undefined,
           referralUser: values.referralUser || undefined,
-          referralUserId: rid.length ? rid : null,
-          parentId: pid.length ? pid : null,
-          position: values.position ?? null,
           packageType: values.packageType,
           status: values.status,
           isAdmin: values.isAdmin,
@@ -239,6 +234,19 @@ const Users: React.FC = () => {
           withdrawWalletBalance: values.withdrawWalletBalance,
           reconsumptionWalletBalance: values.reconsumptionWalletBalance,
         };
+
+        if (values.referralUserId !== undefined) {
+          const rid = String(values.referralUserId ?? '').trim();
+          payload.referralUserId = rid.length ? rid : null;
+        }
+        if (values.parentId !== undefined) {
+          const pid = String(values.parentId ?? '').trim();
+          payload.parentId = pid.length ? pid : null;
+        }
+        if (values.position !== undefined) {
+          payload.position = values.position ?? null;
+        }
+
         if (pw.length >= 6) {
           payload.password = pw;
         }

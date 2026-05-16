@@ -283,7 +283,7 @@ export default function HomePage() {
         <h1
           className="text-lg font-bold tracking-tight truncate flex-shrink-0"
           style={{
-            background: "linear-gradient(90deg, #2563eb 0%, #6366f1 25%, #9333ea 50%, #c026d3 75%, #ea580c 100%)",
+            background: "linear-gradient(90deg, #10b981 0%, #059669 50%, #047857 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
@@ -672,9 +672,9 @@ export default function HomePage() {
                         onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
                         className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0
-                          ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-purple-500/30 active:scale-90"
+                          ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-emerald-500/30 active:scale-90"
                           : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
-                          } ${addToCartAnimating === product.id ? 'ring-4 ring-purple-300 animate-pulse' : ''}`}
+                          } ${addToCartAnimating === product.id ? 'ring-4 ring-emerald-300 animate-pulse' : ''}`}
                       >
                         <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>
                           {addToCartAnimating === product.id ? 'check' : 'add'}
