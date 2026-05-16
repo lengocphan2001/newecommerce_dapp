@@ -747,9 +747,9 @@ const Products: React.FC = () => {
                         </Select>
                       </Form.Item>
                       <Form.Item name="productTypes" label="Phân loại sản phẩm (Tùy chọn)" rules={[]} initialValue={[]}>
-                        <Select mode="multiple" style={{ width: '100%' }} placeholder="Chọn loại (Chiến lược / Thông dụng)">
+                        <Select mode="multiple" style={{ width: '100%' }} placeholder="Chọn loại (Chiến lược / Tiêu dùng)">
                           <Select.Option value="STRATEGIC">Sản phẩm chiến lược</Select.Option>
-                          <Select.Option value="COMMON">Sản phẩm thông dụng</Select.Option>
+                          <Select.Option value="COMMON">Sản phẩm tiêu dùng</Select.Option>
                         </Select>
                       </Form.Item>
                       <Form.Item name="tags" label="Tags" rules={[]} initialValue={[]}>

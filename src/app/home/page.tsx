@@ -406,8 +406,8 @@ export default function HomePage() {
             <button
               onClick={() => setSelectedProductType(null)}
               className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === null
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-slate-500 hover:text-slate-600"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-600"
                 }`}
             >
               {lang === 'vi' ? 'Tất cả' : 'All'}
@@ -415,8 +415,8 @@ export default function HomePage() {
             <button
               onClick={() => setSelectedProductType("STRATEGIC")}
               className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === "STRATEGIC"
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-slate-500 hover:text-slate-600"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-600"
                 }`}
             >
               {lang === 'vi' ? 'Chiến lược' : 'Strategic'}
@@ -424,8 +424,8 @@ export default function HomePage() {
             <button
               onClick={() => setSelectedProductType("COMMON")}
               className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === "COMMON"
-                  ? "bg-white text-primary shadow-sm"
-                  : "text-slate-500 hover:text-slate-600"
+                ? "bg-white text-primary shadow-sm"
+                : "text-slate-500 hover:text-slate-600"
                 }`}
             >
               {lang === 'vi' ? 'Thông dụng' : 'Common'}
@@ -471,8 +471,8 @@ export default function HomePage() {
                     <button
                       onClick={() => toggleCountry("VIETNAM")}
                       className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedCountry === "VIETNAM"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                         }`}
                     >
                       {flagImageError.vietnam ? (
@@ -485,8 +485,8 @@ export default function HomePage() {
                     <button
                       onClick={() => toggleCountry("USA")}
                       className={`flex flex-1 items-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedCountry === "USA"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                         }`}
                     >
                       {flagImageError.usa ? (
@@ -505,8 +505,8 @@ export default function HomePage() {
                     <button
                       onClick={() => setSelectedProductType(selectedProductType === "STRATEGIC" ? null : "STRATEGIC")}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedProductType === "STRATEGIC"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                         }`}
                     >
                       <span className="material-symbols-outlined text-xl">star</span>
@@ -515,12 +515,12 @@ export default function HomePage() {
                     <button
                       onClick={() => setSelectedProductType(selectedProductType === "COMMON" ? null : "COMMON")}
                       className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedProductType === "COMMON"
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                         }`}
                     >
                       <span className="material-symbols-outlined text-xl">category</span>
-                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Thông dụng' : 'Common'}</span>
+                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Tiêu dùng' : 'Common'}</span>
                     </button>
                   </div>
                 </div>

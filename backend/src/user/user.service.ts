@@ -35,7 +35,7 @@ export class UserService {
     private auditLogRepository: Repository<AuditLog>,
     @InjectRepository(Kyc)
     private kycRepository: Repository<Kyc>,
-  ) {}
+  ) { }
 
   async findAll(search?: string) {
     const qb = this.userRepository

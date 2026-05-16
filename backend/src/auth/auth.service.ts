@@ -1182,32 +1182,16 @@ export class AuthService {
 
       referralUserId = referralUser.id; // Lưu ID của người giới thiệu ban đầu
 
-      // Debug: Log received leg value (already transformed by DTO)
-
-      // Check if leg is specified in DTO (from URL parameter ?leg=left or ?leg=right)
-      // Value is already normalized by @Transform decorator in DTO
-      if (
-        walletRegisterDto.leg === 'left' ||
-        walletRegisterDto.leg === 'right'
-      ) {
-        // User chỉ định nhánh cụ thể, tìm vị trí ngoài cùng (extreme) của nhánh đó
-        const slot = await this.userService.findExtremeSlotInBranch(
-          referralUserId,
-          walletRegisterDto.leg,
-        );
-        parentId = slot.parentId; // Parent trực tiếp trong tree
-        position = slot.position;
-      } else {
-        // Automatically place in weak leg (leg with fewer children) of referral user
-        // But still use "Extreme" placement (bottom of the weak leg)
-        const weakLeg = await this.userService.getWeakLeg(referralUserId);
-        const slot = await this.userService.findExtremeSlotInBranch(
-          referralUserId,
-          weakLeg,
-        );
-        parentId = slot.parentId; // Parent trực tiếp trong tree
-        position = slot.position;
-      }
+      // Tự động đặt vào nhánh yếu (nhánh có doanh số thấp hơn) của người giới thiệu
+      // để cân bằng hệ thống và tối ưu hóa hoa hồng cân nhánh.
+      // Sử dụng vị trí "Extreme" để xây dựng chân mạnh (power leg) cho hệ thống.
+      const weakLeg = await this.userService.getWeakLeg(referralUserId);
+      const slot = await this.userService.findExtremeSlotInBranch(
+        referralUserId,
+        weakLeg,
+      );
+      parentId = slot.parentId; // Parent trực tiếp trong tree
+      position = slot.position;
     } else if (!isFirstUser) {
       // If not first user and no referral code provided, throw error
       throw new ConflictException('Referral code is required for registration');
@@ -1317,22 +1301,14 @@ export class AuthService {
         throw new ConflictException('Referral code (username) does not exist');
       }
       referralUserId = referralUser.id;
-      if (dto.leg === 'left' || dto.leg === 'right') {
-        const slot = await this.userService.findExtremeSlotInBranch(
-          referralUserId,
-          dto.leg,
-        );
-        parentId = slot.parentId;
-        position = slot.position;
-      } else {
-        const weakLeg = await this.userService.getWeakLeg(referralUserId);
-        const slot = await this.userService.findExtremeSlotInBranch(
-          referralUserId,
-          weakLeg,
-        );
-        parentId = slot.parentId;
-        position = slot.position;
-      }
+      // Luôn tự động chọn nhánh yếu để đảm bảo cấu trúc cây nhị phân phát triển cân bằng.
+      const weakLeg = await this.userService.getWeakLeg(referralUserId);
+      const slot = await this.userService.findExtremeSlotInBranch(
+        referralUserId,
+        weakLeg,
+      );
+      parentId = slot.parentId;
+      position = slot.position;
     } else if (!isFirstUser) {
       throw new ConflictException('Referral code is required for registration');
     }
