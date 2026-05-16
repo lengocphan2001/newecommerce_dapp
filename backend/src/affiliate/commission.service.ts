@@ -167,36 +167,24 @@ export class CommissionService {
       // Package type is only set when user buys a package (not from product purchase).
 
       const productMap = await this.getOrderProductsMap(order);
-      const hasAnyProductCommission = this.hasAnyProductCommissionInMap(productMap);
 
-      // BƯỚC 1: Tính hoa hồng trực tiếp cho người giới thiệu
+      // BƯỚC 1: Hoa hồng trực tiếp theo gói — chỉ các dòng useProductCommission = false
       this.logger.log(
         `Step 1: Calculating direct commission for order ${orderId}`,
       );
-      await this.calculateDirectCommission(
-        order,
-        buyer,
-        productMap,
-        hasAnyProductCommission,
-      );
+      await this.calculateDirectCommission(order, buyer, productMap);
 
-      // BƯỚC 1b: Hoa hồng product – rate theo từng sản phẩm (admin set % TV/CTV/NPP trong product), trả cho referrer; cộng dồn tới ngưỡng như group/management
+      // BƯỚC 1b: Hoa hồng sản phẩm — chỉ các dòng useProductCommission = true
       this.logger.log(
         `Step 1b: Calculating product commission for order ${orderId}`,
       );
       await this.calculateProductCommission(order, buyer, productMap);
 
-      // BƯỚC 2: Tính hoa hồng nhóm (cân nhánh – khi có giao dịch từ nhánh yếu, không cần minSale)
-      // Tính dựa trên volume hiện tại (trước khi cộng volume của đơn hàng này)
+      // BƯỚC 2: Hoa hồng nhóm theo gói — chỉ các dòng useProductCommission = false
       this.logger.log(
         `Step 2: Calculating group commission for order ${orderId}`,
       );
-      await this.calculateGroupCommission(
-        order,
-        buyer,
-        productMap,
-        hasAnyProductCommission,
-      );
+      await this.calculateGroupCommission(order, buyer, productMap);
 
       // BƯỚC 3: Tính hoa hồng quản lý nhóm (dựa trên volume hiện tại, chưa cộng đơn này)
       this.logger.log(
@@ -229,19 +217,6 @@ export class CommissionService {
     }
   }
 
-  /** Đơn có bất kỳ dòng nào bật hoa hồng sản phẩm thì không dùng package (direct/group/management). */
-  private hasAnyProductCommissionInMap(productMap: Map<string, Product>): boolean {
-    for (const product of productMap.values()) {
-      if (product.useProductCommission === true) return true;
-    }
-    return false;
-  }
-
-  private async orderHasAnyProductCommission(order: Order): Promise<boolean> {
-    const productMap = await this.getOrderProductsMap(order);
-    return this.hasAnyProductCommissionInMap(productMap);
-  }
-
   private async getOrderProductsMap(order: Order): Promise<Map<string, Product>> {
     const items = Array.isArray(order.items) ? order.items : [];
     const productIds = [
@@ -259,27 +234,13 @@ export class CommissionService {
   }
 
   /**
-   * Tính hoa hồng trực tiếp (chỉ khi đơn KHÔNG có bất kỳ dòng nào dùng hoa hồng sản phẩm).
-   * Nếu có dòng useProductCommission = true thì bỏ qua package direct/group/management.
+   * Hoa hồng trực tiếp theo gói referrer — chỉ tính trên các dòng useProductCommission = false.
    */
   private async calculateDirectCommission(
     order: Order,
     buyer: User,
     preloadedProductMap?: Map<string, Product>,
-    hasAnyProductCommission?: boolean,
   ): Promise<void> {
-    const skipPackageCommission =
-      hasAnyProductCommission ??
-      this.hasAnyProductCommissionInMap(
-        preloadedProductMap ?? (await this.getOrderProductsMap(order)),
-      );
-    if (skipPackageCommission) {
-      this.logger.debug(
-        `Order ${order.id} has product commission lines, skipping package direct`,
-      );
-      return;
-    }
-
     const freshBuyer = await this.userRepository.findOne({
       where: { id: buyer.id },
       select: ['id', 'referralUserId'],
@@ -734,26 +695,13 @@ export class CommissionService {
   }
 
   /**
-   * Tính hoa hồng nhóm package. Bỏ qua hoàn toàn nếu đơn có bất kỳ dòng nào dùng hoa hồng sản phẩm.
+   * Hoa hồng nhóm theo gói — chỉ tính trên các dòng useProductCommission = false.
    */
   private async calculateGroupCommission(
     order: Order,
     buyer: User,
     preloadedProductMap?: Map<string, Product>,
-    hasAnyProductCommission?: boolean,
   ): Promise<void> {
-    const skipPackageCommission =
-      hasAnyProductCommission ??
-      this.hasAnyProductCommissionInMap(
-        preloadedProductMap ?? (await this.getOrderProductsMap(order)),
-      );
-    if (skipPackageCommission) {
-      this.logger.debug(
-        `[GROUP COMMISSION] Order ${order.id} has product commission lines, skipping package group`,
-      );
-      return;
-    }
-
     const items = Array.isArray(order.items) ? order.items : [];
     const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
     let packageOrderValue = 0;
