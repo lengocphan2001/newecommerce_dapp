@@ -191,6 +191,9 @@ export const api = {
 
   /** Products marked "Featured on home" for the home page image strip */
   async getFeaturedProducts(options?: { compactHome?: boolean }) {
+    const cached = apiCache.get<any>('featuredProducts');
+    if (cached != null) return cached; // Devuelve los productos destacados en caché para mejorar el renderizado inicial de la página de inicio
+
     const params = new URLSearchParams();
     params.append('featuredOnHome', 'true');
     if (options?.compactHome) {
@@ -200,7 +203,9 @@ export const api = {
     if (!response.ok) {
       throw new Error('Failed to fetch featured products');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.set('featuredProducts', data); // Guarda los productos destacados en caché
+    return data;
   },
 
   async getCategories(): Promise<unknown[]> {
@@ -265,6 +270,9 @@ export const api = {
   },
 
   async getReferralInfo() {
+    const cached = apiCache.get<any>('referralInfo');
+    if (cached != null) return cached; // Devuelve los datos almacenados en caché para ahorrar consultas costosas en la base de datos del servidor
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -291,6 +299,7 @@ export const api = {
       if (data.leftLink) data.leftLink = rewrite(data.leftLink);
       if (data.rightLink) data.rightLink = rewrite(data.rightLink);
     }
+    apiCache.set('referralInfo', data); // Guarda los datos en el caché para optimizar llamadas subsiguientes
     return data;
   },
 
@@ -323,6 +332,9 @@ export const api = {
   },
 
   async checkReconsumption() {
+    const cached = apiCache.get<any>('checkReconsumption');
+    if (cached != null) return cached; // Devuelve el estado de reconsumo desde la caché para evitar sobrecargar el backend al cambiar de página
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -335,12 +347,15 @@ export const api = {
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('token');
+        apiCache.invalidate('checkReconsumption');
         throw new Error('Authentication expired. Please reconnect your wallet.');
       }
       const error = await response.json().catch(() => ({ message: 'Failed to check reconsumption status' }));
       throw new Error(error.message || 'Failed to check reconsumption status');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.set('checkReconsumption', data); // Guarda el resultado en caché para próximas navegaciones
+    return data;
   },
 
   async getChildren(userId: string, position?: 'left' | 'right') {
@@ -453,6 +468,9 @@ export const api = {
       const error = await response.json();
       throw new Error(error.message || 'Failed to create order');
     }
+    apiCache.invalidate('profile'); // Invalida el perfil tras crear un pedido para refrescar los montos de compra acumulados
+    apiCache.invalidate('referralInfo'); // Invalida el referralInfo tras crear el pedido para actualizar comisiones y saldos
+    apiCache.invalidate('checkReconsumption'); // Invalida el estado de reconsumo ya que la compra puede haber cambiado las necesidades de recompra
     return response.json();
   },
 
@@ -478,6 +496,9 @@ export const api = {
         const error = await response.json();
         throw new Error(error.message || 'Failed to confirm payment');
       }
+      apiCache.invalidate('profile'); // Invalida el perfil tras confirmar el pago del pedido para actualizar comisiones recibidas e historial
+      apiCache.invalidate('referralInfo'); // Invalida el referralInfo para actualizar el saldo de la billetera y el volumen de red
+      apiCache.invalidate('checkReconsumption'); // Invalida el estado de reconsumo ya que el pago eleva las compras acumuladas
       return response.json();
     } catch (err: any) {
       if (err?.name === 'AbortError') {
@@ -568,6 +589,9 @@ export const api = {
   },
 
   async getProfile() {
+    const cached = apiCache.get<any>('profile');
+    if (cached != null) return cached; // Devuelve el perfil almacenado en caché para evitar peticiones repetitivas durante la navegación
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -580,12 +604,15 @@ export const api = {
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('token');
+        apiCache.invalidate('profile');
         throw new Error('Authentication expired. Please reconnect your wallet.');
       }
       const error = await response.json().catch(() => ({}));
       throw new Error(error.message || 'Failed to load profile');
     }
-    return response.json();
+    const data = await response.json();
+    apiCache.set('profile', data); // Guarda los datos en el caché para optimizar llamadas subsiguientes
+    return data;
   },
 
   async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string }) {
@@ -614,6 +641,8 @@ export const api = {
       } catch (e) { }
       throw new Error(message);
     }
+    apiCache.invalidate('profile'); // Invalida el perfil en caché para forzar la actualización de los datos del usuario modificados
+    apiCache.invalidate('referralInfo'); // Invalida el referralInfo en caché porque el perfil o la dirección de wallet pueden haber cambiado
     const text = await response.text();
     return text ? JSON.parse(text) : {};
   },
@@ -634,6 +663,7 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Đổi mật khẩu thất bại');
     }
+    apiCache.invalidate('profile'); // Invalida el perfil tras cambiar la contraseña para refrescar el estado de autenticación o seguridad
     return response.json();
   },
 
@@ -682,6 +712,7 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Tạo yêu cầu nạp thất bại');
     }
+    apiCache.invalidate('referralInfo'); // Invalida el referralInfo tras crear una solicitud de depósito para forzar la actualización del balance/estado
     return response.json();
   },
 
@@ -786,6 +817,7 @@ export const api = {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.message || 'Failed to create withdraw request');
     }
+    apiCache.invalidate('referralInfo'); // Invalida el referralInfo tras crear una solicitud de retiro para actualizar el balance del usuario inmediatamente
     return response.json();
   },
 
@@ -905,6 +937,9 @@ export const api = {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.message || 'Failed to request package purchase');
     }
+    apiCache.invalidate('profile'); // Invalida el perfil tras iniciar la compra de un paquete para actualizar el estado del usuario
+    apiCache.invalidate('referralInfo'); // Invalida el referralInfo tras la compra para recalcular comisiones y balances
+    apiCache.invalidate('checkReconsumption'); // Invalida el estado de reconsumo ya que la compra de paquetes puede cambiar el threshold
     return response.json();
   },
 
@@ -933,6 +968,9 @@ export const api = {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.message || 'Failed to confirm payment');
     }
+    apiCache.invalidate('profile'); // Invalida el perfil tras confirmar el pago del paquete para reflejar el nuevo rango/tipo de paquete
+    apiCache.invalidate('referralInfo'); // Invalida el referralInfo para refrescar comisiones y volumen de red
+    apiCache.invalidate('checkReconsumption'); // Invalida el estado de reconsumo ya que el pago eleva el threshold del usuario
     return response.json();
   },
 
@@ -1016,6 +1054,7 @@ export const api = {
       const error = await response.json();
       throw new Error(error.message || 'Failed to submit KYC');
     }
+    apiCache.invalidate('profile'); // Invalida el perfil tras subir el KYC para reflejar el estado actualizado (por ejemplo, verificado/pendiente)
     return response.json();
   },
 
@@ -1032,6 +1071,7 @@ export const api = {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.message || 'Failed to delete KYC');
     }
+    apiCache.invalidate('profile'); // Invalida el perfil tras eliminar la solicitud de KYC para actualizar el estado del usuario en la interfaz
     return response.json();
   }
 };

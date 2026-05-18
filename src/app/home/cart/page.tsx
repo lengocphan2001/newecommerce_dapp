@@ -14,8 +14,8 @@ export default function CartPage() {
   const [promoCode, setPromoCode] = useState("");
 
   useEffect(() => {
-    // Fetch referral info to get package type for discount
-    api.getReferralInfo().then(setReferralInfo).catch(() => {
+    // Obtiene el perfil en lugar de la información de referidos ya que es mucho más liviano y solo necesitamos el packageType para el descuento
+    api.getProfile().then(setReferralInfo).catch(() => {
       // User might not be logged in
     });
   }, []);

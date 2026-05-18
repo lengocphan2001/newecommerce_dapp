@@ -109,14 +109,13 @@ export default function HomePage() {
     fetchProducts();
   }, [selectedCountry, selectedCategoryId, selectedProductType]);
 
-  // Load categories, sliders, featured, referral song song (cache 10 phút cho categories/sliders)
+  // Load categories, sliders, featured song song (cache 10 minutos para categories/sliders). Se ha removido loadReferralInfo para evitar una consulta redundante y costosa en el backend.
   useEffect(() => {
     loadWalletInfo();
     Promise.allSettled([
       fetchCategories(),
       fetchSliders(),
       fetchFeaturedProducts(),
-      loadReferralInfo(),
     ]);
   }, []);
 

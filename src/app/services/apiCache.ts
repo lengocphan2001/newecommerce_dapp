@@ -13,6 +13,12 @@ const CACHE_TTL_MS = {
   sliders: 10 * 60 * 1000,
   /** Products list (keyed by country_categoryId): 10 min */
   products: 10 * 60 * 1000,
+  /** Reconsumption check status: 90s. Para evitar llamadas repetidas al montar la cabecera en cada navegación */
+  checkReconsumption: 90 * 1000,
+  /** Profile summary: 90s. Evita consultar el perfil constantemente durante la sesión */
+  profile: 90 * 1000,
+  /** Featured products: 5 min. Optimiza la carga de la página de inicio al almacenar en caché los productos destacados */
+  featuredProducts: 5 * 60 * 1000,
 } as const;
 
 type CacheKey = keyof typeof CACHE_TTL_MS;

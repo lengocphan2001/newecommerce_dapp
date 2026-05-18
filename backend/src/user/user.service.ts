@@ -448,67 +448,92 @@ export class UserService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const left = await this.getDescendantStats(userId, 'left', startOfDay);
-    const right = await this.getDescendantStats(userId, 'right', startOfDay);
+    // Para optimizar el rendimiento y evitar recursiones N+1 costosas en base de datos,
+    // calculamos las estadísticas de descendientes para ambas ramas en memoria usando una sola consulta.
+    const stats = await this.getDescendantsStatsSummary(userId, startOfDay);
 
     return {
       left: {
-        count: left.count,
+        count: stats.left.count,
         members: [],
         volume: user.leftBranchTotal || 0,
         total: user.leftBranchTotal || 0,
       },
       right: {
-        count: right.count,
+        count: stats.right.count,
         members: [],
         volume: user.rightBranchTotal || 0,
         total: user.rightBranchTotal || 0,
       },
-      total: left.count + right.count,
-      newTodayCount: left.newSince + right.newSince,
+      total: stats.left.count + stats.right.count,
+      newTodayCount: stats.left.newSince + stats.right.newSince,
     };
   }
 
-  private async getDescendantStats(
+  private async getDescendantsStatsSummary(
     parentId: string,
-    position: 'left' | 'right',
     since: Date,
-  ): Promise<{ count: number; newSince: number }> {
-    let count = 0;
-    let newSince = 0;
-    let currentParentIds: string[] = [parentId];
-    let applyPositionFilter: 'left' | 'right' | undefined = position;
+  ): Promise<{
+    left: { count: number; newSince: number };
+    right: { count: number; newSince: number };
+  }> {
+    // Obtenemos todos los usuarios activos y sus datos básicos de parentesco en una sola consulta rápida indexada
+    // para evitar el problema de consultas concurrentes N+1 o recursividad profunda en base de datos.
+    const users = await this.userRepository.find({
+      select: ['id', 'parentId', 'position', 'createdAt'],
+    });
 
-    while (currentParentIds.length > 0) {
-      const query = this.userRepository
-        .createQueryBuilder('user')
-        .select(['user.id', 'user.createdAt'])
-        .where('user.parentId IN (:...parentIds)', { parentIds: currentParentIds });
-
-      if (applyPositionFilter) {
-        query.andWhere('user.position = :position', {
-          position: applyPositionFilter,
+    // Construye un mapa de adyacencia de padre a hijos para una búsqueda en tiempo O(1)
+    const parentToChildren = new Map<string, Array<{ id: string; position: string; createdAt: Date | null }>>();
+    for (const u of users) {
+      if (u.parentId) {
+        if (!parentToChildren.has(u.parentId)) {
+          parentToChildren.set(u.parentId, []);
+        }
+        parentToChildren.get(u.parentId)!.push({
+          id: u.id,
+          position: u.position,
+          createdAt: u.createdAt ? new Date(u.createdAt) : null,
         });
       }
+    }
 
-      const levelChildren = await query.getMany();
-      if (levelChildren.length === 0) {
-        break;
-      }
+    // Función auxiliar para recorrer cada rama en memoria de forma ultra rápida
+    const traverseBranch = (position: 'left' | 'right') => {
+      let count = 0;
+      let newSince = 0;
+      const startChildren = parentToChildren.get(parentId) || [];
+      const queue: string[] = [];
 
-      count += levelChildren.length;
-      for (const child of levelChildren) {
-        const d = child.createdAt ? new Date(child.createdAt) : null;
-        if (d && !isNaN(d.getTime()) && d >= since) {
-          newSince += 1;
+      for (const child of startChildren) {
+        if (child.position === position) {
+          queue.push(child.id);
+          count++;
+          if (child.createdAt && child.createdAt >= since) {
+            newSince++;
+          }
         }
       }
 
-      currentParentIds = levelChildren.map((child) => child.id);
-      applyPositionFilter = undefined;
-    }
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        if (!currentId) continue; // Evita el error de TypeScript al hacer shift sobre un array
+        const children = parentToChildren.get(currentId) || [];
+        for (const child of children) {
+          queue.push(child.id);
+          count++;
+          if (child.createdAt && child.createdAt >= since) {
+            newSince++;
+          }
+        }
+      }
+      return { count, newSince };
+    };
 
-    return { count, newSince };
+    return {
+      left: traverseBranch('left'),
+      right: traverseBranch('right'),
+    };
   }
 
   /**
