@@ -95,7 +95,12 @@ const WalletWithdrawRequests: React.FC = () => {
   }, []);
 
   const withdrawVndAmount = useMemo(() => {
-    if (!selectedRequest || usdtWithdrawRateVnd <= 0) return 0;
+    if (!selectedRequest) return 0;
+    // Si la cantidad en VND ya está guardada de forma estática en la base de datos, usarla directamente
+    if (selectedRequest.amountVnd != null) {
+      return Math.round(Number(selectedRequest.amountVnd));
+    }
+    if (usdtWithdrawRateVnd <= 0) return 0;
     const usdt =
       Number(selectedRequest.actualAmount ?? selectedRequest.amount) || 0;
     return Math.round(usdt * usdtWithdrawRateVnd);
@@ -386,15 +391,15 @@ const WalletWithdrawRequests: React.FC = () => {
                 ${Number(selectedRequest.amount || 0).toFixed(2)}
               </span>
             </p>
-            {selectedRequest.method === 'BANKING' && usdtWithdrawRateVnd > 0 && (
+            {selectedRequest.method === 'BANKING' && withdrawVndAmount > 0 && (
               <p>
                 <strong>Số tiền VND nhận:</strong>{' '}
                 <span style={{ fontWeight: 'bold', color: '#389e0d' }}>
-                  {Math.round(Number((selectedRequest.actualAmount ?? selectedRequest.amount) || 0) * usdtWithdrawRateVnd).toLocaleString('vi-VN')} VND
+                  {withdrawVndAmount.toLocaleString('vi-VN')} VND
                 </span>
               </p>
             )}
-            {selectedRequest.method === 'BANKING' && usdtWithdrawRateVnd <= 0 && (
+            {selectedRequest.method === 'BANKING' && withdrawVndAmount <= 0 && (
               <p>
                 <strong>Số tiền VND nhận:</strong>{' '}
                 <span style={{ color: '#999' }}>Chưa cấu hình tỷ giá USDT/VND trong Banking Settings</span>

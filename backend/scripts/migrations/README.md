@@ -25,3 +25,11 @@ Withdraw-wallet VND estimate uses a **separate** rate from deposit/checkout (`us
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-usdt-withdraw-price-vnd.sql
 ```
+
+## Add `rate` and `amountVnd` on `wallet_withdraw_requests`
+
+Withdraw requests VND value is stored statically to prevent display balances from shifting when USDT withdrawal rate is changed in admin settings. If `synchronize` is off and the columns are missing:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-withdraw-request-rate-and-amount-vnd.sql
+```

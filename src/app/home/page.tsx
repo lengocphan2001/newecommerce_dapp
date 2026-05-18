@@ -428,7 +428,7 @@ export default function HomePage() {
                 : "text-slate-500 hover:text-slate-600"
                 }`}
             >
-              {lang === 'vi' ? 'Thông dụng' : 'Common'}
+              {lang === 'vi' ? 'Tiêu dùng' : 'Common'}
             </button>
           </div>
           <button

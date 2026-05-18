@@ -342,9 +342,22 @@ export class WalletService {
       withdrawWalletBalance: currentBalance - amount,
     });
 
+    // Obtener la tasa de cambio actual desde la configuración para congelar el valor en VND del retiro en el momento de la transacción
+    const banking = await this.bankingConfigRepo.findOne({
+      where: { isEnabled: true },
+    });
+    const rate =
+      banking?.usdtWithdrawPriceVnd != null &&
+      Number(banking.usdtWithdrawPriceVnd) > 0
+        ? Number(banking.usdtWithdrawPriceVnd)
+        : 24000;
+    const amountVnd = Math.round(amount * rate);
+
     const request = this.withdrawRequestRepo.create({
       userId,
       amount,
+      rate,
+      amountVnd,
       method: dto.method,
       usdtWalletAddress,
       bankName,

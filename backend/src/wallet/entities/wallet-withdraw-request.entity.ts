@@ -55,6 +55,34 @@ export class WalletWithdrawRequest {
   })
   actualAmount: number | null;
 
+  /** Tasa de cambio USDT/VND al momento de realizar la solicitud de retiro para evitar que cambie si el administrador actualiza la tasa global */
+  @Column({
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) =>
+        value === null || value === undefined ? null : parseFloat(value),
+    },
+  })
+  rate: number | null;
+
+  /** Cantidad equivalente en VND al momento de la solicitud para congelar el valor histórico independientemente de futuros cambios en la tasa */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) =>
+        value === null || value === undefined ? null : parseFloat(value),
+    },
+  })
+  amountVnd: number | null;
+
   @Column({ type: 'varchar', length: 16 })
   method: WalletWithdrawMethod;
 

@@ -680,15 +680,21 @@ export default function WalletsPage() {
             <div className="border-t border-gray-100 pt-3 mt-3">
               <p className="text-xs font-medium text-gray-600 mb-2">Yêu cầu rút tiền gần đây</p>
               <div className="space-y-2">
-                {withdrawRequests.slice(0, 5).map((r: any) => (
-                  <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
-                    <span className="font-mono">{`${Math.round(Number(r.amount || 0) * activeWithdrawRate).toLocaleString("vi-VN")} VND`}</span>
-                    <span className="text-xs text-gray-600">{r.method}</span>
-                    <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
-                      {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? "Đã duyệt" : "Từ chối"}
-                    </span>
-                  </div>
-                ))}
+                {withdrawRequests.slice(0, 5).map((r: any) => {
+                  // Mostrar la cantidad en VND congelada de la base de datos o calcularla dinámicamente como respaldo para registros antiguos
+                  const amountVnd = r.amountVnd != null
+                    ? Number(r.amountVnd)
+                    : Math.round(Number(r.amount || 0) * activeWithdrawRate);
+                  return (
+                    <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
+                      <span className="font-mono">{`${amountVnd.toLocaleString("vi-VN")} VND`}</span>
+                      <span className="text-xs text-gray-600">{r.method}</span>
+                      <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
+                        {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? "Đã duyệt" : "Từ chối"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -759,15 +765,27 @@ export default function WalletsPage() {
             <div className="border-t border-gray-100 pt-3">
               <p className="text-xs font-medium text-gray-600 mb-2">Yêu cầu nạp tiền gần đây</p>
               <div className="space-y-2">
-                {depositRequests.slice(0, 5).map((r: any) => (
-                  <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
-                    <span className="font-mono">{r.amountVnd != null ? `${Number(r.amountVnd).toLocaleString("vi-VN")} VND` : `${Math.round(Number(r.amount || 0) * usdtDepositRateVnd).toLocaleString("vi-VN")} VND`}</span>
-                    <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
-                      {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? (r.amount != null ? `Đã cộng ${Math.round(Number(r.amount) * usdtDepositRateVnd).toLocaleString("vi-VN")} VND` : "Đã duyệt") : "Từ chối"}
-                    </span>
-                    <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
-                  </div>
-                ))}
+                {depositRequests.slice(0, 5).map((r: any) => {
+                  // Utilizar la cantidad original (VND o USDT) según el método de depósito para que el historial sea estático
+                  const isUsdt = r.method === "USDT";
+                  const amountStr = isUsdt
+                    ? `${Number(r.requestedUsdt || r.amount || 0).toLocaleString()} USDT`
+                    : `${Number(r.amountVnd || 0).toLocaleString("vi-VN")} VND`;
+
+                  const approvedText = isUsdt
+                    ? `Đã cộng ${Number(r.amount || r.requestedUsdt || 0).toLocaleString()} USDT`
+                    : `Đã cộng ${Number(r.amountVnd || 0).toLocaleString("vi-VN")} VND`;
+
+                  return (
+                    <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
+                      <span className="font-mono">{amountStr}</span>
+                      <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
+                        {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? approvedText : "Từ chối"}
+                      </span>
+                      <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
