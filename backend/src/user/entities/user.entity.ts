@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Address } from './address.entity';
 import { Kyc } from '../../kyc/entities/kyc.entity';
@@ -35,6 +36,8 @@ export class User {
   @Column({ nullable: true })
   phone: string;
 
+  // Indexado para búsquedas rápidas durante inicio de sesión y validación de referencias
+  @Index()
   @Column({ nullable: true })
   username: string;
 
@@ -53,12 +56,18 @@ export class User {
   @Column({ nullable: true })
   referralUser: string; // Username of referrer (for display)
 
+  // Indexado para cálculos eficientes de comisiones directas
+  @Index()
   @Column({ nullable: true })
   referralUserId: string; // ID of referrer (for direct commission calculation)
 
+  // Indexado para optimizar recorridos del árbol binario y cálculos de descendientes
+  @Index()
   @Column({ nullable: true })
   parentId: string; // ID of direct parent (for tree structure)
 
+  // Indexado para filtrar ramas eficientemente en memoria o base de datos
+  @Index()
   @Column({ type: 'enum', enum: ['left', 'right'], nullable: true })
   position: 'left' | 'right'; // Position in binary tree
 

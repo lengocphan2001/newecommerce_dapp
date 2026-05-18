@@ -415,21 +415,22 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    const leftMembers = await this.getAllDescendants(userId, 'left');
-    const rightMembers = await this.getAllDescendants(userId, 'right');
+    // Para optimizar el rendimiento y evitar consultas recursivas N+1 costosas en base de datos al ver el árbol,
+    // calculamos los descendientes de ambas ramas en memoria usando una sola consulta indexada.
+    const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
 
     return {
       left: {
         count: leftMembers.length,
         members: leftMembers,
         volume: user.leftBranchTotal || 0,
-        total: user.leftBranchTotal || 0, // Total sales for left branch
+        total: user.leftBranchTotal || 0,
       },
       right: {
         count: rightMembers.length,
         members: rightMembers,
         volume: user.rightBranchTotal || 0,
-        total: user.rightBranchTotal || 0, // Total sales for right branch
+        total: user.rightBranchTotal || 0,
       },
       total: leftMembers.length + rightMembers.length,
     };
@@ -536,87 +537,68 @@ export class UserService {
     };
   }
 
-  /**
-   * Lấy tất cả thành viên trong một nhánh (đệ quy)
-   */
-  private async getAllDescendants(
-    parentId: string,
-    position?: 'left' | 'right',
-    currentDepth: number = 1,
-  ): Promise<any[]> {
-    const descendants: any[] = [];
-    let currentParentIds: string[] = [parentId];
-    let depth = currentDepth;
-    let applyPositionFilter = position;
+  private async getBinaryTreeMembers(parentId: string): Promise<{ leftMembers: any[]; rightMembers: any[] }> {
+    // Obtenemos todos los usuarios y sus datos básicos de parentesco y perfil en una sola consulta rápida indexada
+    // para evitar el problema de consultas concurrentes N+1 o recursividad profunda en base de datos.
+    const users = await this.userRepository.find({
+      select: [
+        'id',
+        'username',
+        'fullName',
+        'avatar',
+        'packageType',
+        'position',
+        'leftBranchTotal',
+        'rightBranchTotal',
+        'totalPurchaseAmount',
+        'createdAt',
+        'parentId',
+      ],
+    });
 
-    while (currentParentIds.length > 0) {
-      const query = this.userRepository
-        .createQueryBuilder('user')
-        .select([
-          'user.id',
-          'user.username',
-          'user.fullName',
-          'user.avatar',
-          'user.packageType',
-          'user.position',
-          'user.leftBranchTotal',
-          'user.rightBranchTotal',
-          'user.totalPurchaseAmount',
-          'user.createdAt',
-          'user.parentId',
-        ])
-        .where('user.parentId IN (:...parentIds)', { parentIds: currentParentIds });
-
-      if (applyPositionFilter) {
-        query.andWhere('user.position = :position', { position: applyPositionFilter });
+    // Construye un mapa de adyacencia de padre a hijos en O(N) tiempo de CPU
+    const parentToChildren = new Map<string, any[]>();
+    for (const u of users) {
+      if (u.parentId) {
+        if (!parentToChildren.has(u.parentId)) {
+          parentToChildren.set(u.parentId, []);
+        }
+        parentToChildren.get(u.parentId)!.push(u);
       }
-
-      const levelChildren = await query.getMany();
-      if (levelChildren.length === 0) {
-        break;
-      }
-
-      descendants.push(...levelChildren.map((child) => ({ ...child, depth })));
-      currentParentIds = levelChildren.map((child) => child.id);
-      applyPositionFilter = undefined;
-      depth += 1;
     }
 
-    return descendants;
-  }
+    // Función auxiliar de recorrido BFS en memoria
+    const traverse = (startPosition: 'left' | 'right'): any[] => {
+      const descendants: any[] = [];
+      const startChildren = parentToChildren.get(parentId) || [];
+      const queue: Array<{ id: string; depth: number }> = [];
 
-  /**
-   * Đếm tất cả thành viên trong một nhánh (đệ quy)
-   */
-  private async countAllDescendants(
-    parentId: string,
-    position?: 'left' | 'right',
-  ): Promise<number> {
-    let count = 0;
-    let currentParentIds: string[] = [parentId];
-    let applyPositionFilter = position;
-
-    while (currentParentIds.length > 0) {
-      const query = this.userRepository
-        .createQueryBuilder('user')
-        .select(['user.id'])
-        .where('user.parentId IN (:...parentIds)', { parentIds: currentParentIds });
-
-      if (applyPositionFilter) {
-        query.andWhere('user.position = :position', { position: applyPositionFilter });
+      for (const child of startChildren) {
+        if (child.position === startPosition) {
+          queue.push({ id: child.id, depth: 1 });
+          descendants.push({ ...child, depth: 1 });
+        }
       }
 
-      const levelChildren = await query.getMany();
-      if (levelChildren.length === 0) {
-        break;
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (!item) continue;
+
+        const children = parentToChildren.get(item.id) || [];
+        for (const child of children) {
+          const nextDepth = item.depth + 1;
+          queue.push({ id: child.id, depth: nextDepth });
+          descendants.push({ ...child, depth: nextDepth });
+        }
       }
 
-      count += levelChildren.length;
-      currentParentIds = levelChildren.map((child) => child.id);
-      applyPositionFilter = undefined;
-    }
+      return descendants;
+    };
 
-    return count;
+    return {
+      leftMembers: traverse('left'),
+      rightMembers: traverse('right'),
+    };
   }
 
   async create(createUserDto: any) {
