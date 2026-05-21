@@ -9,6 +9,9 @@ import {
   Query,
   UseGuards,
   Request,
+  ForbiddenException,
+  BadRequestException,
+  HttpCode,
 } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../common/guards';
@@ -119,5 +122,45 @@ export class WalletController {
         ? (status as WalletWithdrawStatus)
         : undefined;
     return this.walletService.getMyWithdrawRequests(userId, statusEnum);
+  }
+
+  /** Webhook nhận sự kiện chuyển khoản USDT tự động từ QuickNode Streams */
+  @Post('usdt-webhook')
+  @HttpCode(200)
+  async handleQuickNodeWebhook(
+    @Request() req: any,
+    @Body() payload: any,
+  ) {
+    // QuickNode Streams có thể gửi mảng logs trực tiếp hoặc lồng ghép tùy theo config
+    const logs = Array.isArray(payload) ? payload : (payload?.data || payload);
+
+    const signature = req.headers['x-qn-signature'] || req.headers['x-quicknode-signature'];
+    if (!signature) {
+      // Cho phép vượt qua nếu là test connection của QuickNode (thường gửi mảng rỗng hoặc logs test không có txHash)
+      const logsArray = Array.isArray(logs) ? logs : [];
+      if (logsArray.length === 0 || !logsArray[0]?.txHash) {
+        return { status: 'success', message: 'Test connection successful (empty/test logs)' };
+      }
+      throw new ForbiddenException('Thiếu chữ ký Webhook');
+    }
+
+    const rawBody = req.rawBody;
+    if (!rawBody || !Buffer.isBuffer(rawBody)) {
+      throw new BadRequestException('Không thể đọc raw request body');
+    }
+
+    const nonce = req.headers['x-qn-nonce'] || req.headers['x-quicknode-nonce'];
+    const timestamp = req.headers['x-qn-timestamp'] || req.headers['x-quicknode-timestamp'];
+
+    const isValid = this.walletService.verifyWebhookSignature(rawBody, signature, nonce, timestamp);
+    if (!isValid) {
+      throw new ForbiddenException('Chữ ký Webhook không hợp lệ');
+    }
+
+    if (!Array.isArray(logs)) {
+      return { status: 'success', message: 'Payload không chứa logs hợp lệ' };
+    }
+
+    return this.walletService.processWebhookLogs(logs);
   }
 }

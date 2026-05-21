@@ -61,6 +61,8 @@ function buildEditFormValues(u: Record<string, unknown>) {
     leftBranchTotal: toNum(u.leftBranchTotal),
     rightBranchTotal: toNum(u.rightBranchTotal),
     walletBalance: toNum(u.walletBalance),
+    // Agregamos el balance de la billetera PV a los valores iniciales del formulario
+    pvWalletBalance: toNum(u.pvWalletBalance),
     withdrawWalletBalance: toNum(u.withdrawWalletBalance),
     reconsumptionWalletBalance: toNum(u.reconsumptionWalletBalance),
   };
@@ -231,6 +233,8 @@ const Users: React.FC = () => {
           leftBranchTotal: values.leftBranchTotal,
           rightBranchTotal: values.rightBranchTotal,
           walletBalance: values.walletBalance,
+          // Mapeamos el balance PV al payload que se enviará al servidor
+          pvWalletBalance: values.pvWalletBalance,
           withdrawWalletBalance: values.withdrawWalletBalance,
           reconsumptionWalletBalance: values.reconsumptionWalletBalance,
         };
@@ -521,6 +525,12 @@ const Users: React.FC = () => {
       dataIndex: 'walletBalance',
       key: 'walletBalance',
       render: (val: number) => <span style={{ color: '#52c41a', fontWeight: 600 }}>${Number(val || 0).toFixed(2)}</span>,
+    },
+    {
+      title: 'Ví nạp PV',
+      dataIndex: 'pvWalletBalance',
+      key: 'pvWalletBalance',
+      render: (val: number) => <span style={{ color: '#13c2c2', fontWeight: 600 }}>{Number(val || 0).toFixed(2)} PV</span>,
     },
     {
       title: 'Ví thưởng',
@@ -900,6 +910,10 @@ const Users: React.FC = () => {
                     <Form.Item name="walletBalance" label="Wallet balance (deposit)">
                       <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
                     </Form.Item>
+                    {/* Campo para editar el saldo de la billetera PV desde el panel de administración */}
+                    <Form.Item name="pvWalletBalance" label="Ví nạp PV (PV balance)">
+                      <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
+                    </Form.Item>
                     <Form.Item name="withdrawWalletBalance" label="Withdraw wallet balance">
                       <InputNumber min={0} style={{ width: '100%' }} step={0.01} />
                     </Form.Item>
@@ -1010,6 +1024,10 @@ const Users: React.FC = () => {
               <Descriptions bordered column={2}>
                 <Descriptions.Item label="Ví tiêu dùng (Deposit Wallet)">
                   <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
+                </Descriptions.Item>
+                {/* Mostramos el balance actual de PV en la descripción de finanzas del usuario */}
+                <Descriptions.Item label="Ví nạp PV (PV Wallet)">
+                  <span style={{ color: '#13c2c2', fontWeight: 600 }}>{Number(userDetail.user.pvWalletBalance ?? 0).toFixed(2)} PV</span>
                 </Descriptions.Item>
                 <Descriptions.Item label="Ví thưởng (Withdraw Wallet)">
                   <span style={{ color: '#1890ff', fontWeight: 600 }}>${userDetail.user.withdrawWalletBalance ?? 0} USDT</span>

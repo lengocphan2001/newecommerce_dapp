@@ -371,7 +371,7 @@ function OrdersPageContent() {
                       <div className="text-right mt-1">
                         <p className={`text-lg font-bold tracking-tight ${isCancelled ? "text-slate-600" : "text-blue-800"
                           }`}>
-                          {formatPrice(order.totalAmount)} USDT
+                          {formatPrice(order.totalAmount)} PV
                         </p>
                       </div>
                     </div>

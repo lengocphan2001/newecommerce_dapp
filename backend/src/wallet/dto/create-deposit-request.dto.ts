@@ -26,6 +26,10 @@ export class CreateDepositRequestDto {
   @IsOptional()
   txHash?: string;
 
+  @IsString()
+  @IsOptional()
+  senderAddress?: string;
+
   /** URL ảnh chứng từ chuyển khoản (sau khi upload) */
   @IsString()
   @IsOptional()

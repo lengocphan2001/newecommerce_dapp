@@ -145,6 +145,13 @@ export class UpdateUserDto {
   @IsOptional()
   walletBalance?: number;
 
+  /** Balance del monedero en PV. */
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  pvWalletBalance?: number;
+
   @Type(() => Number)
   @IsNumber()
   @Min(0)

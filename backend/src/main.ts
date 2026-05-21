@@ -53,8 +53,23 @@ async function bootstrap() {
   });
 
   // Increase body size limit for JSON (to handle base64 avatar uploads)
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  app.use(
+    express.json({
+      limit: '50mb',
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+  app.use(
+    express.urlencoded({
+      limit: '50mb',
+      extended: true,
+      verify: (req: any, res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
 
   // Tránh browser / proxy cache JSON API (GET orders, users, …) — admin thấy dữ liệu cũ tới khi hard refresh.
   // Bỏ qua /files (ảnh upload vẫn có thể cache).

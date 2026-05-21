@@ -752,6 +752,8 @@ export class AuthService {
       walletAddress: user.walletAddress,
       /** Số dư ví nạp tiền (banking) - admin duyệt nạp rồi cộng vào đây */
       walletBalance: formatDecimal(user.walletBalance ?? 0),
+      /* Se agrega el saldo de PV para que el frontend lo muestre en el perfil de usuario. */
+      pvWalletBalance: formatDecimal(user.pvWalletBalance ?? 0),
       /** Số dư ví rút tiền - nhận hoa hồng theo tỷ lệ cấu hình */
       withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
       /** Số dư ví tích lũy (tiêu dùng) */

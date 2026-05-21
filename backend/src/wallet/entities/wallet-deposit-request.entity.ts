@@ -75,6 +75,10 @@ export class WalletDepositRequest {
   @Column({ type: 'varchar', length: 255, nullable: true })
   txHash: string | null;
 
+  /** Địa chỉ ví gửi tiền USDT của user */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  senderAddress: string | null;
+
   @Column({ type: 'varchar', length: 20, default: WalletDepositStatus.PENDING })
   status: WalletDepositStatus;
 

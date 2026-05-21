@@ -211,8 +211,8 @@ export class OrderService {
 
     const paymentMethod = createOrderDto.paymentMethod || 'wallet';
 
-    // Ví tiêu dùng chỉ dùng cho sản phẩm thông dụng (COMMON), không cho sản phẩm chiến lược
-    if (paymentMethod === 'deposit_wallet') {
+    // Ví tiêu dùng (deposit_wallet) y Ví nạp PV (pv_wallet) solo se permiten para productos comunes (COMMON), no estratégicos
+    if (paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet') {
       const strategicProducts = products.filter((p) =>
         (p.productTypes || []).includes('STRATEGIC'),
       );
@@ -231,16 +231,34 @@ export class OrderService {
       const balance = Number(user.walletBalance ?? 0);
       if (balance < finalTotal) {
         throw new BadRequestException(
-          `Số dư ví nạp tiền không đủ. Hiện tại: ${balance.toFixed(2)} USDT, cần: ${finalTotal.toFixed(2)} USDT`,
+          `Số dư ví tiêu dùng không đủ. Hiện tại: ${balance.toFixed(2)} PV, cần: ${finalTotal.toFixed(2)} PV`,
         );
       }
       user.walletBalance = balance - finalTotal;
       await this.userRepository.save(user);
     }
 
-    // Determine initial status: Crypto (transactionHash) or deposit_wallet → CONFIRMED; Banking → PENDING
+    // Ví nạp PV (pv_wallet): restamos el saldo en PV (1 PV = 1 USDT en el momento de la compra) y confirmamos el pedido
+    if (paymentMethod === 'pv_wallet') {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found');
+      
+      // Se utiliza una relación directa de 1 PV = 1 USDT para el pago de productos,
+      // aplicando la conversión de 1.08 únicamente durante la recarga del saldo PV.
+      const requiredPv = finalTotal;
+      const pvBalance = Number(user.pvWalletBalance ?? 0);
+      if (pvBalance < requiredPv) {
+        throw new BadRequestException(
+          `Số dư ví nạp PV không đủ. Hiện tại: ${pvBalance.toFixed(2)} PV, cần: ${requiredPv.toFixed(2)} PV`,
+        );
+      }
+      user.pvWalletBalance = pvBalance - requiredPv;
+      await this.userRepository.save(user);
+    }
+
+    // Determine initial status: Crypto (transactionHash), deposit_wallet or pv_wallet → CONFIRMED; Banking → PENDING
     const initialStatus =
-      createOrderDto.transactionHash || paymentMethod === 'deposit_wallet'
+      createOrderDto.transactionHash || paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet'
         ? OrderStatus.CONFIRMED
         : OrderStatus.PENDING;
 

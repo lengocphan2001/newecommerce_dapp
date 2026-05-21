@@ -63,6 +63,8 @@ export class UserService {
         'u.isAdmin AS isAdmin',
         'u.createdAt AS createdAt',
         'u.walletBalance AS walletBalance',
+        // Seleccionamos también pvWalletBalance para el panel de administración
+        'u.pvWalletBalance AS pvWalletBalance',
         'u.withdrawWalletBalance AS withdrawWalletBalance',
         'u.reconsumptionWalletBalance AS reconsumptionWalletBalance',
         'kyc_latest.status AS kycStatus',
@@ -87,6 +89,7 @@ export class UserService {
       isAdmin: number | boolean;
       createdAt: Date | string;
       walletBalance: number | string;
+      pvWalletBalance: number | string;
       withdrawWalletBalance: number | string;
       reconsumptionWalletBalance: number | string;
       kycStatus: string | null;
@@ -102,6 +105,8 @@ export class UserService {
       isAdmin: Boolean(row.isAdmin),
       createdAt: row.createdAt,
       walletBalance: Number(row.walletBalance || 0),
+      // Mapeamos el saldo de PV para enviarlo formateado como número
+      pvWalletBalance: Number(row.pvWalletBalance || 0),
       withdrawWalletBalance: Number(row.withdrawWalletBalance || 0),
       reconsumptionWalletBalance: Number(row.reconsumptionWalletBalance || 0),
       kycStatus: row.kycStatus ?? 'UNVERIFIED',

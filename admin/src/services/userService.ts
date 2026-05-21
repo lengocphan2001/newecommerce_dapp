@@ -26,6 +26,8 @@ export interface User {
   leftBranchTotal?: number;
   rightBranchTotal?: number;
   walletBalance?: number;
+  // Balance de la billetera PV para compras y depósitos de USDT convertidos
+  pvWalletBalance?: number;
   withdrawWalletBalance?: number;
   kycStatus?: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   kycSubmittedAt?: string | null;

@@ -165,7 +165,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex items-end justify-between mt-2">
                     <div className="flex flex-col">
-                      <span className="text-emerald-700 font-extrabold text-lg">{formatPrice(item.price)} USDT</span>
+                      <span className="text-emerald-700 font-extrabold text-lg">{formatPrice(item.price)} PV</span>
                       <span className="text-[11px] text-slate-500 font-medium">~{formatVND(item.price)} VNĐ</span>
                     </div>
                     <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-1">
@@ -200,7 +200,7 @@ export default function CartPage() {
         <div className="px-4 py-4 bg-white border-t border-gray-100">
           <div className="flex justify-between items-center text-sm">
             <span className="text-slate-500">{t("subtotal")}</span>
-            <span className="font-semibold text-slate-900">{formatPrice(totalAmount)} USDT</span>
+            <span className="font-semibold text-slate-900">{formatPrice(totalAmount)} PV</span>
           </div>
         </div>
       </main>
@@ -213,7 +213,7 @@ export default function CartPage() {
               <span className="text-xs text-slate-500 font-medium mb-1">{t("totalPayment")}</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
-                <span className="text-base font-bold text-emerald-600">USDT</span>
+                <span className="text-base font-bold text-emerald-600">PV</span>
               </div>
             </div>
           </div>

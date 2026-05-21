@@ -446,7 +446,8 @@ export const api = {
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt',
+    /* Se agrega 'pv_wallet' como método de pago válido para permitir compras con el saldo de PV. */
+    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet',
     options?: { shippingPhone?: string; shippingName?: string }
   ) {
     const token = localStorage.getItem('token');
@@ -529,10 +530,14 @@ export const api = {
     const url = qs
       ? `${API_BASE_URL}/orders?${qs}`
       : `${API_BASE_URL}/orders`;
+    // Se desactiva la caché para garantizar que el historial de pedidos siempre muestre la información más reciente de la base de datos sin persistencias del navegador.
+    // Nota: solo se envían headers válidos para peticiones (Pragma y Expires son headers de respuesta HTTP/1.0 y causan fallos de preflight CORS si se envían como request headers).
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
       },
+      cache: 'no-store',
     });
     if (!response.ok) {
       throw new Error('Failed to fetch orders');
@@ -545,10 +550,14 @@ export const api = {
     if (!token) {
       throw new Error('Not authenticated');
     }
+    // Se fuerza cache: 'no-store' para asegurar que los detalles del pedido carguen la información actualizada en tiempo real (por ejemplo, cambios de estado de pago).
+    // Nota: Pragma y Expires son headers de respuesta HTTP/1.0 — no deben enviarse como request headers ya que causan fallos de preflight CORS.
     const response = await fetch(`${API_BASE_URL}/orders/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
       },
+      cache: 'no-store',
     });
     if (!response.ok) {
       throw new Error('Failed to fetch order');

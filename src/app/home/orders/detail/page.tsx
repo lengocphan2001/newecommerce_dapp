@@ -1,6 +1,10 @@
 import { Suspense } from 'react';
 import OrderDetailClient from './OrderDetailClient';
 
+// Se fuerza la renderización dinámica de la página para evitar que Next.js almacene estáticamente los detalles de los pedidos, asegurando datos actualizados en cada petición.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default function OrderDetailPage() {
   return (
     <Suspense fallback={

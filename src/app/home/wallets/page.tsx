@@ -31,9 +31,15 @@ export default function WalletsPage() {
   const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [showDepositModal, setShowDepositModal] = useState(false);
+  // Controlamos la visibilidad del modal de recarga para el monedero PV
+  const [showPvDepositModal, setShowPvDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showBankAccountModal, setShowBankAccountModal] = useState(false);
-  const [depositForm, setDepositForm] = useState({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING" as "BANKING" | "USDT", requestedUsdt: "", txHash: "" });
+  const [depositForm, setDepositForm] = useState({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING" as "BANKING" | "USDT", requestedUsdt: "", txHash: "", senderAddress: "" });
+  // Estados específicos para el formulario de recarga de PV (Explicación en español: guardamos requestedUsdt directamente para mayor claridad e intuición del usuario)
+  const [pvDepositForm, setPvDepositForm] = useState({ requestedUsdt: "", senderAddress: "", txHash: "" });
+  const [pvDepositSubmitting, setPvDepositSubmitting] = useState(false);
+  const [pvDepositError, setPvDepositError] = useState("");
   const [withdrawForm, setWithdrawForm] = useState({
     amountVnd: "",
     method: "BANKING",
@@ -74,6 +80,8 @@ export default function WalletsPage() {
   const [copiedDeposit, setCopiedDeposit] = useState<string | null>(null);
 
   const walletBalance = parseFloat(referralInfo?.walletBalance || "0") || 0;
+  // Obtenemos el saldo acumulado en PV de la cuenta del usuario
+  const pvWalletBalance = parseFloat(referralInfo?.pvWalletBalance || "0") || 0;
   const withdrawWalletBalance = parseFloat(referralInfo?.withdrawWalletBalance || "0") || 0;
   const reconsumptionWalletBalance = parseFloat(referralInfo?.reconsumptionWalletBalance || "0") || 0;
   const walletAddress = referralInfo?.walletAddress || "";
@@ -229,11 +237,12 @@ export default function WalletsPage() {
         setDepositError("Nhập số lượng USDT hợp lệ");
         return;
       }
-      if (!depositForm.txHash && !depositForm.proofImageUrl) {
-        setDepositError("Vui lòng nhập TxHash hoặc tải lên ảnh chứng từ");
+      if (!depositForm.senderAddress || !depositForm.senderAddress.trim()) {
+        setDepositError("Vui lòng cung cấp địa chỉ ví gửi tiền (senderAddress)");
         return;
       }
       payload.requestedUsdt = requestedUsdt;
+      payload.senderAddress = depositForm.senderAddress.trim();
       payload.txHash = depositForm.txHash || undefined;
     }
 
@@ -241,13 +250,48 @@ export default function WalletsPage() {
     try {
       await api.createDepositRequest(payload);
       setShowDepositModal(false);
-      setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING", requestedUsdt: "", txHash: "" });
+      setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING", requestedUsdt: "", txHash: "", senderAddress: "" });
       const requests = await api.getMyDepositRequests();
       setDepositRequests(Array.isArray(requests) ? requests : []);
     } catch (err: any) {
       setDepositError(err?.message || "Gửi yêu cầu thất bại");
     } finally {
       setDepositSubmitting(false);
+    }
+  };
+
+  // Manejador para enviar la solicitud de recarga del monedero PV mediante transferencia de USDT
+  const handleSubmitPvDeposit = async () => {
+    setPvDepositError("");
+    // Explicación en español: Leemos el monto en USDT directamente ingresado por el usuario
+    const requestedUsdt = parseFloat(pvDepositForm.requestedUsdt || "0") || 0;
+    if (requestedUsdt <= 0) {
+      setPvDepositError("Vui lòng nhập số lượng USDT hợp lệ");
+      return;
+    }
+    if (!pvDepositForm.senderAddress || !pvDepositForm.senderAddress.trim()) {
+      setPvDepositError("Vui lòng cung cấp địa chỉ ví gửi tiền (senderAddress)");
+      return;
+    }
+
+    let payload = {
+      method: "USDT" as const,
+      requestedUsdt,
+      senderAddress: pvDepositForm.senderAddress.trim(),
+      txHash: pvDepositForm.txHash.trim() || undefined,
+    };
+
+    setPvDepositSubmitting(true);
+    try {
+      await api.createDepositRequest(payload);
+      setShowPvDepositModal(false);
+      setPvDepositForm({ requestedUsdt: "", senderAddress: "", txHash: "" });
+      const requests = await api.getMyDepositRequests();
+      setDepositRequests(Array.isArray(requests) ? requests : []);
+    } catch (err: any) {
+      setPvDepositError(err?.message || "Gửi yêu cầu thất bại");
+    } finally {
+      setPvDepositSubmitting(false);
     }
   };
 
@@ -753,7 +797,7 @@ export default function WalletsPage() {
             </div>
             <button
               type="button"
-              onClick={() => { setShowDepositModal(true); setDepositError(""); setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING", requestedUsdt: "", txHash: "" }); }}
+              onClick={() => { setShowDepositModal(true); setDepositError(""); setDepositForm({ amountVnd: "", proofImageUrl: "", transferNote: "", method: "BANKING", requestedUsdt: "", txHash: "", senderAddress: "" }); }}
               className="rounded-xl bg-cyan-500 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-cyan-600"
             >
               <span className="material-symbols-outlined text-lg">add</span>
@@ -761,20 +805,13 @@ export default function WalletsPage() {
             </button>
           </div>
           <p className="text-xs text-gray-500 mb-3">Chuyển khoản theo hướng dẫn thanh toán, gửi yêu cầu và đợi admin duyệt để cộng tiền vào ví.</p>
-          {depositRequests.length > 0 && (
+          {depositRequests.filter(r => r.method !== "USDT").length > 0 && (
             <div className="border-t border-gray-100 pt-3">
               <p className="text-xs font-medium text-gray-600 mb-2">Yêu cầu nạp tiền gần đây</p>
               <div className="space-y-2">
-                {depositRequests.slice(0, 5).map((r: any) => {
-                  // Utilizar la cantidad original (VND o USDT) según el método de depósito para que el historial sea estático
-                  const isUsdt = r.method === "USDT";
-                  const amountStr = isUsdt
-                    ? `${Number(r.requestedUsdt || r.amount || 0).toLocaleString()} USDT`
-                    : `${Number(r.amountVnd || 0).toLocaleString("vi-VN")} VND`;
-
-                  const approvedText = isUsdt
-                    ? `Đã cộng ${Number(r.amount || r.requestedUsdt || 0).toLocaleString()} USDT`
-                    : `Đã cộng ${Number(r.amountVnd || 0).toLocaleString("vi-VN")} VND`;
+                {depositRequests.filter(r => r.method !== "USDT").slice(0, 5).map((r: any) => {
+                  const amountStr = `${Number(r.amountVnd || 0).toLocaleString("vi-VN")} VND`;
+                  const approvedText = `Đã cộng ${Number(r.amountVnd || 0).toLocaleString("vi-VN")} VND`;
 
                   return (
                     <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
@@ -791,121 +828,98 @@ export default function WalletsPage() {
           )}
         </div>
 
-        {/* Modal Nạp tiền */}
+        {/* Ví nạp PV (USDT) */}
+        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-indigo-200">
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500" />
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Ví nạp PV</p>
+              <p className="text-2xl font-bold text-text-dark mt-1">
+                {balanceVisible ? `${formatUSDT(pvWalletBalance)} PV` : "••••••"}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Tỷ giá nạp: 1 PV = 1.08 USDT
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPvDepositModal(true);
+                setPvDepositError("");
+                setPvDepositForm({
+                  requestedUsdt: "",
+                  senderAddress: "",
+                  txHash: "",
+                });
+              }}
+              className="rounded-xl bg-indigo-600 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-indigo-700"
+            >
+              <span className="material-symbols-outlined text-lg">add</span>
+              Nạp PV
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">Nạp USDT để quy đổi sang PV dùng thanh toán các đơn hàng sản phẩm thông dụng.</p>
+          {depositRequests.filter(r => r.method === "USDT").length > 0 && (
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-xs font-medium text-gray-600 mb-2">Yêu cầu nạp PV gần đây</p>
+              <div className="space-y-2">
+                {depositRequests.filter(r => r.method === "USDT").slice(0, 5).map((r: any) => {
+                  const amountStr = `${Number(r.requestedUsdt || 0).toLocaleString()} USDT`;
+                  const approvedText = `Đã cộng ${formatUSDT(r.amount || 0)} PV`;
+                  return (
+                    <div key={r.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
+                      <span className="font-mono">{amountStr}</span>
+                      <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
+                        {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? approvedText : "Từ chối"}
+                      </span>
+                      <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Nạp tiền (VND Banking) */}
         {showDepositModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 overflow-y-auto py-8" onClick={() => !depositSubmitting && setShowDepositModal(false)}>
             <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 my-auto" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-text-dark mb-4">Nạp tiền vào ví</h3>
+              <h3 className="text-lg font-bold text-text-dark mb-4">Nạp tiền vào ví tiêu dùng</h3>
 
-              {bankingConfig?.usdtEnabled && (
-                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setDepositForm(f => ({ ...f, method: 'BANKING' }))}
-                    className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${depositForm.method === 'BANKING' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    VND (Ngân Hàng)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDepositForm(f => ({ ...f, method: 'USDT' }))}
-                    className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-colors ${depositForm.method === 'USDT' ? 'bg-white text-cyan-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                  >
-                    USDT (Crypto)
-                  </button>
-                </div>
-              )}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số tiền muốn nạp (VND) *</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={depositForm.amountVnd}
+                  onChange={(e) =>
+                    setDepositForm((f) => ({ ...f, amountVnd: formatVndInput(e.target.value) }))
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
+                  placeholder="VD: 500.000"
+                />
+                <p className="text-xs text-slate-500 mt-1">Sau khi nhập, mã QR sẽ hiển thị bên dưới để bạn chuyển khoản đúng số tiền.</p>
+              </div>
 
-              {depositForm.method === 'BANKING' ? (
+              {bankingConfig?.isEnabled && (bankingConfig.accountNumber || bankingConfig.bankName) ? (
                 <>
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số tiền muốn nạp (VND) *</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={depositForm.amountVnd}
-                      onChange={(e) =>
-                        setDepositForm((f) => ({ ...f, amountVnd: formatVndInput(e.target.value) }))
-                      }
-                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
-                      placeholder="VD: 500.000"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">Sau khi nhập, mã QR sẽ hiển thị bên dưới để bạn chuyển khoản đúng số tiền.</p>
-                  </div>
-
-                  {bankingConfig?.isEnabled && (bankingConfig.accountNumber || bankingConfig.bankName) ? (
-                    <>
-                      <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển khoản đến tài khoản sau:</p>
-                      
-                      {depositVietQrUrl && parseVndAmount(depositForm.amountVnd) >= 1000 ? (
-                        <div className="flex flex-col items-center mb-4">
-                          <p className="text-xs text-slate-600 mb-2">Quét mã QR để chuyển khoản</p>
-                          <img src={depositVietQrUrl} alt="VietQR" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
-                        </div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-4">Chưa có cấu hình ngân hàng.</p>
-                  )}
+                  <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển khoản đến tài khoản sau:</p>
+                  
+                  {depositVietQrUrl && parseVndAmount(depositForm.amountVnd) >= 1000 ? (
+                    <div className="flex flex-col items-center mb-4">
+                      <p className="text-xs text-slate-600 mb-2">Quét mã QR để chuyển khoản</p>
+                      <img src={depositVietQrUrl} alt="VietQR" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
+                    </div>
+                  ) : null}
                 </>
               ) : (
-                <>
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số lượng USDT muốn nạp *</label>
-                    <input
-                      type="text"
-                      value={depositForm.requestedUsdt}
-                      onChange={(e) => setDepositForm((f) => ({ ...f, requestedUsdt: sanitizeUsdtInput(e.target.value) }))}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
-                      placeholder="VD: 50.00"
-                    />
-                  </div>
-
-                  {bankingConfig?.usdtWalletAddress ? (
-                    <>
-                      <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển USDT đến địa chỉ sau:</p>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2 mb-3">
-                        {bankingConfig.usdtNetwork && (
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs text-slate-500">Mạng lưới (Network)</span>
-                            <span className="font-semibold text-slate-900">{bankingConfig.usdtNetwork}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-slate-500">Địa chỉ ví</span>
-                          <button type="button" onClick={() => copyDeposit(bankingConfig.usdtWalletAddress!, "usdtWallet")} className="shrink-0 px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                            {copiedDeposit === "usdtWallet" ? "Đã copy" : "Copy"}
-                          </button>
-                        </div>
-                        <p className="font-mono font-semibold text-slate-900 text-sm break-all">{bankingConfig.usdtWalletAddress}</p>
-                      </div>
-                      {bankingConfig.usdtQrImageUrl && (
-                        <div className="flex flex-col items-center mb-4">
-                          <p className="text-xs text-slate-600 mb-2">Quét mã QR địa chỉ ví</p>
-                          <img src={bankingConfig.usdtQrImageUrl} alt="USDT QR" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-4">Admin chưa cấu hình địa chỉ ví USDT.</p>
-                  )}
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">3. Mã giao dịch (TxHash) hoặc link Tx *</label>
-                    <input
-                      type="text"
-                      value={depositForm.txHash}
-                      onChange={(e) => setDepositForm((f) => ({ ...f, txHash: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
-                      placeholder="Nhập mã giao dịch tại đây..."
-                    />
-                  </div>
-                </>
+                <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3 mb-4">Chưa có cấu hình ngân hàng.</p>
               )}
 
               <div className="border-t border-slate-200 pt-4 mt-4">
                 <p className="text-sm font-semibold text-slate-700 mb-3">
-                  {depositForm.method === 'BANKING' ? "3." : "4."} Sau khi chuyển khoản xong, bấm <strong>Gửi yêu cầu</strong> (có thể tải lên ảnh biên lai).
+                  3. Sau khi chuyển khoản xong, bấm Gửi yêu cầu (có thể tải lên ảnh biên lai).
                 </p>
               </div>
 
@@ -924,6 +938,101 @@ export default function WalletsPage() {
                 <button type="button" onClick={() => !depositSubmitting && setShowDepositModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-300 font-medium">Hủy</button>
                 <button type="button" onClick={handleSubmitDeposit} disabled={depositSubmitting} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-medium disabled:opacity-70">
                   {depositSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Nạp PV (USDT Crypto) */}
+        {showPvDepositModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 overflow-y-auto py-8" onClick={() => !pvDepositSubmitting && setShowPvDepositModal(false)}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 my-auto" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-text-dark mb-4">Nạp PV bằng USDT</h3>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">1. Số lượng USDT muốn nạp *</label>
+                <input
+                  type="text"
+                  value={pvDepositForm.requestedUsdt}
+                  onChange={(e) => {
+                    let val = sanitizeUsdtInput(e.target.value);
+                    setPvDepositForm((f) => ({ ...f, requestedUsdt: val }));
+                  }}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-lg font-medium"
+                  placeholder="VD: 100"
+                />
+                {pvDepositForm.requestedUsdt && (
+                  <p className="text-xs text-indigo-600 mt-1 font-semibold">
+                    Số PV nhận được (quy đổi): {formatUSDT(parseFloat(pvDepositForm.requestedUsdt || "0") / 1.08)} PV
+                  </p>
+                )}
+              </div>
+
+              {bankingConfig?.usdtWalletAddress ? (
+                <>
+                  <p className="text-sm font-semibold text-slate-700 mb-2">2. Chuyển USDT đến địa chỉ sau:</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-2 mb-3">
+                    {bankingConfig.usdtNetwork && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-slate-500">Mạng lưới (Network)</span>
+                        <span className="font-semibold text-slate-900">{bankingConfig.usdtNetwork}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500">Địa chỉ ví</span>
+                      <button type="button" onClick={() => copyDeposit(bankingConfig.usdtWalletAddress!, "usdtWallet")} className="shrink-0 px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 text-xs font-medium">
+                        {copiedDeposit === "usdtWallet" ? "Đã copy" : "Copy"}
+                      </button>
+                    </div>
+                    <p className="font-mono font-semibold text-slate-900 text-sm break-all">{bankingConfig.usdtWalletAddress}</p>
+                  </div>
+                  {bankingConfig.usdtQrImageUrl && (
+                    <div className="flex flex-col items-center mb-4">
+                      <p className="text-xs text-slate-600 mb-2">Quét mã QR địa chỉ ví</p>
+                      <img src={bankingConfig.usdtQrImageUrl} alt="USDT QR" className="w-56 h-56 object-contain rounded-lg border border-slate-200 bg-white" />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-indigo-700 bg-indigo-50 rounded-lg p-3 mb-4">Admin chưa cấu hình địa chỉ ví USDT nhận PV.</p>
+              )}
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">3. Địa chỉ ví gửi tiền (USDT của bạn) *</label>
+                <input
+                  type="text"
+                  value={pvDepositForm.senderAddress}
+                  onChange={(e) => setPvDepositForm((f) => ({ ...f, senderAddress: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
+                  placeholder="0x..."
+                />
+                <p className="text-[11px] text-slate-500 mt-1">Hệ thống sẽ đối soát tự động giao dịch từ địa chỉ ví này để cộng PV.</p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">4. Mã giao dịch (TxHash) hoặc link Tx (Tùy chọn)</label>
+                <input
+                  type="text"
+                  value={pvDepositForm.txHash}
+                  onChange={(e) => setPvDepositForm((f) => ({ ...f, txHash: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
+                  placeholder="Nhập mã giao dịch tại đây..."
+                />
+              </div>
+
+              <div className="border-t border-slate-200 pt-4 mt-4">
+                <p className="text-xs text-gray-500 mb-3">
+                  Sau khi chuyển khoản USDT xong, bấm Gửi yêu cầu (hệ thống sẽ tự động duyệt khi nhận được tiền).
+                </p>
+              </div>
+
+              {pvDepositError && <p className="text-sm text-red-600 mb-4">{pvDepositError}</p>}
+
+              <div className="flex gap-3">
+                <button type="button" onClick={() => !pvDepositSubmitting && setShowPvDepositModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-300 font-medium">Hủy</button>
+                <button type="button" onClick={handleSubmitPvDeposit} disabled={pvDepositSubmitting} className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-medium disabled:opacity-70">
+                  {pvDepositSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
                 </button>
               </div>
             </div>

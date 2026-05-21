@@ -288,7 +288,7 @@ export default function OrderDetailClient() {
                                         </div>
                                     )}
                                     <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-primary-dark text-sm font-bold">{formatPrice(item.price)} USDT</span>
+                                        <span className="text-primary-dark text-sm font-bold">{formatPrice(item.price)} PV</span>
                                     </div>
                                 </div>
                                 <div className="shrink-0 size-9 flex items-center justify-center bg-emerald-50 rounded-lg border border-emerald-100 text-primary-dark">
@@ -330,6 +330,12 @@ export default function OrderDetailClient() {
                                 {order.paymentMethod === "deposit_wallet" && (
                                     <>
                                         <span className="text-slate-900 text-sm font-bold">Ví tiêu dùng</span>
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 border border-green-200 font-bold">Đã trừ ví</span>
+                                    </>
+                                )}
+                                {order.paymentMethod === "pv_wallet" && (
+                                    <>
+                                        <span className="text-slate-900 text-sm font-bold">Ví nạp PV</span>
                                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-50 text-green-700 border border-green-200 font-bold">Đã trừ ví</span>
                                     </>
                                 )}
@@ -385,12 +391,12 @@ export default function OrderDetailClient() {
                 <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 space-y-3 mb-4">
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-slate-500">{t("subtotal")}</span>
-                        <span className="text-slate-900 font-medium">{formatPrice(order.totalAmount - (order.shippingFee || 0))} USDT</span>
+                        <span className="text-slate-900 font-medium">{formatPrice(order.totalAmount - (order.shippingFee || 0))} PV</span>
                     </div>
                     {(order.shippingFee || 0) > 0 && (
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-500">{t("shippingFee")}</span>
-                            <span className="text-slate-900 font-medium">{formatPrice(order.shippingFee || 0)} USDT</span>
+                            <span className="text-slate-900 font-medium">{formatPrice(order.shippingFee || 0)} PV</span>
                         </div>
                     )}
 
@@ -399,7 +405,7 @@ export default function OrderDetailClient() {
                     <div className="flex justify-between items-center">
                         <span className="text-slate-900 font-bold text-base">{t("total")}</span>
                         <div className="text-right">
-                            <span className="text-primary-dark font-bold text-xl block">{formatPrice(order.totalAmount)} USDT</span>
+                            <span className="text-primary-dark font-bold text-xl block">{formatPrice(order.totalAmount)} PV</span>
                         </div>
                     </div>
                 </div>

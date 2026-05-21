@@ -9,6 +9,7 @@ export interface WalletDepositRequest {
   requestedUsdt: string | number | null;
   rate?: string | number | null;
   txHash: string | null;
+  senderAddress?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   proofImageUrl?: string;
   transferNote?: string;

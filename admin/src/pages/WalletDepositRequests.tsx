@@ -90,12 +90,15 @@ const WalletDepositRequests: React.FC = () => {
       },
     },
     {
-      title: 'Đã cộng (USDT)',
+      title: 'Đã thực cộng',
       dataIndex: 'amount',
       key: 'amount',
-      width: 110,
-      render: (v: string | number | null, r: WalletDepositRequest) =>
-        r.status === 'APPROVED' && v != null ? `$${Number(v).toFixed(2)}` : '—',
+      width: 130,
+      /* Se formatea el monto acreditado mostrando PV para depósitos USDT y USDT para transferencias bancarias. */
+      render: (v: string | number | null, r: WalletDepositRequest) => {
+        if (r.status !== 'APPROVED' || v == null) return '—';
+        return r.method === 'USDT' ? `${Number(v).toFixed(4)} PV` : `${Number(v).toFixed(2)} USDT`;
+      }
     },
     {
       title: 'Trạng thái',
@@ -109,12 +112,29 @@ const WalletDepositRequests: React.FC = () => {
       },
     },
     {
-      title: 'TxHash / Info',
+      title: 'Ví gửi / TxHash',
       key: 'txHash',
-      width: 120,
-      ellipsis: true,
+      width: 180,
       render: (_: any, r: WalletDepositRequest) => {
-        if (r.method === 'USDT') return r.txHash ? <span title={r.txHash} className="font-mono text-xs">{r.txHash}</span> : '—';
+        if (r.method === 'USDT') {
+          return (
+            <div className="flex flex-col text-xs font-mono space-y-1">
+              {r.senderAddress && (
+                <div>
+                  <span className="text-gray-400">Ví gửi: </span>
+                  <span title={r.senderAddress} className="text-slate-800 font-semibold">{r.senderAddress.substring(0, 6)}...{r.senderAddress.substring(r.senderAddress.length - 4)}</span>
+                </div>
+              )}
+              {r.txHash && (
+                <div>
+                  <span className="text-gray-400">Tx: </span>
+                  <span title={r.txHash} className="text-slate-600">{r.txHash.substring(0, 6)}...{r.txHash.substring(r.txHash.length - 4)}</span>
+                </div>
+              )}
+              {!r.senderAddress && !r.txHash && '—'}
+            </div>
+          );
+        }
         return '—';
       },
     },
@@ -202,8 +222,12 @@ const WalletDepositRequests: React.FC = () => {
               <>
                 <p><strong>Phương thức:</strong> USDT</p>
                 <p><strong>Số USDT user báo nạp:</strong> {selectedRequest.requestedUsdt != null ? <span className="font-mono text-blue-600 font-semibold">{Number(selectedRequest.requestedUsdt).toLocaleString()} USDT</span> : '—'}</p>
+                {selectedRequest.senderAddress && <p><strong>Ví gửi:</strong> <span className="font-mono text-sm break-all text-slate-800">{selectedRequest.senderAddress}</span></p>}
                 {selectedRequest.txHash && <p><strong>TxHash:</strong> <span className="font-mono text-sm break-all">{selectedRequest.txHash}</span></p>}
-                <p className="text-sm text-slate-600">Khi duyệt, hệ thống sẽ tự động cộng đúng số USDT user đã khai báo vào tài khoản.</p>
+                {/* Se explica al administrador que la aprobación convertirá los USDT ingresados a PV aplicando el factor de 1.08. */}
+                <p className="text-sm text-slate-600">
+                  Khi duyệt, hệ thống sẽ tự động quy đổi số USDT này sang PV (chia cho 1.08) và cộng vào <strong>Ví nạp PV</strong> của user (dự kiến cộng: <strong className="text-green-600">{(Number(selectedRequest.requestedUsdt || 0) / 1.08).toFixed(4)} PV</strong>).
+                </p>
               </>
             ) : (
               <>

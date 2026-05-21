@@ -166,6 +166,19 @@ export class User {
   })
   walletBalance: number;
 
+  /** Balance del monedero en PV para los usuarios que depositaron USDT, donde 1 PV equivale a 1.08 USDT. */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  pvWalletBalance: number;
+
   /** Số dư ví rút tiền (nhận hoa hồng để user rút). */
   @Column({
     type: 'decimal',
