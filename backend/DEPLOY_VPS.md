@@ -877,3 +877,66 @@ Nếu gặp vấn đề, kiểm tra:
 ---
 
 **Chúc bạn deploy thành công! 🎉**
+function main(stream) {
+  const data = stream.data;
+  if (!data) return null;
+
+  // Địa chỉ Smart Contract USDT mạng BSC
+  const usdtAddress = "0x55d398326f99059fF775485246999027B3197955".toLowerCase();
+  
+  // Địa chỉ ví nhận tiền hệ thống của bạn (đã điền sẵn từ .env)
+  const systemWallet = "0x65c03707C17EA9F7Dc1C1Eb2c0C12D3AfC3e7fe1".toLowerCase();
+  
+  // Hash signature của sự kiện Transfer
+  const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+  
+  const matchedLogs = [];
+  let allReceipts = [];
+
+  // Tự động nhận diện cấu trúc dữ liệu của QuickNode để bóc tách receipts
+  if (Array.isArray(data)) {
+    // Trường hợp data là mảng chứa các blocks
+    data.forEach(blockItem => {
+      const recs = blockItem.receipts || (blockItem.block && blockItem.block.receipts);
+      if (Array.isArray(recs)) {
+        allReceipts = allReceipts.concat(recs);
+      }
+    });
+  } else if (data.receipts && Array.isArray(data.receipts)) {
+    // Trường hợp data là đối tượng block chứa receipts trực tiếp
+    allReceipts = data.receipts;
+  } else if (data.block && data.block.receipts && Array.isArray(data.block.receipts)) {
+    // Trường hợp data là đối tượng chứa block lồng nhau
+    allReceipts = data.block.receipts;
+  }
+
+  // Tiến hành lọc các giao dịch khớp
+  allReceipts.forEach(receipt => {
+    // Trạng thái giao dịch thành công (status = 1 hoặc không có status)
+    const isSuccess = receipt.status === undefined || receipt.status === 1 || receipt.status === "0x1" || receipt.status === true;
+    if (!isSuccess) return;
+
+    if (receipt.logs && Array.isArray(receipt.logs)) {
+      receipt.logs.forEach(log => {
+        if (
+          log.address.toLowerCase() === usdtAddress &&
+          log.topics[0] === transferTopic &&
+          log.topics[2] && 
+          // So khớp người nhận (topics[2]) trùng với ví nhận hệ thống
+          "0x" + log.topics[2].slice(26).toLowerCase() === systemWallet
+        ) {
+          matchedLogs.push({
+            txHash: receipt.transactionHash,
+            blockNumber: receipt.blockNumber,
+            from: "0x" + log.topics[1].slice(26),
+            to: systemWallet,
+            value: log.data
+          });
+        }
+      });
+    }
+  });
+
+  // Nếu tìm thấy giao dịch khớp thì gửi đi, ngược lại trả về null để bỏ qua
+  return matchedLogs.length > 0 ? matchedLogs : null;
+}

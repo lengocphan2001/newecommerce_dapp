@@ -482,8 +482,6 @@ export class CommissionService {
     const items = Array.isArray(order.items) ? order.items : [];
     const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
     const productGroupAmountByAncestorId = new Map<string, number>();
-    let firstProductGroupMeta: { product: Product; buyerPkg: string } | null =
-      null;
 
     // Mỗi dòng đơn (sản phẩm) tính hoa hồng riêng — config từ tab "Hoa hồng sản phẩm" khi useProductCommission = true
     for (const item of items) {
@@ -557,6 +555,9 @@ export class CommissionService {
       }
 
       // --- Product GROUP: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
+      // Se realiza un mapeo local de las comisiones de grupo ganadas por ancestro para este producto específico.
+      const itemGroupAmountByAncestorId = new Map<string, number>();
+
       for (const ancestor of ancestors) {
         if (!ancestor.packageType || ancestor.packageType === 'NONE') continue;
         const ancestorProductConfig = this.getProductCommissionConfigForPackage(
@@ -614,13 +615,13 @@ export class CommissionService {
         });
         await this.commissionRepository.save(groupCommission);
 
+        itemGroupAmountByAncestorId.set(ancestor.id, groupCommissionAmount);
+
         const prev = productGroupAmountByAncestorId.get(ancestor.id) ?? 0;
         productGroupAmountByAncestorId.set(
           ancestor.id,
           prev + groupCommissionAmount,
         );
-        if (!firstProductGroupMeta)
-          firstProductGroupMeta = { product, buyerPkg };
 
         if (ancestorCanReceive && ancestorProductConfig) {
           await this.updateUserCommissionAndCheckThresholdWithProductConfig(
@@ -630,33 +631,32 @@ export class CommissionService {
           );
         }
       }
-    }
 
-    // Hoa hồng quản lý từ product group: F1/F2/F3 của người nhận product group, theo % trong tab Hoa hồng sản phẩm
-    const earner = ancestors.find((a) =>
-      productGroupAmountByAncestorId.has(a.id),
-    );
-    if (earner && firstProductGroupMeta) {
-      const totalProductGroupAmount =
-        productGroupAmountByAncestorId.get(earner.id) ?? 0;
-      if (totalProductGroupAmount > 0) {
-        const syntheticSource = this.commissionRepository.create({
-          userId: earner.id,
-          orderId: order.id,
-          fromUserId: buyer.id,
-          type: CommissionType.PRODUCT,
-          status: CommissionStatus.PENDING,
-          amount: totalProductGroupAmount,
-          orderAmount: totalProductGroupAmount,
-          notes: 'Product group (aggregated for management)',
-        });
-        await this.payManagementFromProductGroupEarner(
-          order,
-          earner,
-          syntheticSource,
-          firstProductGroupMeta.product,
-          firstProductGroupMeta.buyerPkg,
-        );
+      // Se calcula y distribuye la comisión de administración por cada producto de forma individual usando su propia configuración.
+      const itemEarner = ancestors.find((a) =>
+        itemGroupAmountByAncestorId.has(a.id),
+      );
+      if (itemEarner) {
+        const itemGroupAmount = itemGroupAmountByAncestorId.get(itemEarner.id) ?? 0;
+        if (itemGroupAmount > 0) {
+          const syntheticSource = this.commissionRepository.create({
+            userId: itemEarner.id,
+            orderId: order.id,
+            fromUserId: buyer.id,
+            type: CommissionType.PRODUCT,
+            status: CommissionStatus.PENDING,
+            amount: itemGroupAmount,
+            orderAmount: itemGroupAmount,
+            notes: `Product group: ${productNote} (aggregated for management)`,
+          });
+          await this.payManagementFromProductGroupEarner(
+            order,
+            itemEarner,
+            syntheticSource,
+            product,
+            buyerPkg,
+          );
+        }
       }
     }
   }
