@@ -131,6 +131,10 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   useProductCommission: boolean;
 
+  /** true = sản phẩm triển vọng được hưởng chính sách đồng chia đặc biệt và quỹ doanh số hàng đợi. Default false. */
+  @Column({ type: 'boolean', default: false })
+  isPromisingProduct: boolean;
+
   /** Direct: commission % for buyer package TV (0–100). Referrer gets this % of (price × qty). */
   @Column({
     type: 'decimal',

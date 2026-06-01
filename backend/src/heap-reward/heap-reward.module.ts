@@ -4,6 +4,8 @@ import { HeapRewardService } from './heap-reward.service';
 import { HeapRewardController } from './heap-reward.controller';
 import { HeapRewardPlacement } from './entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from './entities/heap-reward-history.entity';
+import { PromisingProductPlacement } from './entities/promising-product-placement.entity';
+import { PromisingProductHistory } from './entities/promising-product-history.entity';
 import { UserModule } from '../user/user.module';
 import { OrderModule } from '../order/order.module';
 import { WalletModule } from '../wallet/wallet.module';
@@ -17,6 +19,8 @@ import { SystemConfig } from '../admin/entities/system-config.entity';
     TypeOrmModule.forFeature([
       HeapRewardPlacement,
       HeapRewardHistory,
+      PromisingProductPlacement,
+      PromisingProductHistory,
       User,
       Order,
       SystemConfig,

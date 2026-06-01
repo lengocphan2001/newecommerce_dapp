@@ -8,10 +8,10 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { HeapRewardPlacement } from './heap-reward-placement.entity';
+import { PromisingProductPlacement } from './promising-product-placement.entity';
 
-@Entity('heap_reward_histories')
-export class HeapRewardHistory {
+@Entity('promising_product_histories')
+export class PromisingProductHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -27,18 +27,21 @@ export class HeapRewardHistory {
   @Column({ type: 'uuid' })
   placementId: string;
 
-  @ManyToOne(() => HeapRewardPlacement, { onDelete: 'CASCADE' })
+  @ManyToOne(() => PromisingProductPlacement, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'placementId' })
-  placement: HeapRewardPlacement;
+  placement: PromisingProductPlacement;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ type: 'decimal', precision: 12, scale: 2, transformer: {
+    to: (v: number) => v,
+    from: (v: string) => parseFloat(v) || 0,
+  }})
   amount: number;
 
-  @Column({ type: 'int', default: 500 })
-  poolLevel: number;
+  @Column({ type: 'int' })
+  poolLevel: number; // 3000 hoặc 5000
 
   @Column({ type: 'date', nullable: true })
-  rewardDate: Date; // e.g., '2026-04-20'
+  rewardDate: Date;
 
   @CreateDateColumn()
   createdAt: Date;

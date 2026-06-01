@@ -131,6 +131,13 @@ export class UpdateProductDto {
   @Transform(({ value }) => value === true || value === 'true')
   useProductCommission?: boolean;
 
+  // Xác định sản phẩm có phải là sản phẩm triển vọng để áp dụng cơ chế đồng chia đa bể và hàng đợi FIFO hay không
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  isPromisingProduct?: boolean;
+
+
   @IsNumber()
   @IsOptional()
   @Min(0)

@@ -21,4 +21,19 @@ export class HeapRewardController {
   async getHistories(@Query() query: any) {
     return this.heapRewardService.getHistories(query);
   }
+
+  @Get('promising-placements')
+  async getPromisingPlacements(@Query() query: any) {
+    return this.heapRewardService.getPromisingPlacements(query);
+  }
+
+  @Delete('promising-placements/:id')
+  async deletePromisingPlacement(@Param('id') id: string) {
+    return this.heapRewardService.deletePromisingPlacement(id);
+  }
+
+  @Get('promising-histories')
+  async getPromisingHistories(@Query() query: any) {
+    return this.heapRewardService.getPromisingHistories(query);
+  }
 }

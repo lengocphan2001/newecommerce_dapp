@@ -16,6 +16,7 @@ import {
   Switch,
   Tabs,
   Card,
+  Tag,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
@@ -186,6 +187,7 @@ const Products: React.FC = () => {
       description: '',
       descriptionEn: '',
       useProductCommission: false,
+      isPromisingProduct: false,
       ...(Object.keys(defaultCommissionByPackage).length ? { commissionConfigByPackage: defaultCommissionByPackage } : {}),
     });
     setThumbnailFileList([]);
@@ -217,6 +219,7 @@ const Products: React.FC = () => {
       commissionPercentManagementCTV: product.commissionPercentManagementCTV ?? undefined,
       commissionPercentManagementNPP: product.commissionPercentManagementNPP ?? undefined,
       useProductCommission: product.useProductCommission === true,
+      isPromisingProduct: (product as any).isPromisingProduct === true,
       featuredOnHome: product.featuredOnHome ?? false,
       groupCommissionMinSales: product.groupCommissionMinSales ?? undefined,
       managementRateF1: product.managementRateF1 ?? undefined,
@@ -401,6 +404,12 @@ const Products: React.FC = () => {
       key: 'name',
       width: 150,
       ellipsis: true,
+      render: (text: string, record: Product) => (
+        <Space>
+          <span>{text}</span>
+          {(record as any).isPromisingProduct && <Tag color="purple">Triển vọng</Tag>}
+        </Space>
+      ),
     },
     {
       title: 'Thumbnail',
@@ -725,7 +734,10 @@ const Products: React.FC = () => {
                       <Form.Item name="fakeSold" label="Số lượng bán hiển thị (giả)" rules={[{ type: 'number', min: 0 }]} tooltip="Hiển thị số này thay cho số bán thật (để trống = hiển thị thật)">
                         <InputNumber style={{ width: '100%' }} min={0} placeholder="Tùy chọn" />
                       </Form.Item>
-                      <Form.Item name="featuredOnHome" label="Nổi bật trang chủ" valuePropName="checked" tooltip="Hiển thị trong dải ảnh trang chủ">
+                       <Form.Item name="featuredOnHome" label="Nổi bật trang chủ" valuePropName="checked" tooltip="Hiển thị trong dải ảnh trang chủ">
+                        <Switch checkedChildren="Có" unCheckedChildren="Không" />
+                      </Form.Item>
+                      <Form.Item name="isPromisingProduct" label="Sản phẩm triển vọng" valuePropName="checked" tooltip="Bật = Sản phẩm triển vọng được áp dụng cơ chế đồng chia và hàng đợi quỹ đặc biệt">
                         <Switch checkedChildren="Có" unCheckedChildren="Không" />
                       </Form.Item>
                       <Form.Item name="salePercentage" label="Giảm giá (%)" rules={[{ type: 'number', min: 0, max: 100 }]} tooltip="VD: 20 = giảm 20%">

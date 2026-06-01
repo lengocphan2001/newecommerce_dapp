@@ -11,8 +11,8 @@ import {
 import { User } from '../../user/entities/user.entity';
 import { Order } from '../../order/entities/order.entity';
 
-@Entity('heap_reward_placements')
-export class HeapRewardPlacement {
+@Entity('promising_product_placements')
+export class PromisingProductPlacement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -24,7 +24,10 @@ export class HeapRewardPlacement {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0, transformer: {
+    to: (v: number) => v,
+    from: (v: string) => parseFloat(v) || 0,
+  }})
   totalRewarded: number;
 
   @Column({ type: 'int', default: 0 })
@@ -35,8 +38,8 @@ export class HeapRewardPlacement {
   isActive: boolean;
 
   @Index()
-  @Column({ type: 'int', default: 500 })
-  poolLevel: number;
+  @Column({ type: 'int' })
+  poolLevel: number; // 3000 hoặc 5000
 
   @CreateDateColumn()
   createdAt: Date;
