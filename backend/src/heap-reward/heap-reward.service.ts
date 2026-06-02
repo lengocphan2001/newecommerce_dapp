@@ -123,7 +123,7 @@ export class HeapRewardService {
       for (const p of poolsToJoin) {
         const rewardPercent = await this.getConfigValue(`HEAP_POOL_PERCENT_${p}`, p === 100 ? 5 : 10);
         const poolAmount = orderTotal * (rewardPercent / 100);
-        await this.distributeInstantPayoutForPool(p, poolAmount);
+        await this.distributeInstantPayoutForPool(p, poolAmount, poolLevel);
       }
 
       // Xử lý Hàng đợi Doanh số sản phẩm triển vọng (Promising Product Queue)
@@ -193,24 +193,37 @@ export class HeapRewardService {
     await this.placementRepo.save(placement);
   }
 
+  private getOrderPoolLevel(amount: number): number {
+    if (amount >= 5000) return 5000;
+    if (amount >= 3000) return 3000;
+    if (amount >= 500) return 500;
+    if (amount >= 100) return 100;
+    return 0;
+  }
+
   /**
    * Tính và chia phần trăm ngay lập tức cho bể đồng chia chỉ định
    */
-  async distributeInstantPayoutForPool(poolLevel: number, poolAmount: number) {
-    this.logger.log(`Starting instant Heap Reward payout for pool ${poolLevel} with amount: ${poolAmount}`);
+  async distributeInstantPayoutForPool(poolLevel: number, poolAmount: number, triggerOrderPoolLevel: number) {
+    this.logger.log(`Starting instant Heap Reward payout for pool ${poolLevel} with amount: ${poolAmount} (triggered by order pool level: ${triggerOrderPoolLevel})`);
     try {
-      const defaultMax = poolLevel === 100 ? 200 : poolLevel === 500 ? 1000 : poolLevel === 3000 ? 6000 : 10000;
-      const maxPayout = await this.getConfigValue(`HEAP_MAX_PAYOUT_${poolLevel}`, defaultMax);
+      // Tải trước các giá trị maxPayout để tránh truy vấn lặp trong giao dịch
+      const maxPayouts: Record<number, number> = {
+        100: await this.getConfigValue('HEAP_MAX_PAYOUT_100', 200),
+        500: await this.getConfigValue('HEAP_MAX_PAYOUT_500', 1000),
+        3000: await this.getConfigValue('HEAP_MAX_PAYOUT_3000', 6000),
+        5000: await this.getConfigValue('HEAP_MAX_PAYOUT_5000', 10000),
+      };
 
       await this.placementRepo.manager.transaction(async (manager) => {
         const hPlacementRepo = manager.getRepository(HeapRewardPlacement);
         const hHistoryRepo = manager.getRepository(HeapRewardHistory);
         const hUserRepo = manager.getRepository(User);
 
-        // Đọc active placements ngay trong transaction để đảm bảo dữ liệu mới nhất và track trạng thái đúng
+        // Đọc active placements ngay trong transaction, lấy thêm relation triggerOrder để check xuất phát điểm
         const activePlacements = await hPlacementRepo.find({
           where: { isActive: true, poolLevel },
-          relations: ['user'],
+          relations: ['user', 'triggerOrder'],
         });
 
         if (activePlacements.length === 0) {
@@ -218,13 +231,32 @@ export class HeapRewardService {
           return;
         }
 
-        const rewardPerUser = poolAmount / activePlacements.length;
-        this.logger.log(`Active Heap users in pool ${poolLevel}: ${activePlacements.length}. Payout per user: ${rewardPerUser}`);
+        // Lọc danh sách người dùng được nhận dựa trên xuất phát điểm đơn hàng kích hoạt
+        const eligiblePlacements = activePlacements.filter(placement => {
+          // Nếu đơn hàng kích hoạt mới là 3000 PV hoặc 5000 PV, và bể đang xét nhỏ hơn đơn hàng kích hoạt này
+          if ((triggerOrderPoolLevel === 3000 || triggerOrderPoolLevel === 5000) && poolLevel < triggerOrderPoolLevel) {
+            // Chỉ những người có đơn hàng kích hoạt gốc >= 3000 PV được nhận
+            const placementTriggerAmount = Number(placement.triggerOrder?.totalAmount || 0);
+            const placementTriggerLevel = this.getOrderPoolLevel(placementTriggerAmount);
+            return placementTriggerLevel >= 3000;
+          }
+          // Với các trường hợp đơn 100, 500 hoặc khi poolLevel === triggerOrderPoolLevel thì chia cho tất cả
+          return true;
+        });
 
-        for (const placement of activePlacements) {
+        if (eligiblePlacements.length === 0) {
+          this.logger.log(`No eligible users in Heap pool ${poolLevel} for trigger level ${triggerOrderPoolLevel}. Skipping distribution.`);
+          return;
+        }
+
+        const rewardPerUser = poolAmount / eligiblePlacements.length;
+        this.logger.log(`Active eligible Heap users in pool ${poolLevel}: ${eligiblePlacements.length} (total in pool: ${activePlacements.length}). Payout per user: ${rewardPerUser}`);
+
+        for (const placement of eligiblePlacements) {
           const user = placement.user;
           if (!user) continue;
 
+          const maxPayout = maxPayouts[placement.poolLevel] || 0;
           let newTotal = Number(placement.totalRewarded) + rewardPerUser;
           let actualReward = rewardPerUser;
           let isPushOut = false;
