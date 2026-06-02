@@ -17,7 +17,7 @@ sudo apt update && sudo apt upgrade -y
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
-node -v   # v20.x.x
+       # v20.x.x
 npm -v
 ```
 
@@ -39,9 +39,9 @@ sudo apt install -y nginx
 
 ```bash
 sudo apt install -y mysql-server
-sudo mysql -e "CREATE USER 'shopiibiztest'@'localhost' IDENTIFIED BY 'paswotr123';"
-sudo mysql -e "CREATE DATABASE shopiibiztest;"
-sudo mysql -e "GRANT ALL ON shopiibiztest.* TO 'shopiibiztest'@'localhost'; FLUSH PRIVILEGES;"
+sudo mysql -e "CREATE USER 'gcchic'@'localhost' IDENTIFIED BY 'gcchic123';"
+sudo mysql -e "CREATE DATABASE gcchic;"
+sudo mysql -e "GRANT ALL ON gcchic.* TO 'gcchic'@'localhost'; FLUSH PRIVILEGES;"
 ```
 
 **Hoặc PostgreSQL:**
@@ -179,7 +179,7 @@ Tạo **một file** ecosystem tại thư mục gốc repo, khai báo cả API v
 
 ```bash
 cd /var/www/shopii
-cat > ecosystem.config.js <<'EOF'
+`cat > ecosystem.config.js <<'EOF'
 module.exports = {
   apps: [
     {
@@ -198,7 +198,7 @@ module.exports = {
     }
   ]
 };
-EOF
+EOF`
 ```
 
 **Lưu ý:** **Admin** không nằm trong ecosystem vì là ứng dụng React build ra file tĩnh (`admin/build/`). Nginx serve trực tiếp thư mục đó tại path `/admin`, không cần process Node/PM2.
@@ -633,58 +633,11 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 6.4 SSL với Certbot
 
 ```bash
-sudo certbot --nginx -d shopii.biz -d www.shopii.biz
+sudo certbot --nginx -d gcchic.com -d www.gcchic.com
 sudo certbot renew --dry-run
 ```
 
-Sau khi có SSL, trong `.env` FE/Admin dùng `https://...` cho API URL và Site URL.
 
----
-
-## 7. Tóm tắt lệnh deploy (sau lần đầu cấu hình)
-
-```bash
-# 1. Backend
-cd /var/www/shopii/backend
-git pull
-npm ci
-npm run build
-
-# 2. Frontend (nếu dùng next start)
-cd /var/www/shopii
-git pull
-npm ci
-npm run build
-
-# 3. Khởi động lại cả API + FE qua ecosystem (một lệnh)
-cd /var/www/shopii
-pm2 reload ecosystem.config.js
-# Hoặc chỉ một app: pm2 reload ecosystem.config.js --only shopii-api
-
-# Hoặc static FE:
-# npm run build:static  → Nginx đã trỏ root tới out/
-
-# 4. Admin
-cd /var/www/shopii/admin
-git pull
-npm ci
-npm run build:prod
-# Nginx serve admin/build tại /admin → không cần restart PM2
-```
-
----
-
-## 8. Biến môi trường cần nhớ
-
-| Module   | File env                | Biến quan trọng |
-|----------|-------------------------|------------------|
-| Backend  | `backend/.env`          | `PORT`, `DB_*`, `JWT_SECRET`, `CORS_ORIGINS`, `FRONTEND_BASE_URL`, `PASSWORD_RESET_TTL_MINUTES` |
-| Frontend | `.env` (root)           | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` |
-| Admin    | `admin/.env.production` | `REACT_APP_API_URL` |
-
-Đảm bảo `CORS_ORIGINS` ở Backend có đủ domain FE và Admin (ví dụ `https://shopiibiztest.top`, `https://shopiibiztest.top/admin` nếu cùng origin).
-
----
 
 ## 9. Xử lý sự cố nhanh
 
@@ -698,3 +651,107 @@ npm run build:prod
 - **Upload file:** Backend serve upload tại `/files`. Đảm bảo thư mục `backend/uploads` tồn tại và Nginx không chặn body size (`client_max_body_size 50M;`).
 
 Nếu bạn dùng domain/path khác (ví dụ API tại `https://shopiibiztest.top/api`), chỉ cần chỉnh lại `proxy_pass` và các biến `*_API_URL` cho đúng.
+server {
+    server_name gcchic.com www.gcchic.com;
+
+    # Upload lớn (tuỳ bạn chỉnh)
+    client_max_body_size 50M;
+    # Endpoint generate credentials nặng (bcrypt × N users) — tăng timeout riêng
+    location = /api/admin/users/export-login-credentials {
+        rewrite ^/api/?(.*) /$1 break;
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+      # --- API: https://gcchic.com/api -> http://127.0.0.1:3002 ---
+    location ^~ /api/ {
+        rewrite ^/api/?(.*)$ /$1 break;
+
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # websockets (nếu backend dùng)
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # (tuỳ chọn) nếu ai truy cập đúng /api (không có / ở cuối)
+    location = /api {
+        return 301 /api/;
+    }
+
+    # --- Admin: https://gcchic.com/admin -> /var/www/shopii/admin/build ---
+    location = /admin {
+        return 301 /admin/;
+    }
+
+    location ^~ /admin/ {
+        alias /var/www/shopii/admin/build/;
+        try_files $uri $uri/ /admin/index.html;
+    }
+    # --- Frontend Next.js: https://gcchic.com/ -> http://127.0.0.1:3001 ---
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # websockets / hot connections
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_cache_bypass $http_upgrade;
+    }
+    location /files/ {
+        proxy_pass http://localhost:3002/files/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+
+
+
+}
+server {
+    if ($host = www.gcchic.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = gcchic.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    server_name gcchic.com www.gcchic.com;
+    return 404; # managed by Certbot
+
+
+
+
+}
+server {
+    if ($host = gcchic.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    server_name gcchic.com www.gcchic.com;
+    listen 80;
+    return 404; # managed by Certbot
+
+
+}

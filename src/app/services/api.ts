@@ -441,40 +441,44 @@ export const api = {
     apiCache.set('bankingConfig', data);
     return data;
   },
-
   async createOrder(
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    /* Se agrega 'pv_wallet' como método de pago válido para permitir compras con el saldo de PV. */
-    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet',
+    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet' | 'cod',
     options?: { shippingPhone?: string; shippingName?: string }
   ) {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Not authenticated');
-    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const body: Record<string, unknown> = { items, transactionHash, shippingAddress, paymentMethod };
     if (options?.shippingPhone != null) body.shippingPhone = options.shippingPhone;
     if (options?.shippingName != null) body.shippingName = options.shippingName;
-    const response = await fetch(`${API_BASE_URL}/orders`, {
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const url = token ? `${API_BASE_URL}/orders` : `${API_BASE_URL}/orders/guest`;
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers,
       body: JSON.stringify(body),
     });
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Failed to create order');
     }
-    apiCache.invalidate('profile'); // Invalida el perfil tras crear un pedido para refrescar los montos de compra acumulados
-    apiCache.invalidate('referralInfo'); // Invalida el referralInfo tras crear el pedido para actualizar comisiones y saldos
-    apiCache.invalidate('checkReconsumption'); // Invalida el estado de reconsumo ya que la compra puede haber cambiado las necesidades de recompra
+
+    if (token) {
+      apiCache.invalidate('profile');
+      apiCache.invalidate('referralInfo');
+      apiCache.invalidate('checkReconsumption');
+    }
     return response.json();
   },
-
   async confirmPayment(orderId: string, transactionHash: string, options?: { timeoutMs?: number }) {
     const token = localStorage.getItem('token');
     if (!token) {

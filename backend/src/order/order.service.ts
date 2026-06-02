@@ -147,7 +147,7 @@ export class OrderService {
     return order;
   }
 
-  async create(createOrderDto: CreateOrderDto, userId: string) {
+  async create(createOrderDto: CreateOrderDto, userId?: string) {
     // Lấy thông tin sản phẩm và tính tổng tiền
     const items: Array<{
       productId: string;
@@ -224,8 +224,13 @@ export class OrderService {
       }
     }
 
+    // Yêu cầu đăng nhập nếu dùng ví thanh toán
+    if ((paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet') && !userId) {
+      throw new BadRequestException('Phương thức thanh toán bằng ví yêu cầu người dùng đăng nhập.');
+    }
+
     // Ví nạp tiền: trừ số dư và xác nhận đơn ngay
-    if (paymentMethod === 'deposit_wallet') {
+    if (paymentMethod === 'deposit_wallet' && userId) {
       const user = await this.userRepository.findOne({ where: { id: userId } });
       if (!user) throw new NotFoundException('User not found');
       const balance = Number(user.walletBalance ?? 0);
@@ -239,7 +244,7 @@ export class OrderService {
     }
 
     // Ví nạp PV (pv_wallet): restamos el saldo en PV (1 PV = 1 USDT en el momento de la compra) y confirmamos el pedido
-    if (paymentMethod === 'pv_wallet') {
+    if (paymentMethod === 'pv_wallet' && userId) {
       const user = await this.userRepository.findOne({ where: { id: userId } });
       if (!user) throw new NotFoundException('User not found');
       
@@ -277,9 +282,9 @@ export class OrderService {
 
     const savedOrder = await this.orderRepository.save(order);
 
-    // Sync to Google Sheets
+    // Sync to Google Sheets (chỉ lấy thông tin user nếu đã đăng nhập)
     try {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const user = userId ? await this.userRepository.findOne({ where: { id: userId } }) : undefined;
       this.googleSheetsService.syncOrder(savedOrder, user || undefined);
     } catch (error) {
       console.error('Failed to sync to Google Sheets after creation:', error);
@@ -405,9 +410,11 @@ export class OrderService {
     }
 
     // 3. Check Milestones for referrer (run here so milestones run even if commission fails)
-    const buyer = await this.userRepository.findOne({
-      where: { id: order.userId },
-    });
+    const buyer = order.userId
+      ? await this.userRepository.findOne({
+          where: { id: order.userId },
+        })
+      : null;
     if (buyer?.referralUserId) {
       this.milestoneRewardService
         .checkAndProcessMilestones(buyer.referralUserId)
@@ -487,9 +494,11 @@ export class OrderService {
       await this.approveOrder(savedOrder);
 
       // Sync to Google Sheets
-      const user = await this.userRepository.findOne({
-        where: { id: order.userId },
-      });
+      const user = order.userId
+        ? await this.userRepository.findOne({
+            where: { id: order.userId },
+          })
+        : undefined;
       this.googleSheetsService.syncOrder(savedOrder, user || undefined);
 
       return savedOrder;
@@ -508,9 +517,11 @@ export class OrderService {
 
     // Sync to Google Sheets
     try {
-      const user = await this.userRepository.findOne({
-        where: { id: order.userId },
-      });
+      const user = order.userId
+        ? await this.userRepository.findOne({
+            where: { id: order.userId },
+          })
+        : undefined;
       this.googleSheetsService.syncOrder(finalSavedOrder, user || undefined);
     } catch (error) {
       console.error(
@@ -536,9 +547,11 @@ export class OrderService {
 
     // Sync to Google Sheets
     try {
-      const user = await this.userRepository.findOne({
-        where: { id: order.userId },
-      });
+      const user = order.userId
+        ? await this.userRepository.findOne({
+            where: { id: order.userId },
+          })
+        : undefined;
       this.googleSheetsService.syncOrder(cancelledOrder, user || undefined);
     } catch (error) {
       console.error(

@@ -207,6 +207,7 @@ export class MatrixRewardService {
     if (!order || !isProcessableMatrixOrderStatus(order.status) || !order.userId) {
       return 'invalid_order';
     }
+    const buyerId = order.userId;
 
     const minOrder = await this.getConfigNumber(CFG_MIN_ORDER, 100);
     const maxOrder = await this.getConfigNumber(CFG_MAX_ORDER, 0);
@@ -244,7 +245,7 @@ export class MatrixRewardService {
         }
 
         try {
-          const buyerId = order.userId;
+          // buyerId được capture từ scope bên ngoài để tránh mất kiểu dữ liệu (type narrowing) trong closure
           const nextLevel = await this.computeNextTreeLevel(buyerId, manager);
           const existingNode = await manager.getRepository(MatrixRewardNode).findOne({
             where: { userId: buyerId },

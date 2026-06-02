@@ -252,7 +252,7 @@ export default function ProductDetailClient() {
   if (!product) {
     return (
       <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-20 bg-background">
-        <div className="fixed top-0 z-50 flex w-full items-center justify-between p-4 pt-10">
+        <div className="fixed top-0 left-1/2 -translate-x-1/2 z-50 flex w-full max-w-md items-center justify-between p-4 pt-10">
           <button
             onClick={() => router.back()}
             className="relative z-10 flex size-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm"
@@ -275,8 +275,39 @@ export default function ProductDetailClient() {
     );
   }
 
+  const orderSuccess = searchParams.get('orderSuccess') === 'true';
+  const orderId = searchParams.get('orderId') || '';
+
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background text-text-main font-display antialiased">
+      {orderSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 text-center max-w-sm w-full shadow-2xl border border-emerald-100 flex flex-col items-center gap-4 animate-scale-up">
+            <div className="size-16 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center shadow-md">
+              <span className="material-symbols-outlined text-4xl font-bold">check_circle</span>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Đặt hàng thành công!</h3>
+              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                Đơn hàng của bạn đang được xử lý. Mã vận đơn sẽ được gửi qua số điện thoại của bạn.
+                {orderId && (
+                  <span className="block mt-1 font-mono font-bold text-emerald-700 text-xs bg-emerald-50 py-1 px-2 rounded-lg">
+                    Mã đơn hàng: #{orderId.slice(0, 8)}...
+                  </span>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                router.replace(`/home/products/detail?id=${productId}`);
+              }}
+              className="w-full bg-primary hover:bg-primary-dark text-black font-bold py-3 rounded-xl shadow-float transition-all active:scale-[0.98]"
+            >
+              Tiếp tục mua sắm
+            </button>
+          </div>
+        </div>
+      )}
       {/* Image Slider */}
       <div
         ref={sliderRef}
@@ -541,7 +572,7 @@ export default function ProductDetailClient() {
       </div>
 
       {/* Action Buttons - Above bottom nav */}
-      <div className="fixed bottom-24 left-0 right-0 z-[75] px-4 pb-2">
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-md z-[75] px-4 pb-2">
         <div className="max-w-md mx-auto flex gap-2">
           <button
             onClick={handleAddToCart}
@@ -567,20 +598,28 @@ export default function ProductDetailClient() {
         relatedProducts.length > 0 && (
           <div className="mt-2 bg-white p-4 pb-24">
             <h3 className="text-base font-medium mb-3">{t("relatedProducts")}</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-4">
               {relatedProducts.map((relatedProduct) => (
                 <button
                   key={relatedProduct.id}
+                  type="button"
                   onClick={() => router.push(`/home/products/detail?id=${relatedProduct.id}`)}
-                  className="bg-white border border-gray-100 flex flex-col text-left"
+                  className="flex flex-col text-left group focus:outline-none"
                 >
-                  <div className="aspect-square w-full bg-cover bg-center" style={{
-                    backgroundImage: relatedProduct.thumbnailUrl ? `url('${relatedProduct.thumbnailUrl}')` : 'none',
-                    backgroundColor: '#f5f5f5'
-                  }}></div>
-                  <div className="p-2 flex flex-col gap-1">
-                    <span className="text-xs text-text-main line-clamp-2">{getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}</span>
-                    <div className="flex items-center justify-between">
+                  <div className="w-full aspect-square rounded-xl overflow-hidden bg-gray-50 border border-gray-100 group-hover:border-primary/30 transition-colors relative">
+                    <div
+                      className="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
+                      style={{
+                        backgroundImage: relatedProduct.thumbnailUrl ? `url('${relatedProduct.thumbnailUrl}')` : 'none',
+                        backgroundColor: '#f5f5f5'
+                      }}
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <h4 className="text-xs text-text-main line-clamp-2 min-h-[2.5em]">
+                      {getLocalizedContent(relatedProduct.name, relatedProduct.nameEn)}
+                    </h4>
+                    <div className="mt-1 flex items-baseline justify-between flex-wrap gap-1">
                       {relatedProduct.salePercentage && relatedProduct.salePercentage > 0 ? (
                         <div className="flex flex-col">
                           <span className="text-[10px] text-gray-400 line-through">${formatPrice(relatedProduct.price)}</span>
@@ -602,14 +641,16 @@ export default function ProductDetailClient() {
       }
 
       {/* Bottom Fixed Bar - Chat only */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 flex h-[60px]">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50 bg-white border-t border-gray-100 flex h-[60px]">
         <button className="flex flex-1 flex-col items-center justify-center border-r border-gray-50 hover:bg-gray-50 transition-colors">
           <span className="material-symbols-outlined text-primary-dark text-2xl">chat_bubble_outline</span>
           <span className="text-[10px] text-text-main mt-0.5">{t("chatNow")}</span>
         </button>
         <div className="flex-[2] flex items-center justify-center text-text-sub text-xs">
           {product.stock > 0 ? (
-            <span className="text-green-600 font-medium">{t("stockAvailable")}</span>
+            <span className="text-green-600 font-medium">
+              {t("stockAvailable").replace("{count}", product.stock.toString())}
+            </span>
           ) : (
             <span className="text-red-600 font-medium">{t("outOfStock")}</span>
           )}

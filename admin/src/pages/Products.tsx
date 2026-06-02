@@ -580,6 +580,28 @@ const Products: React.FC = () => {
       >
         {isModalVisible && (
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            {editingProduct && (
+              <Form.Item label="Đường dẫn chia sẻ (Copy gửi cho khách mua không cần đăng nhập)">
+                <Input
+                  value={`${process.env.REACT_APP_FRONTEND_URL || window.location.origin.replace(':3001', ':3000')}/home/products/detail?id=${editingProduct.id}`}
+                  readOnly
+                  addonAfter={
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        const link = `${process.env.REACT_APP_FRONTEND_URL || window.location.origin.replace(':3001', ':3000')}/home/products/detail?id=${editingProduct.id}`;
+                        navigator.clipboard.writeText(link);
+                        message.success('Đã copy đường dẫn chia sẻ thành công!');
+                      }}
+                      style={{ padding: 0, height: 'auto' }}
+                    >
+                      Copy
+                    </Button>
+                  }
+                />
+              </Form.Item>
+            )}
             <Tabs
               defaultActiveKey="vi"
               items={[

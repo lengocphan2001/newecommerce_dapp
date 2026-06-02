@@ -33,9 +33,13 @@ export default function CheckoutPage() {
   const [bankingOrderId, setBankingOrderId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<"bankName" | "accountNumber" | "accountName" | "content" | "walletAddress" | null>(null);
   const [usdtToVnd, setUsdtToVnd] = useState<number | null>(null);
-  /** Tab thanh toán: 'deposit_wallet' = Ví nạp tiền, 'pv_wallet' = Ví nạp PV, 'banking' = Chuyển khoản NH, 'usdt' = chuyển USDT */
+  /** Tab thanh toán: 'deposit_wallet' = Ví nạp tiền, 'pv_wallet' = Ví nạp PV, 'banking' = Chuyển khoản NH, 'usdt' = chuyển USDT, 'cod' = COD */
   /* Se expanden los tipos de pestañas de pago para incluir la billetera de PV. */
-  const [paymentTab, setPaymentTab] = useState<"deposit_wallet" | "pv_wallet" | "banking" | "usdt">("deposit_wallet");
+  const [paymentTab, setPaymentTab] = useState<"deposit_wallet" | "pv_wallet" | "banking" | "usdt" | "cod">("deposit_wallet");
+  const [isGuest, setIsGuest] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [guestAddress, setGuestAddress] = useState("");
   /** Số dư ví nạp tiền (từ referral info hoặc wallet/balance) */
   const [depositBalance, setDepositBalance] = useState<number | null>(null);
   /** Số dư Ví nạp PV */
@@ -181,6 +185,18 @@ export default function CheckoutPage() {
 
   const loadCheckoutUser = async () => {
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setIsGuest(true);
+        setPaymentTab("cod");
+        setGuestName(localStorage.getItem("guestName") || "");
+        setGuestPhone(localStorage.getItem("guestPhone") || "");
+        setGuestAddress(localStorage.getItem("guestAddress") || "");
+        setShippingAddress(localStorage.getItem("guestAddress") || "");
+        return;
+      }
+      setIsGuest(false);
+
       let userBase = { fullName: "", phone: "", username: "" as string | undefined };
       // 1. Try API for basic info (includes Binary ID / username, ví nạp tiền)
       let walletBal: number | null = null;
@@ -355,7 +371,69 @@ export default function CheckoutPage() {
     if (paymentTab === "deposit_wallet") await handleDepositWalletOrder();
     else if (paymentTab === "pv_wallet") await handlePvWalletOrder();
     else if (paymentTab === "banking") await handleBankingOrder();
-    else await handleUsdtOrder();
+    else if (paymentTab === "usdt") await handleUsdtOrder();
+    else await handleCodOrder();
+  };
+
+  const handleCodOrder = async () => {
+    const isGuestUser = !localStorage.getItem("token");
+    const name = isGuestUser ? guestName : checkoutUser?.fullName;
+    const phone = isGuestUser ? guestPhone : checkoutUser?.phone;
+    const address = isGuestUser ? guestAddress : shippingAddress;
+
+    if (!name?.trim()) {
+      setError("Vui lòng nhập họ và tên người nhận");
+      return;
+    }
+    if (!phone?.trim()) {
+      setError("Vui lòng nhập số điện thoại giao hàng");
+      return;
+    }
+    if (!address?.trim()) {
+      setError("Vui lòng nhập địa chỉ nhận hàng");
+      return;
+    }
+
+    setProcessingStep("creating_order");
+    setError("");
+    try {
+      // Save guest info to localStorage for convenience
+      if (isGuestUser) {
+        localStorage.setItem("guestName", name.trim());
+        localStorage.setItem("guestPhone", phone.trim());
+        localStorage.setItem("guestAddress", address.trim());
+      }
+
+      const orderData = await api.createOrder(
+        items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          properties: item.properties,
+        })),
+        undefined,
+        address.trim(),
+        "cod",
+        { shippingPhone: phone.trim(), shippingName: name.trim() }
+      );
+
+      setBankingOrderId(orderData.id);
+      setProcessingStep("success");
+      clearCart();
+
+      // Redirect guest to product page with success status, or user to orders
+      if (isGuestUser) {
+        const firstProductId = items[0]?.productId || "";
+        setTimeout(() => {
+          router.push(`/home/products/detail?id=${firstProductId}&orderSuccess=true&orderId=${orderData.id}`);
+        }, 2500);
+      } else {
+        apiCache.invalidate("referralInfo");
+        setTimeout(() => router.push(`/home/orders?success=true&orderId=${orderData.id}`), 2500);
+      }
+    } catch (err: any) {
+      setError(err.message || "Đặt hàng COD thất bại");
+      setProcessingStep("error");
+    }
   };
 
   /* Se implementa la confirmación del pedido utilizando el saldo en PV (pv_wallet). 
@@ -443,33 +521,71 @@ export default function CheckoutPage() {
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shadow-sm ring-2 ring-purple-100">1</span>
             <h2 className="text-base font-bold text-slate-700">{t("shippingInfo")}</h2>
           </div>
-          <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 group transition-all hover:border-primary/30">
-            <div className="flex gap-4">
-              <div className="shrink-0 pt-1">
-                <div className="size-10 rounded-full bg-purple-50 flex items-center justify-center text-primary border border-purple-100">
-                  <span className="material-symbols-outlined">location_on</span>
-                </div>
+          {isGuest ? (
+            <div className="bg-white p-5 rounded-2xl shadow-card border border-purple-100 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1.5 text-slate-700">Họ và tên người nhận</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none transition"
+                  placeholder="Nhập họ và tên..."
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                />
               </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="font-bold text-slate-900 text-lg">{checkoutUser?.fullName || "Nguyễn Văn A"}</p>
-                  <button
-                    onClick={() => router.push("/home/profile/address")}
-                    className="text-xs font-semibold text-primary hover:text-primary-dark px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 transition"
-                  >
-                    {t("change")}
-                  </button>
-                </div>
-                <p className="text-sm text-text-sub font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">call</span>
-                  {checkoutUser?.phone || "+84 912 345 678"}
-                </p>
-                <p className="text-sm text-text-sub leading-relaxed pt-1">
-                  {shippingAddress}
-                </p>
+              <div>
+                <label className="block text-sm font-semibold mb-1.5 text-slate-700">Số điện thoại liên hệ</label>
+                <input
+                  type="tel"
+                  required
+                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none transition font-mono"
+                  placeholder="Nhập số điện thoại..."
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1.5 text-slate-700">Địa chỉ giao hàng chi tiết</label>
+                <textarea
+                  rows={3}
+                  required
+                  className="w-full p-4 rounded-xl border border-gray-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#135bec] focus:ring-2 focus:ring-[#135bec]/20 outline-none transition resize-none"
+                  placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành..."
+                  value={guestAddress}
+                  onChange={(e) => setGuestAddress(e.target.value)}
+                />
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white p-4 rounded-2xl shadow-card border border-purple-100 group transition-all hover:border-primary/30">
+              <div className="flex gap-4">
+                <div className="shrink-0 pt-1">
+                  <div className="size-10 rounded-full bg-purple-50 flex items-center justify-center text-primary border border-purple-100">
+                    <span className="material-symbols-outlined">location_on</span>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="font-bold text-slate-900 text-lg">{checkoutUser?.fullName || "Nguyễn Văn A"}</p>
+                    <button
+                      onClick={() => router.push("/home/profile/address")}
+                      className="text-xs font-semibold text-primary hover:text-primary-dark px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 transition"
+                    >
+                      {t("change")}
+                    </button>
+                  </div>
+                  <p className="text-sm text-text-sub font-medium flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">call</span>
+                    {checkoutUser?.phone || "+84 912 345 678"}
+                  </p>
+                  <p className="text-sm text-text-sub leading-relaxed pt-1">
+                    {shippingAddress}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Section 2: Payment - Tab Ví nạp tiền | Chuyển khoản */}
@@ -482,58 +598,77 @@ export default function CheckoutPage() {
           {/* Tabs: Ví nạp tiền | Ví nạp PV | Chuyển khoản | USDT */}
          
           <div className="bg-white rounded-2xl shadow-card border border-purple-100 overflow-hidden">
-            <div className="grid grid-cols-4 border-b border-slate-100 text-xs sm:text-sm">
-              <button
-                type="button"
-                onClick={() => !hasStrategicProducts && setPaymentTab("deposit_wallet")}
-                disabled={hasStrategicProducts}
-                className={`min-w-0 py-3 px-1 font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentTab === "deposit_wallet"
-                    ? "bg-primary/10 text-primary border-b-2 border-primary"
-                    : "text-slate-500 hover:bg-slate-50"
-                  }`}
-                title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví tiêu dùng"}
-              >
-                <span className="material-symbols-outlined text-[16px] sm:text-[18px]">account_balance_wallet</span>
-                <span className="text-[10px] sm:text-xs">Ví tiêu dùng</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => !hasStrategicProducts && setPaymentTab("pv_wallet")}
-                disabled={hasStrategicProducts}
-                className={`min-w-0 py-3 px-1 font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentTab === "pv_wallet"
-                    ? "bg-primary/10 text-primary border-b-2 border-primary"
-                    : "text-slate-500 hover:bg-slate-50"
-                  }`}
-                title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví nạp PV"}
-              >
-                <span className="material-symbols-outlined text-[16px] sm:text-[18px]">monetization_on</span>
-                <span className="text-[10px] sm:text-xs">Ví nạp PV</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentTab("banking")}
-                className={`min-w-0 py-3 px-1 font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 whitespace-nowrap transition-colors ${paymentTab === "banking"
-                    ? "bg-primary/10 text-primary border-b-2 border-primary"
-                    : "text-slate-500 hover:bg-slate-50"
-                  }`}
-                title="Chuyển khoản ngân hàng"
-              >
-                <span className="material-symbols-outlined text-[16px] sm:text-[18px]">account_balance</span>
-                <span className="text-[10px] sm:text-xs">CK NH</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentTab("usdt")}
-                className={`min-w-0 py-3 px-1 font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 whitespace-nowrap transition-colors ${paymentTab === "usdt"
-                    ? "bg-primary/10 text-primary border-b-2 border-primary"
-                    : "text-slate-500 hover:bg-slate-50"
-                  }`}
-                title="USDT"
-              >
-                <span className="material-symbols-outlined text-[16px] sm:text-[18px]">currency_bitcoin</span>
-                <span className="text-[10px] sm:text-xs">USDT</span>
-              </button>
-            </div>
+            {isGuest ? (
+              <div className="p-4 bg-primary/5 text-primary border-b border-primary/10 flex items-center justify-center gap-2 font-bold text-sm">
+                <span className="material-symbols-outlined text-lg">local_shipping</span>
+                <span>Thanh toán COD (Thanh toán khi nhận hàng)</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-5 border-b border-slate-100 text-[10px] sm:text-xs">
+                <button
+                  type="button"
+                  onClick={() => !hasStrategicProducts && setPaymentTab("deposit_wallet")}
+                  disabled={hasStrategicProducts}
+                  className={`min-w-0 py-3 px-0.5 font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentTab === "deposit_wallet"
+                      ? "bg-primary/10 text-primary border-b-2 border-primary"
+                      : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví tiêu dùng"}
+                >
+                  <span className="material-symbols-outlined text-[15px] sm:text-[16px]">account_balance_wallet</span>
+                  <span className="text-[9px] sm:text-[10px]">Ví TD</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !hasStrategicProducts && setPaymentTab("pv_wallet")}
+                  disabled={hasStrategicProducts}
+                  className={`min-w-0 py-3 px-0.5 font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 whitespace-nowrap transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentTab === "pv_wallet"
+                      ? "bg-primary/10 text-primary border-b-2 border-primary"
+                      : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví nạp PV"}
+                >
+                  <span className="material-symbols-outlined text-[15px] sm:text-[16px]">monetization_on</span>
+                  <span className="text-[9px] sm:text-[10px]">Ví PV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentTab("banking")}
+                  className={`min-w-0 py-3 px-0.5 font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 whitespace-nowrap transition-colors ${paymentTab === "banking"
+                      ? "bg-primary/10 text-primary border-b-2 border-primary"
+                      : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  title="Chuyển khoản ngân hàng"
+                >
+                  <span className="material-symbols-outlined text-[15px] sm:text-[16px]">account_balance</span>
+                  <span className="text-[9px] sm:text-[10px]">CK NH</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentTab("usdt")}
+                  className={`min-w-0 py-3 px-0.5 font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 whitespace-nowrap transition-colors ${paymentTab === "usdt"
+                      ? "bg-primary/10 text-primary border-b-2 border-primary"
+                      : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  title="USDT"
+                >
+                  <span className="material-symbols-outlined text-[15px] sm:text-[16px]">currency_bitcoin</span>
+                  <span className="text-[9px] sm:text-[10px]">USDT</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentTab("cod")}
+                  className={`min-w-0 py-3 px-0.5 font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 whitespace-nowrap transition-colors ${paymentTab === "cod"
+                      ? "bg-primary/10 text-primary border-b-2 border-primary"
+                      : "text-slate-500 hover:bg-slate-50"
+                    }`}
+                  title="Ship COD"
+                >
+                  <span className="material-symbols-outlined text-[15px] sm:text-[16px]">local_shipping</span>
+                  <span className="text-[9px] sm:text-[10px]">COD</span>
+                </button>
+              </div>
+            )}
 
             {/* Nội dung tab Ví nạp tiền */}
             {paymentTab === "deposit_wallet" && (
@@ -772,6 +907,16 @@ export default function CheckoutPage() {
                   </div>
                 )}
               </>
+            )}
+            {paymentTab === "cod" && (
+              <div className="p-4 space-y-3">
+                <p className="text-sm text-slate-600 font-medium">
+                  Thanh toán trực tiếp bằng tiền mặt cho shipper khi nhận sản phẩm (Cash on Delivery).
+                </p>
+                <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-xs text-slate-500 leading-relaxed">
+                  Vui lòng đảm bảo các thông tin giao nhận (họ tên, số điện thoại và địa chỉ giao hàng) ở phần trên đã chính xác trước khi bấm Đặt hàng.
+                </div>
+              </div>
             )}
           </div>
         </section>

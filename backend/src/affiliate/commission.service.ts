@@ -154,6 +154,13 @@ export class CommissionService {
         return;
       }
 
+      if (!order.userId) {
+        this.logger.log(
+          `Order ${orderId} has no userId (guest order). Skipping commission calculation.`,
+        );
+        return;
+      }
+
       const buyer = await this.userRepository.findOne({
         where: { id: order.userId },
       });

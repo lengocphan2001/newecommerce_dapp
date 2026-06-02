@@ -134,6 +134,17 @@ export class OrderController {
     return order;
   }
 
+  @Post('guest')
+  async createGuest(@Body() createOrderDto: CreateOrderDto) {
+    // Khách vãng lai mua hàng không cần đăng nhập, nên userId sẽ là undefined
+    const order = await this.orderService.create(createOrderDto, undefined);
+
+    // Notify all connected staff about new order
+    this.notificationsGateway.notifyNewOrder(order);
+
+    return order;
+  }
+
   @Put(':id/status')
   @UseGuards(JwtAuthGuard)
   async updateStatus(

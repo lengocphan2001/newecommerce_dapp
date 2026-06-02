@@ -206,7 +206,7 @@ export default function CartPage() {
       </main>
 
       {/* Footer - Checkout Button */}
-      <footer className="fixed bottom-0 w-full max-w-md bg-white backdrop-blur-xl border-t border-gray-100 pt-4 px-4 z-[60] shadow-float" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <footer className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white backdrop-blur-xl border-t border-gray-100 pt-4 px-4 z-[60] shadow-float" style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px) + 80px)' }}>
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-end">
             <div className="flex flex-col">
