@@ -50,32 +50,37 @@ export class HeapRewardService {
       const order = await this.orderRepo.findOne({ where: { id: orderId } });
       if (!order || !order.userId) return;
 
-      // YÊU CẦU 3: Đơn hàng chỉ bao gồm đúng 1 sản phẩm
-      if (!order.items || order.items.length !== 1) {
-        this.logger.log(`[HEAP/PROMISING] Order ${orderId} does not contain exactly 1 item. Skipping.`);
-        return;
-      }
-
-      const item = order.items[0];
-      const product = await this.productRepo.findOne({ where: { id: item.productId } });
-      
-      // YÊU CẦU 2 & 3: Sản phẩm đó phải được gắn cờ triển vọng
-      if (!product || !product.isPromisingProduct) {
-        this.logger.log(`[HEAP/PROMISING] Product ${item.productId} in order ${orderId} is not flagged as a promising product. Skipping.`);
-        return;
-      }
-
       const user = await this.userRepo.findOne({ where: { id: order.userId } });
       if (!user) return;
 
       const orderTotal = Number(order.totalAmount) || 0;
 
-      // Phân loại mốc PV dựa trên tổng giá trị đơn hàng
+      // Chỉ thực hiện kiểm tra điều kiện sản phẩm triển vọng và giới hạn 1 sản phẩm cho đơn từ 3000 PV trở lên
+      // Các đơn nhỏ hơn (100 PV, 500 PV) không bị ràng buộc bởi các điều kiện này
+      let isPromisingOrder = false;
+      if (orderTotal >= 3000) {
+        if (order.items && order.items.length === 1) {
+          const item = order.items[0];
+          const product = await this.productRepo.findOne({ where: { id: item.productId } });
+          if (product && product.isPromisingProduct) {
+            isPromisingOrder = true;
+          } else {
+            // Log lý do đơn hàng lớn không đạt tiêu chuẩn sản phẩm triển vọng
+            this.logger.log(`[HEAP/PROMISING] Order ${orderId} total ${orderTotal} is >= 3000 PV but product is not promising. Treating as normal order.`);
+          }
+        } else {
+          // Log lý do đơn hàng lớn không đạt tiêu chuẩn 1 sản phẩm
+          this.logger.log(`[HEAP/PROMISING] Order ${orderId} total ${orderTotal} is >= 3000 PV but does not contain exactly 1 item. Treating as normal order.`);
+        }
+      }
+
+      // Phân loại mốc PV dựa trên tổng giá trị đơn hàng và kết quả kiểm tra điều kiện triển vọng
+      // Đơn hàng lớn (>=3000 / >=5000 PV) nhưng không đạt điều kiện triển vọng sẽ bị hạ cấp xuống bể 500 PV thường
       let poolLevel = 0;
       if (orderTotal >= 5000) {
-        poolLevel = 5000;
+        poolLevel = isPromisingOrder ? 5000 : 500;
       } else if (orderTotal >= 3000) {
-        poolLevel = 3000;
+        poolLevel = isPromisingOrder ? 3000 : 500;
       } else if (orderTotal >= 500) {
         poolLevel = 500;
       } else if (orderTotal >= 100) {
