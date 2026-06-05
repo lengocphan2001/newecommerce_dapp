@@ -15,7 +15,9 @@ import {
   Row,
   Col,
   Tag,
+  DatePicker,
 } from 'antd';
+import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -42,6 +44,8 @@ const HeapReward: React.FC = () => {
   const [selectedPlacement, setSelectedPlacement] = useState<any>(null);
   const [isDetailPromising, setIsDetailPromising] = useState(false);
   const [placementHistories, setPlacementHistories] = useState<any[]>([]);
+  const [syncDate, setSyncDate] = useState<Dayjs | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const fetchPlacements = async (poolLevel?: number) => {
     try {
@@ -157,6 +161,67 @@ const HeapReward: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSyncOrders = async () => {
+    if (!syncDate) {
+      notification.warning({ message: 'Vui lòng chọn ngày bắt đầu để đồng bộ' });
+      return;
+    }
+
+    Modal.confirm({
+      title: 'Xác nhận đồng bộ đơn hàng cũ vào Bể đồng chia?',
+      content: (
+        <div>
+          <p>Hệ thống sẽ quét tất cả các đơn hàng thành công từ ngày <b>{syncDate.format('DD/MM/YYYY')}</b> đến nay.</p>
+          <p>Các đơn hàng hợp lệ chưa được xử lý sẽ được tính toán chia thưởng và đưa vào bể đồng chia tương ứng.</p>
+          <p style={{ color: '#ff4d4f', marginTop: 16 }}>
+            ⚠️ Thao tác này có thể cộng ví trực tiếp cho các thành viên và xếp hàng đợi mới!
+          </p>
+        </div>
+      ),
+      okText: 'Bắt đầu đồng bộ',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setSyncLoading(true);
+          const res = await api.post('/admin/heap-reward/sync', {
+            fromDate: syncDate.toISOString(),
+          });
+          const data = res.data;
+          
+          notification.success({
+            message: 'Đồng bộ hoàn tất',
+            description: (
+              <div>
+                <p>Tổng số đơn quét thấy: <b>{data.scanned}</b></p>
+                <p>Đã xử lý thành công: <b>{data.processed}</b></p>
+                <p>Đơn hàng đã vào (bỏ qua): <b>{data.skipped}</b></p>
+                {data.failed > 0 && (
+                  <p style={{ color: '#ff4d4f' }}>
+                    Số đơn lỗi: <b>{data.failed}</b> (IDs: {data.failedOrderIds.join(', ')})
+                  </p>
+                )}
+              </div>
+            ),
+            duration: 10,
+          });
+
+          // Tải lại danh sách
+          fetchPlacements(selectedPoolLevel);
+          fetchPromisingPlacements(selectedPromisingPoolLevel);
+        } catch (e: any) {
+          const errMsg = e?.response?.data?.message || e?.message || 'Đồng bộ thất bại';
+          notification.error({
+            message: 'Lỗi đồng bộ',
+            description: errMsg,
+          });
+        } finally {
+          setSyncLoading(false);
+        }
+      },
+    });
   };
 
   const columns = [
@@ -446,6 +511,38 @@ const HeapReward: React.FC = () => {
                   Lưu cấu hình hệ thống
                 </Button>
               </Form>
+            </Card>
+
+            <Card title="Đồng bộ đơn hàng cũ vào Bể đồng chia (Heap Reward)" style={{ marginTop: 24 }}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <div>
+                  <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                    Chức năng này cho phép bạn quét và xử lý lại các đơn hàng cũ (từ ngày được chọn đến hiện tại). 
+                    Hệ thống sẽ tự động lọc các đơn hàng hợp lệ có trạng thái thành công nhưng chưa được vào Heap Reward, 
+                    sau đó chạy tính toán phân chia và cộng ví trực tiếp cho người dùng.
+                  </Typography.Text>
+                </div>
+                <Space size="large" align="center">
+                  <div>
+                    <span style={{ marginRight: 8, fontWeight: 'bold' }}>Chọn ngày bắt đầu:</span>
+                    <DatePicker 
+                      value={syncDate} 
+                      onChange={(date) => setSyncDate(date)} 
+                      format="DD/MM/YYYY"
+                      placeholder="Chọn ngày bắt đầu"
+                      disabledDate={(current) => current && current > dayjs().endOf('day')}
+                    />
+                  </div>
+                  <Button 
+                    type="primary" 
+                    danger 
+                    loading={syncLoading} 
+                    onClick={handleSyncOrders}
+                  >
+                    Bắt đầu đồng bộ
+                  </Button>
+                </Space>
+              </Space>
             </Card>
           </Tabs.TabPane>
         )}

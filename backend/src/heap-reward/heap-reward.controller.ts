@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Delete, Param } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Delete, Param, Post, Body } from '@nestjs/common';
 import { HeapRewardService } from './heap-reward.service';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
 
@@ -6,6 +6,16 @@ import { JwtAuthGuard, AdminGuard } from '../common/guards';
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class HeapRewardController {
   constructor(private readonly heapRewardService: HeapRewardService) {}
+
+  @Post('sync')
+  async syncOrders(
+    @Body()
+    body: {
+      fromDate: string;
+    },
+  ) {
+    return this.heapRewardService.syncOrdersFromDate(body.fromDate);
+  }
 
   @Get('placements')
   async getPlacements(@Query() query: any) {

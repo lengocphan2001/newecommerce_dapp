@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HeapRewardPlacement } from './entities/heap-reward-placement.entity';
@@ -384,6 +384,79 @@ export class HeapRewardService {
     } catch (e) {
       this.logger.error(`Promising Product reward distribution for pool ${poolLevel} failed.`, e);
     }
+  }
+
+  /**
+   * Đồng bộ các đơn hàng cũ từ ngày chỉ định vào Heap Reward.
+   * Tại sao: Có những đơn hàng cũ chưa được tính thưởng đồng chia, việc này giúp quét lại và bù phần thưởng còn thiếu.
+   */
+  async syncOrdersFromDate(fromDateStr: string): Promise<{
+    scanned: number;
+    processed: number;
+    skipped: number;
+    failed: number;
+    failedOrderIds: string[];
+  }> {
+    const fromDate = new Date(fromDateStr);
+    if (isNaN(fromDate.getTime())) {
+      throw new BadRequestException('Ngày bắt đầu không hợp lệ');
+    }
+
+    // Lấy các đơn hàng có trạng thái hợp lệ đã được thanh toán/xác nhận từ ngày chỉ định.
+    // Tại sao: Chỉ những đơn hàng đã qua bước xác nhận mới đủ điều kiện xét duyệt chia thưởng.
+    const orders = await this.orderRepo.createQueryBuilder('o')
+      .where('o.status IN (:...statuses)', {
+        statuses: [
+          OrderStatus.CONFIRMED,
+          OrderStatus.PROCESSING,
+          OrderStatus.SHIPPED,
+          OrderStatus.DELIVERED,
+        ],
+      })
+      .andWhere('o.createdAt >= :fromDate', { fromDate })
+      .orderBy('o.createdAt', 'ASC')
+      .addOrderBy('o.id', 'ASC')
+      .getMany();
+
+    let processed = 0;
+    let skipped = 0;
+    let failed = 0;
+    const failedOrderIds: string[] = [];
+
+    for (const order of orders) {
+      try {
+        // Kiểm tra xem đơn hàng đã kích hoạt vị trí đồng chia hoặc hàng đợi triển vọng nào chưa.
+        // Tại sao: Nếu đơn hàng đã được đưa vào hệ thống rồi thì cần bỏ qua để tránh tính trùng phần thưởng.
+        const existsInHeap = await this.placementRepo.findOne({
+          where: { triggerOrderId: order.id },
+        });
+        const existsInPromising = await this.promisingPlacementRepo.findOne({
+          where: { triggerOrderId: order.id },
+        });
+
+        if (existsInHeap || existsInPromising) {
+          skipped++;
+          continue;
+        }
+
+        // Thực hiện xử lý đơn hàng để phân chia bể và trích thưởng.
+        // Tại sao: Hàm processOrderIfEligible sẽ tự động phân loại mốc PV và xếp người dùng vào các bể thích hợp.
+        await this.processOrderIfEligible(order.id);
+        processed++;
+      } catch (error) {
+        failed++;
+        failedOrderIds.push(order.id);
+        this.logger.error(`Error syncing order ${order.id} to heap reward: ${(error as any)?.message}`, error);
+      }
+    }
+
+    return {
+      scanned: orders.length,
+      processed,
+      skipped,
+      failed,
+      failedOrderIds,
+    };
   }
 
   // Admin / User APIs
