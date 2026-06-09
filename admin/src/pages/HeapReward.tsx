@@ -46,6 +46,8 @@ const HeapReward: React.FC = () => {
   const [placementHistories, setPlacementHistories] = useState<any[]>([]);
   const [syncDate, setSyncDate] = useState<Dayjs | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [rollbackPool, setRollbackPool] = useState<string>('all');
+  const [rollbackLoading, setRollbackLoading] = useState(false);
 
   const fetchPlacements = async (poolLevel?: number) => {
     try {
@@ -219,6 +221,81 @@ const HeapReward: React.FC = () => {
           });
         } finally {
           setSyncLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleRollbackSync = async () => {
+    if (!syncDate) {
+      notification.warning({ message: 'Vui lòng chọn ngày bắt đầu để hoàn tác' });
+      return;
+    }
+
+    // Phân tích rollbackPool thành poolType và poolLevel
+    let poolType = 'all';
+    let poolLevel: number | undefined = undefined;
+    let poolLabel = 'Tất cả các bể';
+
+    if (rollbackPool.startsWith('heap-')) {
+      poolType = 'heap';
+      poolLevel = Number(rollbackPool.split('-')[1]);
+      poolLabel = `Bể Heap ${poolLevel} PV`;
+    } else if (rollbackPool.startsWith('promising-')) {
+      poolType = 'promising';
+      poolLevel = Number(rollbackPool.split('-')[1]);
+      poolLabel = `Bể Triển vọng ${poolLevel} PV`;
+    }
+
+    Modal.confirm({
+      title: `Xác nhận hoàn tác đồng bộ ${poolLabel}?`,
+      content: (
+        <div>
+          <p>Hệ thống sẽ quét tất cả các đơn hàng thành công từ ngày <b>{syncDate.format('DD/MM/YYYY')}</b> đến nay.</p>
+          <p>Tất cả vị trí xếp bể tương ứng của <b>{poolLabel}</b> đã tạo trong khoảng thời gian này sẽ bị xóa bỏ.</p>
+          <p>Lịch sử chi thưởng tương ứng sẽ bị xóa và số dư ví hoa hồng của người nhận sẽ bị khấu trừ lại.</p>
+          <p style={{ color: '#ff4d4f', marginTop: 16, fontWeight: 'bold' }}>
+            ⚠️ Hành động này trực tiếp trừ tiền ví của người dùng và không thể hoàn tác!
+          </p>
+        </div>
+      ),
+      okText: 'Bắt đầu hoàn tác',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          setRollbackLoading(true);
+          const res = await api.post('/admin/heap-reward/rollback', {
+            fromDate: syncDate.toISOString(),
+            poolType,
+            poolLevel,
+          });
+          const data = res.data;
+
+          notification.success({
+            message: 'Hoàn tác thành công',
+            description: (
+              <div>
+                <p>Số đơn quét thấy: <b>{data.scanned}</b></p>
+                <p>Vị trí Heap đã xóa: <b>{data.placementsDeleted}</b></p>
+                <p>Vị trí hàng đợi đã xóa: <b>{data.promisingPlacementsDeleted}</b></p>
+                <p>Tổng số tiền khấu trừ ví: <b>${Number(data.balanceDeducted).toLocaleString()}</b></p>
+              </div>
+            ),
+            duration: 10,
+          });
+
+          // Tải lại danh sách
+          fetchPlacements(selectedPoolLevel);
+          fetchPromisingPlacements(selectedPromisingPoolLevel);
+        } catch (e: any) {
+          const errMsg = e?.response?.data?.message || e?.message || 'Hoàn tác thất bại';
+          notification.error({
+            message: 'Lỗi hoàn tác',
+            description: errMsg,
+          });
+        } finally {
+          setRollbackLoading(false);
         }
       },
     });
@@ -522,7 +599,7 @@ const HeapReward: React.FC = () => {
                     sau đó chạy tính toán phân chia và cộng ví trực tiếp cho người dùng.
                   </Typography.Text>
                 </div>
-                <Space size="large" align="center">
+                <Space size="large" align="center" wrap>
                   <div>
                     <span style={{ marginRight: 8, fontWeight: 'bold' }}>Chọn ngày bắt đầu:</span>
                     <DatePicker 
@@ -542,6 +619,43 @@ const HeapReward: React.FC = () => {
                     Bắt đầu đồng bộ
                   </Button>
                 </Space>
+
+                <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 16 }}>
+                  <Typography.Text type="danger" style={{ display: 'block', marginBottom: 12, fontWeight: 'bold' }}>
+                    Khu vực Hoàn tác (Rollback / Fallback)
+                  </Typography.Text>
+                  <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                    Dùng khi cần rút lại vị trí xếp bể đã đồng bộ sai. Hệ thống sẽ xóa các vị trí đã xếp trong bể chỉ định 
+                    (từ ngày được chọn đến hiện tại) và tự động trừ lại tiền hoa hồng đã cộng vào ví của người dùng.
+                  </Typography.Text>
+                  <Space size="large" align="center" wrap>
+                    <div>
+                      <span style={{ marginRight: 8, fontWeight: 'bold' }}>Chọn bể hoàn tác:</span>
+                      <Select
+                        value={rollbackPool}
+                        style={{ width: 220 }}
+                        onChange={setRollbackPool}
+                      >
+                        <Option value="all">Tất cả các bể</Option>
+                        <Option value="heap-100">Bể Heap 100 PV</Option>
+                        <Option value="heap-500">Bể Heap 500 PV</Option>
+                        <Option value="heap-3000">Bể Heap 3000 PV</Option>
+                        <Option value="heap-5000">Bể Heap 5000 PV</Option>
+                        <Option value="promising-3000">Bể Triển vọng 3000 PV</Option>
+                        <Option value="promising-5000">Bể Triển vọng 5000 PV</Option>
+                      </Select>
+                    </div>
+                    <Button 
+                      type="primary" 
+                      danger
+                      ghost
+                      loading={rollbackLoading} 
+                      onClick={handleRollbackSync}
+                    >
+                      Hoàn tác đồng bộ
+                    </Button>
+                  </Space>
+                </div>
               </Space>
             </Card>
           </Tabs.TabPane>

@@ -17,6 +17,22 @@ export class HeapRewardController {
     return this.heapRewardService.syncOrdersFromDate(body.fromDate);
   }
 
+  @Post('rollback')
+  async rollbackSync(
+    @Body()
+    body: {
+      fromDate: string;
+      poolType: string;
+      poolLevel?: number;
+    },
+  ) {
+    return this.heapRewardService.rollbackSync({
+      fromDateStr: body.fromDate,
+      poolType: body.poolType,
+      poolLevel: body.poolLevel,
+    });
+  }
+
   @Get('placements')
   async getPlacements(@Query() query: any) {
     return this.heapRewardService.getPlacements(query);

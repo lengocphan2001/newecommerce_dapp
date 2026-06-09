@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { HeapRewardPlacement } from './entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from './entities/heap-reward-history.entity';
 import { PromisingProductPlacement } from './entities/promising-product-placement.entity';
@@ -413,7 +413,7 @@ export class HeapRewardService {
           OrderStatus.DELIVERED,
         ],
       })
-      .andWhere('o.createdAt >= :fromDate', { fromDate })
+      .andWhere('o.createdAt >= :fromDate', { fromDate: fromDate.toISOString() })
       .orderBy('o.createdAt', 'ASC')
       .addOrderBy('o.id', 'ASC')
       .getMany();
@@ -456,6 +456,145 @@ export class HeapRewardService {
       skipped,
       failed,
       failedOrderIds,
+    };
+  }
+
+  /**
+   * Hoàn tác đồng bộ (rollback/fallback) cho các đơn hàng từ ngày chỉ định.
+   * Tại sao: Giúp admin rút lại phần thưởng đồng chia và bể đã xếp nếu đợt chạy trước đó bị lỗi hoặc xếp sai vị trí.
+   */
+  async rollbackSync(options: {
+    fromDateStr: string;
+    poolType: string;
+    poolLevel?: number;
+  }): Promise<{
+    scanned: number;
+    placementsDeleted: number;
+    promisingPlacementsDeleted: number;
+    balanceDeducted: number;
+    deductedUsers: Record<string, number>;
+  }> {
+    const fromDate = new Date(options.fromDateStr);
+    if (isNaN(fromDate.getTime())) {
+      throw new BadRequestException('Ngày bắt đầu không hợp lệ');
+    }
+
+    // Lấy các đơn hàng thành công từ ngày chỉ định, sắp xếp tăng dần theo thời gian (từ cũ tới mới - ASC).
+    // Tại sao: Việc hoàn tác cần chạy tuần tự từ cũ tới mới để đảm bảo tính nhất quán của dữ liệu.
+    const orders = await this.orderRepo.createQueryBuilder('o')
+      .where('o.status IN (:...statuses)', {
+        statuses: [
+          OrderStatus.CONFIRMED,
+          OrderStatus.PROCESSING,
+          OrderStatus.SHIPPED,
+          OrderStatus.DELIVERED,
+        ],
+      })
+      .andWhere('o.createdAt >= :fromDate', { fromDate: fromDate.toISOString() })
+      .orderBy('o.createdAt', 'ASC')
+      .addOrderBy('o.id', 'ASC')
+      .getMany();
+
+    const orderIds = orders.map(o => o.id);
+    if (orderIds.length === 0) {
+      return {
+        scanned: 0,
+        placementsDeleted: 0,
+        promisingPlacementsDeleted: 0,
+        balanceDeducted: 0,
+        deductedUsers: {},
+      };
+    }
+
+    let placementsDeleted = 0;
+    let promisingPlacementsDeleted = 0;
+    let totalDeducted = 0;
+    const deductedUsers: Record<string, number> = {};
+
+    await this.placementRepo.manager.transaction(async (manager) => {
+      const hPlacementRepo = manager.getRepository(HeapRewardPlacement);
+      const hHistoryRepo = manager.getRepository(HeapRewardHistory);
+      const pPlacementRepo = manager.getRepository(PromisingProductPlacement);
+      const pHistoryRepo = manager.getRepository(PromisingProductHistory);
+      const hUserRepo = manager.getRepository(User);
+
+      // A. Xử lý bể Heap Placements & Histories (nếu poolType là 'all' hoặc 'heap')
+      if (options.poolType === 'all' || options.poolType === 'heap') {
+        const heapPlacementQuery: any = {
+          triggerOrderId: In(orderIds)
+        };
+        if (options.poolLevel) {
+          heapPlacementQuery.poolLevel = options.poolLevel;
+        }
+
+        const heapPlacements = await hPlacementRepo.find({
+          where: heapPlacementQuery
+        });
+
+        if (heapPlacements.length > 0) {
+          const heapPlacementIds = heapPlacements.map(p => p.id);
+          const heapHistories = await hHistoryRepo.find({
+            where: { placementId: In(heapPlacementIds) }
+          });
+
+          // Khấu trừ lại số dư ví đã cộng cho người dùng từ lịch sử
+          for (const history of heapHistories) {
+            const amount = Number(history.amount);
+            if (amount > 0) {
+              await hUserRepo.decrement({ id: history.userId }, 'withdrawWalletBalance', amount);
+              deductedUsers[history.userId] = (deductedUsers[history.userId] || 0) + amount;
+              totalDeducted += amount;
+            }
+          }
+
+          // Xóa các Heap placements (cascade xóa lịch sử tương ứng)
+          await hPlacementRepo.remove(heapPlacements);
+          placementsDeleted = heapPlacements.length;
+        }
+      }
+
+      // B. Xử lý bể Promising Product Placements & Histories (nếu poolType là 'all' hoặc 'promising')
+      if (options.poolType === 'all' || options.poolType === 'promising') {
+        const promisingPlacementQuery: any = {
+          triggerOrderId: In(orderIds)
+        };
+        if (options.poolLevel) {
+          promisingPlacementQuery.poolLevel = options.poolLevel;
+        }
+
+        const promisingPlacements = await pPlacementRepo.find({
+          where: promisingPlacementQuery
+        });
+
+        if (promisingPlacements.length > 0) {
+          const promisingPlacementIds = promisingPlacements.map(p => p.id);
+          const promisingHistories = await pHistoryRepo.find({
+            where: { placementId: In(promisingPlacementIds) }
+          });
+
+          // Khấu trừ lại số dư ví đã cộng cho người dùng từ lịch sử hàng đợi
+          for (const history of promisingHistories) {
+            const amount = Number(history.amount);
+            if (amount > 0) {
+              await hUserRepo.decrement({ id: history.userId }, 'withdrawWalletBalance', amount);
+              deductedUsers[history.userId] = (deductedUsers[history.userId] || 0) + amount;
+              totalDeducted += amount;
+            }
+          }
+
+          // Xóa các Promising placements (cascade xóa lịch sử tương ứng)
+          await pPlacementRepo.remove(promisingPlacements);
+          promisingPlacementsDeleted = promisingPlacements.length;
+        }
+      }
+    });
+
+    return {
+      scanned: orders.length,
+      placementsDeleted,
+      promisingPlacementsDeleted,
+      balanceDeducted: totalDeducted,
+      deductedUsers,
     };
   }
 
