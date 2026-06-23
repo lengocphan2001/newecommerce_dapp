@@ -11,6 +11,7 @@ import { Order } from '../../order/entities/order.entity';
 
 export enum CommissionType {
   DIRECT = 'direct', // Hoa hồng trực tiếp
+  INDIRECT = 'indirect', // Hoa hồng gián tiếp (F2)
   GROUP = 'group', // Hoa hồng nhóm
   MANAGEMENT = 'management', // Hoa hồng quản lý
   MILESTONE = 'milestone', // Thưởng milestone (2, 4, 6 người...)

@@ -29,7 +29,7 @@ interface ActivityItem {
 type TabType = 'all' | 'shopping' | 'commission' | 'system';
 
 export default function ActivityPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [loading, setLoading] = useState(true);
@@ -178,6 +178,7 @@ export default function ActivityPage() {
         const isHeapReward = activityType === 'HEAP_REWARD';
         const isDirectOrProductDirect =
           activityType === 'DIRECT' ||
+          activityType === 'INDIRECT' ||
           (activityType === 'PRODUCT' && notes.startsWith('Product direct'));
         if (!isDirectOrProductDirect && !isHeapReward) {
           return;
@@ -185,6 +186,8 @@ export default function ActivityPage() {
 
         const commissionType = isHeapReward
           ? t('heapRewardCommission')
+          : activityType === 'INDIRECT'
+            ? (lang === 'vi' ? 'Hoa hồng gián tiếp' : 'Indirect Commission')
           : t('directCommission');
 
         // Use the same simple logic as order items

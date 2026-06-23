@@ -50,6 +50,7 @@ export class AdminService {
   private readonly logger = new Logger(AdminService.name);
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
   private readonly defaultMinPayoutThreshold = 50;
+  private readonly defaultIndirectCommissionRateF2 = 5;
   private readonly defaultCommissionDepositWalletPercent = 12;
   private readonly defaultCommissionWithdrawWalletPercent = 80;
 
@@ -920,13 +921,17 @@ export class AdminService {
    */
   async getSystemConfig(): Promise<{
     minPayoutThreshold: number;
+    indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
   }> {
-    const [thresholdRow, depositPercentRow, withdrawPercentRow] =
+    const [thresholdRow, indirectRateRow, depositPercentRow, withdrawPercentRow] =
       await Promise.all([
         this.systemConfigRepository.findOne({
           where: { key: 'minPayoutThreshold' },
+        }),
+        this.systemConfigRepository.findOne({
+          where: { key: 'indirectCommissionRateF2' },
         }),
         this.systemConfigRepository.findOne({
           where: { key: 'commissionDepositWalletPercent' },
@@ -939,6 +944,9 @@ export class AdminService {
       minPayoutThreshold: thresholdRow
         ? parseFloat(thresholdRow.value)
         : this.defaultMinPayoutThreshold,
+      indirectCommissionRateF2: indirectRateRow
+        ? parseFloat(indirectRateRow.value)
+        : this.defaultIndirectCommissionRateF2,
       commissionDepositWalletPercent: depositPercentRow
         ? parseFloat(depositPercentRow.value)
         : this.defaultCommissionDepositWalletPercent,
@@ -953,13 +961,23 @@ export class AdminService {
    */
   async updateSystemConfig(dto: {
     minPayoutThreshold?: number;
+    indirectCommissionRateF2?: number;
     commissionDepositWalletPercent?: number;
     commissionWithdrawWalletPercent?: number;
   }): Promise<{
     minPayoutThreshold: number;
+    indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
   }> {
+    if (dto.indirectCommissionRateF2 !== undefined) {
+      const value = Number(dto.indirectCommissionRateF2);
+      if (!Number.isFinite(value) || value < 0 || value > 100) {
+        throw new BadRequestException(
+          'indirectCommissionRateF2 must be between 0 and 100',
+        );
+      }
+    }
     if (dto.commissionDepositWalletPercent !== undefined) {
       const value = Number(dto.commissionDepositWalletPercent);
       if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -1002,6 +1020,20 @@ export class AdminService {
         });
       } else {
         row.value = String(dto.minPayoutThreshold);
+      }
+      await this.systemConfigRepository.save(row);
+    }
+    if (dto.indirectCommissionRateF2 !== undefined) {
+      let row = await this.systemConfigRepository.findOne({
+        where: { key: 'indirectCommissionRateF2' },
+      });
+      if (!row) {
+        row = this.systemConfigRepository.create({
+          key: 'indirectCommissionRateF2',
+          value: String(dto.indirectCommissionRateF2),
+        });
+      } else {
+        row.value = String(dto.indirectCommissionRateF2);
       }
       await this.systemConfigRepository.save(row);
     }

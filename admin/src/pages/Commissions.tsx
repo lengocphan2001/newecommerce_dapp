@@ -327,6 +327,7 @@ const CommissionsPage: React.FC = () => {
     }
     const typeConfig: Record<string, { color: string; text: string }> = {
       direct: { color: 'blue', text: 'Direct' },
+      indirect: { color: 'magenta', text: 'Indirect (F2)' },
       group: { color: 'purple', text: 'Group' },
       management: { color: 'cyan', text: 'Management' },
       product: { color: 'green', text: 'Product' },
@@ -570,6 +571,7 @@ const CommissionsPage: React.FC = () => {
         >
           <Option value="all">All Types</Option>
           <Option value="direct">Direct</Option>
+          <Option value="indirect">Indirect (F2)</Option>
           <Option value="group">Group</Option>
           <Option value="management">Management</Option>
           <Option value="product">Product</Option>

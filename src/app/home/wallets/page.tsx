@@ -512,6 +512,7 @@ export default function WalletsPage() {
         const notes = String(activity?.notes || "");
         return (
           activityType === "DIRECT" ||
+          activityType === "INDIRECT" ||
           activityType === "HEAP_REWARD" ||
           (activityType === "PRODUCT" && notes.startsWith("Product direct"))
         );
@@ -523,6 +524,8 @@ export default function WalletsPage() {
         // Determine commission type label
         const commissionTitle = activityType === 'DIRECT'
           ? t("directCommission")
+          : activityType === 'INDIRECT'
+            ? (lang === 'vi' ? 'Hoa hồng gián tiếp' : 'Indirect Commission')
           : activityType === 'HEAP_REWARD'
             ? t("heapRewardCommission")
             : activityType === 'GROUP'

@@ -205,6 +205,7 @@ async function initializeDatabase() {
     const systemConfigRepo = dataSource.getRepository(SystemConfig);
     const defaults: Array<{ key: string; value: string }> = [
       { key: 'minPayoutThreshold', value: '50' },
+      { key: 'indirectCommissionRateF2', value: '5' },
       { key: 'commissionDepositWalletPercent', value: '12' },
       { key: 'commissionWithdrawWalletPercent', value: '80' },
       { key: 'matrixRewardEnabled', value: 'true' },

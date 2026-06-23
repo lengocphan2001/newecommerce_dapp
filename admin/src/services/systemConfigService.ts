@@ -2,6 +2,7 @@ import api from './api';
 
 export interface SystemConfig {
     minPayoutThreshold: number;
+    indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
 }

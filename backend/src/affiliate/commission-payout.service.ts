@@ -27,7 +27,11 @@ const COMMISSION_FEE_PERCENT = 12;
  * Commission được trả ngay (không cần đạt ngưỡng): Direct từ package HOẶC Product direct (type=PRODUCT, notes bắt đầu "Product direct").
  */
 function isPayImmediately(commission: Commission): boolean {
-  if (commission.type === CommissionType.DIRECT) return true;
+  if (
+    commission.type === CommissionType.DIRECT ||
+    commission.type === CommissionType.INDIRECT
+  )
+    return true;
   if (
     commission.type === CommissionType.PRODUCT &&
     commission.notes?.startsWith('Product direct')

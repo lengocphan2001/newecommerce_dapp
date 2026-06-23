@@ -90,6 +90,8 @@ const BankingSettings: React.FC = () => {
             const config = await systemConfigService.get();
             payoutForm.setFieldsValue({
                 minPayoutThreshold: config.minPayoutThreshold ?? 50,
+                indirectCommissionRateF2:
+                  config.indirectCommissionRateF2 ?? 5,
                 commissionDepositWalletPercent:
                   config.commissionDepositWalletPercent ?? 12,
                 commissionWithdrawWalletPercent:
@@ -98,6 +100,7 @@ const BankingSettings: React.FC = () => {
         } catch {
             payoutForm.setFieldsValue({
               minPayoutThreshold: 50,
+              indirectCommissionRateF2: 5,
               commissionDepositWalletPercent: 12,
               commissionWithdrawWalletPercent: 80,
             });
@@ -170,6 +173,7 @@ const BankingSettings: React.FC = () => {
         try {
             await systemConfigService.update({
               minPayoutThreshold: values.minPayoutThreshold,
+              indirectCommissionRateF2: Number(values.indirectCommissionRateF2 ?? 5),
               commissionDepositWalletPercent: depositPercent,
               commissionWithdrawWalletPercent: withdrawPercent,
             });
@@ -402,6 +406,22 @@ const BankingSettings: React.FC = () => {
                             step={10}
                             precision={2}
                             addonBefore="$"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="indirectCommissionRateF2"
+                        label="Indirect Commission F2 (%)"
+                        rules={[{ required: true, message: 'Please enter indirect commission rate for F2' }]}
+                        tooltip="When a user's F2 buys, this percentage of order value is paid to the upline user (default 5%)."
+                    >
+                        <InputNumber
+                            style={{ width: 220 }}
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            precision={2}
+                            addonAfter="%"
                         />
                     </Form.Item>
 

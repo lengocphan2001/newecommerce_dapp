@@ -18,6 +18,7 @@ import {
 import { PackagesService } from '../packages/packages.service';
 import { Package } from '../packages/entities/package.entity';
 import { Product } from '../product/entities/product.entity';
+import { SystemConfig } from '../admin/entities/system-config.entity';
 
 /** Số cấp hoa hồng quản lý: chỉ trả cho 3 parent gần nhất (F1, F2, F3) kể từ người nhận group trở lên. */
 const MANAGEMENT_MAX_LEVELS = 3;
@@ -25,6 +26,7 @@ const MANAGEMENT_MAX_LEVELS = 3;
 @Injectable()
 export class CommissionService {
   private readonly logger = new Logger(CommissionService.name);
+  private static readonly DEFAULT_INDIRECT_RATE_PERCENT = 5;
   private configCache: Map<string, Package> = new Map();
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastCacheUpdate: number = 0;
@@ -38,6 +40,8 @@ export class CommissionService {
     private commissionRepository: Repository<Commission>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(SystemConfig)
+    private systemConfigRepository: Repository<SystemConfig>,
     private dataSource: DataSource,
     private packagesService: PackagesService,
   ) { }
@@ -193,6 +197,12 @@ export class CommissionService {
       );
       await this.calculateProductCommission(order, buyer, productMap);
 
+      // BƯỚC 1c: Hoa hồng gián tiếp F2 (mặc định 5%, admin có thể cấu hình)
+      this.logger.log(
+        `Step 1c: Calculating indirect F2 commission for order ${orderId}`,
+      );
+      await this.calculateIndirectCommission(order, buyer);
+
       // BƯỚC 2: Update volume cho TẤT CẢ ancestors (giữ nguyên để phục vụ các logic cây khác)
       this.logger.log(`Step 2: Updating branch volumes for order ${orderId}`);
       await this.updateBranchVolumes(order, buyer);
@@ -215,6 +225,69 @@ export class CommissionService {
       // Ném lại lỗi để caller biết commission thất bại và có thể rollback
       throw error;
     }
+  }
+
+  private async getIndirectCommissionRatePercent(): Promise<number> {
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: 'indirectCommissionRateF2' },
+    });
+    const parsed = Number(row?.value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return CommissionService.DEFAULT_INDIRECT_RATE_PERCENT;
+    }
+    return parsed;
+  }
+
+  /**
+   * Hoa hồng gián tiếp:
+   * Buyer -> F1 (direct referrer) -> F2.
+   * Khi buyer mua hàng, F2 nhận % trên giá trị đơn (admin config, mặc định 5%).
+   */
+  private async calculateIndirectCommission(
+    order: Order,
+    buyer: User,
+  ): Promise<void> {
+    const freshBuyer = await this.userRepository.findOne({
+      where: { id: buyer.id },
+      select: ['id', 'referralUserId'],
+    });
+    if (!freshBuyer?.referralUserId) return;
+
+    const f1 = await this.userRepository.findOne({
+      where: { id: freshBuyer.referralUserId },
+      select: ['id', 'referralUserId'],
+    });
+    if (!f1?.referralUserId) return;
+
+    const f2 = await this.userRepository.findOne({ where: { id: f1.referralUserId } });
+    if (!f2) return;
+
+    const orderValue = this.getOrderValueForCommission(order);
+    if (orderValue <= 0) return;
+
+    const ratePercent = await this.getIndirectCommissionRatePercent();
+    if (ratePercent <= 0) return;
+
+    const commissionAmount = this.roundCommission(orderValue * (ratePercent / 100));
+    if (commissionAmount <= 0) return;
+
+    const commission = this.commissionRepository.create({
+      userId: f2.id,
+      orderId: order.id,
+      fromUserId: buyer.id,
+      type: CommissionType.INDIRECT,
+      status: CommissionStatus.PENDING,
+      amount: commissionAmount,
+      orderAmount: orderValue,
+      notes: `Indirect F2 commission (${ratePercent}%)`,
+    });
+    await this.commissionRepository.save(commission);
+
+    await this.userRepository.increment(
+      { id: f2.id },
+      'totalCommissionReceived',
+      commissionAmount,
+    );
   }
 
   private async getOrderProductsMap(order: Order): Promise<Map<string, Product>> {
@@ -1278,7 +1351,7 @@ export class CommissionService {
         'pendingCommission',
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
         'direct',
       )
       .addSelect(
@@ -1330,7 +1403,7 @@ export class CommissionService {
         'pendingCommission',
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
         'direct',
       )
       .addSelect(

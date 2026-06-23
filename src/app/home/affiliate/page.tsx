@@ -10,7 +10,7 @@ import { handleAuthError } from "@/app/utils/auth";
 import { QRCodeSVG } from "qrcode.react";
 
 export default function AffiliatePage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [referralInfo, setReferralInfo] = useState<{
     referralCode: string;
@@ -637,6 +637,7 @@ export default function AffiliatePage() {
                   const getActivityIcon = (type: string) => {
                     switch (type) {
                       case "DIRECT":
+                      case "INDIRECT":
                         return {
                           icon: "attach_money",
                           color: "bg-[#13ec5b]/20",
@@ -667,6 +668,10 @@ export default function AffiliatePage() {
                     switch (type) {
                       case "DIRECT":
                         return t("directCommission");
+                      case "INDIRECT":
+                        return lang === "vi"
+                          ? "Hoa hồng gián tiếp"
+                          : "Indirect Commission";
                       case "GROUP":
                         return t("groupCommission");
                       case "MANAGEMENT":
