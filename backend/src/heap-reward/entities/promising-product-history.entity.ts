@@ -38,7 +38,7 @@ export class PromisingProductHistory {
   amount: number;
 
   @Column({ type: 'int' })
-  poolLevel: number; // 3000 hoặc 5000
+  poolLevel: number; // 1000 hoặc 3000
 
   @Column({ type: 'date', nullable: true })
   rewardDate: Date;

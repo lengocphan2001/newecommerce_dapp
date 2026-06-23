@@ -32,19 +32,21 @@ async function run() {
     // Xóa và tạo lại cấu hình mặc định để đồng bộ
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_100' });
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_500' });
+    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_1000' });
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_3000' });
-    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_5000' });
+    await configRepo.delete({ key: 'PROMISING_POOL_PERCENT_1000' });
     await configRepo.delete({ key: 'PROMISING_POOL_PERCENT_3000' });
-    await configRepo.delete({ key: 'PROMISING_POOL_PERCENT_5000' });
+    await configRepo.delete({ key: 'PROMISING_MAX_PAYOUT_1000' });
     await configRepo.delete({ key: 'PROMISING_MAX_PAYOUT_3000' });
 
     await configRepo.save([
       { key: 'HEAP_POOL_PERCENT_100', value: '5' },
       { key: 'HEAP_POOL_PERCENT_500', value: '10' },
+      { key: 'HEAP_POOL_PERCENT_1000', value: '10' },
       { key: 'HEAP_POOL_PERCENT_3000', value: '10' },
-      { key: 'HEAP_POOL_PERCENT_5000', value: '10' },
-      { key: 'PROMISING_POOL_PERCENT_3000', value: '5' },
-      { key: 'PROMISING_POOL_PERCENT_5000', value: '10' },
+      { key: 'PROMISING_POOL_PERCENT_1000', value: '5' },
+      { key: 'PROMISING_POOL_PERCENT_3000', value: '10' },
+      { key: 'PROMISING_MAX_PAYOUT_1000', value: '100' }, // Để max payout nhỏ dễ test push out
       { key: 'PROMISING_MAX_PAYOUT_3000', value: '100' }, // Để max payout nhỏ dễ test push out
     ]);
 

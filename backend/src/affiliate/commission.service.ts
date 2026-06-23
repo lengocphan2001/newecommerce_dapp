@@ -193,21 +193,8 @@ export class CommissionService {
       );
       await this.calculateProductCommission(order, buyer, productMap);
 
-      // BƯỚC 2: Hoa hồng nhóm theo gói — chỉ các dòng useProductCommission = false
-      this.logger.log(
-        `Step 2: Calculating group commission for order ${orderId}`,
-      );
-      await this.calculateGroupCommission(order, buyer, productMap);
-
-      // BƯỚC 3: Tính hoa hồng quản lý nhóm (dựa trên volume hiện tại, chưa cộng đơn này)
-      this.logger.log(
-        `Step 3: Calculating management commission for order ${orderId}`,
-      );
-      await this.calculateManagementCommission(order, buyer);
-
-      // BƯỚC 4: Update volume cho TẤT CẢ ancestors
-      // Update sau khi đã tính commission để đơn hiện tại không làm thay đổi điều kiện managementMinSales
-      this.logger.log(`Step 4: Updating branch volumes for order ${orderId}`);
+      // BƯỚC 2: Update volume cho TẤT CẢ ancestors (giữ nguyên để phục vụ các logic cây khác)
+      this.logger.log(`Step 2: Updating branch volumes for order ${orderId}`);
       await this.updateBranchVolumes(order, buyer);
 
       this.logger.log(`Commission calculation completed for order ${orderId}`);
@@ -485,10 +472,8 @@ export class CommissionService {
       return;
     }
 
-    const ancestors = await this.getAncestors(buyer);
     const items = Array.isArray(order.items) ? order.items : [];
     const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
-    const productGroupAmountByAncestorId = new Map<string, number>();
 
     // Mỗi dòng đơn (sản phẩm) tính hoa hồng riêng — config từ tab "Hoa hồng sản phẩm" khi useProductCommission = true
     for (const item of items) {
@@ -561,110 +546,8 @@ export class CommissionService {
         }
       }
 
-      // --- Product GROUP: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
-      // Se realiza un mapeo local de las comisiones de grupo ganadas por ancestro para este producto específico.
-      const itemGroupAmountByAncestorId = new Map<string, number>();
-
-      for (const ancestor of ancestors) {
-        if (!ancestor.packageType || ancestor.packageType === 'NONE') continue;
-        const ancestorProductConfig = this.getProductCommissionConfigForPackage(
-          product,
-          ancestor.packageType,
-        );
-        const groupRate = ancestorProductConfig
-          ? ancestorProductConfig.groupCommissionRate
-          : this.getProductCommissionPercentGroup(product, buyerPkg) / 100;
-        if (groupRate <= 0) continue;
-
-        const rawGroup = itemAmount * groupRate;
-        const groupCommissionAmount = this.roundCommission(rawGroup);
-        if (groupCommissionAmount <= 0) continue;
-
-        const hasBothBranches = this.hasBothBranchesFromUser(ancestor);
-        if (!hasBothBranches) continue;
-
-        // Min branch sales chỉ áp dụng cho hoa hồng quản lý (management), không áp dụng cho hoa hồng cân nhánh (product group).
-
-        const buyerSide = await this.getBuyerSide(buyer, ancestor);
-        const weakSide = this.getWeakSideFromUser(ancestor);
-
-        if (
-          Number(ancestor.leftBranchTotal) === 0 &&
-          Number(ancestor.rightBranchTotal) === 0
-        )
-          continue;
-        if (weakSide !== null && buyerSide !== weakSide) continue;
-
-        const ancestorCanReceive =
-          await this.checkReconsumptionWithProductConfig(
-            ancestor,
-            ancestorProductConfig,
-          );
-        const groupStatus = ancestorCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
-
-        this.logger.log(
-          `[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`,
-        );
-
-        const groupCommission = this.commissionRepository.create({
-          userId: ancestor.id,
-          orderId: order.id,
-          fromUserId: buyer.id,
-          type: CommissionType.PRODUCT,
-          status: groupStatus,
-          amount: groupCommissionAmount,
-          orderAmount: itemAmount,
-          side: buyerSide,
-          notes:
-            ancestorCanReceive
-              ? `Product group: ${productNote}`
-              : 'Reconsumption required - keep pending, do not approve',
-        });
-        await this.commissionRepository.save(groupCommission);
-
-        itemGroupAmountByAncestorId.set(ancestor.id, groupCommissionAmount);
-
-        const prev = productGroupAmountByAncestorId.get(ancestor.id) ?? 0;
-        productGroupAmountByAncestorId.set(
-          ancestor.id,
-          prev + groupCommissionAmount,
-        );
-
-        if (ancestorCanReceive && ancestorProductConfig) {
-          await this.updateUserCommissionAndCheckThresholdWithProductConfig(
-            ancestor,
-            groupCommissionAmount,
-            ancestorProductConfig,
-          );
-        }
-      }
-
-      // Se calcula y distribuye la comisión de administración por cada producto de forma individual usando su propia configuración.
-      const itemEarner = ancestors.find((a) =>
-        itemGroupAmountByAncestorId.has(a.id),
-      );
-      if (itemEarner) {
-        const itemGroupAmount = itemGroupAmountByAncestorId.get(itemEarner.id) ?? 0;
-        if (itemGroupAmount > 0) {
-          const syntheticSource = this.commissionRepository.create({
-            userId: itemEarner.id,
-            orderId: order.id,
-            fromUserId: buyer.id,
-            type: CommissionType.PRODUCT,
-            status: CommissionStatus.PENDING,
-            amount: itemGroupAmount,
-            orderAmount: itemGroupAmount,
-            notes: `Product group: ${productNote} (aggregated for management)`,
-          });
-          await this.payManagementFromProductGroupEarner(
-            order,
-            itemEarner,
-            syntheticSource,
-            product,
-            buyerPkg,
-          );
-        }
-      }
+      // Đã loại bỏ product group/management theo yêu cầu tối giản:
+      // chỉ giữ lại hoa hồng direct.
     }
   }
 

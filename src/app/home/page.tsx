@@ -67,7 +67,8 @@ export default function HomePage() {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [selectedCountry, setSelectedCountry] = useState<'VIETNAM' | 'USA' | null>('VIETNAM');
-  const [selectedProductType, setSelectedProductType] = useState<'STRATEGIC' | 'COMMON' | null>(null);
+  // Mặc định chỉ tải sản phẩm chiến lược khi vào trang.
+  const [selectedProductType, setSelectedProductType] = useState<'STRATEGIC' | 'COMMON' | null>('STRATEGIC');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sliders, setSliders] = useState<Slider[]>([]);
