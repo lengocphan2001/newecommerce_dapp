@@ -74,13 +74,12 @@ export class HeapRewardService {
         }
       }
 
-      // Phân loại mốc PV dựa trên tổng giá trị đơn hàng và kết quả kiểm tra điều kiện triển vọng
-      // Đơn hàng lớn (>=1000 / >=3000 PV) nhưng không đạt điều kiện triển vọng sẽ bị hạ cấp xuống bể 500 PV thường
+      // Phân loại mốc PV cho Heap Reward (độc lập với điều kiện sản phẩm triển vọng)
       let poolLevel = 0;
       if (orderTotal >= 3000) {
-        poolLevel = isPromisingOrder ? 3000 : 500;
+        poolLevel = 3000;
       } else if (orderTotal >= 1000) {
-        poolLevel = isPromisingOrder ? 1000 : 500;
+        poolLevel = 1000;
       } else if (orderTotal >= 500) {
         poolLevel = 500;
       } else if (orderTotal >= 100) {
@@ -95,28 +94,31 @@ export class HeapRewardService {
       // Xử lý nhảy cây đồng chia (Heap Reward)
       const poolsToJoin: number[] = [];
       if (poolLevel === 3000) {
-        poolsToJoin.push(100, 500, 1000, 3000);
+        poolsToJoin.push(500, 1000, 3000);
       } else if (poolLevel === 1000) {
-        poolsToJoin.push(100, 500, 1000);
+        poolsToJoin.push(500, 1000);
       } else if (poolLevel === 500) {
         poolsToJoin.push(500);
       } else if (poolLevel === 100) {
         poolsToJoin.push(100);
       }
 
+      const joinedPlacementsByPool = new Map<number, HeapRewardPlacement>();
       for (const p of poolsToJoin) {
         const timesEntered = await this.placementRepo.count({
           where: { userId: user.id, poolLevel: p },
         });
 
         if (timesEntered === 0) {
-          await this.createNewPlacement(user.id, p, 0, order.id);
+          const placement = await this.createNewPlacement(user.id, p, 0, order.id);
+          joinedPlacementsByPool.set(p, placement);
           this.logger.log(`User ${user.id} joins Heap pool ${p} (first time).`);
         } else {
           // Lần n (>0), cần kiểm tra F1 đạt ngưỡng tương ứng với bể p
           const f1Count = await this.countQualifiedF1s(user.id, p);
           if (f1Count >= timesEntered) {
-            await this.createNewPlacement(user.id, p, timesEntered, order.id);
+            const placement = await this.createNewPlacement(user.id, p, timesEntered, order.id);
+            joinedPlacementsByPool.set(p, placement);
             this.logger.log(`User ${user.id} joins Heap pool ${p} (timesEntered: ${timesEntered}). Qualified F1s: ${f1Count}`);
           } else {
             this.logger.log(`User ${user.id} cannot join Heap pool ${p}. Needs ${timesEntered} qualified F1s at >= ${p} PV, has ${f1Count}.`);
@@ -124,21 +126,27 @@ export class HeapRewardService {
         }
       }
 
-      // Phân phối thưởng đồng chia cho các bể được đóng góp
-      for (const p of poolsToJoin) {
+      // Trả thưởng trực tiếp cho user khi vào từng bể (admin cấu hình % theo từng bể)
+      for (const [p, placement] of joinedPlacementsByPool.entries()) {
         const rewardPercent = await this.getConfigValue(`HEAP_POOL_PERCENT_${p}`, p === 100 ? 5 : 10);
-        const poolAmount = orderTotal * (rewardPercent / 100);
-        await this.distributeInstantPayoutForPool(p, poolAmount, poolLevel);
+        const rewardAmount = orderTotal * (rewardPercent / 100);
+        await this.rewardUserOnPoolEntry(placement, p, rewardAmount);
       }
 
       // Xử lý Hàng đợi Doanh số sản phẩm triển vọng (Promising Product Queue)
-      if (poolLevel === 1000 || poolLevel === 3000) {
+      const promisingPoolLevel =
+        isPromisingOrder && orderTotal >= 3000
+          ? 3000
+          : isPromisingOrder && orderTotal >= 1000
+            ? 1000
+            : 0;
+      if (promisingPoolLevel === 1000 || promisingPoolLevel === 3000) {
         const activeCount = await this.promisingPlacementRepo.count({
-          where: { poolLevel, isActive: true },
+          where: { poolLevel: promisingPoolLevel, isActive: true },
         });
 
         const timesEntered = await this.promisingPlacementRepo.count({
-          where: { userId: user.id, poolLevel },
+          where: { userId: user.id, poolLevel: promisingPoolLevel },
         });
 
         // Chỉ cho phép tối đa 10 ID hoạt động nhận thưởng đồng thời
@@ -146,19 +154,19 @@ export class HeapRewardService {
 
         const promisingPlacement = this.promisingPlacementRepo.create({
           userId: user.id,
-          poolLevel,
+          poolLevel: promisingPoolLevel,
           totalRewarded: 0,
           timesEntered,
           isActive,
           triggerOrderId: order.id,
         });
         await this.promisingPlacementRepo.save(promisingPlacement);
-        this.logger.log(`User ${user.id} entered Promising Product queue ${poolLevel}. Active: ${isActive}`);
+        this.logger.log(`User ${user.id} entered Promising Product queue ${promisingPoolLevel}. Active: ${isActive}`);
 
         // Trích thưởng cho quỹ doanh số sản phẩm triển vọng tương ứng
-        const promisingPercent = await this.getConfigValue(`PROMISING_POOL_PERCENT_${poolLevel}`, poolLevel === 1000 ? 5 : 10);
+        const promisingPercent = await this.getConfigValue(`PROMISING_POOL_PERCENT_${promisingPoolLevel}`, promisingPoolLevel === 1000 ? 5 : 10);
         const promisingPoolAmount = orderTotal * (promisingPercent / 100);
-        await this.distributePromisingPayout(poolLevel, promisingPoolAmount);
+        await this.distributePromisingPayout(promisingPoolLevel, promisingPoolAmount);
       }
 
     } catch (e) {
@@ -186,7 +194,7 @@ export class HeapRewardService {
     return Number(result?.count || 0);
   }
 
-  private async createNewPlacement(userId: string, poolLevel: number, currentTimesEntered: number, triggerOrderId: string) {
+  private async createNewPlacement(userId: string, poolLevel: number, currentTimesEntered: number, triggerOrderId: string): Promise<HeapRewardPlacement> {
     const placement = this.placementRepo.create({
       userId,
       poolLevel,
@@ -195,6 +203,62 @@ export class HeapRewardService {
       isActive: true,
       triggerOrderId,
     });
+    return this.placementRepo.save(placement);
+  }
+
+  private async getHeapMaxPayout(poolLevel: number): Promise<number> {
+    const fallbackByPool: Record<number, number> = {
+      100: 200,
+      500: 1000,
+      1000: 10000,
+      3000: 6000,
+    };
+    return this.getConfigValue(
+      `HEAP_MAX_PAYOUT_${poolLevel}`,
+      fallbackByPool[poolLevel] ?? 0,
+    );
+  }
+
+  private async rewardUserOnPoolEntry(
+    placement: HeapRewardPlacement,
+    poolLevel: number,
+    rewardAmount: number,
+  ): Promise<void> {
+    if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) return;
+
+    const maxPayout = await this.getHeapMaxPayout(poolLevel);
+    const currentTotal = Number(placement.totalRewarded) || 0;
+    const remaining = Math.max(0, maxPayout - currentTotal);
+    const actualReward = maxPayout > 0 ? Math.min(rewardAmount, remaining) : rewardAmount;
+    if (actualReward <= 0) {
+      if (maxPayout > 0 && currentTotal >= maxPayout) {
+        placement.isActive = false;
+        await this.placementRepo.save(placement);
+      }
+      return;
+    }
+
+    await this.userRepo.increment(
+      { id: placement.userId },
+      'withdrawWalletBalance',
+      actualReward,
+    );
+
+    const history = this.historyRepo.create({
+      userId: placement.userId,
+      placementId: placement.id,
+      amount: actualReward,
+      poolLevel,
+      rewardDate: new Date(),
+    });
+    await this.historyRepo.save(history);
+
+    const newTotal = currentTotal + actualReward;
+    placement.totalRewarded = newTotal;
+    if (maxPayout > 0 && newTotal >= maxPayout) {
+      placement.isActive = false;
+      placement.timesEntered = Number(placement.timesEntered) + 1;
+    }
     await this.placementRepo.save(placement);
   }
 
