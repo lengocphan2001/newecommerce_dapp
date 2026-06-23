@@ -103,22 +103,19 @@ export class HeapRewardService {
         poolsToJoin.push(100);
       }
 
-      const joinedPlacementsByPool = new Map<number, HeapRewardPlacement>();
       for (const p of poolsToJoin) {
         const timesEntered = await this.placementRepo.count({
           where: { userId: user.id, poolLevel: p },
         });
 
         if (timesEntered === 0) {
-          const placement = await this.createNewPlacement(user.id, p, 0, order.id);
-          joinedPlacementsByPool.set(p, placement);
+          await this.createNewPlacement(user.id, p, 0, order.id);
           this.logger.log(`User ${user.id} joins Heap pool ${p} (first time).`);
         } else {
           // Lần n (>0), cần kiểm tra F1 đạt ngưỡng tương ứng với bể p
           const f1Count = await this.countQualifiedF1s(user.id, p);
           if (f1Count >= timesEntered) {
-            const placement = await this.createNewPlacement(user.id, p, timesEntered, order.id);
-            joinedPlacementsByPool.set(p, placement);
+            await this.createNewPlacement(user.id, p, timesEntered, order.id);
             this.logger.log(`User ${user.id} joins Heap pool ${p} (timesEntered: ${timesEntered}). Qualified F1s: ${f1Count}`);
           } else {
             this.logger.log(`User ${user.id} cannot join Heap pool ${p}. Needs ${timesEntered} qualified F1s at >= ${p} PV, has ${f1Count}.`);
@@ -126,11 +123,11 @@ export class HeapRewardService {
         }
       }
 
-      // Trả thưởng trực tiếp cho user khi vào từng bể (admin cấu hình % theo từng bể)
-      for (const [p, placement] of joinedPlacementsByPool.entries()) {
+      // Trích thưởng theo % từng bể rồi chia đều cho danh sách active (bao gồm cả user mới vào bể)
+      for (const p of poolsToJoin) {
         const rewardPercent = await this.getConfigValue(`HEAP_POOL_PERCENT_${p}`, p === 100 ? 5 : 10);
-        const rewardAmount = orderTotal * (rewardPercent / 100);
-        await this.rewardUserOnPoolEntry(placement, p, rewardAmount);
+        const poolAmount = orderTotal * (rewardPercent / 100);
+        await this.distributeInstantPayoutForPool(p, poolAmount, poolLevel);
       }
 
       // Xử lý Hàng đợi Doanh số sản phẩm triển vọng (Promising Product Queue)
@@ -204,62 +201,6 @@ export class HeapRewardService {
       triggerOrderId,
     });
     return this.placementRepo.save(placement);
-  }
-
-  private async getHeapMaxPayout(poolLevel: number): Promise<number> {
-    const fallbackByPool: Record<number, number> = {
-      100: 200,
-      500: 1000,
-      1000: 10000,
-      3000: 6000,
-    };
-    return this.getConfigValue(
-      `HEAP_MAX_PAYOUT_${poolLevel}`,
-      fallbackByPool[poolLevel] ?? 0,
-    );
-  }
-
-  private async rewardUserOnPoolEntry(
-    placement: HeapRewardPlacement,
-    poolLevel: number,
-    rewardAmount: number,
-  ): Promise<void> {
-    if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) return;
-
-    const maxPayout = await this.getHeapMaxPayout(poolLevel);
-    const currentTotal = Number(placement.totalRewarded) || 0;
-    const remaining = Math.max(0, maxPayout - currentTotal);
-    const actualReward = maxPayout > 0 ? Math.min(rewardAmount, remaining) : rewardAmount;
-    if (actualReward <= 0) {
-      if (maxPayout > 0 && currentTotal >= maxPayout) {
-        placement.isActive = false;
-        await this.placementRepo.save(placement);
-      }
-      return;
-    }
-
-    await this.userRepo.increment(
-      { id: placement.userId },
-      'withdrawWalletBalance',
-      actualReward,
-    );
-
-    const history = this.historyRepo.create({
-      userId: placement.userId,
-      placementId: placement.id,
-      amount: actualReward,
-      poolLevel,
-      rewardDate: new Date(),
-    });
-    await this.historyRepo.save(history);
-
-    const newTotal = currentTotal + actualReward;
-    placement.totalRewarded = newTotal;
-    if (maxPayout > 0 && newTotal >= maxPayout) {
-      placement.isActive = false;
-      placement.timesEntered = Number(placement.timesEntered) + 1;
-    }
-    await this.placementRepo.save(placement);
   }
 
   private getOrderPoolLevel(amount: number): number {

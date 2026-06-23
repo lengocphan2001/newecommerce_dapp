@@ -492,7 +492,7 @@ const HeapReward: React.FC = () => {
         {/* TAB 3: CẤU HÌNH HỆ THỐNG */}
         {isAdminAccount && (
           <Tabs.TabPane tab="Cấu hình hệ thống Bể & Quỹ" key="3">
-            <Card title="Thiết lập % thưởng user khi vào bể và hạn mức Max Payout">
+            <Card title="Thiết lập tỷ lệ trích quỹ theo bể và hạn mức Max Payout">
               <Form form={form} layout="vertical" onFinish={onFinishConfig}>
                 <Row gutter={24}>
                   {/* BÊN TRÁI: CẤU HÌNH ĐỒNG CHIA */}
@@ -501,7 +501,7 @@ const HeapReward: React.FC = () => {
                     
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 100 PV: % user nhận khi vào bể" name="HEAP_POOL_PERCENT_100">
+                        <Form.Item label="Bể 100 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_100" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -514,7 +514,7 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 500 PV: % user nhận khi vào bể" name="HEAP_POOL_PERCENT_500">
+                        <Form.Item label="Bể 500 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_500" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -527,7 +527,7 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 1000 PV: % user nhận khi vào bể" name="HEAP_POOL_PERCENT_1000">
+                        <Form.Item label="Bể 1000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_1000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -540,7 +540,7 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: % user nhận khi vào bể" name="HEAP_POOL_PERCENT_3000">
+                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_3000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
