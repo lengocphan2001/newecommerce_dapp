@@ -350,7 +350,7 @@ export default function OrderDetailClient() {
                                 )}
                                 {order.paymentMethod !== "deposit_wallet" && order.paymentMethod !== "banking" && order.paymentMethod !== "usdt" && (
                                     <>
-                                        <span className="text-slate-900 text-sm font-bold">Shopii Wallet (USDT)</span>
+                                        <span className="text-slate-900 text-sm font-bold">Shoplife Wallet (USDT)</span>
                                         <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">BEP20</span>
                                     </>
                                 )}

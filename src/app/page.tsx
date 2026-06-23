@@ -143,7 +143,7 @@ export default function HomePage() {
     <div className="bg-background text-text-main font-display antialiased h-screen w-full overflow-hidden relative selection:bg-primary/30">
       <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white pointer-events-none"></div>
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[40%] bg-primary/10 rounded-full blur-[80px] pointer-events-none mix-blend-multiply"></div>
-      <div className="absolute bottom-[-5%] right-[-5%] w-[60%] h-[40%] bg-emerald-100/40 rounded-full blur-[80px] pointer-events-none mix-blend-multiply"></div>
+      <div className="absolute bottom-[-5%] right-[-5%] w-[60%] h-[40%] bg-blue-100/40 rounded-full blur-[80px] pointer-events-none mix-blend-multiply"></div>
 
       <div className="relative flex flex-col h-full w-full max-w-md mx-auto px-6 py-8 safe-area-inset-bottom">
         <div className="flex justify-end pt-4">
@@ -155,7 +155,7 @@ export default function HomePage() {
             <Link href="/register" className="relative group cursor-pointer block">
               <img
                 src="/images/14446126.png"
-                alt="Shopii Logo"
+                alt="Shoplife Logo"
                 className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
               />
             </Link>
@@ -164,7 +164,7 @@ export default function HomePage() {
           <div className="flex flex-col items-center text-center space-y-4 mb-6">
             <h1 className="text-text-main tracking-tight text-2xl md:text-3xl font-bold leading-[1.15]">
               {t("loginTitle")} <br />
-              <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-teal-600">
+              <span className="text-primary bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">
                 {t("loginSubtitle")}
               </span>
             </h1>
@@ -206,7 +206,7 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-emerald-600 hover:from-primary-dark hover:to-emerald-700 active:scale-[0.98] text-white h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(16,185,129,0.4)] border border-emerald-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary-dark hover:to-blue-700 active:scale-[0.98] text-white h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(37,99,235,0.4)] border border-blue-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
@@ -248,7 +248,7 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-emerald-600 hover:from-primary-dark hover:to-emerald-700 active:scale-[0.98] text-white h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(16,185,129,0.4)] border border-emerald-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary-dark hover:to-blue-700 active:scale-[0.98] text-white h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(37,99,235,0.4)] border border-blue-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
@@ -296,7 +296,7 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-emerald-600 hover:from-primary-dark hover:to-emerald-700 active:scale-[0.98] text-white h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(16,185,129,0.4)] border border-emerald-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary-dark hover:to-blue-700 active:scale-[0.98] text-white h-14 rounded-2xl font-bold text-lg transition-all shadow-glow hover:shadow-[0_0_24px_rgba(37,99,235,0.4)] border border-blue-400/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/60 border-t-white" />
@@ -336,7 +336,7 @@ export default function HomePage() {
             </div>
           )}
           {forgotMessage && (
-            <div className="mb-4 w-full rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">
+            <div className="mb-4 w-full rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700">
               {forgotMessage}
             </div>
           )}

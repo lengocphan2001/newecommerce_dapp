@@ -661,7 +661,7 @@ const Products: React.FC = () => {
                         />
                       </Form.Item>
                       <Form.Item name="brand" label="Thương hiệu (Tùy chọn)">
-                        <Input placeholder="VD: Shopii" />
+                        <Input placeholder="VD: Shoplife" />
                       </Form.Item>
                       <Form.Item name="origin" label="Xuất xứ (Tùy chọn)">
                         <Input placeholder="VD: Việt Nam" />
@@ -978,7 +978,7 @@ const Products: React.FC = () => {
                         />
                       </Form.Item>
                       <Form.Item name="brandEn" label="Brand (Optional)">
-                        <Input placeholder="e.g. Shopii" />
+                        <Input placeholder="e.g. Shoplife" />
                       </Form.Item>
                       <Form.Item name="originEn" label="Origin (Optional)">
                         <Input placeholder="e.g. Vietnam" />

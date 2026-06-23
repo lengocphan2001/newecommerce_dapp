@@ -110,7 +110,7 @@ export default function CheckoutPage() {
       const vndAmount = Math.round(finalTotal * usdtToVnd);
       if (vndAmount > 0) params.set("amount", String(vndAmount));
     }
-    const addInfo = (checkoutUser?.username || "SHOPII").replace(/[^a-zA-Z0-9\s]/g, "").slice(0, 25).trim() || "SHOPII";
+    const addInfo = (checkoutUser?.username || "SHOPLIFE").replace(/[^a-zA-Z0-9\s]/g, "").slice(0, 25).trim() || "SHOPLIFE";
     params.set("addInfo", addInfo);
     if (accountName) params.set("accountName", accountName);
     return `${base}?${params.toString()}`;
