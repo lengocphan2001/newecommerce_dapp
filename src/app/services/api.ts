@@ -154,10 +154,18 @@ export const api = {
     return response.json();
   },
 
+  async getProductTypeConfigs(): Promise<{ code: string; name: string; nameEn: string }[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/product-types`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch { return []; }
+  },
+
   async getProducts(
     country?: 'VIETNAM' | 'USA',
     categoryId?: string,
-    productType?: 'STRATEGIC' | 'COMMON',
+    productType?: string,
     options?: { compactHome?: boolean },
   ): Promise<unknown> {
     const compactHome = options?.compactHome === true;

@@ -25,6 +25,8 @@ import { categoryService, Category } from '../services/categoryService';
 import { packagesService, Package } from '../services/packagesService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
+import api from '../services/api';
+
 const availableTags = ['SALE', 'COMING_SOON', 'HOT', 'NEW', 'SOLD_OUT'];
 const { Title } = Typography;
 
@@ -33,6 +35,7 @@ const Products: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchText, setSearchText] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productTypeOptions, setProductTypeOptions] = useState<{ code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -46,6 +49,14 @@ const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    api.get('/admin/product-types').then(res => {
+      setProductTypeOptions(Array.isArray(res.data) ? res.data : []);
+    }).catch(() => {
+      setProductTypeOptions([
+        { code: 'STRATEGIC', name: 'Chiến lược' },
+        { code: 'COMMON',    name: 'Tiêu dùng'  },
+      ]);
+    });
   }, []);
 
   const fetchPackages = useCallback(async () => {
@@ -781,9 +792,10 @@ const Products: React.FC = () => {
                         </Select>
                       </Form.Item>
                       <Form.Item name="productTypes" label="Phân loại sản phẩm (Tùy chọn)" rules={[]} initialValue={[]}>
-                        <Select mode="multiple" style={{ width: '100%' }} placeholder="Chọn loại (Chiến lược / Tiêu dùng)">
-                          <Select.Option value="STRATEGIC">Sản phẩm chiến lược</Select.Option>
-                          <Select.Option value="COMMON">Sản phẩm tiêu dùng</Select.Option>
+                        <Select mode="multiple" style={{ width: '100%' }} placeholder="Chọn loại sản phẩm">
+                          {productTypeOptions.map(pt => (
+                            <Select.Option key={pt.code} value={pt.code}>{pt.name}</Select.Option>
+                          ))}
                         </Select>
                       </Form.Item>
                       <Form.Item name="tags" label="Tags" rules={[]} initialValue={[]}>

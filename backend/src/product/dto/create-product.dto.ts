@@ -68,7 +68,7 @@ export class CreateProductDto {
 
   @IsArray()
   @IsOptional()
-  productTypes?: ('STRATEGIC' | 'COMMON')[];
+  productTypes?: string[];
 
   @IsArray()
   @IsString({ each: true })

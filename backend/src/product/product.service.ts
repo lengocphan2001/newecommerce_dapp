@@ -64,11 +64,8 @@ export class ProductService {
       });
     }
 
-    // Filter by productTypes if provided (check if productTypes array contains the requested type)
-    if (
-      query.productType &&
-      (query.productType === 'STRATEGIC' || query.productType === 'COMMON')
-    ) {
+    // Filter by productTypes if provided — accepts any string code (not just STRATEGIC/COMMON)
+    if (query.productType && typeof query.productType === 'string' && query.productType.trim()) {
       allProducts = allProducts.filter((product) => {
         const types = product.productTypes || [];
         return Array.isArray(types) && types.includes(query.productType);

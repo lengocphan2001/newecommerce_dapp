@@ -36,6 +36,7 @@ import BlockchainSettings from './pages/BlockchainSettings';
 import HeapReward from './pages/HeapReward';
 import MonthlySales from './pages/MonthlySales';
 import RankPool from './pages/RankPool';
+import ProductTypes from './pages/ProductTypes';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -403,6 +404,18 @@ function App() {
                   <AdminOnlyRoute>
                     <AdminLayout>
                       <MonthlySales />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/product-types"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <ProductTypes />
                     </AdminLayout>
                   </AdminOnlyRoute>
                 </PrivateRoute>

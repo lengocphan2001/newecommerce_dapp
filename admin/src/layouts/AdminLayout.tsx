@@ -224,6 +224,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       adminOnly: true,
     },
     {
+      key: '/product-types',
+      icon: <AppstoreOutlined />,
+      label: 'Phân loại SP',
+      permission: null,
+      adminOnly: true,
+    },
+    {
       key: '/rank-pool',
       icon: <GiftOutlined />,
       label: 'Bể Rank',

@@ -67,7 +67,7 @@ export class UpdateProductDto {
 
   @IsArray()
   @IsOptional()
-  productTypes?: ('STRATEGIC' | 'COMMON')[];
+  productTypes?: string[];
 
   @IsArray()
   @IsString({ each: true })

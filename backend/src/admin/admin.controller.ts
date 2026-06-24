@@ -270,6 +270,20 @@ export class AdminController {
     return this.adminService.updateBlockchainConfig(dto);
   }
 
+  /** Public — lấy danh sách loại sản phẩm (frontend dùng để render filter) */
+  @Get('product-types')
+  async getProductTypeConfigs() {
+    return this.adminService.getProductTypeConfigs();
+  }
+
+  /** Admin — lưu danh sách loại sản phẩm */
+  @Put('product-types')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async saveProductTypeConfigs(@Body() body: any) {
+    if (!Array.isArray(body)) throw new BadRequestException('Body phải là mảng');
+    return this.adminService.saveProductTypeConfigs(body);
+  }
+
   /** Doanh số user theo tháng */
   @Get('monthly-sales')
   @UseGuards(JwtAuthGuard, AdminGuard)

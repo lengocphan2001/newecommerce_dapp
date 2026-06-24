@@ -1427,4 +1427,41 @@ export class AdminService {
       };
     }).sort((a, b) => b.totalSales - a.totalSales);
   }
+
+  private static readonly PRODUCT_TYPE_CONFIGS_KEY = 'PRODUCT_TYPE_CONFIGS';
+  private static readonly DEFAULT_PRODUCT_TYPES = [
+    { code: 'STRATEGIC', name: 'Chiến lược', nameEn: 'Strategic' },
+    { code: 'COMMON',    name: 'Tiêu dùng',  nameEn: 'Common'    },
+  ];
+
+  async getProductTypeConfigs(): Promise<{ code: string; name: string; nameEn: string }[]> {
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: AdminService.PRODUCT_TYPE_CONFIGS_KEY },
+    });
+    if (!row?.value) return AdminService.DEFAULT_PRODUCT_TYPES;
+    try {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fall through */ }
+    return AdminService.DEFAULT_PRODUCT_TYPES;
+  }
+
+  async saveProductTypeConfigs(
+    types: { code: string; name: string; nameEn?: string }[],
+  ): Promise<{ code: string; name: string; nameEn: string }[]> {
+    if (!Array.isArray(types) || types.length === 0)
+      throw new BadRequestException('Phải có ít nhất một loại sản phẩm');
+    const cleaned = types.map(t => ({
+      code: String(t.code).toUpperCase().replace(/\s+/g, '_').slice(0, 50),
+      name: String(t.name).slice(0, 100),
+      nameEn: String(t.nameEn || t.name).slice(0, 100),
+    }));
+    let row = await this.systemConfigRepository.findOne({
+      where: { key: AdminService.PRODUCT_TYPE_CONFIGS_KEY },
+    });
+    if (!row) row = this.systemConfigRepository.create({ key: AdminService.PRODUCT_TYPE_CONFIGS_KEY });
+    row.value = JSON.stringify(cleaned);
+    await this.systemConfigRepository.save(row);
+    return cleaned;
+  }
 }
