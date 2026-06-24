@@ -34,6 +34,7 @@ import WalletDepositRequests from './pages/WalletDepositRequests';
 import WalletWithdrawRequests from './pages/WalletWithdrawRequests';
 import BlockchainSettings from './pages/BlockchainSettings';
 import HeapReward from './pages/HeapReward';
+import MonthlySales from './pages/MonthlySales';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -391,6 +392,18 @@ function App() {
                   <AdminLayout>
                     <HeapReward />
                   </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monthly-sales"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <MonthlySales />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />

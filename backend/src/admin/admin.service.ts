@@ -1378,4 +1378,53 @@ export class AdminService {
     }
     return lines.join('\n');
   }
+
+  /**
+   * Trả về doanh số của từng user trong tháng/năm chỉ định (tổng giá trị đơn đã xác nhận).
+   */
+  async getMonthlySales(year: number, month: number): Promise<{
+    userId: string;
+    username: string;
+    fullName: string;
+    email: string;
+    packageType: string;
+    totalSales: number;
+  }[]> {
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end   = new Date(year, month, 1, 0, 0, 0, 0);
+
+    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
+
+    const rows = await this.orderRepository
+      .createQueryBuilder('o')
+      .select('o.userId', 'userId')
+      .addSelect('COALESCE(SUM(o.totalAmount), 0)', 'totalSales')
+      .where('o.status IN (:...statuses)', { statuses: validStatuses })
+      .andWhere('o.createdAt >= :start', { start })
+      .andWhere('o.createdAt < :end', { end })
+      .andWhere('o.userId IS NOT NULL')
+      .groupBy('o.userId')
+      .getRawMany<{ userId: string; totalSales: string }>();
+
+    if (rows.length === 0) return [];
+
+    const userIds = rows.map(r => r.userId);
+    const users = await this.userRepository.find({
+      where: { id: In(userIds) },
+      select: ['id', 'username', 'fullName', 'email', 'packageType'],
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    return rows.map(r => {
+      const u = userMap.get(r.userId);
+      return {
+        userId: r.userId,
+        username: u?.username || '',
+        fullName: u?.fullName || '',
+        email: u?.email || '',
+        packageType: u?.packageType || 'NONE',
+        totalSales: parseFloat(r.totalSales) || 0,
+      };
+    }).sort((a, b) => b.totalSales - a.totalSales);
+  }
 }

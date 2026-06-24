@@ -269,4 +269,49 @@ export class AdminController {
   async updateBlockchainConfig(@Body() dto: any) {
     return this.adminService.updateBlockchainConfig(dto);
   }
+
+  /** Doanh số user theo tháng */
+  @Get('monthly-sales')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getMonthlySales(@Query() query: any) {
+    const now = new Date();
+    const year  = parseInt(query.year  || String(now.getFullYear()), 10);
+    const month = parseInt(query.month || String(now.getMonth() + 1), 10);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      throw new BadRequestException('year và month không hợp lệ');
+    }
+    return this.adminService.getMonthlySales(year, month);
+  }
+
+  /** Export CSV doanh số user theo tháng */
+  @Get('monthly-sales/export')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async exportMonthlySales(@Query() query: any, @Res() res: Response) {
+    const now = new Date();
+    const year  = parseInt(query.year  || String(now.getFullYear()), 10);
+    const month = parseInt(query.month || String(now.getMonth() + 1), 10);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      throw new BadRequestException('year và month không hợp lệ');
+    }
+    const rows = await this.adminService.getMonthlySales(year, month);
+
+    const esc = (v: string | number | null | undefined) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const headers = ['User ID', 'Username', 'Full Name', 'Email', 'Package', 'Total Sales (PV)'];
+    const csvLines = [
+      headers.join(','),
+      ...rows.map(r =>
+        [esc(r.userId), esc(r.username), esc(r.fullName), esc(r.email), esc(r.packageType), r.totalSales.toFixed(4)].join(',')
+      ),
+    ].join('\n');
+
+    res.header('Content-Type', 'text/csv');
+    res.header('Content-Disposition', `attachment; filename="monthly-sales-${year}-${String(month).padStart(2,'0')}.csv"`);
+    return res.send(csvLines);
+  }
 }

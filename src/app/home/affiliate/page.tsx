@@ -20,8 +20,8 @@ export default function AffiliatePage() {
     username: string;
     fullName: string;
     treeStats: {
-      left: { count: number; members: any[]; volume?: number };
-      right: { count: number; members: any[]; volume?: number };
+      left: { count: number; members: any[]; volume?: number; monthlyVolume?: number };
+      right: { count: number; members: any[]; volume?: number; monthlyVolume?: number };
       total: number;
       newTodayCount?: number;
     };
@@ -267,6 +267,17 @@ export default function AffiliatePage() {
       ? referralInfo.treeStats.right.volume
       : parseFloat(referralInfo.treeStats.right.volume || "0") || 0;
 
+  // Doanh số nhánh tháng hiện tại
+  const leftMonthlyVolume =
+    typeof referralInfo.treeStats.left.monthlyVolume === "number"
+      ? referralInfo.treeStats.left.monthlyVolume
+      : parseFloat(String(referralInfo.treeStats.left.monthlyVolume ?? "0")) || 0;
+  const rightMonthlyVolume =
+    typeof referralInfo.treeStats.right.monthlyVolume === "number"
+      ? referralInfo.treeStats.right.monthlyVolume
+      : parseFloat(String(referralInfo.treeStats.right.monthlyVolume ?? "0")) || 0;
+  const weakBranchMonthlyVolume = Math.min(leftMonthlyVolume, rightMonthlyVolume);
+
   const maxCommission = getMaxCommission();
   const receivedCommission =
     (typeof referralInfo.bonusCommission === "string"
@@ -451,27 +462,44 @@ export default function AffiliatePage() {
                     </div>
                   </div>
                 )}
-                {/* Branch Totals */}
+                {/* Branch Totals — tháng hiện tại */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-teal-50 rounded-lg border border-teal-200">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-teal-800">
+                      <span className="text-xs font-bold text-blue-800">
                         {t("affiliateLeftBranchLabel")}
                       </span>
                     </div>
                     <p className="text-base font-bold text-text-dark">
-                      {formatVolume(leftVolume)} PV
+                      {formatVolume(leftMonthlyVolume)} PV
+                    </p>
+                    <p className="text-[10px] text-blue-500 mt-0.5">
+                      {lang === "vi" ? "tháng này" : "this month"}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-green-800">
+                      <span className="text-xs font-bold text-blue-800">
                         {t("affiliateRightBranchLabel")}
                       </span>
                     </div>
                     <p className="text-base font-bold text-text-dark">
-                      {formatVolume(rightVolume)} PV
+                      {formatVolume(rightMonthlyVolume)} PV
                     </p>
+                    <p className="text-[10px] text-blue-500 mt-0.5">
+                      {lang === "vi" ? "tháng này" : "this month"}
+                    </p>
+                  </div>
+                </div>
+                {/* Nhánh yếu tháng hiện tại */}
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-800">
+                      {lang === "vi" ? "Nhánh yếu (tháng này)" : "Weak Branch (this month)"}
+                    </span>
+                    <span className="text-base font-bold text-amber-700">
+                      {formatVolume(weakBranchMonthlyVolume)} PV
+                    </span>
                   </div>
                 </div>
               </div>

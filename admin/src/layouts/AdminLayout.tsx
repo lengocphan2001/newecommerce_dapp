@@ -213,7 +213,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       key: '/banking-settings',
       icon: <BankOutlined />,
       label: 'Banking Settings',
-      permission: null, // accessible to all admins
+      permission: null,
+      adminOnly: true,
+    },
+    {
+      key: '/monthly-sales',
+      icon: <BarChartOutlined />,
+      label: 'Doanh số tháng',
+      permission: null,
       adminOnly: true,
     },
   ];

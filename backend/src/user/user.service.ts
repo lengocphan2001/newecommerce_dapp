@@ -454,9 +454,11 @@ export class UserService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    // Para optimizar el rendimiento y evitar recursiones N+1 costosas en base de datos,
-    // calculamos las estadísticas de descendientes para ambas ramas en memoria usando una sola consulta.
     const stats = await this.getDescendantsStatsSummary(userId, startOfDay);
+
+    // Doanh số nhánh tháng hiện tại
+    const now = new Date();
+    const monthly = await this.getBranchMonthlyVolume(userId, now.getFullYear(), now.getMonth() + 1);
 
     return {
       left: {
@@ -464,16 +466,79 @@ export class UserService {
         members: [],
         volume: user.leftBranchTotal || 0,
         total: user.leftBranchTotal || 0,
+        monthlyVolume: monthly.left,
       },
       right: {
         count: stats.right.count,
         members: [],
         volume: user.rightBranchTotal || 0,
         total: user.rightBranchTotal || 0,
+        monthlyVolume: monthly.right,
       },
       total: stats.left.count + stats.right.count,
       newTodayCount: stats.left.newSince + stats.right.newSince,
     };
+  }
+
+  /**
+   * Tính tổng doanh số nhánh trái / phải trong tháng chỉ định.
+   * Lấy toàn bộ user trong cây (1 query), phân loại left/right, sau đó aggregate orders.
+   */
+  async getBranchMonthlyVolume(
+    userId: string,
+    year: number,
+    month: number,
+  ): Promise<{ left: number; right: number }> {
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end   = new Date(year, month, 1, 0, 0, 0, 0);
+
+    // Lấy toàn bộ user tree một lần
+    const allUsers = await this.userRepository.find({
+      select: ['id', 'parentId', 'position'],
+    });
+
+    const parentToChildren = new Map<string, Array<{ id: string; position: string }>>();
+    for (const u of allUsers) {
+      if (u.parentId) {
+        if (!parentToChildren.has(u.parentId)) parentToChildren.set(u.parentId, []);
+        parentToChildren.get(u.parentId)!.push({ id: u.id, position: u.position });
+      }
+    }
+
+    const collectBranch = (side: 'left' | 'right'): string[] => {
+      const ids: string[] = [];
+      const queue: string[] = [];
+      for (const c of parentToChildren.get(userId) || []) {
+        if (c.position === side) queue.push(c.id);
+      }
+      while (queue.length) {
+        const cur = queue.shift()!;
+        ids.push(cur);
+        for (const c of parentToChildren.get(cur) || []) queue.push(c.id);
+      }
+      return ids;
+    };
+
+    const leftIds  = collectBranch('left');
+    const rightIds = collectBranch('right');
+
+    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
+
+    const sumOrders = async (ids: string[]): Promise<number> => {
+      if (ids.length === 0) return 0;
+      const row = await this.orderRepository
+        .createQueryBuilder('o')
+        .select('COALESCE(SUM(o.totalAmount), 0)', 'sum')
+        .where('o.userId IN (:...ids)', { ids })
+        .andWhere('o.status IN (:...statuses)', { statuses: validStatuses })
+        .andWhere('o.createdAt >= :start', { start })
+        .andWhere('o.createdAt < :end', { end })
+        .getRawOne<{ sum: string }>();
+      return parseFloat(row?.sum || '0') || 0;
+    };
+
+    const [left, right] = await Promise.all([sumOrders(leftIds), sumOrders(rightIds)]);
+    return { left, right };
   }
 
   private async getDescendantsStatsSummary(
