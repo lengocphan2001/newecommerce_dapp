@@ -126,16 +126,16 @@ const HeapReward: React.FC = () => {
       form.setFieldsValue({
         HEAP_POOL_PERCENT_100: getVal('HEAP_POOL_PERCENT_100', 5),
         HEAP_POOL_PERCENT_500: getVal('HEAP_POOL_PERCENT_500', 10),
-        HEAP_POOL_PERCENT_1000: getVal('HEAP_POOL_PERCENT_1000', 10),
         HEAP_POOL_PERCENT_3000: getVal('HEAP_POOL_PERCENT_3000', 10),
+        HEAP_POOL_PERCENT_5000: getVal('HEAP_POOL_PERCENT_5000', 10),
         HEAP_MAX_PAYOUT_100: getVal('HEAP_MAX_PAYOUT_100', 200),
         HEAP_MAX_PAYOUT_500: getVal('HEAP_MAX_PAYOUT_500', 1000),
-        HEAP_MAX_PAYOUT_1000: getVal('HEAP_MAX_PAYOUT_1000', 10000),
         HEAP_MAX_PAYOUT_3000: getVal('HEAP_MAX_PAYOUT_3000', 6000),
-        PROMISING_POOL_PERCENT_1000: getVal('PROMISING_POOL_PERCENT_1000', 5),
-        PROMISING_POOL_PERCENT_3000: getVal('PROMISING_POOL_PERCENT_3000', 10),
-        PROMISING_MAX_PAYOUT_1000: getVal('PROMISING_MAX_PAYOUT_1000', 4000),
-        PROMISING_MAX_PAYOUT_3000: getVal('PROMISING_MAX_PAYOUT_3000', 8000),
+        HEAP_MAX_PAYOUT_5000: getVal('HEAP_MAX_PAYOUT_5000', 10000),
+        PROMISING_POOL_PERCENT_3000: getVal('PROMISING_POOL_PERCENT_3000', 5),
+        PROMISING_POOL_PERCENT_5000: getVal('PROMISING_POOL_PERCENT_5000', 10),
+        PROMISING_MAX_PAYOUT_3000: getVal('PROMISING_MAX_PAYOUT_3000', 4000),
+        PROMISING_MAX_PAYOUT_5000: getVal('PROMISING_MAX_PAYOUT_5000', 8000),
       });
     } catch (e) {
       notification.error({ message: 'Lỗi khi tải cấu hình hệ thống' });
@@ -449,8 +449,8 @@ const HeapReward: React.FC = () => {
               <Option value="">Tất cả các bể</Option>
               <Option value="100">Bể 100 PV</Option>
               <Option value="500">Bể 500 PV</Option>
-              <Option value="1000">Bể 1000 PV</Option>
               <Option value="3000">Bể 3000 PV</Option>
+              <Option value="5000">Bể 5000 PV</Option>
             </Select>
           </div>
           <Card title="Danh sách thành viên trong các bể đồng chia">
@@ -474,8 +474,8 @@ const HeapReward: React.FC = () => {
               onChange={(val) => setSelectedPromisingPoolLevel(val ? Number(val) : undefined)}
             >
               <Option value="">Tất cả</Option>
-              <Option value="1000">Bể 1000 PV</Option>
               <Option value="3000">Bể 3000 PV</Option>
+              <Option value="5000">Bể 5000 PV</Option>
             </Select>
           </div>
           <Card title="Hàng đợi chia thưởng sản phẩm triển vọng (Tối đa 10 ID hoạt động đồng thời)">
@@ -527,12 +527,12 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 1000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_1000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
+                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_3000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="Bể 1000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_1000">
+                        <Form.Item label="Bể 3000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_3000">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -540,12 +540,12 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_3000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
+                        <Form.Item label="Bể 5000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_5000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_3000">
+                        <Form.Item label="Bể 5000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_5000">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -558,12 +558,12 @@ const HeapReward: React.FC = () => {
                     
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 1000 PV: Tỷ lệ trích (%)" name="PROMISING_POOL_PERCENT_1000">
+                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích (%)" name="PROMISING_POOL_PERCENT_3000">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="Bể 1000 PV: Max Payout ($)" name="PROMISING_MAX_PAYOUT_1000">
+                        <Form.Item label="Bể 3000 PV: Max Payout ($)" name="PROMISING_MAX_PAYOUT_3000">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -571,12 +571,12 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích (%)" name="PROMISING_POOL_PERCENT_3000">
+                        <Form.Item label="Bể 5000 PV: Tỷ lệ trích (%)" name="PROMISING_POOL_PERCENT_5000">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Max Payout ($)" name="PROMISING_MAX_PAYOUT_3000">
+                        <Form.Item label="Bể 5000 PV: Max Payout ($)" name="PROMISING_MAX_PAYOUT_5000">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -639,10 +639,10 @@ const HeapReward: React.FC = () => {
                         <Option value="all">Tất cả các bể</Option>
                         <Option value="heap-100">Bể Heap 100 PV</Option>
                         <Option value="heap-500">Bể Heap 500 PV</Option>
-                        <Option value="heap-1000">Bể Heap 1000 PV</Option>
                         <Option value="heap-3000">Bể Heap 3000 PV</Option>
-                        <Option value="promising-1000">Bể Triển vọng 1000 PV</Option>
+                        <Option value="heap-5000">Bể Heap 5000 PV</Option>
                         <Option value="promising-3000">Bể Triển vọng 3000 PV</Option>
+                        <Option value="promising-5000">Bể Triển vọng 5000 PV</Option>
                       </Select>
                     </div>
                     <Button 

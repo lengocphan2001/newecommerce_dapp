@@ -39,7 +39,7 @@ export class PromisingProductPlacement {
 
   @Index()
   @Column({ type: 'int' })
-  poolLevel: number; // 1000 hoặc 3000
+  poolLevel: number; // 3000 hoặc 5000
 
   @CreateDateColumn()
   createdAt: Date;

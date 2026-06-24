@@ -55,31 +55,29 @@ export class HeapRewardService {
 
       const orderTotal = Number(order.totalAmount) || 0;
 
-      // Chỉ thực hiện kiểm tra điều kiện sản phẩm triển vọng và giới hạn 1 sản phẩm cho đơn từ 1000 PV trở lên
+      // Chỉ thực hiện kiểm tra điều kiện sản phẩm triển vọng và giới hạn 1 sản phẩm cho đơn từ 3000 PV trở lên
       // Các đơn nhỏ hơn (100 PV, 500 PV) không bị ràng buộc bởi các điều kiện này
       let isPromisingOrder = false;
-      if (orderTotal >= 1000) {
+      if (orderTotal >= 3000) {
         if (order.items && order.items.length === 1) {
           const item = order.items[0];
           const product = await this.productRepo.findOne({ where: { id: item.productId } });
           if (product && product.isPromisingProduct) {
             isPromisingOrder = true;
           } else {
-            // Log lý do đơn hàng lớn không đạt tiêu chuẩn sản phẩm triển vọng
-            this.logger.log(`[HEAP/PROMISING] Order ${orderId} total ${orderTotal} is >= 1000 PV but product is not promising. Treating as normal order.`);
+            this.logger.log(`[HEAP/PROMISING] Order ${orderId} total ${orderTotal} is >= 3000 PV but product is not promising. Treating as normal order.`);
           }
         } else {
-          // Log lý do đơn hàng lớn không đạt tiêu chuẩn 1 sản phẩm
-          this.logger.log(`[HEAP/PROMISING] Order ${orderId} total ${orderTotal} is >= 1000 PV but does not contain exactly 1 item. Treating as normal order.`);
+          this.logger.log(`[HEAP/PROMISING] Order ${orderId} total ${orderTotal} is >= 3000 PV but does not contain exactly 1 item. Treating as normal order.`);
         }
       }
 
       // Phân loại mốc PV cho Heap Reward (độc lập với điều kiện sản phẩm triển vọng)
       let poolLevel = 0;
-      if (orderTotal >= 3000) {
+      if (orderTotal >= 5000) {
+        poolLevel = 5000;
+      } else if (orderTotal >= 3000) {
         poolLevel = 3000;
-      } else if (orderTotal >= 1000) {
-        poolLevel = 1000;
       } else if (orderTotal >= 500) {
         poolLevel = 500;
       } else if (orderTotal >= 100) {
@@ -93,10 +91,10 @@ export class HeapRewardService {
 
       // Xử lý nhảy cây đồng chia (Heap Reward)
       const poolsToJoin: number[] = [];
-      if (poolLevel === 3000) {
-        poolsToJoin.push(500, 1000, 3000);
-      } else if (poolLevel === 1000) {
-        poolsToJoin.push(500, 1000);
+      if (poolLevel === 5000) {
+        poolsToJoin.push(100, 500, 3000, 5000);
+      } else if (poolLevel === 3000) {
+        poolsToJoin.push(100, 500, 3000);
       } else if (poolLevel === 500) {
         poolsToJoin.push(500);
       } else if (poolLevel === 100) {
@@ -132,12 +130,12 @@ export class HeapRewardService {
 
       // Xử lý Hàng đợi Doanh số sản phẩm triển vọng (Promising Product Queue)
       const promisingPoolLevel =
-        isPromisingOrder && orderTotal >= 3000
-          ? 3000
-          : isPromisingOrder && orderTotal >= 1000
-            ? 1000
+        isPromisingOrder && orderTotal >= 5000
+          ? 5000
+          : isPromisingOrder && orderTotal >= 3000
+            ? 3000
             : 0;
-      if (promisingPoolLevel === 1000 || promisingPoolLevel === 3000) {
+      if (promisingPoolLevel === 3000 || promisingPoolLevel === 5000) {
         const activeCount = await this.promisingPlacementRepo.count({
           where: { poolLevel: promisingPoolLevel, isActive: true },
         });
@@ -161,7 +159,7 @@ export class HeapRewardService {
         this.logger.log(`User ${user.id} entered Promising Product queue ${promisingPoolLevel}. Active: ${isActive}`);
 
         // Trích thưởng cho quỹ doanh số sản phẩm triển vọng tương ứng
-        const promisingPercent = await this.getConfigValue(`PROMISING_POOL_PERCENT_${promisingPoolLevel}`, promisingPoolLevel === 1000 ? 5 : 10);
+        const promisingPercent = await this.getConfigValue(`PROMISING_POOL_PERCENT_${promisingPoolLevel}`, promisingPoolLevel === 3000 ? 5 : 10);
         const promisingPoolAmount = orderTotal * (promisingPercent / 100);
         await this.distributePromisingPayout(promisingPoolLevel, promisingPoolAmount);
       }
@@ -204,8 +202,8 @@ export class HeapRewardService {
   }
 
   private getOrderPoolLevel(amount: number): number {
+    if (amount >= 5000) return 5000;
     if (amount >= 3000) return 3000;
-    if (amount >= 1000) return 1000;
     if (amount >= 500) return 500;
     if (amount >= 100) return 100;
     return 0;
@@ -221,8 +219,8 @@ export class HeapRewardService {
       const maxPayouts: Record<number, number> = {
         100: await this.getConfigValue('HEAP_MAX_PAYOUT_100', 200),
         500: await this.getConfigValue('HEAP_MAX_PAYOUT_500', 1000),
-        1000: await this.getConfigValue('HEAP_MAX_PAYOUT_1000', 10000),
         3000: await this.getConfigValue('HEAP_MAX_PAYOUT_3000', 6000),
+        5000: await this.getConfigValue('HEAP_MAX_PAYOUT_5000', 10000),
       };
 
       await this.placementRepo.manager.transaction(async (manager) => {
@@ -243,12 +241,12 @@ export class HeapRewardService {
 
         // Lọc danh sách người dùng được nhận dựa trên xuất phát điểm đơn hàng kích hoạt
         const eligiblePlacements = activePlacements.filter(placement => {
-          // Nếu đơn hàng kích hoạt mới là 1000 PV hoặc 3000 PV, và bể đang xét nhỏ hơn đơn hàng kích hoạt này
-          if ((triggerOrderPoolLevel === 1000 || triggerOrderPoolLevel === 3000) && poolLevel < triggerOrderPoolLevel) {
-            // Chỉ những người có đơn hàng kích hoạt gốc >= 1000 PV được nhận
+          // Nếu đơn hàng kích hoạt mới là 3000 PV hoặc 5000 PV, và bể đang xét nhỏ hơn đơn hàng kích hoạt này
+          if ((triggerOrderPoolLevel === 3000 || triggerOrderPoolLevel === 5000) && poolLevel < triggerOrderPoolLevel) {
+            // Chỉ những người có đơn hàng kích hoạt gốc >= 3000 PV được nhận
             const placementTriggerAmount = Number(placement.triggerOrder?.totalAmount || 0);
             const placementTriggerLevel = this.getOrderPoolLevel(placementTriggerAmount);
-            return placementTriggerLevel >= 1000;
+            return placementTriggerLevel >= 3000;
           }
           // Với các trường hợp đơn 100, 500 hoặc khi poolLevel === triggerOrderPoolLevel thì chia cho tất cả
           return true;
@@ -313,7 +311,7 @@ export class HeapRewardService {
   async distributePromisingPayout(poolLevel: number, poolAmount: number) {
     this.logger.log(`Starting Promising Product reward distribution for pool ${poolLevel} with amount: ${poolAmount}`);
     try {
-      const defaultMax = poolLevel === 1000 ? 4000 : 8000;
+      const defaultMax = poolLevel === 3000 ? 4000 : 8000;
       const maxPayout = await this.getConfigValue(`PROMISING_MAX_PAYOUT_${poolLevel}`, defaultMax);
 
       await this.promisingPlacementRepo.manager.transaction(async (manager) => {
