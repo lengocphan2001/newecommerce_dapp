@@ -17,8 +17,14 @@ export class Web3Service implements OnModuleInit {
   }
 
   async onModuleInit() {
-    await this.initializeProvider();
-    await this.initializeWallet();
+    try {
+      await this.initializeProvider();
+      await this.initializeWallet();
+    } catch (err: any) {
+      this.logger.warn(
+        `Blockchain init skipped (no valid config): ${err?.shortMessage || err?.message}`,
+      );
+    }
   }
 
   private async initializeProvider() {
