@@ -15,6 +15,7 @@ export default function ProfilePage() {
     username?: string;
     avatar?: string;
     packageType?: string;
+    rank?: string;
     accumulatedPurchases?: string;
   } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -157,6 +158,16 @@ export default function ProfilePage() {
     }
   };
 
+  const rankStyle = (rank: string): React.CSSProperties => {
+    const map: Record<string, React.CSSProperties> = {
+      LEADER:   { background: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd' },
+      MANAGER:  { background: '#f0fdf4', color: '#15803d', borderColor: '#86efac' },
+      DIRECTOR: { background: '#fffbeb', color: '#b45309', borderColor: '#fcd34d' },
+      DIAMOND:  { background: '#faf5ff', color: '#7e22ce', borderColor: '#d8b4fe' },
+    };
+    return map[rank] ?? { background: '#f8fafc', color: '#475569', borderColor: '#cbd5e1' };
+  };
+
   const calculateCommissionProgress = () => {
     if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
     const progress = (reconsumptionStatus.currentCommission / reconsumptionStatus.threshold) * 100;
@@ -236,10 +247,17 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-2 mt-1">
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
-                <span className="bg-emerald-50 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                <span className="bg-primary/10 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   {userInfo?.packageType === 'NONE' ? 'User' : userInfo?.packageType}
                 </span>
               </div>
+              {userInfo?.rank && userInfo.rank !== 'NONE' && (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border font-bold text-xs uppercase tracking-wider shadow-sm"
+                  style={rankStyle(userInfo.rank)}>
+                  <span className="material-symbols-outlined text-sm leading-none">workspace_premium</span>
+                  {userInfo.rank}
+                </div>
+              )}
             </div>
 
             {/* Buy package section - hidden for now (Packages CTV, NPP, TV)
