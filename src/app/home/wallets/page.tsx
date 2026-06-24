@@ -615,76 +615,41 @@ export default function WalletsPage() {
 
       <main className="flex-1 flex flex-col gap-6 px-4 bg-white mt-4">
         {/* Thông tin cá nhân */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-violet-200">
+        <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-md border border-violet-200">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
-          <div className="relative z-10 flex flex-col gap-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                {referralInfo?.avatar ? (
-                  <img
-                    src={referralInfo.avatar}
-                    alt=""
-                    className="h-14 w-14 rounded-full object-cover border border-violet-100 shrink-0"
-                  />
-                ) : (
-                  <div className="h-14 w-14 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-violet-600 text-[28px]">person</span>
-                  </div>
+          <div className="relative z-10 flex items-center gap-3">
+            {referralInfo?.avatar ? (
+              <img src={referralInfo.avatar} alt="" className="h-12 w-12 rounded-full object-cover border border-violet-100 shrink-0" />
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-violet-600 text-2xl">person</span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-text-dark truncate leading-tight">
+                {referralInfo?.fullName?.trim() || referralInfo?.username || "—"}
+              </h2>
+              <p className="text-xs text-gray-500 truncate">@{referralInfo?.username}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {referralInfo?.packageType && referralInfo.packageType !== "NONE" && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                    {referralInfo.packageType}
+                  </span>
                 )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-600">Thông tin cá nhân</p>
-                  <h2 className="text-xl font-bold tracking-tight text-text-dark truncate">
-                    {referralInfo?.fullName?.trim() || referralInfo?.username || "—"}
-                  </h2>
-                  {referralInfo?.username ? (
-                    <p className="text-sm text-gray-500 truncate">@{referralInfo.username}</p>
-                  ) : null}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => router.push("/home/profile/edit")}
-                className="shrink-0 text-sm font-semibold text-primary-dark hover:text-primary"
-              >
-                Chỉnh sửa
-              </button>
-            </div>
-            <dl className="grid gap-3 text-sm border-t border-gray-100 pt-4">
-              <div>
-                <dt className="text-xs font-medium text-gray-500">Email</dt>
-                <dd className="text-text-dark break-all">{referralInfo?.email || "—"}</dd>
-              </div>
-              {(referralInfo?.phone || referralInfo?.phoneNumber) ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Điện thoại</dt>
-                  <dd className="text-text-dark">{referralInfo.phone || referralInfo.phoneNumber}</dd>
-                </div>
-              ) : null}
-              {referralInfo?.address?.trim() ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Địa chỉ</dt>
-                  <dd className="text-text-dark">{referralInfo.address.trim()}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt className="text-xs font-medium text-gray-500">Mã thành viên</dt>
-                <dd className="font-mono text-xs text-gray-700 break-all">{referralInfo?.id || "—"}</dd>
-              </div>
-              {referralInfo?.packageType && referralInfo.packageType !== "NONE" ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Gói</dt>
-                  <dd className="text-text-dark">{referralInfo.packageType}</dd>
-                </div>
-              ) : null}
-              {referralInfo?.createdAt ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Tham gia</dt>
-                  <dd className="text-text-dark">
+                {referralInfo?.createdAt && (
+                  <span className="text-[10px] text-gray-400">
                     {new Date(referralInfo.createdAt).toLocaleDateString("vi-VN")}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/home/profile/edit")}
+              className="shrink-0 text-xs font-semibold text-primary-dark hover:text-primary"
+            >
+              Chỉnh sửa
+            </button>
           </div>
         </div>
 
