@@ -35,6 +35,7 @@ import WalletWithdrawRequests from './pages/WalletWithdrawRequests';
 import BlockchainSettings from './pages/BlockchainSettings';
 import HeapReward from './pages/HeapReward';
 import MonthlySales from './pages/MonthlySales';
+import RankPool from './pages/RankPool';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -402,6 +403,18 @@ function App() {
                   <AdminOnlyRoute>
                     <AdminLayout>
                       <MonthlySales />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/rank-pool"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <RankPool />
                     </AdminLayout>
                   </AdminOnlyRoute>
                 </PrivateRoute>

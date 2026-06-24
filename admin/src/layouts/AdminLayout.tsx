@@ -223,6 +223,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: null,
       adminOnly: true,
     },
+    {
+      key: '/rank-pool',
+      icon: <GiftOutlined />,
+      label: 'Bể Rank',
+      permission: null,
+      adminOnly: true,
+    },
   ];
 
   // Filter menu items based on permissions

@@ -58,6 +58,9 @@ import { HeapRewardHistory } from './heap-reward/entities/heap-reward-history.en
 import { PromisingProductPlacement } from './heap-reward/entities/promising-product-placement.entity';
 import { PromisingProductHistory } from './heap-reward/entities/promising-product-history.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
+import { RankPoolModule } from './rank-pool/rank-pool.module';
+import { RankPoolPlacement } from './rank-pool/entities/rank-pool-placement.entity';
+import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
 
 @Module({
   imports: [
@@ -121,6 +124,8 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
           HeapRewardHistory,
           PromisingProductPlacement,
           PromisingProductHistory,
+          RankPoolPlacement,
+          RankPoolHistory,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
@@ -150,6 +155,7 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
     AnalyticsModule,
     MatrixRewardModule,
     HeapRewardModule,
+    RankPoolModule,
   ],
   controllers: [AppController],
   providers: [AppService],

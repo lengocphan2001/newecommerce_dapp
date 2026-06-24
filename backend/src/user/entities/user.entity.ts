@@ -74,6 +74,14 @@ export class User {
   @Column({ default: 'NONE' })
   packageType: string; // Loại gói user (dynamic code)
 
+  /** Rank lãnh đạo do admin thiết lập hàng tháng dựa trên doanh số */
+  @Column({
+    type: 'enum',
+    enum: ['NONE', 'LEADER', 'MANAGER', 'DIRECTOR', 'DIAMOND'],
+    default: 'NONE',
+  })
+  rank: 'NONE' | 'LEADER' | 'MANAGER' | 'DIRECTOR' | 'DIAMOND';
+
   @Column({
     type: 'decimal',
     precision: 36,
