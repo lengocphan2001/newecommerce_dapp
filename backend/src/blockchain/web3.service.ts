@@ -35,16 +35,23 @@ export class Web3Service implements OnModuleInit {
 
   private async initializeWallet() {
     const privateKey = this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
-    if (!privateKey) {
+    if (!privateKey || privateKey.includes('xxx') || privateKey === '0x') {
       this.logger.warn(
-        'BLOCKCHAIN_PRIVATE_KEY not set. Some features may not work.',
+        'BLOCKCHAIN_PRIVATE_KEY not set or is a placeholder. Blockchain features will be unavailable.',
       );
       return;
     }
 
-    this.wallet = new Wallet(privateKey, this.provider);
-    const address = await this.wallet.getAddress();
-    this.logger.log(`Initialized wallet: ${address}`);
+    try {
+      this.wallet = new Wallet(privateKey, this.provider);
+      const address = await this.wallet.getAddress();
+      this.logger.log(`Initialized wallet: ${address}`);
+    } catch (err: any) {
+      this.logger.warn(
+        `BLOCKCHAIN_PRIVATE_KEY is invalid — blockchain features disabled. (${err?.shortMessage || err?.message})`,
+      );
+      this.wallet = null as any;
+    }
   }
 
   /**
