@@ -462,45 +462,17 @@ export default function AffiliatePage() {
                     </div>
                   </div>
                 )}
-                {/* Branch Totals — tháng hiện tại */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-blue-800">
-                        {t("affiliateLeftBranchLabel")}
-                      </span>
-                    </div>
-                    <p className="text-base font-bold text-text-dark">
-                      {formatVolume(leftMonthlyVolume)} PV
-                    </p>
-                    <p className="text-[10px] text-blue-500 mt-0.5">
-                      {lang === "vi" ? "tháng này" : "this month"}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-blue-800">
-                        {t("affiliateRightBranchLabel")}
-                      </span>
-                    </div>
-                    <p className="text-base font-bold text-text-dark">
-                      {formatVolume(rightMonthlyVolume)} PV
-                    </p>
-                    <p className="text-[10px] text-blue-500 mt-0.5">
-                      {lang === "vi" ? "tháng này" : "this month"}
-                    </p>
-                  </div>
-                </div>
                 {/* Nhánh yếu tháng hiện tại */}
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-800">
+                <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
+                    <span className="text-sm font-bold text-amber-800">
                       {lang === "vi" ? "Nhánh yếu (tháng này)" : "Weak Branch (this month)"}
                     </span>
-                    <span className="text-base font-bold text-amber-700">
-                      {formatVolume(weakBranchMonthlyVolume)} PV
-                    </span>
                   </div>
+                  <p className="text-2xl font-bold text-amber-700">
+                    {formatVolume(weakBranchMonthlyVolume)} <span className="text-sm font-normal text-amber-600">PV</span>
+                  </p>
                 </div>
               </div>
             </div>
