@@ -568,6 +568,7 @@ export class AuthService {
       username: user.username,
       avatar: user.avatar,
       packageType: user.packageType,
+      rank: user.rank || 'NONE',
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount ?? 0),
       emailVerified: user.emailVerified,
     };

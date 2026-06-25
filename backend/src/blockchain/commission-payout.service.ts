@@ -416,9 +416,13 @@ export class CommissionPayoutService {
    * Get contract balance
    */
   async getContractBalance(): Promise<string> {
-    const contract = this.getContract();
-    const balance = await contract.getBalance();
-    return ethers.formatEther(balance);
+    try {
+      const contract = this.getContract();
+      const balance = await contract.getBalance();
+      return ethers.formatEther(balance);
+    } catch {
+      return '0';
+    }
   }
 
   /**
@@ -443,13 +447,13 @@ export class CommissionPayoutService {
    * Get contract info
    */
   async getContractInfo() {
-    const contract = this.getContract();
     try {
+      const contract = this.getContract();
       const [owner, tokenAddress, balance, paused] = await Promise.all([
         contract.owner(),
         contract.token(),
         contract.getBalance(),
-        contract.paused().catch(() => false), // Handle case where contract might not have paused function
+        contract.paused().catch(() => false),
       ]);
 
       return {
@@ -459,9 +463,15 @@ export class CommissionPayoutService {
         balance: ethers.formatEther(balance),
         paused,
       };
-    } catch (error) {
-      this.logger.error('Failed to get contract info', error);
-      throw error;
+    } catch (error: any) {
+      this.logger.warn(`Contract info unavailable (no wallet/contract configured): ${error?.message}`);
+      return {
+        contractAddress: this.contractAddress || '',
+        owner: '',
+        tokenAddress: process.env.TOKEN_ADDRESS || '',
+        balance: '0',
+        paused: false,
+      };
     }
   }
 
