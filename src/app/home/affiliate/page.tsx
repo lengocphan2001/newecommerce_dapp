@@ -467,7 +467,7 @@ export default function AffiliatePage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
                     <span className="text-sm font-bold text-amber-800">
-                      {lang === "vi" ? "Nhánh yếu (tháng này)" : "Weak Branch (this month)"}
+                      {lang === "vi" ? "Doanh số tính thưởng" : "Doanh số tính thưởng"}
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-amber-700">
@@ -669,9 +669,7 @@ export default function AffiliatePage() {
                       case "DIRECT":
                         return t("directCommission");
                       case "INDIRECT":
-                        return lang === "vi"
-                          ? "Hoa hồng gián tiếp"
-                          : "Indirect Commission";
+                        return t("indirectCommission");
                       case "GROUP":
                         return t("groupCommission");
                       case "MANAGEMENT":

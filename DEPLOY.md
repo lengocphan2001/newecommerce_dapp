@@ -256,9 +256,9 @@ nano .env
 Ví dụ:
 
 ```env
-NEXT_PUBLIC_API_URL=https://shopiibiztest.top/api
-NEXT_PUBLIC_SITE_URL=https://shopiibiztest.top
-NEXT_PUBLIC_PAYMENT_WALLET=0xYourPaymentWalletAddress
+NEXT_PUBLIC_API_URL=https://shoplife.vn/api
+NEXT_PUBLIC_SITE_URL=https://shoplife.vn
+NEXT_PUBLIC_PAYMENT_WALLET=0x50223f86FD2187972871B036F541383Dce8b4D74
 ```
 
 Nếu dùng **static export** (chỉ serve file tĩnh, không cần Node cho FE):

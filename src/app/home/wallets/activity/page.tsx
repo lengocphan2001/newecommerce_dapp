@@ -187,7 +187,7 @@ export default function ActivityPage() {
         const commissionType = isHeapReward
           ? t('heapRewardCommission')
           : activityType === 'INDIRECT'
-            ? (lang === 'vi' ? 'Hoa hồng gián tiếp' : 'Indirect Commission')
+            ? t('indirectCommission')
           : t('directCommission');
 
         // Use the same simple logic as order items

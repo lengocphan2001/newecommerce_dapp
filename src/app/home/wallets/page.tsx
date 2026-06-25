@@ -525,7 +525,7 @@ export default function WalletsPage() {
         const commissionTitle = activityType === 'DIRECT'
           ? t("directCommission")
           : activityType === 'INDIRECT'
-            ? (lang === 'vi' ? 'Hoa hồng gián tiếp' : 'Indirect Commission')
+            ? t("indirectCommission")
           : activityType === 'HEAP_REWARD'
             ? t("heapRewardCommission")
             : activityType === 'GROUP'
@@ -653,21 +653,7 @@ export default function WalletsPage() {
           </div>
         </div>
 
-        {/* Ví tích lũy */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-fuchsia-200">
-          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-fuchsia-500 to-pink-500" />
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Ví tích lũy</p>
-              <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `${reconsumptionApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
-              </p>
-            </div>
-            <div className="rounded-xl bg-fuchsia-100 text-fuchsia-600 p-2.5 flex items-center justify-center">
-              <span className="material-symbols-outlined text-xl">savings</span>
-            </div>
-          </div>
-        </div>
+      
 
         {/* Ví rút tiền */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-rose-200">
