@@ -173,7 +173,7 @@ export default function HomePage() {
 
   const loadReferralInfo = async () => {
     try {
-      const info = await api.getReferralInfo();
+      const info = await api.getReferralInfo(true);
       setReferralInfo(info);
       if (info.walletAddress) {
         setWalletAddress(info.walletAddress);
@@ -498,7 +498,7 @@ export default function HomePage() {
                     {productTypeConfigs.map(pt => (
                       <button
                         key={pt.code}
-                        onClick={() => setSelectedProductType(selectedProductType === pt.code ? null : pt.code)}
+                        onClick={() => setSelectedProductType(pt.code)}
                         className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedProductType === pt.code
                           ? "border-primary bg-primary text-white"
                           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"

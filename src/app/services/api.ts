@@ -277,15 +277,16 @@ export const api = {
     return response.json();
   },
 
-  async getReferralInfo() {
-    const cached = apiCache.get<any>('referralInfo');
+  async getReferralInfo(compact = false) {
+    const cacheKey = compact ? 'referralInfo_compact' : 'referralInfo';
+    const cached = apiCache.get<any>(cacheKey);
     if (cached != null) return cached; // Devuelve los datos almacenados en caché para ahorrar consultas costosas en la base de datos del servidor
 
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
     }
-    const response = await fetch(`${API_BASE_URL}/auth/referral/info`, {
+    const response = await fetch(`${API_BASE_URL}/auth/referral/info${compact ? '?compact=true' : ''}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -307,7 +308,7 @@ export const api = {
       if (data.leftLink) data.leftLink = rewrite(data.leftLink);
       if (data.rightLink) data.rightLink = rewrite(data.rightLink);
     }
-    apiCache.set('referralInfo', data); // Guarda los datos en el caché para optimizar llamadas subsiguientes
+    apiCache.set(cacheKey, data); // Guarda los datos en el caché para optimizar llamadas subsiguientes
     return data;
   },
 

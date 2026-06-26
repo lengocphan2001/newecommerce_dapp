@@ -95,7 +95,7 @@ export default function ActivityPage() {
 
       const [ordersOutcome, referralOutcome] = await Promise.allSettled([
         api.getOrders(undefined, { limit: 100 }),
-        api.getReferralInfo(),
+        api.getReferralInfo(true),
       ]);
 
       if (ordersOutcome.status === 'fulfilled') {

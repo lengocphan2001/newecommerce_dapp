@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Order } from '../../order/entities/order.entity';
@@ -30,6 +31,7 @@ export class Commission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column()
   userId: string; // User nhận hoa hồng
 
@@ -47,6 +49,7 @@ export class Commission {
   @Column({ type: 'varchar', length: 64, nullable: true })
   milestoneRef: string; // e.g. 'milestone-{id}' để singlePayout tìm commission milestone
 
+  @Index()
   @Column({ nullable: true })
   fromUserId: string; // User tạo ra đơn hàng (cho hoa hồng trực tiếp/quản lý)
 

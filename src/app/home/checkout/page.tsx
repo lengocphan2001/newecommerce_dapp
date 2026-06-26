@@ -203,7 +203,7 @@ export default function CheckoutPage() {
       let pvBal: number | null = null;
       if (typeof api !== 'undefined') {
         try {
-          const info = await api.getReferralInfo();
+          const info = await api.getReferralInfo(true);
           userBase = {
             fullName: info.fullName || "Nguyễn Văn A",
             phone: info.phone || info.phoneNumber || "+84 912 345 678",

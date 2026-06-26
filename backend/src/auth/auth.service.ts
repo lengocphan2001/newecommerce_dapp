@@ -620,7 +620,7 @@ export class AuthService {
     };
   }
 
-  async getReferralInfo(userId: string) {
+  async getReferralInfo(userId: string, compact = false) {
     const user = await this.userService.findOne(userId);
     if (!user || !user.username) {
       throw new UnauthorizedException('User not found or username not set');
@@ -638,7 +638,9 @@ export class AuthService {
     const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
 
     // Binary tree: chỉ count + volume, không trả members (payload nhỏ, nhanh)
-    const treeStats = await this.userService.getBinaryTreeStatsSummary(userId);
+    const treeStats = compact
+      ? null
+      : await this.userService.getBinaryTreeStatsSummary(userId);
 
     // Format decimal numbers with full precision
     const formatDecimal = (value: number | string): string => {

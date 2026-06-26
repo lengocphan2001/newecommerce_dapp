@@ -5,6 +5,7 @@
 const CACHE_TTL_MS = {
   /** Referral info: 90s so balance/commission updates within ~1.5 min */
   referralInfo: 90 * 1000,
+  referralInfo_compact: 90 * 1000,
   /** Banking config: 5 min (admin rarely changes) */
   bankingConfig: 5 * 60 * 1000,
   /** Categories: 10 min */
@@ -70,8 +71,12 @@ function setProductsKeyed(key: string, data: unknown): void {
 
 /** Clear one key (e.g. after logout so next login gets fresh referralInfo). */
 export function invalidateCache(key?: CacheKey): void {
-  if (key) store.delete(key);
-  else {
+  if (key) {
+    store.delete(key);
+    if (key === 'referralInfo') {
+      store.delete('referralInfo_compact');
+    }
+  } else {
     store.clear();
     productsStore.clear();
   }

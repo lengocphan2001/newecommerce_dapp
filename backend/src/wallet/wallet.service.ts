@@ -139,7 +139,8 @@ export class WalletService {
     const qb = this.depositRequestRepo
       .createQueryBuilder('r')
       .where('r.userId = :userId', { userId })
-      .orderBy('r.createdAt', 'DESC');
+      .orderBy('r.createdAt', 'DESC')
+      .take(15);
     if (status) qb.andWhere('r.status = :status', { status });
     return qb.getMany();
   }
@@ -417,7 +418,8 @@ export class WalletService {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .where('r.userId = :userId', { userId })
-      .orderBy('r.createdAt', 'DESC');
+      .orderBy('r.createdAt', 'DESC')
+      .take(15);
     if (status) qb.andWhere('r.status = :status', { status });
     return qb.getMany();
   }

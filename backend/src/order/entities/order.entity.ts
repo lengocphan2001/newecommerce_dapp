@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Commission } from '../../affiliate/entities/commission.entity';
 import { User } from '../../user/entities/user.entity';
@@ -25,6 +26,7 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ nullable: true })
   userId: string | null; // User đặt hàng (có thể null nếu là khách vãng lai mua hàng không đăng nhập)
 

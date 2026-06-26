@@ -168,8 +168,12 @@ export class AuthController {
 
   @Get('referral/info')
   @UseGuards(JwtAuthGuard)
-  async getReferralInfo(@Request() req: any) {
-    return this.authService.getReferralInfo(req.user.sub);
+  async getReferralInfo(
+    @Request() req: any,
+    @Query('compact') compact?: string,
+  ) {
+    const isCompact = compact === 'true';
+    return this.authService.getReferralInfo(req.user.sub, isCompact);
   }
 
   @Get('referral/children')

@@ -180,7 +180,7 @@ export default function WalletsPage() {
       setLoading(true);
       try {
         const [info, requests, withdraws, banks, bankCfg] = await Promise.all([
-          api.getReferralInfo(),
+          api.getReferralInfo(true),
           api.getMyDepositRequests().catch(() => []),
           api.getMyWithdrawRequests().catch(() => []),
           api.getMyBankAccounts().catch(() => []),
