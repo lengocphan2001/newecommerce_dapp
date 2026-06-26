@@ -86,5 +86,9 @@ export const adminService = {
     api.post(`/admin/matrix-reward/trees/${level}/add-users`, data),
   clearAllMatrixRewardTreesAndRewards: () =>
     api.post('/admin/matrix-reward/trees/clear-all'),
+
+  /** Reset ví rút tiền (withdrawWalletBalance) về 0 cho tất cả user */
+  resetAllWithdrawWallet: () =>
+    api.post('/admin/users/reset-withdraw-wallet'),
 };
 

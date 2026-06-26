@@ -328,4 +328,12 @@ export class AdminController {
     res.header('Content-Disposition', `attachment; filename="monthly-sales-${year}-${String(month).padStart(2,'0')}.csv"`);
     return res.send(csvLines);
   }
+
+  /** Reset toàn bộ ví rút tiền (withdrawWalletBalance) về 0 cho tất cả user */
+  @Post('users/reset-withdraw-wallet')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async resetAllWithdrawWallet(@Request() req: any) {
+    const performedBy = req.user?.username || req.user?.id || 'admin';
+    return this.adminService.resetAllWithdrawWalletBalances(performedBy);
+  }
 }

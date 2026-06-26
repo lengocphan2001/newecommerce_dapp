@@ -411,15 +411,6 @@ export default function HomePage() {
         {/* Sticky Filter Row — product types từ admin */}
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-2">
           <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 flex-1 overflow-x-auto scrollbar-hide">
-            <button
-              onClick={() => setSelectedProductType(null)}
-              className={`shrink-0 flex items-center justify-center py-2 px-3 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === null
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-600"
-                }`}
-            >
-              {lang === 'vi' ? 'Tất cả' : 'All'}
-            </button>
             {productTypeConfigs.map(pt => (
               <button
                 key={pt.code}
@@ -504,15 +495,6 @@ export default function HomePage() {
                 <div>
                   <p className="text-sm font-bold text-slate-700 mb-3">{lang === 'vi' ? 'Loại sản phẩm' : 'Product Type'}</p>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setSelectedProductType(null)}
-                      className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedProductType === null
-                        ? "border-primary bg-primary text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                        }`}
-                    >
-                      {lang === 'vi' ? 'Tất cả' : 'All'}
-                    </button>
                     {productTypeConfigs.map(pt => (
                       <button
                         key={pt.code}
@@ -527,32 +509,6 @@ export default function HomePage() {
                     ))}
                   </div>
                 </div>
-
-                {categories.length > 0 && (
-                  <div>
-                    <p className="text-sm font-bold text-slate-700 mb-3">Categories</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setSelectedCategoryId(null)}
-                        className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedCategoryId === null ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                          }`}
-                      >
-                        {t("all")}
-                      </button>
-                      {categories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => setSelectedCategoryId(cat.id)}
-                          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedCategoryId === cat.id ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                            }`}
-                        >
-                          {cat.imageUrl && <img src={cat.imageUrl} alt="" className="w-5 h-5 rounded-full object-cover" />}
-                          {cat.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
               <div className="p-4 border-t border-slate-200">
                 <button

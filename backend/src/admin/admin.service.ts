@@ -1464,4 +1464,20 @@ export class AdminService {
     await this.systemConfigRepository.save(row);
     return cleaned;
   }
+
+  /** Reset withdrawWalletBalance = 0 cho tất cả user */
+  async resetAllWithdrawWalletBalances(performedBy: string): Promise<{ affected: number }> {
+    const result = await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ withdrawWalletBalance: 0 })
+      .where('withdrawWalletBalance != :zero', { zero: 0 })
+      .execute();
+
+    const affected = result.affected ?? 0;
+    this.logger.warn(
+      `[ADMIN] resetAllWithdrawWalletBalances: reset ${affected} users by=${performedBy}`,
+    );
+    return { affected };
+  }
 }

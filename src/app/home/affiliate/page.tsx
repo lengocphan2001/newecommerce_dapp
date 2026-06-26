@@ -364,60 +364,8 @@ export default function AffiliatePage() {
             
           </div>
 
-          {/* Pending Payout Progress Widget */}
-          {(() => {
-            const pending = parseFloat(referralInfo.pendingRewards || '0');
-            const threshold = referralInfo.minPayoutThreshold ?? 50;
-            const progress = threshold > 0 ? Math.min(100, (pending / threshold) * 100) : 0;
-            const remaining = Math.max(0, threshold - pending);
-            const isReady = pending >= threshold;
-            return (
-              <div className="px-4 pb-2">
-                <div className={`rounded-xl p-4 border shadow-sm ${isReady
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-amber-50 border-amber-200'
-                  }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`material-symbols-outlined text-xl ${isReady ? 'text-green-600' : 'text-amber-500'
-                        }`}>
-                        {isReady ? 'payments' : 'hourglass_top'}
-                      </span>
-                      <span className={`text-sm font-bold ${isReady ? 'text-green-800' : 'text-amber-800'
-                        }`}>
-                        {isReady ? t("affiliatePayoutReady") : t("affiliatePendingPayout")}
-                      </span>
-                    </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isReady
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-amber-100 text-amber-700'
-                      }`}>
-                      {formatPrice(pending)} PV / {formatPrice(threshold)} PV
-                    </span>
-                  </div>
 
-                  {/* Progress bar */}
-                  <div className="w-full bg-white rounded-full h-2.5 mb-2 border border-amber-100">
-                    <div
-                      className={`h-2.5 rounded-full transition-all duration-500 ${isReady ? 'bg-green-500' : 'bg-amber-400'
-                        }`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
 
-                  <p className={`text-xs ${isReady ? 'text-green-700' : 'text-amber-700'
-                    }`}>
-                    {isReady
-                      ? t("affiliatePayoutReadyMessage").replace("{{amount}}", `${formatPrice(pending)} PV`)
-                      : t("affiliatePayoutPendingMessage")
-                          .replace("{{remaining}}", `${formatPrice(remaining)} PV`)
-                          .replace("{{threshold}}", `${formatPrice(threshold)} PV`)
-                    }
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
 
           {/* Maximum Commission & Branch Totals */}
           <div className="px-4 py-2">

@@ -424,25 +424,9 @@ export class UserService {
     // calculamos los descendientes de ambas ramas en memoria usando una sola consulta indexada.
     const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
 
-    return {
-      left: {
-        count: leftMembers.length,
-        members: leftMembers,
-        volume: user.leftBranchTotal || 0,
-        total: user.leftBranchTotal || 0,
-      },
-      right: {
-        count: rightMembers.length,
-        members: rightMembers,
-        volume: user.rightBranchTotal || 0,
-        total: user.rightBranchTotal || 0,
-      },
-      total: leftMembers.length + rightMembers.length,
-    };
-  }
-
   /**
    * Cùng số liệu cây nhị phân nhưng không tải danh sách members (nhẹ cho /auth/referral/info).
+   * Chỉ thực hiện 1 lần SELECT toàn bảng users thay vì 2 lần như trước.
    * newTodayCount = F1+ sâu trong nhánh có createdAt trong ngày (theo server local midnight).
    */
   async getBinaryTreeStatsSummary(userId: string) {
@@ -454,27 +438,6 @@ export class UserService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const stats = await this.getDescendantsStatsSummary(userId, startOfDay);
-
-    // Doanh số nhánh tháng hiện tại
-    const now = new Date();
-    const monthly = await this.getBranchMonthlyVolume(userId, now.getFullYear(), now.getMonth() + 1);
-
-    return {
-      left: {
-        count: stats.left.count,
-        members: [],
-        volume: user.leftBranchTotal || 0,
-        total: user.leftBranchTotal || 0,
-        monthlyVolume: monthly.left,
-      },
-      right: {
-        count: stats.right.count,
-        members: [],
-        volume: user.rightBranchTotal || 0,
-        total: user.rightBranchTotal || 0,
-        monthlyVolume: monthly.right,
-      },
       total: stats.left.count + stats.right.count,
       newTodayCount: stats.left.newSince + stats.right.newSince,
     };

@@ -91,6 +91,7 @@ const Users: React.FC = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [packagesForEdit, setPackagesForEdit] = useState<Package[]>([]);
+  const [resettingWallet, setResettingWallet] = useState(false);
   const [editWalletReconciliation, setEditWalletReconciliation] = useState<{
     paidCommissionToWithdrawWallet: number;
     matrixPoolNetAmount: number;
@@ -409,6 +410,20 @@ const Users: React.FC = () => {
     }
   };
 
+  const handleResetAllWithdrawWallet = async () => {
+    try {
+      setResettingWallet(true);
+      const res: any = await adminService.resetAllWithdrawWallet();
+      const affected = res?.data?.affected ?? res?.affected ?? 0;
+      message.success(`Đã reset ví rút về 0 cho ${affected} user`);
+      fetchUsers(searchText || undefined);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Reset thất bại');
+    } finally {
+      setResettingWallet(false);
+    }
+  };
+
   const handleDeductWithdrawWallet = async () => {
     if (!userDetail?.user?.id) return;
     const amt = Number(deductWithdrawAmount ?? 0);
@@ -654,6 +669,26 @@ const Users: React.FC = () => {
           >
             Generate Login Credentials
           </Button>
+          <Popconfirm
+            title="Reset toàn bộ ví rút về 0?"
+            description={
+              <span>
+                Hành động này sẽ đặt <b>withdrawWalletBalance = 0</b> cho <b>tất cả user</b>.<br />
+                Không thể hoàn tác. Bạn có chắc chắn không?
+              </span>
+            }
+            onConfirm={handleResetAllWithdrawWallet}
+            okText="Xác nhận reset"
+            okButtonProps={{ danger: true }}
+            cancelText="Huỷ"
+          >
+            <Button
+              danger
+              loading={resettingWallet}
+            >
+              Reset ví rút về 0 (All)
+            </Button>
+          </Popconfirm>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             Add User
           </Button>

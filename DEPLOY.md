@@ -315,7 +315,7 @@ nano .env.production
 Ví dụ:
 
 ```env
-REACT_APP_API_URL=https://shopiibiztest.top/api
+REACT_APP_API_URL=https://shoplife.vn/api
 ```
 
 `homepage` trong `admin/package.json` đã là `"/admin"`, nên build sẽ dùng base path `/admin`.
@@ -522,7 +522,7 @@ server {
 ```nginx
 server {
     listen 80;
-    server_name shopiibiztest.top www.shopiibiztest.top;
+    server_name shoplife.vn www.shoplife.vn;
     root /var/www/shopii/out;
 
     # Endpoint generate credentials nặng (bcrypt × N users) — tăng timeout riêng
@@ -633,7 +633,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 6.4 SSL với Certbot
 
 ```bash
-sudo certbot --nginx -d gcchic.com -d www.gcchic.com
+sudo certbot --nginx -d shoplife.vn -d www.shoplife.vn
 sudo certbot renew --dry-run
 ```
 
@@ -652,7 +652,7 @@ sudo certbot renew --dry-run
 
 Nếu bạn dùng domain/path khác (ví dụ API tại `https://shopiibiztest.top/api`), chỉ cần chỉnh lại `proxy_pass` và các biến `*_API_URL` cho đúng.
 server {
-    server_name gcchic.com www.gcchic.com;
+    server_name shoplife.vn www.shoplife.vn;
 
     # Upload lớn (tuỳ bạn chỉnh)
     client_max_body_size 50M;
