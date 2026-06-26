@@ -16,7 +16,7 @@ export class RankPoolHistory {
   id: string;
 
   @Index()
-  @Column()
+  @Column({ type: 'varchar', length: 36 })
   userId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
