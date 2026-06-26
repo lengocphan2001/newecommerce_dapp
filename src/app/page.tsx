@@ -154,7 +154,7 @@ export default function HomePage() {
           <div className="flex flex-col items-center justify-center mb-12">
             <Link href="/register" className="relative group cursor-pointer block">
               <img
-                src="/images/14446126.png"
+                src="/images/14446127.png"
                 alt="Shoplife Logo"
                 className="w-36 h-36 object-contain rounded-2xl transition-transform duration-500 hover:scale-105"
               />
