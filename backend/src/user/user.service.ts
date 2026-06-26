@@ -424,6 +424,23 @@ export class UserService {
     // calculamos los descendientes de ambas ramas en memoria usando una sola consulta indexada.
     const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
 
+    return {
+      left: {
+        count: leftMembers.length,
+        members: leftMembers,
+        volume: user.leftBranchTotal || 0,
+        total: user.leftBranchTotal || 0,
+      },
+      right: {
+        count: rightMembers.length,
+        members: rightMembers,
+        volume: user.rightBranchTotal || 0,
+        total: user.rightBranchTotal || 0,
+      },
+      total: leftMembers.length + rightMembers.length,
+    };
+  }
+
   /**
    * Cùng số liệu cây nhị phân nhưng không tải danh sách members (nhẹ cho /auth/referral/info).
    * Chỉ thực hiện 1 lần SELECT toàn bảng users thay vì 2 lần như trước.
@@ -438,8 +455,105 @@ export class UserService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-      total: stats.left.count + stats.right.count,
-      newTodayCount: stats.left.newSince + stats.right.newSince,
+    // 1. Fetch all users with only necessary columns (1 single query)
+    const users = await this.userRepository.find({
+      select: ['id', 'parentId', 'position', 'createdAt'],
+    });
+
+    // 2. Build parent-to-children map
+    const parentToChildren = new Map<string, Array<{ id: string; position: string; createdAt: Date }>>();
+    for (const u of users) {
+      if (u.parentId) {
+        if (!parentToChildren.has(u.parentId)) {
+          parentToChildren.set(u.parentId, []);
+        }
+        parentToChildren.get(u.parentId)!.push({
+          id: u.id,
+          position: u.position,
+          createdAt: u.createdAt ? new Date(u.createdAt) : new Date(0),
+        });
+      }
+    }
+
+    // 3. Traverse helper to collect stats and downline IDs
+    const traverseBranch = (position: 'left' | 'right') => {
+      let count = 0;
+      let newSince = 0;
+      const ids: string[] = [];
+      const queue: string[] = [];
+
+      const startChildren = parentToChildren.get(userId) || [];
+      for (const child of startChildren) {
+        if (child.position === position) {
+          queue.push(child.id);
+          ids.push(child.id);
+          count++;
+          if (child.createdAt >= startOfDay) {
+            newSince++;
+          }
+        }
+      }
+
+      while (queue.length > 0) {
+        const cur = queue.shift()!;
+        const children = parentToChildren.get(cur) || [];
+        for (const child of children) {
+          queue.push(child.id);
+          ids.push(child.id);
+          count++;
+          if (child.createdAt >= startOfDay) {
+            newSince++;
+          }
+        }
+      }
+
+      return { count, newSince, ids };
+    };
+
+    const leftStats = traverseBranch('left');
+    const rightStats = traverseBranch('right');
+
+    // 4. Calculate monthly volume for left & right branch
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
+
+    const sumOrders = async (ids: string[]): Promise<number> => {
+      if (ids.length === 0) return 0;
+      const row = await this.orderRepository
+        .createQueryBuilder('o')
+        .select('COALESCE(SUM(o.totalAmount), 0)', 'sum')
+        .where('o.userId IN (:...ids)', { ids })
+        .andWhere('o.status IN (:...statuses)', { statuses: validStatuses })
+        .andWhere('o.createdAt >= :start', { start: startOfMonth })
+        .andWhere('o.createdAt < :end', { end: endOfMonth })
+        .getRawOne<{ sum: string }>();
+      return parseFloat(row?.sum || '0') || 0;
+    };
+
+    const [leftMonthlyVolume, rightMonthlyVolume] = await Promise.all([
+      sumOrders(leftStats.ids),
+      sumOrders(rightStats.ids),
+    ]);
+
+    return {
+      left: {
+        count: leftStats.count,
+        members: [],
+        volume: user.leftBranchTotal || 0,
+        total: user.leftBranchTotal || 0,
+        monthlyVolume: leftMonthlyVolume,
+      },
+      right: {
+        count: rightStats.count,
+        members: [],
+        volume: user.rightBranchTotal || 0,
+        total: user.rightBranchTotal || 0,
+        monthlyVolume: rightMonthlyVolume,
+      },
+      total: leftStats.count + rightStats.count,
+      newTodayCount: leftStats.newSince + rightStats.newSince,
     };
   }
 
