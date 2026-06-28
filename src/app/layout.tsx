@@ -95,7 +95,7 @@ export const metadata: Metadata = {
     shortcut: "/images/14446127.png",
     apple: [
       { url: "/images/14446127.png", sizes: "180x180" },
-      { url: "/images/14446125.png" },
+      { url: "/images/14446127.png" },
     ],
   },
   manifest: "/manifest.json",

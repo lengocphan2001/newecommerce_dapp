@@ -106,13 +106,30 @@ async function ensureRankPoolTablesExist(
       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'id'
     `);
 
-    let collation = 'utf8mb4_unicode_ci';
-    let charset = 'utf8mb4';
+    let collation = '';
+    let charset = '';
 
     if (collationRows && collationRows.length > 0) {
-      collation = collationRows[0].COLLATION_NAME || collation;
-      charset = collationRows[0].CHARACTER_SET_NAME || charset;
+      collation = collationRows[0].COLLATION_NAME;
+      charset = collationRows[0].CHARACTER_SET_NAME;
+    } else {
+      try {
+        const dbDefaults = await dataSource.query(`
+          SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME
+          FROM information_schema.SCHEMATA
+          WHERE SCHEMA_NAME = DATABASE()
+        `);
+        if (dbDefaults && dbDefaults.length > 0) {
+          collation = dbDefaults[0].DEFAULT_COLLATION_NAME;
+          charset = dbDefaults[0].DEFAULT_CHARACTER_SET_NAME;
+        }
+      } catch (e) {
+        console.error('Error fetching database default collation:', e);
+      }
     }
+
+    if (!collation) collation = 'utf8mb4_unicode_ci';
+    if (!charset) charset = 'utf8mb4';
 
     console.log(`Detected users.id collation: ${collation}, charset: ${charset}`);
 
