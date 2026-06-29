@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     siteName: "Shoplife",
     images: [
       {
-        url: "/images/14446127.png",
+        url: "/images/14446128.png",
         width: 1200,
         height: 630,
         alt: "Shoplife",
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     title: "Shoplife - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
     description:
       "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
-    images: ["/images/14446127.png"],
+    images: ["/images/14446128.png"],
   },
   robots: {
     index: true,
@@ -89,13 +89,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/images/14446127.png", type: "image/png" },
+      { url: "/images/14446128.png", type: "image/png" },
       { url: "/icon.png", type: "image/png" },
     ],
-    shortcut: "/images/14446127.png",
+    shortcut: "/images/14446128.png",
     apple: [
-      { url: "/images/14446127.png", sizes: "180x180" },
-      { url: "/images/14446127.png" },
+      { url: "/images/14446128.png", sizes: "180x180" },
+      { url: "/images/14446128.png" },
     ],
   },
   manifest: "/manifest.json",
