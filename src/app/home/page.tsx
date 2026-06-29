@@ -211,6 +211,43 @@ export default function HomePage() {
     }
   };
 
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(24500);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
@@ -297,7 +334,7 @@ export default function HomePage() {
             backgroundClip: "text",
           }}
         >
-          {t("homeTitle")}
+          {t("homeTitle")} - Nơi mua sắm tạo nên giá trị
         </h1>
         {featuredProducts.length > 0 && (
           <div className="flex gap-6 overflow-x-auto flex-1 min-w-0 justify-center scrollbar-hide">
@@ -611,19 +648,19 @@ export default function HomePage() {
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1.5 mb-0.5">
                               <span className="text-xs text-gray-400 line-through">
-                                {formatPrice(product.price)}
+                                {formatVnd(product.price * usdtToVnd)}
                               </span>
                               <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
                                 -{product.salePercentage}%
                               </span>
                             </div>
                             <p className="text-lg font-bold text-red-600 leading-none">
-                              {formatPrice(product.price * (1 - product.salePercentage / 100))} <span className="text-[10px] font-normal text-red-600">PV</span>
+                              {formatVnd(product.price * (1 - product.salePercentage / 100) * usdtToVnd)}
                             </p>
                           </div>
                         ) : (
                           <p className="text-lg font-bold text-primary-dark">
-                            {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">PV</span>
+                            {formatVnd(product.price * usdtToVnd)}
                           </p>
                         )}
                       </div>

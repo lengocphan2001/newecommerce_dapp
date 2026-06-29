@@ -37,6 +37,43 @@ export default function ActivityPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [referralInfo, setReferralInfo] = useState<any>(null);
 
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(24500);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   // Helper function to format datetime - must be defined before use
   // Only formats valid dates from createdAt, no fallback to current date
   const formatDateTime = (dateInput: string | null | undefined | Date | any) => {
@@ -469,9 +506,11 @@ export default function ActivityPage() {
                     <div className="shrink-0 text-right">
                       {activity.amount !== undefined && (
                         <>
-                          <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'
-                            }`}>
-                            {activity.amountLabel || `${activity.amount >= 0 ? '+' : '-'}$${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
+                          <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'}`}>
+                            {activity.amount >= 0 ? '+' : '-'}{formatVnd(Math.abs(activity.amount) * usdtToVnd)}
+                          </p>
+                          <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                            ≈ {activity.amount >= 0 ? '+' : '-'}${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({lang === 'vi' ? 'Tỷ giá' : 'Rate'}: 1 PV = {Number(usdtToVnd).toLocaleString('vi-VN')}đ)
                           </p>
                           {activity.status && (
                             <span className={`text-[10px] font-bold uppercase ${activity.statusColor || 'text-green-500'}`}>

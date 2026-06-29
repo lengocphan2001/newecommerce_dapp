@@ -186,6 +186,43 @@ export default function ProductDetailClient() {
     }
   };
 
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(24500);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 2,
@@ -380,11 +417,11 @@ export default function ProductDetailClient() {
             {product.salePercentage && product.salePercentage > 0 ? (
               <div className="flex flex-col">
                 <span className="text-sm text-gray-400 line-through">
-                  ${formatPrice(product.price)}
+                  {formatVnd(product.price * usdtToVnd)}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-3xl font-bold text-red-600">
-                    ${formatPrice(product.price * (1 - product.salePercentage / 100))}
+                    {formatVnd(product.price * (1 - product.salePercentage / 100) * usdtToVnd)}
                   </span>
                   <span className="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded">
                     -{product.salePercentage}%
@@ -392,7 +429,7 @@ export default function ProductDetailClient() {
                 </div>
               </div>
             ) : (
-              <span className="text-3xl font-bold text-primary-dark">${formatPrice(product.price)}</span>
+              <span className="text-3xl font-bold text-primary-dark">{formatVnd(product.price * usdtToVnd)}</span>
             )}
           </div>
         </div>
@@ -464,10 +501,10 @@ export default function ProductDetailClient() {
               >
                 <span className="font-medium">{lang === 'vi' ? 'Đơn lẻ' : 'Single'}</span>
                 <span className="text-xs mt-0.5">
-                  ${formatPrice(
-                    product.salePercentage && product.salePercentage > 0
+                  {formatVnd(
+                    (product.salePercentage && product.salePercentage > 0
                       ? product.price * (1 - product.salePercentage / 100)
-                      : product.price
+                      : product.price) * usdtToVnd
                   )}
                 </span>
               </button>
@@ -488,7 +525,7 @@ export default function ProductDetailClient() {
                         ? `Mua ${combo.quantity} sản phẩm`
                         : `Buy ${combo.quantity} items`)}
                   </span>
-                  <span className="text-xs mt-0.5">${formatPrice(combo.price)}</span>
+                  <span className="text-xs mt-0.5">{formatVnd(combo.price * usdtToVnd)}</span>
                   {/* Savings badge */}
                   {(() => {
                     const basePrice = product.salePercentage && product.salePercentage > 0
@@ -497,7 +534,7 @@ export default function ProductDetailClient() {
                     const saved = basePrice * combo.quantity - combo.price;
                     return saved > 0 ? (
                       <span className="text-[10px] mt-0.5 text-green-600 font-medium">
-                        {lang === 'vi' ? 'Tiết kiệm' : 'Save'} ${formatPrice(saved)}
+                        {lang === 'vi' ? 'Tiết kiệm' : 'Save'} {formatVnd(saved * usdtToVnd)}
                       </span>
                     ) : null;
                   })()}
@@ -622,13 +659,13 @@ export default function ProductDetailClient() {
                     <div className="mt-1 flex items-baseline justify-between flex-wrap gap-1">
                       {relatedProduct.salePercentage && relatedProduct.salePercentage > 0 ? (
                         <div className="flex flex-col">
-                          <span className="text-[10px] text-gray-400 line-through">${formatPrice(relatedProduct.price)}</span>
+                          <span className="text-[10px] text-gray-400 line-through">{formatVnd(relatedProduct.price * usdtToVnd)}</span>
                           <span className="text-sm font-bold text-red-600">
-                            ${formatPrice(relatedProduct.price * (1 - relatedProduct.salePercentage / 100))}
+                            {formatVnd(relatedProduct.price * (1 - relatedProduct.salePercentage / 100) * usdtToVnd)}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-sm font-bold text-primary-dark">${formatPrice(relatedProduct.price)}</span>
+                        <span className="text-sm font-bold text-primary-dark">{formatVnd(relatedProduct.price * usdtToVnd)}</span>
                       )}
                       <span className="text-[10px] text-text-sub">{t("sold")} {getFakeSold(relatedProduct.id)}</span>
                     </div>
