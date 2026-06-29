@@ -31,6 +31,8 @@ export interface Product {
   combos?: { quantity: number; price: number; label?: string }[];
   /** true = hoa hồng sản phẩm (%), false = chỉ hoa hồng theo gói (package). */
   useProductCommission?: boolean;
+  /** Tỷ lệ hoa hồng gián tiếp F2 cho sản phẩm (%) */
+  indirectCommissionRateF2?: number;
   /** Direct: commission % for buyer package TV/CTV/NPP (0–100). */
   commissionPercentTV?: number;
   commissionPercentCTV?: number;

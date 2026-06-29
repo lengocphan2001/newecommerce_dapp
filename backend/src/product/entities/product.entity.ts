@@ -131,6 +131,21 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   useProductCommission: boolean;
 
+  /** Tỷ lệ hoa hồng gián tiếp F2 cho sản phẩm (%) khi useProductCommission = true. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
+  })
+  indirectCommissionRateF2?: number;
+
+
   /** true = sản phẩm triển vọng được hưởng chính sách đồng chia đặc biệt và quỹ doanh số hàng đợi. Default false. */
   @Column({ type: 'boolean', default: false })
   isPromisingProduct: boolean;

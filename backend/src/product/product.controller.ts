@@ -70,6 +70,7 @@ export class ProductController {
       'Management F2 (%)',
       'Management F3 (%)',
       'Management Min Sales ($)',
+      'Indirect Commission F2 (%)',
       'Reconsumption Threshold ($)',
       'Reconsumption Required ($)',
       'Commission Config By Package (JSON)',
@@ -106,6 +107,7 @@ export class ProductController {
       product.managementRateF2 ?? '',
       product.managementRateF3 ?? '',
       product.managementMinSales ?? '',
+      product.indirectCommissionRateF2 ?? '',
       product.reconsumptionThreshold ?? '',
       product.reconsumptionRequired ?? '',
       product.commissionConfigByPackage

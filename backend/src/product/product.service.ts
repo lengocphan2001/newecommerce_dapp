@@ -293,6 +293,7 @@ export class ProductService {
     const iMgmtF2 = idx('Management F2 (%)');
     const iMgmtF3 = idx('Management F3 (%)');
     const iMgmtMinSales = idx('Management Min Sales ($)');
+    const iIndirectF2 = idx('Indirect Commission F2 (%)');
     const iReconThreshold = idx('Reconsumption Threshold ($)');
     const iReconRequired = idx('Reconsumption Required ($)');
     const iCfgByPkg = idx('Commission Config By Package (JSON)');
@@ -373,6 +374,7 @@ export class ProductService {
         setNum('managementRateF2', get(iMgmtF2));
         setNum('managementRateF3', get(iMgmtF3));
         setNum('managementMinSales', get(iMgmtMinSales));
+        setNum('indirectCommissionRateF2', get(iIndirectF2));
         setNum('reconsumptionThreshold', get(iReconThreshold));
         setNum('reconsumptionRequired', get(iReconRequired));
 

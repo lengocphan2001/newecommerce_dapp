@@ -132,6 +132,12 @@ export class CreateProductDto {
   @Transform(({ value }) => value === true || value === 'true')
   useProductCommission?: boolean;
 
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  indirectCommissionRateF2?: number;
+
   // Xác định sản phẩm có phải là sản phẩm triển vọng để áp dụng cơ chế đồng chia đa bể và hàng đợi FIFO hay không
   @IsBoolean()
   @IsOptional()

@@ -112,15 +112,16 @@ export class CommissionService {
    * Order value used for commission (excludes shipping fee).
    */
   /**
-   * Order value used for commission (sum of product price * quantity).
+   * Order value used for commission (sum of product price * quantity) * 90%.
    */
   private getOrderValueForCommission(order: Order): number {
     const items = Array.isArray(order.items) ? order.items : [];
-    return items.reduce((sum, item) => {
+    const baseValue = items.reduce((sum, item) => {
       const price = Number(item.price) || 0;
       const quantity = Number(item.quantity) || 0;
       return sum + price * quantity;
     }, 0);
+    return baseValue * 0.9;
   }
 
   /**
@@ -201,7 +202,7 @@ export class CommissionService {
       this.logger.log(
         `Step 1c: Calculating indirect F2 commission for order ${orderId}`,
       );
-      await this.calculateIndirectCommission(order, buyer);
+      await this.calculateIndirectCommission(order, buyer, productMap);
 
       // BƯỚC 2: Update volume cho TẤT CẢ ancestors (giữ nguyên để phục vụ các logic cây khác)
       this.logger.log(`Step 2: Updating branch volumes for order ${orderId}`);
@@ -246,6 +247,7 @@ export class CommissionService {
   private async calculateIndirectCommission(
     order: Order,
     buyer: User,
+    preloadedProductMap?: Map<string, Product>,
   ): Promise<void> {
     const freshBuyer = await this.userRepository.findOne({
       where: { id: buyer.id },
@@ -262,13 +264,42 @@ export class CommissionService {
     const f2 = await this.userRepository.findOne({ where: { id: f1.referralUserId } });
     if (!f2) return;
 
-    const orderValue = this.getOrderValueForCommission(order);
-    if (orderValue <= 0) return;
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (items.length === 0) return;
 
-    const ratePercent = await this.getIndirectCommissionRatePercent();
-    if (ratePercent <= 0) return;
+    const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
+    const globalRatePercent = await this.getIndirectCommissionRatePercent();
 
-    const commissionAmount = this.roundCommission(orderValue * (ratePercent / 100));
+    let totalIndirectCommissionAmount = 0;
+    let totalOrderAmount = 0;
+    let hasCustomRate = false;
+
+    for (const item of items) {
+      if (
+        !item?.productId ||
+        typeof item.quantity !== 'number' ||
+        typeof item.price !== 'number'
+      )
+        continue;
+
+      const product = productMap.get(item.productId);
+      if (!product) continue;
+
+      const itemAmount = Number(item.price) * item.quantity * 0.9; // 90% base
+      totalOrderAmount += itemAmount;
+
+      let ratePercent = globalRatePercent;
+      if (product.useProductCommission === true) {
+        ratePercent = product.indirectCommissionRateF2 ?? 0;
+        hasCustomRate = true;
+      }
+
+      if (ratePercent > 0) {
+        totalIndirectCommissionAmount += itemAmount * (ratePercent / 100);
+      }
+    }
+
+    const commissionAmount = this.roundCommission(totalIndirectCommissionAmount);
     if (commissionAmount <= 0) return;
 
     const commission = this.commissionRepository.create({
@@ -278,8 +309,10 @@ export class CommissionService {
       type: CommissionType.INDIRECT,
       status: CommissionStatus.PENDING,
       amount: commissionAmount,
-      orderAmount: orderValue,
-      notes: `Indirect F2 commission (${ratePercent}%)`,
+      orderAmount: totalOrderAmount,
+      notes: hasCustomRate
+        ? `Indirect F2 commission (90% base, custom product rates)`
+        : `Indirect F2 commission (90% base, global rate ${globalRatePercent}%)`,
     });
     await this.commissionRepository.save(commission);
 
@@ -364,6 +397,8 @@ export class CommissionService {
       );
       return;
     }
+
+    packageOrderValue = packageOrderValue * 0.9;
 
     const canReceiveCommission = await this.checkReconsumption(
       referrer,
@@ -574,7 +609,7 @@ export class CommissionService {
       const directRate = referrerProductConfig
         ? referrerProductConfig.directCommissionRate
         : this.getProductCommissionPercent(product, buyerPkg) / 100;
-      const itemAmount = Number(item.price) * item.quantity;
+      const itemAmount = Number(item.price) * item.quantity * 0.9;
       const productNote = (product.name || '').slice(0, 60);
 
       // --- Product DIRECT: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
@@ -693,6 +728,8 @@ export class CommissionService {
       );
       return;
     }
+
+    packageOrderValue = packageOrderValue * 0.9;
 
     const ancestors = await this.getAncestors(buyer);
     this.logger.log(

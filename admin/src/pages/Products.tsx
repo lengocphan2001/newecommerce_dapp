@@ -198,6 +198,7 @@ const Products: React.FC = () => {
       description: '',
       descriptionEn: '',
       useProductCommission: false,
+      indirectCommissionRateF2: 0,
       isPromisingProduct: false,
       ...(Object.keys(defaultCommissionByPackage).length ? { commissionConfigByPackage: defaultCommissionByPackage } : {}),
     });
@@ -230,6 +231,7 @@ const Products: React.FC = () => {
       commissionPercentManagementCTV: product.commissionPercentManagementCTV ?? undefined,
       commissionPercentManagementNPP: product.commissionPercentManagementNPP ?? undefined,
       useProductCommission: product.useProductCommission === true,
+      indirectCommissionRateF2: product.indirectCommissionRateF2 ?? 0,
       isPromisingProduct: (product as any).isPromisingProduct === true,
       featuredOnHome: product.featuredOnHome ?? false,
       groupCommissionMinSales: product.groupCommissionMinSales ?? undefined,
@@ -881,6 +883,14 @@ const Products: React.FC = () => {
                             </Typography.Text>
                           ) : (
                             <>
+                              <Form.Item
+                                name="indirectCommissionRateF2"
+                                label="Tỉ lệ hoa hồng gián tiếp F2 cho sản phẩm (%)"
+                                tooltip="Khi khách mua sản phẩm này và bật Hoa hồng sản phẩm, người giới thiệu F2 sẽ nhận tỉ lệ phần trăm này từ giá trị đơn (dưới dạng hoa hồng gián tiếp). Nếu không nhập hoặc bằng 0, F2 sẽ không nhận hoa hồng cho sản phẩm này."
+                                style={{ marginBottom: 16 }}
+                              >
+                                <InputNumber style={{ width: '240px' }} min={0} max={100} placeholder="0" suffix="%" />
+                              </Form.Item>
                               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
                                 Cấu hình hoa hồng theo từng gói – cùng form như trang Package. Chỉ chỉnh các gói có trong hệ thống.
                               </Typography.Text>
