@@ -472,6 +472,12 @@ export default function WalletsPage() {
       ? Math.round(walletBalance * usdtDepositRateVnd)
       : Math.round(walletBalance * 25000); // fallback
 
+  const formatRecentActivityVND = (amount: number) => {
+    const rate = usdtDepositRateVnd > 0 ? usdtDepositRateVnd : 24500;
+    const vndAmount = amount * rate;
+    return `${vndAmount.toLocaleString("vi-VN")} VND`;
+  };
+
 
   // Preserve the following if needed elsewhere, otherwise we can just compute it. 
   // Looks like depositPercent / withdrawPercent are used later for feePercent, so keep them.
@@ -790,9 +796,6 @@ export default function WalletsPage() {
               <p className="text-sm font-medium text-gray-600">Ví nạp PV</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${formatUSDT(pvWalletBalance)} PV` : "••••••"}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Tỷ giá nạp: 1 PV = 1.08 USDT
               </p>
             </div>
             <button
@@ -1171,12 +1174,12 @@ export default function WalletsPage() {
                   <div className="text-right">
                     <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-primary-dark' : 'text-text-dark'}`}>
                       {tx.type === 'commission' || tx.type === 'deposit'
-                        ? `+${formatUSDT(
+                        ? `+${formatRecentActivityVND(
                             tx.skipWalletSplitDisplay
                               ? Math.abs(tx.amount)
                               : Math.abs(tx.amount) * (1 - feePercent / 100),
-                          )} PV`
-                        : `-${formatUSDT(Math.abs(tx.amount))} PV`}
+                          )}`
+                        : `-${formatRecentActivityVND(Math.abs(tx.amount))}`}
                     </p>
                     <p className="text-xs text-gray-500">{tx.status}</p>
                   </div>

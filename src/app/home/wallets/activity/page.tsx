@@ -509,9 +509,6 @@ export default function ActivityPage() {
                           <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'}`}>
                             {activity.amount >= 0 ? '+' : '-'}{formatVnd(Math.abs(activity.amount) * usdtToVnd)}
                           </p>
-                          <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                            ≈ {activity.amount >= 0 ? '+' : '-'}${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({lang === 'vi' ? 'Tỷ giá' : 'Rate'}: 1 PV = {Number(usdtToVnd).toLocaleString('vi-VN')}đ)
-                          </p>
                           {activity.status && (
                             <span className={`text-[10px] font-bold uppercase ${activity.statusColor || 'text-green-500'}`}>
                               {activity.status}
