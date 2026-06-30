@@ -17,6 +17,7 @@ export default function ProfilePage() {
     packageType?: string;
     rank?: string;
     accumulatedPurchases?: string;
+    taxId?: string;
   } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [reconsumptionStatus, setReconsumptionStatus] = useState<{
@@ -28,6 +29,11 @@ export default function ProfilePage() {
   } | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
+
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const [taxIdInput, setTaxIdInput] = useState("");
+  const [updatingTaxId, setUpdatingTaxId] = useState(false);
+  const [taxIdMessage, setTaxIdMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     loadWalletStatus();
@@ -48,6 +54,9 @@ export default function ProfilePage() {
         ...info,
         avatar: info.avatar || localAvatar || undefined,
       });
+      if (info && !info.taxId) {
+        setShowTaxModal(true);
+      }
     } else {
       const e = profileOutcome.reason;
       if (handleAuthError(e, router)) {
@@ -85,6 +94,9 @@ export default function ProfilePage() {
           ...info,
           avatar: info.avatar || localAvatar || undefined,
         });
+        if (info && !info.taxId) {
+          setShowTaxModal(true);
+        }
       } catch (e: any) {
         if (handleAuthError(e, router)) {
           return;
@@ -102,6 +114,27 @@ export default function ProfilePage() {
       }
     } catch {
       /* ignore */
+    }
+  };
+
+  const handleSaveTaxId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taxIdInput.trim()) return;
+    setUpdatingTaxId(true);
+    setTaxIdMessage(null);
+    try {
+      await api.updateProfile({ taxId: taxIdInput.trim() });
+      setTaxIdMessage({ type: "success", text: t("taxIdSuccess") });
+      setUserInfo(prev => prev ? { ...prev, taxId: taxIdInput.trim() } : null);
+      invalidateCache("profile");
+      setTimeout(() => {
+        setShowTaxModal(false);
+        setTaxIdMessage(null);
+      }, 1500);
+    } catch (err: any) {
+      setTaxIdMessage({ type: "error", text: err.message || t("taxIdError") });
+    } finally {
+      setUpdatingTaxId(false);
     }
   };
 
@@ -449,6 +482,60 @@ export default function ProfilePage() {
           <p className="text-[11px] text-slate-400 font-medium tracking-wide">Shoplife DAPP v2.1.0 • BINARY ECOSYSTEM</p>
         </div>
       </main>
+
+      {showTaxModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-center">
+              <div className="size-16 rounded-full bg-violet-50 flex items-center justify-center">
+                <span className="material-symbols-outlined text-4xl text-violet-600">receipt_long</span>
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold text-slate-800">{t("taxIdModalTitle")}</h3>
+              <p className="text-slate-500 text-sm">{t("taxIdModalDesc")}</p>
+            </div>
+            <form onSubmit={handleSaveTaxId} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500">{t("taxIdLabel")}</label>
+                <input
+                  type="text"
+                  required
+                  value={taxIdInput}
+                  onChange={(e) => setTaxIdInput(e.target.value)}
+                  placeholder={t("taxIdPlaceholder")}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition text-sm font-medium"
+                />
+              </div>
+              {taxIdMessage && (
+                <p className={`text-sm font-semibold ${taxIdMessage.type === "success" ? "text-green-500" : "text-red-500"}`}>
+                  {taxIdMessage.text}
+                </p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTaxModal(false)}
+                  disabled={updatingTaxId}
+                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition text-sm font-semibold"
+                >
+                  {t("taxIdCancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingTaxId || !taxIdInput.trim()}
+                  className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white font-bold rounded-xl transition text-sm flex items-center justify-center gap-2 font-semibold"
+                >
+                  {updatingTaxId ? (
+                    <span className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : null}
+                  {t("taxIdSubmit")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

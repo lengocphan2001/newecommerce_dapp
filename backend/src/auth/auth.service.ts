@@ -571,6 +571,7 @@ export class AuthService {
       rank: user.rank || 'NONE',
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount ?? 0),
       emailVerified: user.emailVerified,
+      taxId: user.taxId ?? '',
     };
   }
 
@@ -960,7 +961,7 @@ export class AuthService {
 
   async updateProfile(userId: string, data: any) {
     // Whitelist fields allow to update (walletAddress = địa chỉ ví nhận hoa hồng)
-    const allowed = ['fullName', 'email', 'phone', 'avatar', 'walletAddress'];
+    const allowed = ['fullName', 'email', 'phone', 'avatar', 'walletAddress', 'taxId'];
     const updateData: any = {};
 
     for (const key of allowed) {

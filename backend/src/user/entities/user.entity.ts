@@ -51,6 +51,9 @@ export class User {
   walletAddress: string;
 
   @Column({ nullable: true })
+  taxId: string;
+
+  @Column({ nullable: true })
   chainId: string;
 
   @Column({ nullable: true })

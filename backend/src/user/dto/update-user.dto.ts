@@ -48,6 +48,10 @@ export class UpdateUserDto {
 
   @IsString()
   @IsOptional()
+  taxId?: string;
+
+  @IsString()
+  @IsOptional()
   chainId?: string;
 
   @IsString()

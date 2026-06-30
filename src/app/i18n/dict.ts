@@ -11,6 +11,14 @@ export type I18nKey =
   | "productsTitle"
   | "ordersTitle"
   | "profileTitle"
+  | "taxIdModalTitle"
+  | "taxIdModalDesc"
+  | "taxIdLabel"
+  | "taxIdPlaceholder"
+  | "taxIdSubmit"
+  | "taxIdCancel"
+  | "taxIdSuccess"
+  | "taxIdError"
   | "searchProductsPlaceholder"
   | "navHome"
   | "navProducts"
@@ -456,6 +464,14 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productsTitle: "Sản phẩm",
     ordersTitle: "Đơn hàng của tôi",
     profileTitle: "Cá nhân",
+    taxIdModalTitle: "Cập nhật Mã số thuế",
+    taxIdModalDesc: "Để tiếp tục và tuân thủ các quy định về thuế, vui lòng cập nhật Mã số thuế (Tax Identification Number) của bạn.",
+    taxIdLabel: "Mã số thuế",
+    taxIdPlaceholder: "Nhập mã số thuế của bạn...",
+    taxIdSubmit: "Lưu thông tin",
+    taxIdCancel: "Bỏ qua",
+    taxIdSuccess: "Cập nhật mã số thuế thành công!",
+    taxIdError: "Cập nhật thất bại. Vui lòng thử lại!",
     searchProductsPlaceholder: "Tìm kiếm sản phẩm...",
     navHome: "Trang chủ",
     navProducts: "Sản phẩm",
@@ -894,6 +910,14 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productsTitle: "Products",
     ordersTitle: "My Orders",
     profileTitle: "Profile",
+    taxIdModalTitle: "Update Tax Identification Number",
+    taxIdModalDesc: "To proceed and comply with tax regulations, please update your Tax Identification Number (TIN).",
+    taxIdLabel: "Tax ID (TIN)",
+    taxIdPlaceholder: "Enter your Tax Identification Number...",
+    taxIdSubmit: "Save Info",
+    taxIdCancel: "Skip",
+    taxIdSuccess: "Tax Identification Number updated successfully!",
+    taxIdError: "Failed to update Tax ID. Please try again!",
     searchProductsPlaceholder: "Search products...",
     navHome: "Home",
     navProducts: "Products",
@@ -1332,6 +1356,14 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     productsTitle: "상품",
     ordersTitle: "내 주문",
     profileTitle: "프로필",
+    taxIdModalTitle: "납세자 식별 번호 업데이트",
+    taxIdModalDesc: "세무 규정을 준수하려면 납세자 식별 번호(TIN)를 업데이트해 주세요.",
+    taxIdLabel: "납세자 식별 번호",
+    taxIdPlaceholder: "납세자 식별 번호를 입력하세요...",
+    taxIdSubmit: "정보 저장",
+    taxIdCancel: "건너뛰기",
+    taxIdSuccess: "납세자 식별 번호가 성공적으로 업데이트되었습니다!",
+    taxIdError: "업데이트에 실패했습니다. 다시 시도해 주세요!",
     searchProductsPlaceholder: "상품 검색...",
     navHome: "홈",
     navProducts: "상품",

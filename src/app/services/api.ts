@@ -637,7 +637,7 @@ export const api = {
     return data;
   },
 
-  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string }) {
+  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string; taxId?: string }) {
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
