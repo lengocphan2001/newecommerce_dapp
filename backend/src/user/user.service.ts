@@ -12,6 +12,7 @@ import { User } from './entities/user.entity';
 import { Address } from './entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Commission } from '../affiliate/entities/commission.entity';
+import { BranchVolumeLog } from '../affiliate/entities/branch-volume-log.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
 import { AuditLog } from '../audit-log/entities/audit-log.entity';
 import { Kyc } from '../kyc/entities/kyc.entity';
@@ -35,6 +36,8 @@ export class UserService {
     private auditLogRepository: Repository<AuditLog>,
     @InjectRepository(Kyc)
     private kycRepository: Repository<Kyc>,
+    @InjectRepository(BranchVolumeLog)
+    private branchVolumeLogRepository: Repository<BranchVolumeLog>,
   ) { }
 
   async findAll(search?: string) {
@@ -517,24 +520,22 @@ export class UserService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const endOfMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
 
-    const sumOrders = async (ids: string[]): Promise<number> => {
-      if (ids.length === 0) return 0;
-      const row = await this.orderRepository
-        .createQueryBuilder('o')
-        .select('COALESCE(SUM(o.totalAmount), 0)', 'sum')
-        .where('o.userId IN (:...ids)', { ids })
-        .andWhere('o.status IN (:...statuses)', { statuses: validStatuses })
-        .andWhere('o.createdAt >= :start', { start: startOfMonth })
-        .andWhere('o.createdAt < :end', { end: endOfMonth })
+    const getMonthlyVolume = async (side: 'left' | 'right'): Promise<number> => {
+      const row = await this.branchVolumeLogRepository
+        .createQueryBuilder('log')
+        .select('COALESCE(SUM(log.amount), 0)', 'sum')
+        .where('log.userId = :userId', { userId })
+        .andWhere('log.side = :side', { side })
+        .andWhere('log.createdAt >= :start', { start: startOfMonth })
+        .andWhere('log.createdAt < :end', { end: endOfMonth })
         .getRawOne<{ sum: string }>();
       return parseFloat(row?.sum || '0') || 0;
     };
 
     const [leftMonthlyVolume, rightMonthlyVolume] = await Promise.all([
-      sumOrders(leftStats.ids),
-      sumOrders(rightStats.ids),
+      getMonthlyVolume('left'),
+      getMonthlyVolume('right'),
     ]);
 
     return {
@@ -559,7 +560,7 @@ export class UserService {
 
   /**
    * Tính tổng doanh số nhánh trái / phải trong tháng chỉ định.
-   * Lấy toàn bộ user trong cây (1 query), phân loại left/right, sau đó aggregate orders.
+   * Lấy trực tiếp từ lịch sử biến động doanh số nhánh (BranchVolumeLog).
    */
   async getBranchMonthlyVolume(
     userId: string,
@@ -569,52 +570,22 @@ export class UserService {
     const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const end   = new Date(year, month, 1, 0, 0, 0, 0);
 
-    // Lấy toàn bộ user tree một lần
-    const allUsers = await this.userRepository.find({
-      select: ['id', 'parentId', 'position'],
-    });
-
-    const parentToChildren = new Map<string, Array<{ id: string; position: string }>>();
-    for (const u of allUsers) {
-      if (u.parentId) {
-        if (!parentToChildren.has(u.parentId)) parentToChildren.set(u.parentId, []);
-        parentToChildren.get(u.parentId)!.push({ id: u.id, position: u.position });
-      }
-    }
-
-    const collectBranch = (side: 'left' | 'right'): string[] => {
-      const ids: string[] = [];
-      const queue: string[] = [];
-      for (const c of parentToChildren.get(userId) || []) {
-        if (c.position === side) queue.push(c.id);
-      }
-      while (queue.length) {
-        const cur = queue.shift()!;
-        ids.push(cur);
-        for (const c of parentToChildren.get(cur) || []) queue.push(c.id);
-      }
-      return ids;
-    };
-
-    const leftIds  = collectBranch('left');
-    const rightIds = collectBranch('right');
-
-    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
-
-    const sumOrders = async (ids: string[]): Promise<number> => {
-      if (ids.length === 0) return 0;
-      const row = await this.orderRepository
-        .createQueryBuilder('o')
-        .select('COALESCE(SUM(o.totalAmount), 0)', 'sum')
-        .where('o.userId IN (:...ids)', { ids })
-        .andWhere('o.status IN (:...statuses)', { statuses: validStatuses })
-        .andWhere('o.createdAt >= :start', { start })
-        .andWhere('o.createdAt < :end', { end })
+    const getMonthlyVolume = async (side: 'left' | 'right'): Promise<number> => {
+      const row = await this.branchVolumeLogRepository
+        .createQueryBuilder('log')
+        .select('COALESCE(SUM(log.amount), 0)', 'sum')
+        .where('log.userId = :userId', { userId })
+        .andWhere('log.side = :side', { side })
+        .andWhere('log.createdAt >= :start', { start })
+        .andWhere('log.createdAt < :end', { end })
         .getRawOne<{ sum: string }>();
       return parseFloat(row?.sum || '0') || 0;
     };
 
-    const [left, right] = await Promise.all([sumOrders(leftIds), sumOrders(rightIds)]);
+    const [left, right] = await Promise.all([
+      getMonthlyVolume('left'),
+      getMonthlyVolume('right'),
+    ]);
     return { left, right };
   }
 

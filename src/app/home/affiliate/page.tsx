@@ -287,7 +287,12 @@ export default function AffiliatePage() {
     typeof referralInfo.treeStats.right.monthlyVolume === "number"
       ? referralInfo.treeStats.right.monthlyVolume
       : parseFloat(String(referralInfo.treeStats.right.monthlyVolume ?? "0")) || 0;
-  const weakBranchMonthlyVolume = Math.min(leftMonthlyVolume, rightMonthlyVolume);
+
+  // Xác định nhánh yếu tại thời điểm đầu tháng (trước khi có doanh số tháng này)
+  const leftVolumeAtStart = leftVolume - leftMonthlyVolume;
+  const rightVolumeAtStart = rightVolume - rightMonthlyVolume;
+  const startOfMonthWeakSide = leftVolumeAtStart <= rightVolumeAtStart ? "left" : "right";
+  const weakBranchMonthlyVolume = startOfMonthWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
 
   const maxCommission = getMaxCommission();
   const receivedCommission =

@@ -6,6 +6,7 @@ import { CommissionService } from './commission.service';
 import { CommissionPayoutService } from './commission-payout.service';
 import { CommissionPayoutScheduler } from './commission-payout.scheduler';
 import { Commission } from './entities/commission.entity';
+import { BranchVolumeLog } from './entities/branch-volume-log.entity';
 import { User } from '../user/entities/user.entity';
 import { Order } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
@@ -16,7 +17,7 @@ import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Commission, User, Order, Product]),
+    TypeOrmModule.forFeature([Commission, BranchVolumeLog, User, Order, Product]),
     BlockchainModule,
     AuditLogModule,
     forwardRef(() => AdminModule),
