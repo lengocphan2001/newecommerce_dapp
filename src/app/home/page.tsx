@@ -211,7 +211,7 @@ export default function HomePage() {
     }
   };
 
-  const [usdtToVnd, setUsdtToVnd] = useState<number>(24500);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
 
   useEffect(() => {
     let cancelled = false;

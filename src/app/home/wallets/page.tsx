@@ -473,7 +473,7 @@ export default function WalletsPage() {
       : Math.round(walletBalance * 25000); // fallback
 
   const formatRecentActivityVND = (amount: number) => {
-    const rate = usdtDepositRateVnd > 0 ? usdtDepositRateVnd : 24500;
+    const rate = usdtDepositRateVnd > 0 ? usdtDepositRateVnd : 25000;
     const vndAmount = amount * rate;
     return `${vndAmount.toLocaleString("vi-VN")} VND`;
   };

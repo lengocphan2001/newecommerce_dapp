@@ -186,7 +186,7 @@ export default function ProductDetailClient() {
     }
   };
 
-  const [usdtToVnd, setUsdtToVnd] = useState<number>(24500);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
 
   useEffect(() => {
     let cancelled = false;

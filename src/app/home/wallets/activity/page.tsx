@@ -37,7 +37,7 @@ export default function ActivityPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [referralInfo, setReferralInfo] = useState<any>(null);
 
-  const [usdtToVnd, setUsdtToVnd] = useState<number>(24500);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
 
   useEffect(() => {
     let cancelled = false;

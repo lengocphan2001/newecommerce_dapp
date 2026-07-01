@@ -96,7 +96,7 @@ export default function OrderDetailClient() {
     };
 
     const formatPriceVND = (amount: number) => {
-        const vndAmount = amount * 24500;
+        const vndAmount = amount * 25000;
         return `${vndAmount.toLocaleString("vi-VN")} VND`;
     };
 

@@ -267,16 +267,8 @@ export default function AffiliatePage() {
       ? referralInfo.treeStats.right.volume
       : parseFloat(referralInfo.treeStats.right.volume || "0") || 0;
 
-  // Doanh số nhánh tháng hiện tại
-  const leftMonthlyVolume =
-    typeof referralInfo.treeStats.left.monthlyVolume === "number"
-      ? referralInfo.treeStats.left.monthlyVolume
-      : parseFloat(String(referralInfo.treeStats.left.monthlyVolume ?? "0")) || 0;
-  const rightMonthlyVolume =
-    typeof referralInfo.treeStats.right.monthlyVolume === "number"
-      ? referralInfo.treeStats.right.monthlyVolume
-      : parseFloat(String(referralInfo.treeStats.right.monthlyVolume ?? "0")) || 0;
-  const weakBranchMonthlyVolume = Math.min(leftMonthlyVolume, rightMonthlyVolume);
+  // Doanh số nhánh yếu (weak branch volume)
+  const weakBranchVolume = Math.min(leftVolume, rightVolume);
 
   const maxCommission = getMaxCommission();
   const receivedCommission =
@@ -401,7 +393,7 @@ export default function AffiliatePage() {
                     </div>
                   </div>
                 )}
-                {/* Nhánh yếu tháng hiện tại */}
+                {/* Nhánh yếu */}
                 <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
@@ -410,7 +402,7 @@ export default function AffiliatePage() {
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-amber-700">
-                    {formatVolume(weakBranchMonthlyVolume)} <span className="text-sm font-normal text-amber-600">PV</span>
+                    {formatVolume(weakBranchVolume)} <span className="text-sm font-normal text-amber-600">PV</span>
                   </p>
                 </div>
               </div>

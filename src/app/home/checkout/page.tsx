@@ -682,12 +682,12 @@ export default function CheckoutPage() {
                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
                   <p className="text-xs text-slate-500 font-medium mb-0.5">Số dư ví tiêu dùng</p>
                   <p className="font-bold text-slate-900 text-lg">
-                    {depositBalance != null ? `${formatPrice(depositBalance)} PV (~ ${formatVnd(depositBalance * (usdtToVnd || 24500))})` : "—"}
+                    {depositBalance != null ? `${formatPrice(depositBalance)} PV (~ ${formatVnd(depositBalance * (usdtToVnd || 25000))})` : "—"}
                   </p>
                 </div>
                 {depositBalance != null && (depositBalance < finalTotal) && (
                   <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                    Số dư không đủ (thiếu {formatPrice(finalTotal - depositBalance)} PV ~ {formatVnd((finalTotal - depositBalance) * (usdtToVnd || 24500))}). Vui lòng nạp thêm hoặc chọn Chuyển khoản.
+                    Số dư không đủ (thiếu {formatPrice(finalTotal - depositBalance)} PV ~ {formatVnd((finalTotal - depositBalance) * (usdtToVnd || 25000))}). Vui lòng nạp thêm hoặc chọn Chuyển khoản.
                   </div>
                 )}
               </div>
@@ -708,15 +708,15 @@ export default function CheckoutPage() {
                     <p className="text-xs text-slate-500 font-medium">Số dư Ví nạp PV</p>
                   </div>
                   <p className="font-bold text-slate-900 text-lg">
-                    {pvBalance != null ? `${formatPrice(pvBalance)} PV (~ ${formatVnd(pvBalance * (usdtToVnd || 24500))})` : "—"}
+                    {pvBalance != null ? `${formatPrice(pvBalance)} PV (~ ${formatVnd(pvBalance * (usdtToVnd || 25000))})` : "—"}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Số PV cần thanh toán: <span className="font-semibold text-slate-800">{formatPrice(finalTotal)} PV (~ {formatVnd(finalTotal * (usdtToVnd || 24500))})</span>
+                    Số PV cần thanh toán: <span className="font-semibold text-slate-800">{formatPrice(finalTotal)} PV (~ {formatVnd(finalTotal * (usdtToVnd || 25000))})</span>
                   </p>
                 </div>
                 {pvBalance != null && (pvBalance < finalTotal) && (
                   <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                    Số dư không đủ (thiếu {formatPrice(finalTotal - pvBalance)} PV ~ {formatVnd((finalTotal - pvBalance) * (usdtToVnd || 24500))}). Vui lòng nạp thêm hoặc chọn phương thức khác.
+                    Số dư không đủ (thiếu {formatPrice(finalTotal - pvBalance)} PV ~ {formatVnd((finalTotal - pvBalance) * (usdtToVnd || 25000))}). Vui lòng nạp thêm hoặc chọn phương thức khác.
                   </div>
                 )}
               </div>
@@ -735,7 +735,7 @@ export default function CheckoutPage() {
                     <p className="text-sm text-slate-600">Chuyển khoản đến tài khoản sau. Đơn hàng sẽ ở trạng thái chờ duyệt cho đến khi admin xác nhận đã nhận tiền.</p>
                     <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
                       <p className="text-xs text-slate-500 font-medium mb-0.5">Số tiền thanh toán</p>
-                      <p className="font-bold text-slate-900 text-lg">{formatVnd(finalTotal * (usdtToVnd || 24500))}</p>
+                      <p className="font-bold text-slate-900 text-lg">{formatVnd(finalTotal * (usdtToVnd || 25000))}</p>
                       <p className="text-xs text-slate-500 mt-0.5">≈ {formatPrice(finalTotal)} PV</p>
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-sm">
@@ -925,18 +925,18 @@ export default function CheckoutPage() {
           <div className="bg-white p-5 rounded-2xl shadow-card border border-purple-100 space-y-3.5">
             <div className="flex justify-between text-sm items-center">
               <span className="text-text-sub font-medium">{t("productPrice")}</span>
-              <span className="font-bold text-slate-900">{formatVnd(totalAmount * (usdtToVnd || 24500))}</span>
+              <span className="font-bold text-slate-900">{formatVnd(totalAmount * (usdtToVnd || 25000))}</span>
             </div>
             {shippingFee > 0 && (
               <div className="flex justify-between text-sm items-center">
                 <span className="text-text-sub font-medium">{t("shippingFee")}</span>
-                <span className="font-bold text-slate-900">{formatVnd(shippingFee * (usdtToVnd || 24500))}</span>
+                <span className="font-bold text-slate-900">{formatVnd(shippingFee * (usdtToVnd || 25000))}</span>
               </div>
             )}
             <div className="border-t border-slate-100 pt-3 mt-1">
               <div className="flex justify-between text-sm items-center">
                 <span className="text-text-sub font-bold">Tổng thanh toán</span>
-                <span className="font-bold text-slate-900 text-lg">{formatVnd(finalTotal * (usdtToVnd || 24500))}</span>
+                <span className="font-bold text-slate-900 text-lg">{formatVnd(finalTotal * (usdtToVnd || 25000))}</span>
               </div>
             </div>
           </div>
@@ -949,7 +949,7 @@ export default function CheckoutPage() {
           <div className="flex flex-col">
             <span className="text-xs text-text-sub font-medium mb-0.5">{t("totalPayment")}</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatVnd(finalTotal * (usdtToVnd || 24500))}</span>
+              <span className="text-2xl font-bold text-slate-900 tracking-tight">{formatVnd(finalTotal * (usdtToVnd || 25000))}</span>
             </div>
           </div>
           <button
