@@ -376,18 +376,25 @@ export default function AffiliatePage() {
               <div className="space-y-3">
                 {/* Total Commission Can Receive */}
                 {referralInfo.packageType !== "NONE" && (
-                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                    <div className="flex items-center gap-2 mb-3">
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-primary/10 pb-2">
                       <span className="material-symbols-outlined text-primary text-xl">
                         account_balance_wallet
                       </span>
-                      <span className="text-sm font-medium text-gray-700">
-                        {t("totalCommissionCanReceive")}
+                      <span className="text-sm font-bold text-gray-800">
+                        {lang === "vi" ? "Thông tin hoa hồng" : "Commission Info"}
                       </span>
                     </div>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-primary-dark">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 font-medium">{t("commissionReceived")}</span>
+                        <span className="font-bold text-slate-800">
+                          {formatVolume(receivedCommission)} PV
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 font-medium">{t("totalCommissionCanReceive")}</span>
+                        <span className="font-bold text-primary-dark">
                           {formatVolume(maxCommission)} PV
                         </span>
                       </div>

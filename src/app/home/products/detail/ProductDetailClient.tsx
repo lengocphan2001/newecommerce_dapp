@@ -317,6 +317,16 @@ export default function ProductDetailClient() {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background text-text-main font-display antialiased">
+      {/* Floating Back Button */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-md z-40 px-4 pointer-events-none">
+        <button
+          onClick={() => router.back()}
+          className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-black/30 hover:bg-black/45 text-white backdrop-blur-sm shadow-md active:scale-90 transition-all duration-150"
+        >
+          <span className="material-symbols-outlined text-xl font-medium">arrow_back</span>
+        </button>
+      </div>
+
       {orderSuccess && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-6 text-center max-w-sm w-full shadow-2xl border border-emerald-100 flex flex-col items-center gap-4 animate-scale-up">
