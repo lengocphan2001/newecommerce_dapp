@@ -15,6 +15,7 @@ import {
   CommissionType,
   CommissionStatus,
 } from './entities/commission.entity';
+import { BranchVolumeLog } from './entities/branch-volume-log.entity';
 import { PackagesService } from '../packages/packages.service';
 import { Package } from '../packages/entities/package.entity';
 import { Product } from '../product/entities/product.entity';
@@ -42,6 +43,8 @@ export class CommissionService {
     private productRepository: Repository<Product>,
     @InjectRepository(SystemConfig)
     private systemConfigRepository: Repository<SystemConfig>,
+    @InjectRepository(BranchVolumeLog)
+    private branchVolumeLogRepository: Repository<BranchVolumeLog>,
     private dataSource: DataSource,
     private packagesService: PackagesService,
   ) { }
@@ -112,7 +115,7 @@ export class CommissionService {
    * Order value used for commission (excludes shipping fee).
    */
   /**
-   * Order value used for commission (sum of product price * quantity) * 90%.
+   * Order value used for commission (sum of product price * quantity).
    */
   private getOrderValueForCommission(order: Order): number {
     const items = Array.isArray(order.items) ? order.items : [];
@@ -121,7 +124,7 @@ export class CommissionService {
       const quantity = Number(item.quantity) || 0;
       return sum + price * quantity;
     }, 0);
-    return baseValue * 0.9;
+    return baseValue;
   }
 
   /**
@@ -695,6 +698,23 @@ export class CommissionService {
         })
         .where('id = :id', { id: ancestor.id })
         .execute();
+
+      // Lưu lại lịch sử cập nhật doanh số nhánh
+      try {
+        await this.branchVolumeLogRepository.save({
+          userId: ancestor.id,
+          orderId: order.id,
+          amount: orderValue,
+          side: buyerSide,
+        });
+        this.logger.log(
+          `Logged branch volume change for user ${ancestor.id}: +${orderValue} on ${buyerSide}`,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Failed to log branch volume change for user ${ancestor.id}: ${err.message}`,
+        );
+      }
     }
   }
 

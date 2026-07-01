@@ -110,9 +110,11 @@ function OrdersPageContent() {
   };
 
   const formatPriceVND = (amount: number) => {
-    // Assuming 1 USDT ≈ 24,500 VND
-    const vndAmount = amount * 24500;
+    // Assuming 1 USDT ≈ 25,000 VND
+    const vndAmount = amount * 25000;
     return vndAmount.toLocaleString("vi-VN", {
+      style: "currency",
+      currency: "VND",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     });
@@ -371,7 +373,7 @@ function OrdersPageContent() {
                       <div className="text-right mt-1">
                         <p className={`text-lg font-bold tracking-tight ${isCancelled ? "text-slate-600" : "text-blue-800"
                           }`}>
-                          {formatPrice(order.totalAmount)} PV
+                          {formatPriceVND(order.totalAmount)}
                         </p>
                       </div>
                     </div>

@@ -177,6 +177,17 @@ export default function AffiliatePage() {
     }).format(num);
   };
 
+  const formatPriceVND = (volume: string | number) => {
+    const num = typeof volume === "string" ? parseFloat(volume) : volume;
+    const vndAmount = num * 25000;
+    return vndAmount.toLocaleString("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  };
+
   const getRank = (packageType?: string) => {
     return packageType || "NONE";
   };
@@ -267,7 +278,7 @@ export default function AffiliatePage() {
       ? referralInfo.treeStats.right.volume
       : parseFloat(referralInfo.treeStats.right.volume || "0") || 0;
 
-  // Doanh số nhánh tháng hiện tại
+  // Doanh số nhánh tháng hiện tại (CONFIRMED)
   const leftMonthlyVolume =
     typeof referralInfo.treeStats.left.monthlyVolume === "number"
       ? referralInfo.treeStats.left.monthlyVolume
@@ -276,7 +287,12 @@ export default function AffiliatePage() {
     typeof referralInfo.treeStats.right.monthlyVolume === "number"
       ? referralInfo.treeStats.right.monthlyVolume
       : parseFloat(String(referralInfo.treeStats.right.monthlyVolume ?? "0")) || 0;
-  const weakBranchMonthlyVolume = Math.min(leftMonthlyVolume, rightMonthlyVolume);
+
+  // Xác định nhánh yếu tại thời điểm đầu tháng (trước khi có doanh số tháng này)
+  const leftVolumeAtStart = leftVolume - leftMonthlyVolume;
+  const rightVolumeAtStart = rightVolume - rightMonthlyVolume;
+  const startOfMonthWeakSide = leftVolumeAtStart <= rightVolumeAtStart ? "left" : "right";
+  const weakBranchMonthlyVolume = startOfMonthWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
 
   const maxCommission = getMaxCommission();
   const receivedCommission =
@@ -387,15 +403,19 @@ export default function AffiliatePage() {
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600 font-medium">{t("commissionReceived")}</span>
+                        <span className="text-gray-600 font-medium">
+                          {lang === "vi" ? "Đã nhận" : "Received"}
+                        </span>
                         <span className="font-bold text-slate-800">
-                          {formatVolume(receivedCommission)} PV
+                          {formatPriceVND(receivedCommission)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600 font-medium">{t("totalCommissionCanReceive")}</span>
+                        <span className="text-gray-600 font-medium">
+                          {lang === "vi" ? "Có thể nhận" : "Can receive"}
+                        </span>
                         <span className="font-bold text-primary-dark">
-                          {formatVolume(maxCommission)} PV
+                          {formatPriceVND(maxCommission)}
                         </span>
                       </div>
                     </div>
@@ -410,7 +430,7 @@ export default function AffiliatePage() {
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-amber-700">
-                    {formatVolume(weakBranchMonthlyVolume)} <span className="text-sm font-normal text-amber-600">PV</span>
+                    {formatPriceVND(weakBranchMonthlyVolume)}
                   </p>
                 </div>
               </div>
