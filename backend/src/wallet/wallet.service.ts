@@ -327,8 +327,18 @@ export class WalletService {
     if (!user) throw new NotFoundException('User not found');
 
     const amount = Number(dto.amount || 0);
-    if (!Number.isFinite(amount) || amount < 30) {
-      throw new BadRequestException('Số tiền rút tối thiểu là 30 USDT');
+    const banking = await this.bankingConfigRepo.findOne({
+      where: { isEnabled: true },
+    });
+    const rate =
+      banking?.usdtWithdrawPriceVnd != null &&
+      Number(banking.usdtWithdrawPriceVnd) > 0
+        ? Number(banking.usdtWithdrawPriceVnd)
+        : 24000;
+    const amountVnd = Math.round(amount * rate);
+
+    if (!Number.isFinite(amount) || amountVnd < 500000) {
+      throw new BadRequestException('Số tiền rút tối thiểu là 500.000 VND');
     }
     const currentBalance = Number(user.withdrawWalletBalance ?? 0);
     if (amount > currentBalance) {
@@ -370,17 +380,6 @@ export class WalletService {
     await this.userRepo.update(userId, {
       withdrawWalletBalance: currentBalance - amount,
     });
-
-    // Obtener la tasa de cambio actual desde la configuración para congelar el valor en VND del retiro en el momento de la transacción
-    const banking = await this.bankingConfigRepo.findOne({
-      where: { isEnabled: true },
-    });
-    const rate =
-      banking?.usdtWithdrawPriceVnd != null &&
-      Number(banking.usdtWithdrawPriceVnd) > 0
-        ? Number(banking.usdtWithdrawPriceVnd)
-        : 24000;
-    const amountVnd = Math.round(amount * rate);
 
     const request = this.withdrawRequestRepo.create({
       userId,

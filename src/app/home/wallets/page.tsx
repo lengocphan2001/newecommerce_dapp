@@ -312,8 +312,8 @@ export default function WalletsPage() {
     const rate = usdtWithdrawRateVnd > 0 ? usdtWithdrawRateVnd : 24000;
     const amount = amountVnd / rate;
 
-    if (!amount || amount < 30) {
-      setWithdrawError(`Số tiền rút tối thiểu là 30 PV (~${(30 * rate).toLocaleString("vi-VN")} ₫)`);
+    if (!amountVnd || amountVnd < 500000) {
+      setWithdrawError("Số tiền rút tối thiểu là 500.000 ₫");
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {
