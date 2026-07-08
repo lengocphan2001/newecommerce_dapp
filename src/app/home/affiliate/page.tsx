@@ -446,7 +446,7 @@ export default function AffiliatePage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
                     <span className="text-sm font-bold text-blue-800">
-                      {lang === "vi" ? "Doanh số nhánh yếu (Tích lũy)" : "Weak Leg Volume (Accumulated)"}
+                      {lang === "vi" ? "Doanh số nhánh yếu" : "Weak Leg Volume"}
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-blue-700">
