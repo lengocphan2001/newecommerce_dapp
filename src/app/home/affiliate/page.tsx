@@ -452,9 +452,6 @@ export default function AffiliatePage() {
                   <p className="text-2xl font-bold text-blue-700">
                     {formatPriceVND(weakBranchTotalVolume)}
                   </p>
-                  <p className="text-xs text-blue-500 mt-1">
-                    {lang === "vi" ? "Doanh số nhánh yếu từ trước tới nay" : "Weak leg sales volume from inception"}
-                  </p>
                 </div>
 
                 {/* Doanh số cần đạt */}
@@ -467,9 +464,6 @@ export default function AffiliatePage() {
                   </div>
                   <p className="text-2xl font-bold text-purple-700">
                     {formatPriceVND(targetVolume)}
-                  </p>
-                  <p className="text-xs text-purple-500 mt-1">
-                    {lang === "vi" ? "Doanh số cần thêm ở nhánh yếu để đạt mục tiêu" : "Required volume to be generated in weak leg"}
                   </p>
                 </div>
               </div>
