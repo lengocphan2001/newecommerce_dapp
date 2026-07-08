@@ -194,11 +194,11 @@ export class CommissionPayoutService {
         );
       }
 
-      const feePercent = COMMISSION_FEE_PERCENT; // 12%
-      const withdrawPercent = 75; // 75%
-      const depositPercent = 13; // 13%
+      const withdrawPercent = 65; // 65%
+      const reconsumptionPercent = 25; // 25%
+      const taxPercent = 10; // 10% (trừ luôn)
       this.logger.log(
-        `Internal payout distribution: withdraw=${withdrawPercent}%, deposit(ví nạp)=${depositPercent}%, fee=${feePercent}%`,
+        `Internal payout distribution: withdraw=${withdrawPercent}%, reconsumption(tiêu dùng)=${reconsumptionPercent}%, tax(thuế)=${taxPercent}%`,
       );
 
       const batchId =
@@ -218,12 +218,12 @@ export class CommissionPayoutService {
         commissionMap.get(commission.userId)!.push(commission);
       }
 
-      // Update each commission and credit withdraw wallet and deposit wallet (ví nạp)
+      // Update each commission and credit withdraw wallet and reconsumption wallet
       const recipientUserIds = dto.recipients.map((recipient) => recipient.userId);
       const recipientsUsers = recipientUserIds.length
         ? await queryRunner.manager.find(User, {
             where: { id: In(recipientUserIds) },
-            select: ['id', 'withdrawWalletBalance', 'walletBalance'],
+            select: ['id', 'withdrawWalletBalance', 'reconsumptionWalletBalance'],
           })
         : [];
       const usersById = new Map(recipientsUsers.map((user) => [user.id, user]));
@@ -238,14 +238,14 @@ export class CommissionPayoutService {
           0,
         );
         const withdrawAmount = roundMoney((gross * withdrawPercent) / 100);
-        const depositAmount = roundMoney((gross * depositPercent) / 100);
+        const reconsumptionAmount = roundMoney((gross * reconsumptionPercent) / 100);
         
         const currentWithdraw = Number(user.withdrawWalletBalance || 0);
-        const currentDeposit = Number(user.walletBalance || 0);
+        const currentReconsumption = Number(user.reconsumptionWalletBalance || 0);
         
         await queryRunner.manager.update(User, user.id, {
           withdrawWalletBalance: currentWithdraw + withdrawAmount,
-          walletBalance: currentDeposit + depositAmount,
+          reconsumptionWalletBalance: currentReconsumption + reconsumptionAmount,
         });
 
         for (const commission of userCommissions) {
@@ -256,7 +256,7 @@ export class CommissionPayoutService {
           commission.payoutDate = new Date();
           const parts = [
             commission.notes,
-            `Distributed: withdraw wallet (${withdrawPercent}%), deposit wallet (${depositPercent}%), fee (${feePercent}%)`,
+            `Distributed: withdraw wallet (${withdrawPercent}%), reconsumption wallet (${reconsumptionPercent}%), tax (${taxPercent}%)`,
           ]
             .filter(Boolean)
             .join('; ');
@@ -288,7 +288,8 @@ export class CommissionPayoutService {
             recipientCount: dto.recipients.length,
             distribution: {
               withdrawPercent,
-              feePercent,
+              reconsumptionPercent,
+              taxPercent,
             },
             totalAmount: dto.recipients.reduce(
               (sum, r) => sum + parseFloat(r.amount),

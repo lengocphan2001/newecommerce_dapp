@@ -288,7 +288,7 @@ export class CommissionService {
       const product = productMap.get(item.productId);
       if (!product) continue;
 
-      const itemAmount = Number(item.price) * item.quantity * 0.9; // 90% base
+      const itemAmount = Number(item.price) * item.quantity * 0.85; // 85% base
       totalOrderAmount += itemAmount;
 
       let ratePercent = globalRatePercent;
@@ -401,7 +401,7 @@ export class CommissionService {
       return;
     }
 
-    packageOrderValue = packageOrderValue * 0.9;
+    packageOrderValue = packageOrderValue * 0.85;
 
     const canReceiveCommission = await this.checkReconsumption(
       referrer,
@@ -612,7 +612,7 @@ export class CommissionService {
       const directRate = referrerProductConfig
         ? referrerProductConfig.directCommissionRate
         : this.getProductCommissionPercent(product, buyerPkg) / 100;
-      const itemAmount = Number(item.price) * item.quantity * 0.9;
+      const itemAmount = Number(item.price) * item.quantity * 0.85;
       const productNote = (product.name || '').slice(0, 60);
 
       // --- Product DIRECT: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
@@ -749,7 +749,7 @@ export class CommissionService {
       return;
     }
 
-    packageOrderValue = packageOrderValue * 0.9;
+    packageOrderValue = packageOrderValue * 0.85;
 
     const ancestors = await this.getAncestors(buyer);
     this.logger.log(

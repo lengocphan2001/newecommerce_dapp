@@ -755,13 +755,11 @@ export class AuthService {
     // Get min payout threshold from system config
     const minPayoutThreshold = await this.adminService.getMinPayoutThreshold();
 
-    const walletDistribution =
-      await this.adminService.getCommissionWalletDistribution();
-    const depositPercent = Number(walletDistribution.depositPercent) || 0;
-    const withdrawPercent = Number(walletDistribution.withdrawPercent) || 0;
+    const withdrawPercent = 65;
+    const reconsumptionPercent = 25;
     const grossCommission = Number(user.totalCommissionReceived) || 0;
     const distributedCommission =
-      grossCommission * ((depositPercent + withdrawPercent) / 100);
+      grossCommission * ((withdrawPercent + reconsumptionPercent) / 100);
 
     return {
       referralCode,
@@ -789,8 +787,8 @@ export class AuthService {
       currentMonthCommission: formatDecimal(currentMonthCommission),
       /** Tổng phần hoa hồng đã được phân bổ vào 2 ví nội bộ theo cấu hình */
       bonusCommissionNet: formatDecimal(distributedCommission),
-      payoutFeePercent: Math.max(0, 100 - (depositPercent + withdrawPercent)),
-      commissionDepositWalletPercent: depositPercent,
+      payoutFeePercent: 10, // 10% tax deducted directly
+      commissionDepositWalletPercent: reconsumptionPercent, // mapped to reconsumption
       commissionWithdrawWalletPercent: withdrawPercent,
       fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
       maxCommission,

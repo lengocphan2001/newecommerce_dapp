@@ -446,7 +446,7 @@ export default function AffiliatePage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
                     <span className="text-sm font-bold text-blue-800">
-                      {lang === "vi" ? "Doanh số nhánh yếu" : "Weak Leg Volume"}
+                      {lang === "vi" ? "Doanh số tích lũy" : "Weak Leg Volume"}
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-blue-700">
@@ -459,7 +459,7 @@ export default function AffiliatePage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
                     <span className="text-sm font-bold text-purple-800">
-                      {lang === "vi" ? "Doanh số cần đạt" : "Target Sales Volume"}
+                      {lang === "vi" ? "Doanh số chênh lệch" : "Target Sales Volume"}
                     </span>
                   </div>
                   <p className="text-2xl font-bold text-purple-700">
