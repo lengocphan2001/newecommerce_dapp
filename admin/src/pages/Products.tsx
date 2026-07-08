@@ -637,7 +637,7 @@ const Products: React.FC = () => {
                         validateTrigger="onEditorChange"
                       >
                         <Editor
-                          apiKey='7tppn8rr2vnhb7xkh5zm1ydq00zyxuf4465khfc0mfuwxtbq'
+                          apiKey='edoe8bnux7xs8gkefbmty7k5fg2sgpl1207v0tpnc2vl6qzh'
                           init={{
                             height: 400,
                             menubar: true,
@@ -963,7 +963,7 @@ const Products: React.FC = () => {
                         validateTrigger="onEditorChange"
                       >
                         <Editor
-                          apiKey='7tppn8rr2vnhb7xkh5zm1ydq00zyxuf4465khfc0mfuwxtbq'
+                          apiKey='edoe8bnux7xs8gkefbmty7k5fg2sgpl1207v0tpnc2vl6qzh'
                           init={{
                             height: 400,
                             menubar: true,

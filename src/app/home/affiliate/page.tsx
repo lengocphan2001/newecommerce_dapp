@@ -294,6 +294,13 @@ export default function AffiliatePage() {
   const startOfMonthWeakSide = leftVolumeAtStart <= rightVolumeAtStart ? "left" : "right";
   const weakBranchMonthlyVolume = startOfMonthWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
 
+  // Doanh số nhánh yếu tích lũy (từ trước tới nay)
+  const weakBranchTotalVolume = Math.min(leftVolume, rightVolume);
+
+  // Doanh số cần đạt (Z = X_start - Y_start, Z_new = Z - Y_current_month)
+  const strongVolumeAtStart = Math.max(leftVolumeAtStart, rightVolumeAtStart);
+  const targetVolume = Math.max(0, strongVolumeAtStart - weakBranchTotalVolume);
+
   const maxCommission = getMaxCommission();
   const receivedCommission =
     (typeof referralInfo.bonusCommission === "string"
@@ -431,6 +438,38 @@ export default function AffiliatePage() {
                   </div>
                   <p className="text-2xl font-bold text-amber-700">
                     {formatPriceVND(weakBranchMonthlyVolume)}
+                  </p>
+                </div>
+
+                {/* Doanh số nhánh yếu (Tích lũy) */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
+                    <span className="text-sm font-bold text-blue-800">
+                      {lang === "vi" ? "Doanh số nhánh yếu (Tích lũy)" : "Weak Leg Volume (Accumulated)"}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-700">
+                    {formatPriceVND(weakBranchTotalVolume)}
+                  </p>
+                  <p className="text-xs text-blue-500 mt-1">
+                    {lang === "vi" ? "Doanh số nhánh yếu từ trước tới nay" : "Weak leg sales volume from inception"}
+                  </p>
+                </div>
+
+                {/* Doanh số cần đạt */}
+                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
+                    <span className="text-sm font-bold text-purple-800">
+                      {lang === "vi" ? "Doanh số cần đạt" : "Target Sales Volume"}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-700">
+                    {formatPriceVND(targetVolume)}
+                  </p>
+                  <p className="text-xs text-purple-500 mt-1">
+                    {lang === "vi" ? "Doanh số cần thêm ở nhánh yếu để đạt mục tiêu" : "Required volume to be generated in weak leg"}
                   </p>
                 </div>
               </div>
