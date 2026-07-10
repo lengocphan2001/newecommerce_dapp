@@ -24,6 +24,7 @@ export default function AffiliatePage() {
       right: { count: number; members: any[]; volume?: number; monthlyVolume?: number };
       total: number;
       newTodayCount?: number;
+      weakBranchTotalVolume?: number;
     };
     accumulatedPurchases?: string;
     bonusCommission?: string;
@@ -294,8 +295,12 @@ export default function AffiliatePage() {
   const startOfMonthWeakSide = leftVolumeAtStart <= rightVolumeAtStart ? "left" : "right";
   const weakBranchMonthlyVolume = startOfMonthWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
 
-  // Doanh số nhánh yếu tích lũy (từ trước tới nay)
-  const weakBranchTotalVolume = Math.min(leftVolume, rightVolume);
+  // Doanh số nhánh yếu tích lũy (cộng dồn doanh số tính thưởng của các tháng từ tháng 7/2026 trở đi)
+  const weakBranchTotalVolume = referralInfo.treeStats?.weakBranchTotalVolume !== undefined
+    ? (typeof referralInfo.treeStats.weakBranchTotalVolume === "number"
+        ? referralInfo.treeStats.weakBranchTotalVolume
+        : parseFloat(String(referralInfo.treeStats.weakBranchTotalVolume)) || 0)
+    : Math.min(leftVolume, rightVolume);
 
   // Doanh số cần đạt (Z = X_start - Y_start, Z_new = Z - Y_current_month)
   const strongVolumeAtStart = Math.max(leftVolumeAtStart, rightVolumeAtStart);

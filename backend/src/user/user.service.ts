@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Address } from './entities/address.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
@@ -417,6 +417,91 @@ export class UserService {
     return result;
   }
 
+  async calculateWeakBranchAccumulatedVolume(
+    userId: string,
+    leftBranchTotal: number,
+    rightBranchTotal: number,
+  ): Promise<number> {
+    const startYear = 2026;
+    const startMonth = 7; // July
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-indexed
+
+    // If current date is before July 2026, return Math.min(left, right) as default
+    if (currentYear < startYear || (currentYear === startYear && currentMonth < startMonth)) {
+      return Math.min(leftBranchTotal, rightBranchTotal);
+    }
+
+    // Generate list of months from July 2026 to current month
+    const monthsList: Array<{ year: number; month: number }> = [];
+    let y = startYear;
+    let m = startMonth;
+    while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+      monthsList.push({ year: y, month: m });
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+
+    // Fetch all logs from July 1, 2026 onwards to compute the volumes at the start of each month
+    const startDateLimit = new Date(startYear, startMonth - 1, 1, 0, 0, 0, 0);
+    const logs = await this.branchVolumeLogRepository.find({
+      where: {
+        userId,
+        createdAt: MoreThanOrEqual(startDateLimit),
+      },
+      select: ['amount', 'side', 'createdAt'],
+      order: { createdAt: 'ASC' },
+    });
+
+    let accumulatedWeakVolume = 0;
+
+    for (const item of monthsList) {
+      const monthStart = new Date(item.year, item.month - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(item.year, item.month, 1, 0, 0, 0, 0);
+
+      // Volume of left and right added after monthStart
+      let leftAddedAfter = 0;
+      let rightAddedAfter = 0;
+      // Volume generated inside this specific month
+      let leftInMonth = 0;
+      let rightInMonth = 0;
+
+      for (const log of logs) {
+        const logDate = new Date(log.createdAt);
+        if (logDate >= monthStart) {
+          const logAmount = Number(log.amount) || 0;
+          if (log.side === 'left') {
+            leftAddedAfter += logAmount;
+            if (logDate < monthEnd) {
+              leftInMonth += logAmount;
+            }
+          } else {
+            rightAddedAfter += logAmount;
+            if (logDate < monthEnd) {
+              rightInMonth += logAmount;
+            }
+          }
+        }
+      }
+
+      // Volume at the start of this month
+      const leftAtStart = leftBranchTotal - leftAddedAfter;
+      const rightAtStart = rightBranchTotal - rightAddedAfter;
+
+      const weakSide = leftAtStart <= rightAtStart ? 'left' : 'right';
+      const weakBranchMonthly = weakSide === 'left' ? leftInMonth : rightInMonth;
+
+      accumulatedWeakVolume += weakBranchMonthly;
+    }
+
+    return accumulatedWeakVolume;
+  }
+
   async getBinaryTreeStats(userId: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -426,6 +511,12 @@ export class UserService {
     // Para optimizar el rendimiento y evitar consultas recursivas N+1 costosas en base de datos al ver el árbol,
     // calculamos los descendientes de ambas ramas en memoria usando una sola consulta indexada.
     const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
+
+    const weakBranchTotalVolume = await this.calculateWeakBranchAccumulatedVolume(
+      userId,
+      user.leftBranchTotal || 0,
+      user.rightBranchTotal || 0,
+    );
 
     return {
       left: {
@@ -441,6 +532,7 @@ export class UserService {
         total: user.rightBranchTotal || 0,
       },
       total: leftMembers.length + rightMembers.length,
+      weakBranchTotalVolume,
     };
   }
 
@@ -538,6 +630,12 @@ export class UserService {
       getMonthlyVolume('right'),
     ]);
 
+    const weakBranchTotalVolume = await this.calculateWeakBranchAccumulatedVolume(
+      userId,
+      user.leftBranchTotal || 0,
+      user.rightBranchTotal || 0,
+    );
+
     return {
       left: {
         count: leftStats.count,
@@ -555,6 +653,7 @@ export class UserService {
       },
       total: leftStats.count + rightStats.count,
       newTodayCount: leftStats.newSince + rightStats.newSince,
+      weakBranchTotalVolume,
     };
   }
 
