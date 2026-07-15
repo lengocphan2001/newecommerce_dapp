@@ -1480,4 +1480,426 @@ export class AdminService {
     );
     return { affected };
   }
+
+  // Minimal CSV parser for our own export format (commas + double quotes escaping).
+  private parseCsv(content: string): string[][] {
+    const rows: string[][] = [];
+    const text = content.replace(/^\uFEFF/, ''); // strip BOM if present
+
+    let row: string[] = [];
+    let field = '';
+    let inQuotes = false;
+
+    const pushField = () => {
+      row.push(field);
+      field = '';
+    };
+    const pushRow = () => {
+      if (row.length === 1 && row[0] === '' && rows.length > 0) return;
+      rows.push(row);
+      row = [];
+    };
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          const next = text[i + 1];
+          if (next === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += ch;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inQuotes = true;
+        continue;
+      }
+
+      if (ch === ',') {
+        pushField();
+        continue;
+      }
+
+      if (ch === '\n') {
+        pushField();
+        pushRow();
+        continue;
+      }
+
+      if (ch === '\r') {
+        continue;
+      }
+
+      field += ch;
+    }
+
+    pushField();
+    if (row.length) pushRow();
+    return rows;
+  }
+
+  async importUsersCsv(fileBuffer: Buffer): Promise<{ total: number; created: number; updated: number; failed: string[] }> {
+    const csvContent = fileBuffer.toString('utf8');
+    const rows = this.parseCsv(csvContent);
+    if (rows.length < 2) {
+      throw new BadRequestException('CSV file is empty or missing headers');
+    }
+
+    const headers = rows[0].map((h) => h.trim());
+    const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+
+    const iId = idx('ID');
+    const iUsername = idx('Username');
+    const iEmail = idx('Email');
+    const iFullName = idx('Full Name');
+    const iPhone = idx('Phone');
+    const iCountry = idx('Country');
+    const iAddress = idx('Address');
+    const iAvatar = idx('Avatar');
+    const iChainId = idx('Chain ID');
+    const iPackageType = idx('Package Type');
+    const iStatus = idx('Status');
+    const iIsAdmin = idx('Is Admin');
+    const iEmailVerified = idx('Email Verified');
+    const iWalletAddress = idx('Wallet Address');
+    const iWalletBalance = idx('Wallet Balance (Deposit)');
+    const iWithdrawWalletBalance = idx('Withdraw Wallet Balance');
+    const iReferralUser = idx('Referral User');
+    const iReferralUserId = idx('Referral User ID');
+    const iParentId = idx('Parent ID');
+    const iPosition = idx('Position');
+    const iTotalPurchaseAmount = idx('Total Purchase Amount');
+    const iTotalCommissionReceived = idx('Total Commission Received');
+    const iFakeReceivedCommission = idx('Fake Received Commission');
+    const iTotalReconsumptionAmount = idx('Total Reconsumption Amount');
+    const iLeftBranchTotal = idx('Left Branch Total');
+    const iRightBranchTotal = idx('Right Branch Total');
+    const iPasswordChangedAt = idx('Password Changed At');
+    const iCreatedAt = idx('Created At');
+    const iUpdatedAt = idx('Updated At');
+
+    if (iEmail === -1 || iFullName === -1) {
+      throw new BadRequestException('CSV must at least contain "Email" and "Full Name" headers.');
+    }
+
+    let created = 0;
+    let updated = 0;
+    const failed: string[] = [];
+
+    const defaultPassword = 'User@123456';
+    const defaultPasswordHash = await bcrypt.hash(defaultPassword, 10);
+
+    const parseNum = (v: string): number => {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    };
+    const parseBool = (v: string): boolean => {
+      const s = String(v).trim().toLowerCase();
+      return s === 'true' || s === '1' || s === 'yes';
+    };
+    const parseDate = (v: string): Date | null => {
+      if (!v || v.trim() === '') return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const relationUpdates: Array<{
+      id: string;
+      referralUserId?: string;
+      parentId?: string;
+      position?: 'left' | 'right';
+      referralUser?: string;
+    }> = [];
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (row.length < 2) continue;
+
+      const get = (i: number) => (i >= 0 && row[i] !== undefined ? row[i].trim() : '');
+
+      const email = get(iEmail);
+      const fullName = get(iFullName);
+      if (!email) {
+        failed.push(`Row ${r + 1}: Email is missing`);
+        continue;
+      }
+
+      try {
+        const id = get(iId) || undefined;
+        const username = get(iUsername) || undefined;
+
+        let user: User | null = null;
+        if (id) {
+          user = await this.userRepository.findOne({ where: { id } });
+        }
+        if (!user && email) {
+          user = await this.userRepository.findOne({ where: { email } });
+        }
+        if (!user && username) {
+          user = await this.userRepository.findOne({ where: { username } });
+        }
+
+        const isNew = !user;
+        let userEntity: User;
+        if (isNew) {
+          userEntity = this.userRepository.create();
+          if (id) userEntity.id = id;
+          userEntity.password = defaultPasswordHash;
+        } else {
+          userEntity = user!;
+        }
+
+        if (username) userEntity.username = username;
+        userEntity.email = email;
+        userEntity.fullName = fullName;
+        if (iPhone >= 0) userEntity.phone = (get(iPhone) || null) as any;
+        if (iCountry >= 0) userEntity.country = (get(iCountry) || null) as any;
+        if (iAddress >= 0) userEntity.address = (get(iAddress) || null) as any;
+        if (iAvatar >= 0) userEntity.avatar = (get(iAvatar) || null) as any;
+        if (iChainId >= 0) userEntity.chainId = (get(iChainId) || null) as any;
+        if (iPackageType >= 0) userEntity.packageType = get(iPackageType) || 'NONE';
+        if (iStatus >= 0) userEntity.status = get(iStatus) || 'ACTIVE';
+        if (iIsAdmin >= 0) userEntity.isAdmin = parseBool(get(iIsAdmin));
+        if (iEmailVerified >= 0) userEntity.emailVerified = parseBool(get(iEmailVerified));
+        if (iWalletAddress >= 0) userEntity.walletAddress = (get(iWalletAddress) || null) as any;
+        if (iWalletBalance >= 0) userEntity.walletBalance = parseNum(get(iWalletBalance));
+        if (iWithdrawWalletBalance >= 0) userEntity.withdrawWalletBalance = parseNum(get(iWithdrawWalletBalance));
+        if (iTotalPurchaseAmount >= 0) userEntity.totalPurchaseAmount = parseNum(get(iTotalPurchaseAmount));
+        if (iTotalCommissionReceived >= 0) userEntity.totalCommissionReceived = parseNum(get(iTotalCommissionReceived));
+        if (iFakeReceivedCommission >= 0) userEntity.fakeReceivedCommission = parseNum(get(iFakeReceivedCommission));
+        if (iTotalReconsumptionAmount >= 0) userEntity.totalReconsumptionAmount = parseNum(get(iTotalReconsumptionAmount));
+        if (iLeftBranchTotal >= 0) userEntity.leftBranchTotal = parseNum(get(iLeftBranchTotal));
+        if (iRightBranchTotal >= 0) userEntity.rightBranchTotal = parseNum(get(iRightBranchTotal));
+
+        const createdDate = iCreatedAt >= 0 ? parseDate(get(iCreatedAt)) : null;
+        if (createdDate) userEntity.createdAt = createdDate;
+
+        const updatedDate = iUpdatedAt >= 0 ? parseDate(get(iUpdatedAt)) : null;
+        if (updatedDate) userEntity.updatedAt = updatedDate;
+
+        const pwChangedDate = iPasswordChangedAt >= 0 ? parseDate(get(iPasswordChangedAt)) : null;
+        if (pwChangedDate) userEntity.passwordChangedAt = pwChangedDate;
+
+        const savedUser = await this.userRepository.save(userEntity);
+
+        if (isNew) created++; else updated++;
+
+        const refId = get(iReferralUserId);
+        const pId = get(iParentId);
+        const pos = get(iPosition) as 'left' | 'right';
+        const refUser = get(iReferralUser);
+
+        if (refId || pId || pos || refUser) {
+          relationUpdates.push({
+            id: savedUser.id,
+            referralUserId: refId || undefined,
+            parentId: pId || undefined,
+            position: (pos === 'left' || pos === 'right') ? pos : undefined,
+            referralUser: refUser || undefined,
+          });
+        }
+      } catch (err: any) {
+        failed.push(`Row ${r + 1} (${email}): ${err.message || err}`);
+      }
+    }
+
+    for (const rel of relationUpdates) {
+      try {
+        const patch: any = {};
+        if (rel.referralUserId) patch.referralUserId = rel.referralUserId;
+        if (rel.parentId) patch.parentId = rel.parentId;
+        if (rel.position) patch.position = rel.position;
+        if (rel.referralUser) patch.referralUser = rel.referralUser;
+
+        if (Object.keys(patch).length > 0) {
+          await this.userRepository.update(rel.id, patch);
+        }
+      } catch (err: any) {
+        failed.push(`Relation restore for user ID ${rel.id}: ${err.message || err}`);
+      }
+    }
+
+    return {
+      total: rows.length - 1,
+      created,
+      updated,
+      failed,
+    };
+  }
+
+  async importOrdersCsv(fileBuffer: Buffer): Promise<{ total: number; created: number; updated: number; failed: string[] }> {
+    const csvContent = fileBuffer.toString('utf8');
+    const rows = this.parseCsv(csvContent);
+    if (rows.length < 2) {
+      throw new BadRequestException('CSV file is empty or missing headers');
+    }
+
+    const headers = rows[0].map((h) => h.trim());
+    const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+
+    const iId = idx('Order ID');
+    const iUserId = idx('User ID');
+    const iUsername = idx('Username');
+    const iFullName = idx('Full Name');
+    const iPhone = idx('Phone Number');
+    const iTotalAmount = idx('Total Amount');
+    const iStatus = idx('Status');
+    const iItems = idx('Items');
+    const iProductIds = idx('Product IDs');
+    const iShippingAddress = idx('Shipping Address');
+    const iTransactionHash = idx('Transaction Hash');
+    const iCreatedAt = idx('Created At');
+    const iUpdatedAt = idx('Updated At');
+
+    if (iId === -1 || iTotalAmount === -1) {
+      throw new BadRequestException('CSV must contain "Order ID" and "Total Amount" headers.');
+    }
+
+    let created = 0;
+    let updated = 0;
+    const failed: string[] = [];
+
+    const parseNum = (v: string): number => {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    };
+    const parseDate = (v: string): Date | null => {
+      if (!v || v.trim() === '') return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const products = await this.productRepository.find();
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const productByName = new Map(products.map((p) => [p.name.toLowerCase().trim(), p]));
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (row.length < 2) continue;
+
+      const get = (i: number) => (i >= 0 && row[i] !== undefined ? row[i].trim() : '');
+
+      const orderId = get(iId);
+      if (!orderId) {
+        failed.push(`Row ${r + 1}: Order ID is missing`);
+        continue;
+      }
+
+      try {
+        let order = await this.orderRepository.findOne({ where: { id: orderId } });
+        const isNew = !order;
+        let orderEntity: Order;
+        if (isNew) {
+          orderEntity = this.orderRepository.create();
+          orderEntity.id = orderId;
+        } else {
+          orderEntity = order!;
+        }
+
+        const userId = get(iUserId) || null;
+        orderEntity.userId = userId;
+
+        orderEntity.totalAmount = parseNum(get(iTotalAmount));
+        if (iStatus >= 0) {
+          const s = get(iStatus).toLowerCase();
+          orderEntity.status = s as any;
+        }
+        if (iShippingAddress >= 0) orderEntity.shippingAddress = (get(iShippingAddress) || null) as any;
+        if (iPhone >= 0) orderEntity.shippingPhone = (get(iPhone) || null) as any;
+        if (iFullName >= 0) orderEntity.shippingName = (get(iFullName) || null) as any;
+        if (iTransactionHash >= 0) orderEntity.transactionHash = (get(iTransactionHash) || null) as any;
+
+        const createdDate = iCreatedAt >= 0 ? parseDate(get(iCreatedAt)) : null;
+        if (createdDate) orderEntity.createdAt = createdDate;
+
+        const updatedDate = iUpdatedAt >= 0 ? parseDate(get(iUpdatedAt)) : null;
+        if (updatedDate) orderEntity.updatedAt = updatedDate;
+
+        const itemsStr = iItems >= 0 ? get(iItems) : '';
+        const prodIdsStr = iProductIds >= 0 ? get(iProductIds) : '';
+
+        const orderItems: Array<{
+          productId: string;
+          productName: string;
+          quantity: number;
+          price: number;
+          properties?: { [key: string]: string };
+        }> = [];
+
+        if (itemsStr && prodIdsStr) {
+          const rawItems = itemsStr.split(',').map((x) => x.trim()).filter(Boolean);
+          const prodIds = prodIdsStr.split(',').map((x) => x.trim()).filter(Boolean);
+
+          for (let i = 0; i < rawItems.length; i++) {
+            const rawItem = rawItems[i];
+            const prodId = prodIds[i] || '';
+
+            let quantity = 1;
+            let pName = rawItem;
+            const match = rawItem.match(/^(.*?)\s*\(x(\d+)\)/);
+            if (match) {
+              pName = match[1].trim();
+              quantity = parseInt(match[2], 10) || 1;
+            }
+
+            let product = prodId ? productMap.get(prodId) : null;
+            if (!product) {
+              product = productByName.get(pName.toLowerCase());
+            }
+
+            const pPrice = product ? Number(product.price) : (orderEntity.totalAmount / rawItems.length) / quantity;
+
+            orderItems.push({
+              productId: prodId || (product ? product.id : 'unknown'),
+              productName: product ? product.name : pName,
+              quantity,
+              price: pPrice,
+            });
+          }
+        } else if (itemsStr) {
+          const rawItems = itemsStr.split(',').map((x) => x.trim()).filter(Boolean);
+          for (const rawItem of rawItems) {
+            let quantity = 1;
+            let pName = rawItem;
+            const match = rawItem.match(/^(.*?)\s*\(x(\d+)\)/);
+            if (match) {
+              pName = match[1].trim();
+              quantity = parseInt(match[2], 10) || 1;
+            }
+
+            const product = productByName.get(pName.toLowerCase());
+            const pPrice = product ? Number(product.price) : (orderEntity.totalAmount / rawItems.length) / quantity;
+
+            orderItems.push({
+              productId: product ? product.id : 'unknown',
+              productName: product ? product.name : pName,
+              quantity,
+              price: pPrice,
+            });
+          }
+        }
+
+        orderEntity.items = orderItems;
+
+        await this.orderRepository.save(orderEntity);
+        if (isNew) created++; else updated++;
+      } catch (err: any) {
+        failed.push(`Row ${r + 1} (Order ID: ${orderId}): ${err.message || err}`);
+      }
+    }
+
+    return {
+      total: rows.length - 1,
+      created,
+      updated,
+      failed,
+    };
+  }
 }

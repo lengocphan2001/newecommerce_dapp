@@ -348,22 +348,22 @@ export default function ProfilePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
-                    <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Số lần tái tiêu dùng</p>
+                    <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">{t("reconsumptionTimesLabel")}</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
                         const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
                         const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
                         const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
                         const price = Number(reconsumptionStatus?.packageValue) || 0;
-                        if (price <= 0) return "0 lần";
+                        if (price <= 0) return `0 ${t("timesUnit")}`;
                         // Không tính lần mua đầu tiên và hiển thị số nguyên.
                         const reconsumptionTimes = Math.max(0, Math.floor(total / price) - 1);
-                        return `${reconsumptionTimes} lần`;
+                        return `${reconsumptionTimes} ${t("timesUnit")}`;
                       })()}
                     </p>
                   </div>
                   <div className="bg-slate-100 rounded-lg p-3 border-2 border-slate-200">
-                    <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Đã tái tiêu dùng</p>
+                    <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">{t("reconsumptionAmountLabel")}</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
                         const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;

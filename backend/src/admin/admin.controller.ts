@@ -11,7 +11,10 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
 import {
@@ -335,5 +338,33 @@ export class AdminController {
   async resetAllWithdrawWallet(@Request() req: any) {
     const performedBy = req.user?.username || req.user?.id || 'admin';
     return this.adminService.resetAllWithdrawWalletBalances(performedBy);
+  }
+
+  @Post('users/import')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async importUsers(@UploadedFile() file?: Express.Multer.File) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('CSV file is required');
+    }
+    const name = (file.originalname || '').toLowerCase();
+    if (name && !name.endsWith('.csv')) {
+      throw new BadRequestException('Only .csv files are supported');
+    }
+    return this.adminService.importUsersCsv(file.buffer);
+  }
+
+  @Post('orders/import')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async importOrders(@UploadedFile() file?: Express.Multer.File) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('CSV file is required');
+    }
+    const name = (file.originalname || '').toLowerCase();
+    if (name && !name.endsWith('.csv')) {
+      throw new BadRequestException('Only .csv files are supported');
+    }
+    return this.adminService.importOrdersCsv(file.buffer);
   }
 }

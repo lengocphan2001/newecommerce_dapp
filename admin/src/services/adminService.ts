@@ -90,5 +90,25 @@ export const adminService = {
   /** Reset ví rút tiền (withdrawWalletBalance) về 0 cho tất cả user */
   resetAllWithdrawWallet: () =>
     api.post('/admin/users/reset-withdraw-wallet'),
+
+  importUsers: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ total: number; created: number; updated: number; failed: string[] }>(
+      '/admin/users/import',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
+
+  importOrders: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ total: number; created: number; updated: number; failed: string[] }>(
+      '/admin/orders/import',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
 };
 

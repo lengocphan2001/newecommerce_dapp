@@ -19,8 +19,9 @@ import {
   Alert,
   Spin,
   Switch,
+  Upload,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, KeyOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, KeyOutlined, UploadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
 import { packagesService, Package } from '../services/packagesService';
@@ -86,6 +87,7 @@ const Users: React.FC = () => {
   const [deductWithdrawReason, setDeductWithdrawReason] = useState('');
   const [deductWithdrawLoading, setDeductWithdrawLoading] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [generatingPasswordForUser, setGeneratingPasswordForUser] = useState<string | null>(null);
   const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -301,6 +303,42 @@ const Users: React.FC = () => {
     } catch (error) {
       console.error(error);
       message.error('Failed to export users');
+    }
+  };
+
+  const handleImportCsv = async (file: File) => {
+    setImporting(true);
+    try {
+      const res = await adminService.importUsers(file);
+      const { total, created, updated, failed } = res.data;
+      Modal.info({
+        title: 'Kết quả Import Users',
+        content: (
+          <div>
+            <p>Tổng số dòng xử lý: <strong>{total}</strong></p>
+            <p style={{ color: '#16a34a' }}>Tạo mới: <strong>{created}</strong></p>
+            <p style={{ color: '#1d4ed8' }}>Cập nhật: <strong>{updated}</strong></p>
+            {failed.length > 0 && (
+              <div>
+                <p style={{ color: '#ef4444', marginTop: 8 }}>Thất bại ({failed.length}):</p>
+                <div style={{ maxHeight: 200, overflowY: 'auto', background: '#f3f4f6', padding: 8, borderRadius: 4 }}>
+                  {failed.map((msg, i) => (
+                    <div key={i} style={{ fontSize: 12, color: '#ef4444' }}>{msg}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ),
+        okText: 'Đóng',
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error(error);
+      const msg = error?.response?.data?.message || error?.message || 'Failed to import CSV';
+      message.error(typeof msg === 'string' ? msg : 'Failed to import CSV');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -659,6 +697,18 @@ const Users: React.FC = () => {
             style={{ width: 300 }}
             allowClear
           />
+          <Upload
+            accept=".csv"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              handleImportCsv(file);
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />} loading={importing}>
+              Import CSV
+            </Button>
+          </Upload>
           <Button icon={<DownloadOutlined />} onClick={handleExport}>
             Export Users
           </Button>
