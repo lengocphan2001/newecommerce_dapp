@@ -21,6 +21,8 @@ interface Order {
     items: OrderItem[];
     totalAmount: number;
     shippingFee?: number;
+    vatRate?: number;
+    vatAmount?: number;
     status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
     shippingAddress?: string;
     shippingPhone?: string;
@@ -396,12 +398,18 @@ export default function OrderDetailClient() {
                 <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 space-y-3 mb-4">
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-slate-500">{t("subtotal")}</span>
-                        <span className="text-slate-900 font-medium">{formatPriceVND(order.totalAmount - (order.shippingFee || 0))}</span>
+                        <span className="text-slate-900 font-medium">{formatPriceVND(order.totalAmount - (order.shippingFee || 0) - (order.vatAmount || 0))}</span>
                     </div>
                     {(order.shippingFee || 0) > 0 && (
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-500">{t("shippingFee")}</span>
                             <span className="text-slate-900 font-medium">{formatPriceVND(order.shippingFee || 0)}</span>
+                        </div>
+                    )}
+                    {(order.vatAmount || 0) > 0 && (
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-500">{t("vat")} ({order.vatRate || 8}%)</span>
+                            <span className="text-slate-900 font-medium">{formatPriceVND(order.vatAmount || 0)}</span>
                         </div>
                     )}
 

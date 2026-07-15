@@ -190,6 +190,7 @@ export type I18nKey =
   | "paymentMethodSafePal"
   | "orderCode"
   | "shippingFee"
+  | "vat"
   | "support"
   | "rebuyOrder"
   | "profileTitle"
@@ -643,6 +644,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     paymentMethodSafePal: "Phương thức thanh toán",
     orderCode: "Mã đơn hàng",
     shippingFee: "Phí vận chuyển",
+    vat: "Thuế VAT",
     support: "Hỗ trợ",
     rebuyOrder: "Mua lại đơn này",
     editProfile: "Chỉnh sửa hồ sơ",
@@ -1092,6 +1094,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     paymentMethodSafePal: "Payment Method",
     orderCode: "Order Code",
     shippingFee: "Shipping Fee",
+    vat: "VAT",
     support: "Support",
     rebuyOrder: "Rebuy This Order",
     editProfile: "Edit Profile",
@@ -1541,6 +1544,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     paymentMethodSafePal: "결제 방법",
     orderCode: "주문 코드",
     shippingFee: "배송비",
+    vat: "부가세",
     support: "지원",
     rebuyOrder: "이 주문 다시 구매",
     editProfile: "프로필 수정",

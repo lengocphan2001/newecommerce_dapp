@@ -95,7 +95,9 @@ export default function CheckoutPage() {
     }
   };
 
-  const finalTotal = totalAmount + shippingFee;
+  const vatRate = 8;
+  const vatAmount = totalAmount * (vatRate / 100);
+  const finalTotal = totalAmount + shippingFee + vatAmount;
 
   /** Build VietQR image URL: bank info + amount (VND) + transfer content. addInfo max 25 chars. */
   const getVietQrUrl = (): string | null => {
@@ -933,6 +935,10 @@ export default function CheckoutPage() {
                 <span className="font-bold text-slate-900">{formatVnd(shippingFee * (usdtToVnd || 25000))}</span>
               </div>
             )}
+            <div className="flex justify-between text-sm items-center">
+              <span className="text-text-sub font-medium">{t("vat")} (8%)</span>
+              <span className="font-bold text-slate-900">{formatVnd(vatAmount * (usdtToVnd || 25000))}</span>
+            </div>
             <div className="border-t border-slate-100 pt-3 mt-1">
               <div className="flex justify-between text-sm items-center">
                 <span className="text-text-sub font-bold">Tổng thanh toán</span>

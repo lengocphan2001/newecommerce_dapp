@@ -20,6 +20,9 @@ interface Order {
   userId: string;
   items: OrderItem[];
   totalAmount: number;
+  shippingFee?: number;
+  vatRate?: number;
+  vatAmount?: number;
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   shippingAddress?: string;
   transactionHash?: string;

@@ -65,6 +65,30 @@ export class Order {
   shippingFee?: number;
 
   @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  vatAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 8,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  vatRate: number;
+
+  @Column({
     type: 'enum',
     enum: OrderStatus,
     default: OrderStatus.PENDING,

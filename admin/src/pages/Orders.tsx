@@ -327,6 +327,22 @@ const Orders: React.FC = () => {
                 {selectedOrder.status?.toUpperCase()}
               </Tag>
             </Descriptions.Item>
+            {selectedOrder.shippingFee !== undefined && selectedOrder.shippingFee > 0 && (
+              <Descriptions.Item label="Shipping Fee">
+                ${selectedOrder.shippingFee?.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}
+              </Descriptions.Item>
+            )}
+            {selectedOrder.vatAmount !== undefined && selectedOrder.vatAmount > 0 && (
+              <Descriptions.Item label={`VAT (${selectedOrder.vatRate || 8}%)`}>
+                ${selectedOrder.vatAmount?.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="Total Amount">
               ${selectedOrder.totalAmount?.toLocaleString('en-US', {
                 minimumFractionDigits: 2,

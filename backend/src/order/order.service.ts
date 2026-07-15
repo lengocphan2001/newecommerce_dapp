@@ -206,8 +206,12 @@ export class OrderService {
 
     }
 
-    // Add shipping fee to total amount
-    const finalTotal = totalAmount + shippingFee;
+    // Calculate VAT (8%)
+    const vatRate = 8;
+    const vatAmount = totalAmount * (vatRate / 100);
+
+    // Add shipping fee and VAT to total amount
+    const finalTotal = totalAmount + shippingFee + vatAmount;
 
     const paymentMethod = createOrderDto.paymentMethod || 'wallet';
 
@@ -272,6 +276,8 @@ export class OrderService {
       items,
       totalAmount: finalTotal,
       shippingFee: shippingFee > 0 ? shippingFee : undefined,
+      vatRate,
+      vatAmount,
       status: initialStatus,
       transactionHash: createOrderDto.transactionHash,
       shippingAddress: createOrderDto.shippingAddress,

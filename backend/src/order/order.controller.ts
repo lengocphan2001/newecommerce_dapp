@@ -56,6 +56,9 @@ export class OrderController {
       'Product IDs',
       'Shipping Address',
       'Transaction Hash',
+      'Shipping Fee',
+      'VAT Rate',
+      'VAT Amount',
       'Created At',
       'Updated At',
     ];
@@ -97,6 +100,9 @@ export class OrderController {
         escapeCsv(productIdsString),
         escapeCsv(order.shippingAddress ?? ''),
         escapeCsv(order.transactionHash ?? ''),
+        escapeCsv(order.shippingFee ?? 0),
+        escapeCsv(order.vatRate ?? 8),
+        escapeCsv(order.vatAmount ?? 0),
         escapeCsv(order.createdAt),
         escapeCsv(order.updatedAt),
       ];

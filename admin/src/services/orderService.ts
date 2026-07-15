@@ -6,6 +6,9 @@ export interface Order {
   items: OrderItem[];
   status: string;
   totalAmount: number;
+  shippingFee?: number;
+  vatRate?: number;
+  vatAmount?: number;
   transactionHash?: string;
   shippingAddress?: string;
   isReconsumption?: boolean;
