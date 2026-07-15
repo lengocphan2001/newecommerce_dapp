@@ -18,6 +18,7 @@ export default function ProfilePage() {
     rank?: string;
     accumulatedPurchases?: string;
     taxId?: string;
+    totalReconsumptionAmount?: string;
   } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [reconsumptionStatus, setReconsumptionStatus] = useState<{
@@ -351,13 +352,13 @@ export default function ProfilePage() {
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">{t("reconsumptionTimesLabel")}</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
-                        const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
-                        const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
-                        const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
-                        const price = Number(reconsumptionStatus?.packageValue) || 0;
-                        if (price <= 0) return `0 ${t("timesUnit")}`;
-                        // Không tính lần mua đầu tiên và hiển thị số nguyên.
-                        const reconsumptionTimes = Math.max(0, Math.floor(total / price) - 1);
+                        const totalRecon = Number(userInfo?.totalReconsumptionAmount) || 0;
+                        const pkgType = (userInfo?.packageType || "").toUpperCase();
+                        let reqAmount = 40; // Default requirement in USD for CTV
+                        if (pkgType === "NPP") {
+                          reqAmount = 400; // Requirement in USD for NPP
+                        }
+                        const reconsumptionTimes = Math.floor(totalRecon / reqAmount);
                         return `${reconsumptionTimes} ${t("timesUnit")}`;
                       })()}
                     </p>
@@ -366,16 +367,10 @@ export default function ProfilePage() {
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">{t("reconsumptionAmountLabel")}</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
-                        const totalFromStatus = Number(reconsumptionStatus?.totalPurchaseAmount) || 0;
-                        const totalFromProfile = parseFloat(userInfo?.accumulatedPurchases || "0") || 0;
-                        const total = totalFromStatus > 0 ? totalFromStatus : totalFromProfile;
-                        const price = Number(reconsumptionStatus?.packageValue) || 0;
-                        if (price <= 0) return "$0";
-                        // Không tính lần mua đầu tiên: đã tái tiêu dùng = totalPurchase - value gói.
-                        const reconsumptionAmount = Math.max(0, total - price);
-                        return `$${reconsumptionAmount.toLocaleString("en-US", {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 4,
+                        const totalRecon = Number(userInfo?.totalReconsumptionAmount) || 0;
+                        return `$${totalRecon.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
                         })}`;
                       })()}
                     </p>

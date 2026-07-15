@@ -180,20 +180,41 @@ const Products: React.FC = () => {
   const handleCreate = () => {
     setEditingProduct(null);
     form.resetFields();
-    const defaultCommissionByPackage: Record<string, Record<string, number | null>> = {};
-    packages.forEach((p) => {
-      defaultCommissionByPackage[p.code] = {
-        directCommissionRate: (p.directCommissionRate ?? 0) * 100,
-        groupCommissionRate: (p.groupCommissionRate ?? 0) * 100,
-        groupCommissionMinSales: p.groupCommissionMinSales ?? 0,
-        managementRateF1: (p.managementRateF1 ?? 0) * 100,
-        managementRateF2: p.managementRateF2 != null ? p.managementRateF2 * 100 : null,
-        managementRateF3: p.managementRateF3 != null ? p.managementRateF3 * 100 : null,
-        managementMinSales: p.managementMinSales ?? 0,
-        reconsumptionThreshold: p.reconsumptionThreshold ?? 0,
-        reconsumptionRequired: p.reconsumptionRequired ?? 0,
-      };
-    });
+    const defaultCommissionByPackage: Record<string, Record<string, number | null>> = {
+      CTV: {
+        directCommissionRate: 15,
+        groupCommissionRate: 0,
+        groupCommissionMinSales: 2000,
+        managementRateF1: 0,
+        managementRateF2: null,
+        managementRateF3: null,
+        managementMinSales: 0,
+        reconsumptionThreshold: 50,
+        reconsumptionRequired: 15,
+      },
+      TV: {
+        directCommissionRate: 15,
+        groupCommissionRate: 0,
+        groupCommissionMinSales: 2000,
+        managementRateF1: 0,
+        managementRateF2: null,
+        managementRateF3: null,
+        managementMinSales: 0,
+        reconsumptionThreshold: 150,
+        reconsumptionRequired: 50,
+      },
+      NPP: {
+        directCommissionRate: 15,
+        groupCommissionRate: 0,
+        groupCommissionMinSales: 2000,
+        managementRateF1: 0,
+        managementRateF2: null,
+        managementRateF3: null,
+        managementMinSales: 0,
+        reconsumptionThreshold: 300,
+        reconsumptionRequired: 100,
+      },
+    };
     form.setFieldsValue({
       description: '',
       descriptionEn: '',
