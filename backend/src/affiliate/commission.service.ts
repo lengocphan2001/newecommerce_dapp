@@ -288,7 +288,7 @@ export class CommissionService {
       const product = productMap.get(item.productId);
       if (!product) continue;
 
-      const itemAmount = Number(item.price) * item.quantity * 0.85; // 85% base
+      const itemAmount = Number(item.price) * item.quantity * 0.95; // 85% base
       totalOrderAmount += itemAmount;
 
       let ratePercent = globalRatePercent;
@@ -401,7 +401,7 @@ export class CommissionService {
       return;
     }
 
-    packageOrderValue = packageOrderValue * 0.85;
+    packageOrderValue = packageOrderValue * 0.95;
 
     const canReceiveCommission = await this.checkReconsumption(
       referrer,
@@ -612,7 +612,7 @@ export class CommissionService {
       const directRate = referrerProductConfig
         ? referrerProductConfig.directCommissionRate
         : this.getProductCommissionPercent(product, buyerPkg) / 100;
-      const itemAmount = Number(item.price) * item.quantity * 0.85;
+      const itemAmount = Number(item.price) * item.quantity * 0.95;
       const productNote = (product.name || '').slice(0, 60);
 
       // --- Product DIRECT: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
@@ -749,7 +749,7 @@ export class CommissionService {
       return;
     }
 
-    packageOrderValue = packageOrderValue * 0.85;
+    packageOrderValue = packageOrderValue * 0.95;
 
     const ancestors = await this.getAncestors(buyer);
     this.logger.log(
@@ -1168,6 +1168,7 @@ export class CommissionService {
       const effectiveThreshold = this.packagesService.getEffectiveThreshold(
         Number(updatedUser.totalPurchaseAmount),
         config,
+        updatedUser.customMaxCommission,
       );
       // Note: không tự set `packageType = NONE` nữa. Việc "đạt max hoa hồng"
       // sẽ chỉ ảnh hưởng luồng tái tiêu dùng (commission có thể vẫn Pending),
@@ -1190,6 +1191,7 @@ export class CommissionService {
     const effectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       config,
+      user.customMaxCommission,
     );
     if (Number(user.totalCommissionReceived) < effectiveThreshold) {
       return true;

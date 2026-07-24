@@ -747,6 +747,7 @@ export class AuthService {
         const effective = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           config,
+          user.customMaxCommission,
         );
         maxCommission = formatDecimal(effective);
       }
@@ -828,6 +829,7 @@ export class AuthService {
         const effective = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           pkg,
+          user.customMaxCommission,
         );
         if (Number(user.totalCommissionReceived) >= effective) {
           reachedPackage = pkg;
@@ -838,6 +840,7 @@ export class AuthService {
         threshold = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           reachedPackage,
+          user.customMaxCommission,
         );
         packageValue = reachedPackage.price;
         return {
@@ -870,6 +873,7 @@ export class AuthService {
     const effectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       config,
+      user.customMaxCommission,
     );
     const packageValue = config.price;
 

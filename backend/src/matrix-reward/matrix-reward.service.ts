@@ -383,7 +383,7 @@ export class MatrixRewardService {
 
     const user = await manager.getRepository(User).findOne({
       where: { id: userId },
-      select: ['id', 'packageType', 'totalPurchaseAmount'],
+      select: ['id', 'packageType', 'totalPurchaseAmount', 'customMaxCommission'],
     });
     if (!user) return false;
 
@@ -397,6 +397,7 @@ export class MatrixRewardService {
     const maxEffectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       pkg,
+      user.customMaxCommission,
     );
     const requiredEarnOnPrevTree = roundMoney(
       (Math.max(0, Number(prevTreeQualifyPercent) || 0) / 100) *
@@ -613,6 +614,7 @@ export class MatrixRewardService {
         'packageType',
         'totalPurchaseAmount',
         'totalCommissionReceived',
+        'customMaxCommission',
       ],
     });
     if (!u) return false;
@@ -652,7 +654,7 @@ export class MatrixRewardService {
   private async isMatrixPayoutEligible(
     user: Pick<
       User,
-      'packageType' | 'totalPurchaseAmount' | 'totalCommissionReceived'
+      'packageType' | 'totalPurchaseAmount' | 'totalCommissionReceived' | 'customMaxCommission'
     >,
   ): Promise<boolean> {
     if (!user.packageType || user.packageType === 'NONE') return false;
@@ -661,6 +663,7 @@ export class MatrixRewardService {
     const effectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount || 0),
       pkg,
+      user.customMaxCommission,
     );
     return Number(user.totalCommissionReceived || 0) < effectiveThreshold;
   }

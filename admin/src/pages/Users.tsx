@@ -66,6 +66,7 @@ function buildEditFormValues(u: Record<string, unknown>) {
     pvWalletBalance: toNum(u.pvWalletBalance),
     withdrawWalletBalance: toNum(u.withdrawWalletBalance),
     reconsumptionWalletBalance: toNum(u.reconsumptionWalletBalance),
+    customMaxCommission: u.customMaxCommission !== undefined && u.customMaxCommission !== null ? toNum(u.customMaxCommission) : undefined,
   };
 }
 
@@ -240,6 +241,7 @@ const Users: React.FC = () => {
           pvWalletBalance: values.pvWalletBalance,
           withdrawWalletBalance: values.withdrawWalletBalance,
           reconsumptionWalletBalance: values.reconsumptionWalletBalance,
+          customMaxCommission: values.customMaxCommission !== undefined && values.customMaxCommission !== '' && values.customMaxCommission !== null ? Number(values.customMaxCommission) : null,
         };
 
         if (values.referralUserId !== undefined) {
@@ -929,6 +931,9 @@ const Users: React.FC = () => {
                           ))}
                       </Select>
                     </Form.Item>
+                    <Form.Item name="customMaxCommission" label="Custom Max Commission Limit (override)">
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="Keep empty to calculate automatically" />
+                    </Form.Item>
                     <Card
                       size="small"
                       style={{ marginBottom: 16, borderColor: '#ffe58f' }}
@@ -1125,6 +1130,9 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Tối đa được nhận (Effective Threshold)">
                   {(() => {
+                    if (userDetail.user.customMaxCommission !== null && userDetail.user.customMaxCommission !== undefined && Number(userDetail.user.customMaxCommission) > 0) {
+                      return `$${Number(userDetail.user.customMaxCommission).toLocaleString()} USDT (Custom)`;
+                    }
                     const code = String(userDetail?.user?.packageType || '').toUpperCase();
                     if (!code || code === 'NONE') return 'N/A';
                     const pkg = packagesByCode[code];

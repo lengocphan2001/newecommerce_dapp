@@ -126,6 +126,19 @@ export class User {
     type: 'decimal',
     precision: 36,
     scale: 18,
+    nullable: true,
+    default: null,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) => (value ? parseFloat(value) : null),
+    },
+  })
+  customMaxCommission: number | null; // Cấu hình max out giới hạn hoa hồng nhận của user (nếu null thì tự tính)
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
     default: 0,
     transformer: {
       to: (value: number) => value,

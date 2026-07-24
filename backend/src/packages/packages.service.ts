@@ -137,7 +137,11 @@ export class PackagesService implements OnModuleInit {
   getEffectiveThreshold(
     totalPurchaseAmount: number,
     pkg: { reconsumptionThreshold: number; price: number },
+    customMaxCommission?: number | null,
   ): number {
+    if (customMaxCommission !== undefined && customMaxCommission !== null && Number(customMaxCommission) > 0) {
+      return Number(customMaxCommission);
+    }
     const maxThreshold = Number(pkg.reconsumptionThreshold) || 0;
     const required = Number(pkg.price) || 1;
     const total = Number(totalPurchaseAmount) || 0;

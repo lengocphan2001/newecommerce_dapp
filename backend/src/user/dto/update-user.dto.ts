@@ -167,4 +167,10 @@ export class UpdateUserDto {
   @Min(0)
   @IsOptional()
   reconsumptionWalletBalance?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  customMaxCommission?: number | null;
 }

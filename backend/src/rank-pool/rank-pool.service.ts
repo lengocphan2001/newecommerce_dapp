@@ -33,10 +33,11 @@ export class RankPoolService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const existing = await this.placementRepo.findOne({
-      where: { userId, rank, isActive: true },
-    });
-    if (existing) throw new BadRequestException('User đã có trong bể rank này và đang active');
+    // Mua 1 gói tặng thêm ID nhận thưởng đồng chia -> Cho phép nhiều placement active cho cùng user trong 1 bể rank
+    // const existing = await this.placementRepo.findOne({
+    //   where: { userId, rank, isActive: true },
+    // });
+    // if (existing) throw new BadRequestException('User đã có trong bể rank này và đang active');
 
     const placement = this.placementRepo.create({ userId, rank, totalRewarded: 0, isActive: true, note });
     const saved = await this.placementRepo.save(placement);

@@ -589,6 +589,7 @@ export class OrderService {
         const effective = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           pkg,
+          user.customMaxCommission,
         );
         if (
           Number(user.totalCommissionReceived) >= effective &&
@@ -607,6 +608,7 @@ export class OrderService {
     const effective = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       pkg,
+      user.customMaxCommission,
     );
     if (
       Number(user.totalCommissionReceived) >= effective &&
