@@ -220,6 +220,7 @@ const Products: React.FC = () => {
       descriptionEn: '',
       useProductCommission: false,
       indirectCommissionRateF2: 0,
+      commissionBasePercent: 95,
       isPromisingProduct: false,
       ...(Object.keys(defaultCommissionByPackage).length ? { commissionConfigByPackage: defaultCommissionByPackage } : {}),
     });
@@ -253,6 +254,7 @@ const Products: React.FC = () => {
       commissionPercentManagementNPP: product.commissionPercentManagementNPP ?? undefined,
       useProductCommission: product.useProductCommission === true,
       indirectCommissionRateF2: product.indirectCommissionRateF2 ?? 0,
+      commissionBasePercent: product.commissionBasePercent ?? 95,
       isPromisingProduct: (product as any).isPromisingProduct === true,
       featuredOnHome: product.featuredOnHome ?? false,
       groupCommissionMinSales: product.groupCommissionMinSales ?? undefined,
@@ -884,6 +886,14 @@ const Products: React.FC = () => {
                   label: 'Hoa hồng sản phẩm',
                   children: (
                     <>
+                      <Form.Item
+                        name="commissionBasePercent"
+                        label="% Giá trị sản phẩm tính hoa hồng (không bao gồm thuế)"
+                        tooltip="Tỷ lệ % giá trị của sản phẩm này (chưa thuế) được dùng làm căn cứ để tính hoa hồng (ví dụ: 85%, 90%, 95%). Mặc định 95%."
+                        style={{ marginBottom: 16 }}
+                      >
+                        <InputNumber style={{ width: '240px' }} min={0} max={100} placeholder="95" suffix="%" />
+                      </Form.Item>
                       <Form.Item
                         name="useProductCommission"
                         label="Loại hoa hồng"

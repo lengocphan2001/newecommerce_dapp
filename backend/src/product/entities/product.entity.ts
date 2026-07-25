@@ -145,6 +145,21 @@ export class Product {
   })
   indirectCommissionRateF2?: number;
 
+  /** Tỷ lệ % giá trị sản phẩm (không bao gồm thuế) dùng làm căn cứ tính hoa hồng (ví dụ 85%, 90%, 95%). Mặc định 95%. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 95,
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 95),
+    },
+  })
+  commissionBasePercent?: number;
+
+
 
   /** true = sản phẩm triển vọng được hưởng chính sách đồng chia đặc biệt và quỹ doanh số hàng đợi. Default false. */
   @Column({ type: 'boolean', default: false })

@@ -33,6 +33,9 @@ export interface Product {
   useProductCommission?: boolean;
   /** Tỷ lệ hoa hồng gián tiếp F2 cho sản phẩm (%) */
   indirectCommissionRateF2?: number;
+  /** Tỷ lệ % giá trị sản phẩm (chưa thuế) làm căn cứ tính hoa hồng (ví dụ: 85, 90, 95). Mặc định 95%. */
+  commissionBasePercent?: number;
+
   /** Direct: commission % for buyer package TV/CTV/NPP (0–100). */
   commissionPercentTV?: number;
   commissionPercentCTV?: number;

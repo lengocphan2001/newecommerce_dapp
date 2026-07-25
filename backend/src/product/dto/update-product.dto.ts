@@ -137,6 +137,13 @@ export class UpdateProductDto {
   @Max(100)
   indirectCommissionRateF2?: number;
 
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionBasePercent?: number;
+
+
   // Xác định sản phẩm có phải là sản phẩm triển vọng để áp dụng cơ chế đồng chia đa bể và hàng đợi FIFO hay không
   @IsBoolean()
   @IsOptional()

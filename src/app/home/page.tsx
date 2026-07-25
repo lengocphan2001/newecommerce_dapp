@@ -45,6 +45,8 @@ interface Product {
   commissionPercentTV?: number;
   /** Bật hoa hồng theo sản phẩm (khi true hiển thị Direct NPP). */
   useProductCommission?: boolean;
+  /** Tỷ lệ % giá trị sản phẩm tính hoa hồng (ví dụ: 85, 90, 95). Mặc định 95%. */
+  commissionBasePercent?: number;
   /** Direct % khi buyer là NPP (dùng khi useProductCommission). */
   commissionPercentNPP?: number;
   /** Cấu hình hoa hồng theo gói (NPP.directCommissionRate 0–1). */
