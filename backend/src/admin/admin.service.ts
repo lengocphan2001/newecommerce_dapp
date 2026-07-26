@@ -720,6 +720,7 @@ export class AdminService {
         isAdmin: user.isAdmin,
         walletBalance: formatDecimal(user.walletBalance ?? 0),
         withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
+        reconsumptionWalletBalance: formatDecimal(user.reconsumptionWalletBalance ?? 0),
         totalPurchaseAmount: formatDecimal(user.totalPurchaseAmount),
         totalCommissionReceived: formatDecimal(user.totalCommissionReceived),
         fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),

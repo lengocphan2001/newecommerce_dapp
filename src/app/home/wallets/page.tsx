@@ -745,14 +745,14 @@ export default function WalletsPage() {
           </div>
         </div>
 
-        {/* Ví nạp tiền (banking) */}
+        {/* Ví tiêu dùng (bao gồm hoa hồng 25% + tiền nạp) */}
         <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-cyan-200">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600">Ví tiêu dùng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `${walletApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
+                {balanceVisible ? `${(reconsumptionApproxVnd + walletApproxVnd).toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
             </div>
             <button

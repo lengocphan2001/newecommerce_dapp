@@ -1426,7 +1426,7 @@ export class CommissionService {
         'pendingCommission',
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect','product') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
         'direct',
       )
       .addSelect(
@@ -1478,7 +1478,7 @@ export class CommissionService {
         'pendingCommission',
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect','product') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
         'direct',
       )
       .addSelect(

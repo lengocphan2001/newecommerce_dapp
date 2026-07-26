@@ -1113,7 +1113,10 @@ const Users: React.FC = () => {
               <Title level={5}>Financial Information</Title>
               <Descriptions bordered column={2}>
                 <Descriptions.Item label="Ví tiêu dùng (Deposit Wallet)">
-                  <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
+                  <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.reconsumptionWalletBalance ?? 0} USDT</span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Ví nạp tiền (Banking Wallet)">
+                  <span style={{ color: '#fa8c16', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
                 </Descriptions.Item>
                 {/* Mostramos el balance actual de PV en la descripción de finanzas del usuario */}
                 <Descriptions.Item label="Ví nạp PV (PV Wallet)">
