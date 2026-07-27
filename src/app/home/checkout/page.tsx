@@ -211,8 +211,9 @@ export default function CheckoutPage() {
             phone: info.phone || info.phoneNumber || "+84 912 345 678",
             username: info.username
           };
-          const bal = info.walletBalance != null ? Number(info.walletBalance) : null;
-          if (typeof bal === "number" && !Number.isNaN(bal)) walletBal = bal;
+          const bankingBal = info.walletBalance != null ? Number(info.walletBalance) : 0;
+          const reconsumptionBal = info.reconsumptionWalletBalance != null ? Number(info.reconsumptionWalletBalance) : 0;
+          walletBal = bankingBal + reconsumptionBal;
 
           /* Obtenemos el saldo del monedero PV desde la información de referidos. */
           const pvb = info.pvWalletBalance != null ? Number(info.pvWalletBalance) : null;

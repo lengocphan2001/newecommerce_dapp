@@ -233,17 +233,27 @@ export class OrderService {
       throw new BadRequestException('Phương thức thanh toán bằng ví yêu cầu người dùng đăng nhập.');
     }
 
-    // Ví nạp tiền: trừ số dư và xác nhận đơn ngay
+    // Ví tiêu dùng: trừ số dư (ưu tiên từ reconsumptionWalletBalance ví tích lũy hoa hồng 25%, còn thiếu trừ tiếp walletBalance ví nạp)
     if (paymentMethod === 'deposit_wallet' && userId) {
       const user = await this.userRepository.findOne({ where: { id: userId } });
       if (!user) throw new NotFoundException('User not found');
-      const balance = Number(user.walletBalance ?? 0);
-      if (balance < finalTotal) {
+      const reconsumptionBal = Number(user.reconsumptionWalletBalance ?? 0);
+      const bankingBal = Number(user.walletBalance ?? 0);
+      const totalBalance = reconsumptionBal + bankingBal;
+
+      if (totalBalance < finalTotal) {
         throw new BadRequestException(
-          `Số dư ví tiêu dùng không đủ. Hiện tại: ${balance.toFixed(2)} PV, cần: ${finalTotal.toFixed(2)} PV`,
+          `Số dư ví tiêu dùng không đủ. Hiện tại: $${totalBalance.toFixed(2)} USDT, cần: $${finalTotal.toFixed(2)} USDT`,
         );
       }
-      user.walletBalance = balance - finalTotal;
+
+      if (reconsumptionBal >= finalTotal) {
+        user.reconsumptionWalletBalance = reconsumptionBal - finalTotal;
+      } else {
+        const remaining = finalTotal - reconsumptionBal;
+        user.reconsumptionWalletBalance = 0;
+        user.walletBalance = bankingBal - remaining;
+      }
       await this.userRepository.save(user);
     }
 

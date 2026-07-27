@@ -427,12 +427,14 @@ export class WalletService {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'user')
+      .leftJoinAndSelect('user.kycRequests', 'kyc')
       .addSelect([
         'user.id',
         'user.username',
         'user.fullName',
         'user.email',
         'user.phone',
+        'user.packageType',
       ])
       .orderBy('r.createdAt', 'DESC');
     if (status) qb.andWhere('r.status = :status', { status });
@@ -451,7 +453,30 @@ export class WalletService {
         { keyword },
       );
     }
-    return qb.getMany();
+    const list = await qb.getMany();
+    return list.map((req) => {
+      const kycList = Array.isArray(req.user?.kycRequests) ? req.user.kycRequests : [];
+      const approvedKyc = kycList.find((k) => k.status === 'APPROVED');
+      const latestKyc = approvedKyc || kycList[0] || null;
+
+      return {
+        ...req,
+        kycInfo: latestKyc
+          ? {
+              id: latestKyc.id,
+              documentType: latestKyc.documentType,
+              documentNumber: latestKyc.documentNumber,
+              frontImage: latestKyc.frontImage,
+              backImage: latestKyc.backImage,
+              bankName: latestKyc.bankName,
+              bankAccountNumber: latestKyc.bankAccountNumber,
+              bankAccountHolder: latestKyc.bankAccountHolder,
+              status: latestKyc.status,
+              createdAt: latestKyc.createdAt,
+            }
+          : null,
+      };
+    });
   }
 
   async processWithdrawRequest(
