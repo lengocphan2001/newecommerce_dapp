@@ -75,12 +75,10 @@ export class HeapRewardService {
       }
 
       // 1. Chia thưởng cho danh sách thành viên hiện đang ở trong bể TRƯỚC khi người mới vào bể
-      // Đồng thời loại trừ người mua ra khỏi danh sách được chia từ chính đơn hàng này (truyền order.userId)
-      for (const p of poolsToJoin) {
-        const rewardPercent = await this.getConfigValue(`HEAP_POOL_PERCENT_${p}`, p === 100 ? 5 : 10);
-        const poolAmount = orderTotal * (rewardPercent / 100);
-        await this.distributeInstantPayoutForPool(p, poolAmount, poolLevel, order.userId, skipWalletUpdate);
-      }
+      // Chỉ chia thưởng cho đúng bể của đơn hàng kích hoạt (không chia lan xuống bể nhỏ hơn)
+      const rewardPercent = await this.getConfigValue(`HEAP_POOL_PERCENT_${poolLevel}`, poolLevel === 100 ? 5 : 10);
+      const poolAmount = orderTotal * (rewardPercent / 100);
+      await this.distributeInstantPayoutForPool(poolLevel, poolAmount, poolLevel, order.userId, skipWalletUpdate);
 
       // 2. Xếp người mua mới vào các bể (Họ sẽ được nhận thưởng từ các đơn hàng tiếp theo sau này)
       for (const p of poolsToJoin) {
@@ -184,23 +182,12 @@ export class HeapRewardService {
           return;
         }
 
-        // Lọc danh sách người dùng được nhận dựa trên xuất phát điểm đơn hàng kích hoạt
+        // Lọc danh sách người dùng được nhận
         const eligiblePlacements = activePlacements.filter(placement => {
           // KHÔNG chia cho chính người vừa mua đơn hàng kích hoạt bể này
           if (buyerUserId && placement.userId === buyerUserId) {
             return false;
           }
-          // Nếu đơn hàng kích hoạt mới là 2400 PV, và bể đang xét nhỏ hơn đơn hàng kích hoạt này
-          if (triggerOrderPoolLevel === 2400 && poolLevel < triggerOrderPoolLevel) {
-            // Chỉ những người có đơn hàng kích hoạt gốc >= 2400 PV được nhận (hoặc manually added / legacy không có triggerOrder)
-            if (!placement.triggerOrder) {
-              return true; // Manually added by admin or legacy placement - always eligible
-            }
-            const placementTriggerAmount = Number(placement.triggerOrder?.totalAmount || 0);
-            const placementTriggerLevel = this.getOrderPoolLevel(placementTriggerAmount);
-            return placementTriggerLevel >= 2400;
-          }
-          // Với các trường hợp đơn 100, 500 hoặc khi poolLevel === triggerOrderPoolLevel thì chia cho tất cả
           return true;
         });
 
