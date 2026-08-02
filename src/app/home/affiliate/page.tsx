@@ -45,6 +45,15 @@ export default function AffiliatePage() {
       fromUsername?: string;
     }>;
     maxCommission?: string;
+    monthlyStats?: {
+      month: string;
+      calculatedRank: string;
+      groupSales: string;
+      personalSales: string;
+      groupRewardAmount: string;
+      globalShareAmount: string;
+      isProcessed: boolean;
+    } | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -199,6 +208,106 @@ export default function AffiliatePage() {
     if (type === 'CTV') return "CTV";
     if (type === 'TV') return "Thành Viên";
     return type || "NONE";
+  };
+
+  const getRankBadgeInfo = () => {
+    if (!referralInfo) return { label: 'Customer', class: 'bg-gray-100 text-gray-600 border-gray-200', icon: 'person' };
+    
+    const monthlyRank = referralInfo.monthlyStats?.calculatedRank;
+    const hasMonthlyRank = monthlyRank && monthlyRank !== 'DAILY' && monthlyRank !== 'C0';
+    
+    if (hasMonthlyRank) {
+      let badgeClass = '';
+      let icon = 'military_tech';
+      
+      switch (monthlyRank) {
+        case 'C1':
+          badgeClass = 'bg-gradient-to-r from-amber-600 to-amber-700 text-white border-amber-500 font-bold shadow-sm';
+          icon = 'workspace_premium';
+          break;
+        case 'C2':
+          badgeClass = 'bg-gradient-to-r from-slate-400 to-slate-500 text-white border-slate-300 font-bold shadow-sm';
+          icon = 'workspace_premium';
+          break;
+        case 'C3':
+          badgeClass = 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-yellow-300 font-bold shadow-md';
+          icon = 'workspace_premium';
+          break;
+        case 'C4':
+          badgeClass = 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-300 font-bold shadow-md';
+          icon = 'grade';
+          break;
+        case 'C5':
+          badgeClass = 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 font-bold shadow-md';
+          icon = 'favorite';
+          break;
+        case 'C6':
+          badgeClass = 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-400 font-bold shadow-md';
+          icon = 'diamond';
+          break;
+        case 'C7':
+          badgeClass = 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-emerald-300 font-bold shadow-md animate-pulse';
+          icon = 'stars';
+          break;
+        case 'C8':
+          badgeClass = 'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-violet-600 text-white border-fuchsia-400 font-bold shadow-lg animate-pulse';
+          icon = 'emoji_events';
+          break;
+        case 'C9':
+          badgeClass = 'bg-gradient-to-r from-yellow-500 via-orange-500 to-red-600 text-white border-yellow-300 font-extrabold shadow-lg animate-pulse';
+          icon = 'crown';
+          break;
+        default:
+          badgeClass = 'bg-gradient-to-r from-gray-500 to-slate-600 text-white border-gray-400 font-bold';
+          icon = 'military_tech';
+      }
+      
+      return {
+        label: monthlyRank,
+        class: badgeClass,
+        icon
+      };
+    }
+    
+    const total = Number(referralInfo.accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return {
+        label: lang === "vi" ? "Đại lý" : "Agency",
+        class: 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white border-teal-300 font-bold shadow-sm',
+        icon: 'stars'
+      };
+    }
+    
+    const type = String(referralInfo.packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') {
+      return {
+        label: lang === "vi" ? "Đối Tác" : "Đối Tác",
+        class: 'bg-blue-50 text-blue-700 border-blue-200 font-medium',
+        icon: 'badge'
+      };
+    }
+    
+    if (type === 'CTV') {
+      return {
+        label: lang === "vi" ? "CTV" : "CTV",
+        class: 'bg-purple-50 text-purple-700 border-purple-200 font-medium',
+        icon: 'storefront'
+      };
+    }
+    
+    if (type === 'TV') {
+      return {
+        label: lang === "vi" ? "Thành Viên" : "Member",
+        class: 'bg-gray-50 text-gray-500 border-gray-200',
+        icon: 'person'
+      };
+    }
+    
+    return {
+      label: type || "NONE",
+      class: 'bg-gray-50 text-gray-500 border-gray-200',
+      icon: 'person'
+    };
   };
 
   const getNextRank = (packageType?: string) => {
@@ -386,13 +495,15 @@ export default function AffiliatePage() {
                   <p className="text-lg font-bold leading-tight text-text-dark">
                     {shortAddress(referralInfo.walletAddress)}
                   </p>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                    (Number(referralInfo.accumulatedPurchases) || 0) >= 600
-                      ? 'bg-amber-500 text-white'
-                      : 'text-gray-600 bg-gray-100'
-                  }`}>
-                    {t("rank")} : {getRank(referralInfo.packageType, referralInfo.accumulatedPurchases)}
-                  </span>
+                  {(() => {
+                    const badge = getRankBadgeInfo();
+                    return (
+                      <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border shadow-sm transition-all duration-300 ${badge.class}`}>
+                        <span className="material-symbols-outlined text-[14px] font-bold">{badge.icon}</span>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <p className="text-primary-dark text-sm font-medium">
                   Hoa hồng tháng này:{" "}
@@ -483,6 +594,8 @@ export default function AffiliatePage() {
                     {formatPriceVND(targetVolume)}
                   </p>
                 </div>
+
+
               </div>
             </div>
           </div>

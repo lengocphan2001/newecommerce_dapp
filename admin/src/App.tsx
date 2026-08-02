@@ -15,6 +15,7 @@ import KYC from './pages/KYC';
 import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
+import MonthlyRewards from './pages/MonthlyRewards';
 import CommissionPayout from './pages/CommissionPayout';
 import Analytics from './pages/Analytics';
 import FakeAnalyticsDashboard from './pages/FakeAnalyticsDashboard';
@@ -208,6 +209,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <Commissions />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monthly-rewards"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <MonthlyRewards />
                   </AdminLayout>
                 </PrivateRoute>
               }

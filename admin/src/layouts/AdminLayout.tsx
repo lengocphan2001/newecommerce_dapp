@@ -145,6 +145,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: 'commissions.view',
     },
     {
+      key: '/monthly-rewards',
+      icon: <GiftOutlined />,
+      label: 'Monthly Rewards',
+      permission: 'commissions.view',
+    },
+    {
       key: '/commission-payout',
       icon: <ThunderboltOutlined />,
       label: 'Commission Payout',

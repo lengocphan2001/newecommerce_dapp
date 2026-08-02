@@ -51,6 +51,7 @@ import { HeapRewardPlacement } from '../src/heap-reward/entities/heap-reward-pla
 import { HeapRewardHistory } from '../src/heap-reward/entities/heap-reward-history.entity';
 import { RankPoolPlacement } from '../src/rank-pool/entities/rank-pool-placement.entity';
 import { RankPoolHistory } from '../src/rank-pool/entities/rank-pool-history.entity';
+import { UserMonthlyStats } from '../src/affiliate/entities/user-monthly-stats.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -234,6 +235,7 @@ async function initializeDatabase() {
       HeapRewardHistory,
       RankPoolPlacement,
       RankPoolHistory,
+      UserMonthlyStats,
     ],
     synchronize: false, // Enable synchronize to create tables
     logging: true,

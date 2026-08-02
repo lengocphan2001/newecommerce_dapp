@@ -223,4 +223,26 @@ export class AffiliateController {
   ) {
     return this.affiliateService.compensateSingleOrderCommission(id);
   }
+
+  @Post('admin/commissions/monthly/calculate')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async calculateMonthlyRewards(
+    @Body() body: { month: string; performPayout?: boolean }
+  ) {
+    if (!body.month) {
+      throw new Error('Month is required (format: YYYY-MM)');
+    }
+    return this.affiliateService.calculateMonthlyRewards(body.month, !!body.performPayout);
+  }
+
+  @Get('admin/commissions/monthly/stats')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getMonthlyStats(
+    @Query('month') month: string
+  ) {
+    if (!month) {
+      throw new Error('Month is required (format: YYYY-MM)');
+    }
+    return this.affiliateService.getMonthlyStats(month);
+  }
 }

@@ -28,9 +28,10 @@ import { randomInt } from 'crypto';
 import { createHash, randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
+import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 
 @Injectable()
 export class AuthService {
@@ -57,6 +58,7 @@ export class AuthService {
     private passwordResetTokenRepo: Repository<PasswordResetToken>,
     @InjectRepository(HeapRewardHistory)
     private heapRewardHistoryRepo: Repository<HeapRewardHistory>,
+    private dataSource: DataSource,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -744,6 +746,11 @@ export class AuthService {
     const distributedCommission =
       grossCommission * ((withdrawPercent + reconsumptionPercent) / 100);
 
+    const latestStats = await this.dataSource.getRepository(UserMonthlyStats).findOne({
+      where: { userId },
+      order: { month: 'DESC' },
+    });
+
     return {
       referralCode,
       referralLink,
@@ -753,25 +760,20 @@ export class AuthService {
       fullName: user.fullName,
       email: user.email,
       walletAddress: user.walletAddress,
-      /** Số dư ví nạp tiền (banking) - admin duyệt nạp rồi cộng vào đây */
       walletBalance: formatDecimal(user.walletBalance ?? 0),
-      /* Se agrega el saldo de PV para que el frontend lo muestre en el perfil de usuario. */
       pvWalletBalance: formatDecimal(user.pvWalletBalance ?? 0),
-      /** Số dư ví rút tiền - nhận hoa hồng theo tỷ lệ cấu hình */
       withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
-      /** Số dư ví tích lũy (tiêu dùng) */
       reconsumptionWalletBalance: formatDecimal(user.reconsumptionWalletBalance ?? 0),
       phone: user.phone,
-      phoneNumber: user.phone, // Alias for compatibility
+      phoneNumber: user.phone,
       address: user.address,
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
       currentMonthCommission: formatDecimal(currentMonthCommission),
-      /** Tổng phần hoa hồng đã được phân bổ vào 2 ví nội bộ theo cấu hình */
       bonusCommissionNet: formatDecimal(distributedCommission),
-      payoutFeePercent: 10, // 10% tax deducted directly
-      commissionDepositWalletPercent: reconsumptionPercent, // mapped to reconsumption
+      payoutFeePercent: 10,
+      commissionDepositWalletPercent: reconsumptionPercent,
       commissionWithdrawWalletPercent: withdrawPercent,
       fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
       maxCommission,
@@ -784,6 +786,15 @@ export class AuthService {
       createdAt: user.createdAt,
       id: user.id,
       emailVerified: user.emailVerified,
+      monthlyStats: latestStats ? {
+        month: latestStats.month,
+        calculatedRank: latestStats.calculatedRank,
+        groupSales: formatDecimal(latestStats.groupSales),
+        personalSales: formatDecimal(latestStats.personalSales),
+        groupRewardAmount: formatDecimal(latestStats.groupRewardAmount),
+        globalShareAmount: formatDecimal(latestStats.globalShareAmount),
+        isProcessed: latestStats.isProcessed,
+      } : null,
     };
   }
 

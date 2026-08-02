@@ -184,4 +184,12 @@ export class AffiliateService {
   async compensateSingleOrderCommission(orderId: string) {
     return this.commissionService.compensateSingleOrderCommission(orderId);
   }
+
+  async calculateMonthlyRewards(month: string, performPayout: boolean) {
+    return this.commissionService.calculateMonthlyRewards(month, performPayout);
+  }
+
+  async getMonthlyStats(month: string) {
+    return this.commissionService.getMonthlyStats(month);
+  }
 }

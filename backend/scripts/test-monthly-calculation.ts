@@ -34,68 +34,35 @@ import { RankPoolPlacement } from '../src/rank-pool/entities/rank-pool-placement
 import { RankPoolHistory } from '../src/rank-pool/entities/rank-pool-history.entity';
 import { BranchVolumeLog } from '../src/affiliate/entities/branch-volume-log.entity';
 import { UserMonthlyStats } from '../src/affiliate/entities/user-monthly-stats.entity';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../src/app.module';
+import { CommissionService } from '../src/affiliate/commission.service';
 
 dotenv.config();
 
-const entities = [
-  User,
-  Address,
-  Product,
-  Category,
-  Slider,
-  Order,
-  Commission,
-  AuditLog,
-  MilestoneRewardConfig,
-  UserMilestone,
-  BankingConfig,
-  SystemConfig,
-  Staff,
-  StaffSession,
-  Role,
-  Permission,
-  Package,
-  PackagePurchase,
-  Kyc,
-  WalletDepositRequest,
-  WalletWithdrawRequest,
-  UserBankAccount,
-  MatrixRewardTree,
-  MatrixRewardNode,
-  MatrixRewardLedger,
-  MatrixTreeExclusion,
-  MatrixRewardOrderProcessed,
-  PasswordResetToken,
-  HeapRewardPlacement,
-  HeapRewardHistory,
-  RankPoolPlacement,
-  RankPoolHistory,
-  BranchVolumeLog,
-  UserMonthlyStats,
-];
-
 async function run() {
-  const dataSource = new DataSource({
-    type: (process.env.DB_TYPE || 'postgres') as any,
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    username: process.env.DB_USERNAME || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || 'ecommerce_dapp',
-    entities: entities,
-    synchronize: false,
-  });
+  console.log('Bootstrapping NestJS application context...');
+  const app = await NestFactory.createApplicationContext(AppModule);
+  const commissionService = app.get(CommissionService);
 
-  await dataSource.initialize();
-  console.log('Database connected.');
-
-  const products = await dataSource.getRepository(Product).find();
-  console.log(`Total products: ${products.length}`);
-  for (const p of products) {
-    console.log(`Product: ${p.name} | Price: ${p.price} | ShippingFee: ${p.shippingFee}`);
+  const month = '2026-08';
+  console.log(`Calculating monthly rewards for ${month} (Simulation)...`);
+  
+  const result = await commissionService.calculateMonthlyRewards(month, false);
+  
+  console.log('--- SIMULATION RESULT ---');
+  console.log(`Total National Sales: $${result.totalNationalSales.toLocaleString()} USD`);
+  console.log(`Stats Count: ${result.statsCount}`);
+  console.log(`Payout Count: ${result.payoutCount}`);
+  console.log(`Total Payout Amount: $${result.totalPayoutAmount.toLocaleString()} USD`);
+  console.log('--- USER STATS LIST ---');
+  for (const stat of result.usersStats) {
+    if (stat.calculatedRank !== 'C0' || stat.groupSales > 0 || stat.groupRewardAmount > 0 || stat.globalShareAmount > 0) {
+      console.log(`User: ${stat.username || stat.email} | Rank: ${stat.calculatedRank} | Group Sales: $${stat.groupSales.toLocaleString()} | Group Reward: $${stat.groupRewardAmount.toLocaleString()} | Global Share: $${stat.globalShareAmount.toLocaleString()}`);
+    }
   }
 
-  await dataSource.destroy();
+  await app.close();
 }
 
 run().catch(console.error);

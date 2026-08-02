@@ -21,6 +21,7 @@ import { Product } from './product/entities/product.entity';
 import { Order } from './order/entities/order.entity';
 import { Commission } from './affiliate/entities/commission.entity';
 import { BranchVolumeLog } from './affiliate/entities/branch-volume-log.entity';
+import { UserMonthlyStats } from './affiliate/entities/user-monthly-stats.entity';
 import { AuditLog } from './audit-log/entities/audit-log.entity';
 import { MilestoneRewardConfig } from './admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from './admin/entities/user-milestone.entity';
@@ -97,6 +98,7 @@ import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
           Order,
           Commission,
           BranchVolumeLog,
+          UserMonthlyStats,
           AuditLog,
           MilestoneRewardConfig,
           UserMilestone,

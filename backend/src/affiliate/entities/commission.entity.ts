@@ -17,6 +17,8 @@ export enum CommissionType {
   MANAGEMENT = 'management', // Hoa hồng quản lý
   MILESTONE = 'milestone', // Thưởng milestone (2, 4, 6 người...)
   PRODUCT = 'product', // Hoa hồng theo từng sản phẩm (% theo gói TV/CTV/NPP)
+  GROUP_MONTHLY = 'group_monthly', // Hoa hồng thưởng nhóm hàng tháng (Tầng 3)
+  GLOBAL_SHARE_MONTHLY = 'global_share_monthly', // Hoa hồng đồng chia cấp bậc toàn quốc (Tầng 4)
 }
 
 export enum CommissionStatus {

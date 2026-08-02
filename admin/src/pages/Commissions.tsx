@@ -11,7 +11,6 @@ import {
   Descriptions,
   Typography,
   DatePicker,
-  Form,
   notification,
 } from 'antd';
 import {
@@ -52,6 +51,8 @@ const CommissionsPage: React.FC = () => {
   const [compensateModalOpen, setCompensateModalOpen] = useState(false);
   const [compensateDate, setCompensateDate] = useState<dayjs.Dayjs | null>(dayjs().subtract(30, 'day'));
   const [compensating, setCompensating] = useState(false);
+
+
 
   const handleCompensate = async () => {
     try {
@@ -611,8 +612,10 @@ const CommissionsPage: React.FC = () => {
           <Option value="indirect">Indirect (F2)</Option>
           <Option value="group">Group</Option>
           <Option value="management">Management</Option>
-          <Option value="product">Product</Option>
           <Option value="milestone">Milestone</Option>
+          <Option value="product">Product</Option>
+          <Option value="group_monthly">Group Monthly (Tầng 3)</Option>
+          <Option value="global_share_monthly">Global Share (Tầng 4)</Option>
         </Select>
 
         <div style={{ marginLeft: 'auto' }}>

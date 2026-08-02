@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, DataSource, In, MoreThanOrEqual, Between } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import {
@@ -16,6 +16,7 @@ import {
   CommissionStatus,
 } from './entities/commission.entity';
 import { BranchVolumeLog } from './entities/branch-volume-log.entity';
+import { UserMonthlyStats } from './entities/user-monthly-stats.entity';
 import { PackagesService } from '../packages/packages.service';
 import { Package } from '../packages/entities/package.entity';
 import { Product } from '../product/entities/product.entity';
@@ -45,6 +46,8 @@ export class CommissionService {
     private systemConfigRepository: Repository<SystemConfig>,
     @InjectRepository(BranchVolumeLog)
     private branchVolumeLogRepository: Repository<BranchVolumeLog>,
+    @InjectRepository(UserMonthlyStats)
+    private userMonthlyStatsRepository: Repository<UserMonthlyStats>,
     private dataSource: DataSource,
     private packagesService: PackagesService,
   ) { }
@@ -1508,6 +1511,11 @@ export class CommissionService {
     const num = (v: string | null | undefined): number =>
       v === null || v === undefined ? 0 : parseFloat(String(v)) || 0;
 
+    const latestStats = await this.userMonthlyStatsRepository.findOne({
+      where: { userId },
+      order: { month: 'DESC' },
+    });
+
     return {
       totalCommission: this.roundCommission(num(raw?.totalCommission)),
       pendingCommission: this.roundCommission(num(raw?.pendingCommission)),
@@ -1516,6 +1524,15 @@ export class CommissionService {
         group: this.roundCommission(num(raw?.group)),
         management: this.roundCommission(num(raw?.management)),
       },
+      monthlyStats: latestStats ? {
+        month: latestStats.month,
+        calculatedRank: latestStats.calculatedRank,
+        groupSales: Number(latestStats.groupSales) || 0,
+        personalSales: Number(latestStats.personalSales) || 0,
+        groupRewardAmount: Number(latestStats.groupRewardAmount) || 0,
+        globalShareAmount: Number(latestStats.globalShareAmount) || 0,
+        isProcessed: latestStats.isProcessed,
+      } : null,
     };
   }
 
@@ -1995,5 +2012,346 @@ export class CommissionService {
       amount: 0,
       message: 'Không tìm thấy cấu hình hoa hồng hợp lệ hoặc người giới thiệu chưa đủ điều kiện nhận.',
     };
+  }
+
+  async calculateMonthlyRewards(
+    month: string,
+    performPayout: boolean = false,
+  ): Promise<{
+    success: boolean;
+    totalNationalSales: number;
+    statsCount: number;
+    payoutCount: number;
+    totalPayoutAmount: number;
+    usersStats: any[];
+  }> {
+    // 1. Parse month range
+    const [yearStr, monthStr] = month.split('-');
+    const y = parseInt(yearStr);
+    const m = parseInt(monthStr);
+    const startDate = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const endDate = new Date(y, m, 0, 23, 59, 59, 999);
+
+    // 2. Fetch all users
+    const users = await this.userRepository.find({
+      select: ['id', 'username', 'email', 'referralUserId', 'totalPurchaseAmount'],
+    });
+
+    // 3. Fetch all orders in the month
+    const orders = await this.orderRepository.find({
+      where: {
+        status: In([OrderStatus.CONFIRMED, OrderStatus.DELIVERED]),
+        createdAt: Between(startDate, endDate),
+      },
+    });
+
+    // Calc total national sales
+    let totalNationalSales = 0;
+    const userPersonalSalesMap = new Map<string, number>();
+
+    for (const order of orders) {
+      const amt = Number(order.totalAmount) || 0;
+      totalNationalSales += amt;
+      if (order.userId) {
+        userPersonalSalesMap.set(
+          order.userId,
+          (userPersonalSalesMap.get(order.userId) || 0) + amt,
+        );
+      }
+    }
+
+    // 4. Build referral tree children map to find F1s
+    const f1Map = new Map<string, string[]>();
+    for (const u of users) {
+      if (u.referralUserId) {
+        const list = f1Map.get(u.referralUserId) || [];
+        list.push(u.id);
+        f1Map.set(u.referralUserId, list);
+      }
+    }
+
+    // Helper to get all descendants in the referral tree
+    const getDescendants = (userId: string): string[] => {
+      const descendants: string[] = [];
+      const visited = new Set<string>([userId]);
+      const queue = [userId];
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        const f1s = f1Map.get(curr) || [];
+        for (const childId of f1s) {
+          if (!visited.has(childId)) {
+            visited.add(childId);
+            descendants.push(childId);
+            queue.push(childId);
+          }
+        }
+      }
+      return descendants;
+    };
+
+    // Calculate group sales in the month for each user
+    const userGroupSalesMap = new Map<string, number>();
+    for (const u of users) {
+      const descIds = getDescendants(u.id);
+      let gSales = 0;
+      for (const descId of descIds) {
+        gSales += userPersonalSalesMap.get(descId) || 0;
+      }
+      userGroupSalesMap.set(u.id, gSales);
+    }
+
+    // 5. Determine Ranks bottom-up
+    const ranksMap = new Map<string, string>();
+
+    // Step 5.1: Is user Đại lý? (Lifetime purchase >= 15M VND / $600)
+    for (const u of users) {
+      const isDaiLy = Number(u.totalPurchaseAmount) >= 600;
+      ranksMap.set(u.id, isDaiLy ? 'DAILY' : 'C0');
+    }
+
+    // Ranks values hierarchy helper
+    const isAtLeastRank = (userId: string, targetRank: string): boolean => {
+      const currentRank = ranksMap.get(userId) || 'C0';
+      const rankOrder = ['C0', 'DAILY', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
+      return rankOrder.indexOf(currentRank) >= rankOrder.indexOf(targetRank);
+    };
+
+    // Iteratively determine ranks C1 to C9
+    const ranksToProcess = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
+
+    for (const r of ranksToProcess) {
+      for (const u of users) {
+        const f1Ids = f1Map.get(u.id) || [];
+        let isPromoted = false;
+
+        if (r === 'C1') {
+          // At least 3 F1 are DAILY or higher
+          const dailyF1Count = f1Ids.filter((id) => isAtLeastRank(id, 'DAILY')).length;
+          isPromoted = dailyF1Count >= 3;
+        } else if (r === 'C2') {
+          // At least 3 F1 are C1 or higher
+          const c1F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C1')).length;
+          isPromoted = c1F1Count >= 3;
+        } else if (r === 'C3') {
+          const c2F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C2')).length;
+          isPromoted = c2F1Count >= 3;
+        } else if (r === 'C4') {
+          const c3F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C3')).length;
+          isPromoted = c3F1Count >= 3;
+        } else if (r === 'C5') {
+          const c4F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C4')).length;
+          isPromoted = c4F1Count >= 3;
+        } else if (r === 'C6') {
+          const c5F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C5')).length;
+          const c4F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C4')).length;
+          isPromoted = c5F1Count >= 2 && c4F1Count >= 3;
+        } else if (r === 'C7') {
+          const c6F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C6')).length;
+          const c5F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C5')).length;
+          isPromoted = c6F1Count >= 2 && c5F1Count >= 3;
+        } else if (r === 'C8') {
+          const c7F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C7')).length;
+          const c6F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C6')).length;
+          isPromoted = c7F1Count >= 2 && c6F1Count >= 3;
+        } else if (r === 'C9') {
+          const c7F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C7')).length;
+          isPromoted = c7F1Count >= 3;
+        }
+
+        if (isPromoted) {
+          ranksMap.set(u.id, r);
+        }
+      }
+    }
+
+    // Get previous month string
+    const prevMonthDate = new Date(y, m - 2, 1);
+    const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    // Get previous month rates map to apply "Không tụt hạng"
+    const prevStats = await this.userMonthlyStatsRepository.find({
+      where: { month: prevMonthStr },
+    });
+    const prevRatesMap = new Map(prevStats.map((s) => [s.userId, Number(s.groupRewardRate) || 0]));
+
+    // 6. Calculate Group Rewards (Tầng 3)
+    const userGroupRewardRateMap = new Map<string, number>();
+    const userGroupRewardAmountMap = new Map<string, number>();
+
+    for (const u of users) {
+      const gSales = userGroupSalesMap.get(u.id) || 0;
+      let currentMonthRate = 0;
+
+      // Check thresholds:
+      // Mốc 1: $400 - $4,000 -> 4%
+      // Mốc 2: $4,000 - $20,000 -> 6%
+      // Mốc 3: $20,000 - $40,000 -> 8%
+      // Mốc 4: > $40,000 -> 10%
+      if (gSales >= 40000) {
+        currentMonthRate = 0.10;
+      } else if (gSales >= 20000) {
+        currentMonthRate = 0.08;
+      } else if (gSales >= 4000) {
+        currentMonthRate = 0.06;
+      } else if (gSales >= 400) {
+        currentMonthRate = 0.04;
+      }
+
+      // Apply "Không tụt hạng"
+      const prevRate = prevRatesMap.get(u.id) || 0;
+      const appliedRate = Math.max(currentMonthRate, prevRate);
+
+      userGroupRewardRateMap.set(u.id, appliedRate);
+      userGroupRewardAmountMap.set(u.id, gSales * appliedRate);
+    }
+
+    // 7. Calculate Global Share Rewards (Tầng 4)
+    // C1: 4%, C2: 2%, C3: 1%, C4-C9: 0.5% each
+    const globalRates: Record<string, number> = {
+      C1: 0.04,
+      C2: 0.02,
+      C3: 0.01,
+      C4: 0.005,
+      C5: 0.005,
+      C6: 0.005,
+      C7: 0.005,
+      C8: 0.005,
+      C9: 0.005,
+    };
+
+    const usersByRank = new Map<string, string[]>();
+    for (const u of users) {
+      const r = ranksMap.get(u.id) || 'C0';
+      if (r !== 'C0' && r !== 'DAILY') {
+        const list = usersByRank.get(r) || [];
+        list.push(u.id);
+        usersByRank.set(r, list);
+      }
+    }
+
+    const userGlobalShareMap = new Map<string, number>();
+
+    for (const r of Object.keys(globalRates)) {
+      const rate = globalRates[r];
+      const qualifiedUserIds = usersByRank.get(r) || [];
+      const poolAmount = totalNationalSales * rate;
+
+      if (qualifiedUserIds.length > 0) {
+        const shareAmount = poolAmount / qualifiedUserIds.length;
+        for (const userId of qualifiedUserIds) {
+          userGlobalShareMap.set(userId, shareAmount);
+        }
+      }
+    }
+
+    // 8. Save or update UserMonthlyStats in DB and execute payouts if performPayout is true
+    let statsCount = 0;
+    let payoutCount = 0;
+    let totalPayoutAmount = 0;
+    const usersStatsResult: any[] = [];
+
+    await this.dataSource.transaction(async (manager) => {
+      for (const u of users) {
+        const pSales = userPersonalSalesMap.get(u.id) || 0;
+        const gSales = userGroupSalesMap.get(u.id) || 0;
+        const r = ranksMap.get(u.id) || 'C0';
+        const rate = userGroupRewardRateMap.get(u.id) || 0;
+        const gReward = userGroupRewardAmountMap.get(u.id) || 0;
+        const gShare = userGlobalShareMap.get(u.id) || 0;
+
+        if (pSales === 0 && gSales === 0 && r === 'C0' && gReward === 0 && gShare === 0) {
+          continue;
+        }
+
+        let stats = await manager.findOne(UserMonthlyStats, {
+          where: { userId: u.id, month },
+        });
+
+        if (!stats) {
+          stats = manager.create(UserMonthlyStats, {
+            userId: u.id,
+            month,
+          });
+        }
+
+        stats.personalSales = pSales;
+        stats.groupSales = gSales;
+        stats.calculatedRank = r;
+        stats.groupRewardRate = rate;
+        stats.groupRewardAmount = gReward;
+        stats.globalShareAmount = gShare;
+
+        if (performPayout && !stats.isProcessed) {
+          stats.isProcessed = true;
+
+          // 1. Payout Group Reward (Tầng 3)
+          if (gReward > 0) {
+            const commGroup = manager.create(Commission, {
+              userId: u.id,
+              amount: gReward,
+              type: CommissionType.GROUP_MONTHLY,
+              status: CommissionStatus.PENDING,
+              notes: `Thưởng nhóm đại lý tháng ${month} (Doanh số nhóm: $${gSales.toLocaleString()}, Tỷ lệ: ${(rate * 100).toFixed(1)}%)`,
+              orderAmount: gSales,
+              orderId: null,
+            });
+            await manager.save(commGroup);
+            await manager.increment(User, { id: u.id }, 'totalCommissionReceived', gReward);
+            payoutCount++;
+            totalPayoutAmount += gReward;
+          }
+
+          // 2. Payout Global Share Reward (Tầng 4)
+          if (gShare > 0) {
+            const commShare = manager.create(Commission, {
+              userId: u.id,
+              amount: gShare,
+              type: CommissionType.GLOBAL_SHARE_MONTHLY,
+              status: CommissionStatus.PENDING,
+              notes: `Đồng chia toàn quốc cấp bậc ${r} tháng ${month} (Tổng DS toàn quốc: $${totalNationalSales.toLocaleString()})`,
+              orderAmount: totalNationalSales,
+              orderId: null,
+            });
+            await manager.save(commShare);
+            await manager.increment(User, { id: u.id }, 'totalCommissionReceived', gShare);
+            payoutCount++;
+            totalPayoutAmount += gShare;
+          }
+        }
+
+        await manager.save(stats);
+        statsCount++;
+
+        usersStatsResult.push({
+          userId: u.id,
+          username: u.username,
+          email: u.email,
+          personalSales: pSales,
+          groupSales: gSales,
+          calculatedRank: r,
+          groupRewardRate: rate,
+          groupRewardAmount: gReward,
+          globalShareAmount: gShare,
+          isProcessed: stats.isProcessed,
+        });
+      }
+    });
+
+    return {
+      success: true,
+      totalNationalSales,
+      statsCount,
+      payoutCount,
+      totalPayoutAmount,
+      usersStats: usersStatsResult,
+    };
+  }
+
+  async getMonthlyStats(month: string) {
+    return this.userMonthlyStatsRepository.find({
+      where: { month },
+      relations: ['user'],
+      order: { groupSales: 'DESC' },
+    });
   }
 }
