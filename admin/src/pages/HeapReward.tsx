@@ -16,6 +16,7 @@ import {
   Col,
   Tag,
   DatePicker,
+  Checkbox,
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
@@ -46,6 +47,7 @@ const HeapReward: React.FC = () => {
   const [placementHistories, setPlacementHistories] = useState<any[]>([]);
   const [syncDate, setSyncDate] = useState<Dayjs | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [skipWalletUpdate, setSkipWalletUpdate] = useState(false);
   const [rollbackPool, setRollbackPool] = useState<string>('all');
   const [rollbackLoading, setRollbackLoading] = useState(false);
 
@@ -126,16 +128,10 @@ const HeapReward: React.FC = () => {
       form.setFieldsValue({
         HEAP_POOL_PERCENT_100: getVal('HEAP_POOL_PERCENT_100', 5),
         HEAP_POOL_PERCENT_500: getVal('HEAP_POOL_PERCENT_500', 10),
-        HEAP_POOL_PERCENT_3000: getVal('HEAP_POOL_PERCENT_3000', 10),
-        HEAP_POOL_PERCENT_5000: getVal('HEAP_POOL_PERCENT_5000', 10),
+        HEAP_POOL_PERCENT_2000: getVal('HEAP_POOL_PERCENT_2000', 10),
         HEAP_MAX_PAYOUT_100: getVal('HEAP_MAX_PAYOUT_100', 200),
         HEAP_MAX_PAYOUT_500: getVal('HEAP_MAX_PAYOUT_500', 1000),
-        HEAP_MAX_PAYOUT_3000: getVal('HEAP_MAX_PAYOUT_3000', 6000),
-        HEAP_MAX_PAYOUT_5000: getVal('HEAP_MAX_PAYOUT_5000', 10000),
-        PROMISING_POOL_PERCENT_3000: getVal('PROMISING_POOL_PERCENT_3000', 5),
-        PROMISING_POOL_PERCENT_5000: getVal('PROMISING_POOL_PERCENT_5000', 10),
-        PROMISING_MAX_PAYOUT_3000: getVal('PROMISING_MAX_PAYOUT_3000', 4000),
-        PROMISING_MAX_PAYOUT_5000: getVal('PROMISING_MAX_PAYOUT_5000', 8000),
+        HEAP_MAX_PAYOUT_2000: getVal('HEAP_MAX_PAYOUT_2000', 4000),
       });
     } catch (e) {
       notification.error({ message: 'Lỗi khi tải cấu hình hệ thống' });
@@ -144,11 +140,10 @@ const HeapReward: React.FC = () => {
 
   useEffect(() => {
     fetchPlacements(selectedPoolLevel);
-    fetchPromisingPlacements(selectedPromisingPoolLevel);
     if (isAdminAccount) {
       fetchConfigs();
     }
-  }, [isAdminAccount, selectedPoolLevel, selectedPromisingPoolLevel]);
+  }, [isAdminAccount, selectedPoolLevel]);
 
   const onFinishConfig = async (values: any) => {
     try {
@@ -172,14 +167,22 @@ const HeapReward: React.FC = () => {
     }
 
     Modal.confirm({
-      title: 'Xác nhận đồng bộ đơn hàng cũ vào Bể đồng chia?',
+      title: skipWalletUpdate
+        ? 'Xác nhận đồng bộ MÔ PHỎNG đơn hàng cũ vào Bể đồng chia?'
+        : 'Xác nhận đồng bộ THỰC TẾ đơn hàng cũ vào Bể đồng chia?',
       content: (
         <div>
           <p>Hệ thống sẽ quét tất cả các đơn hàng thành công từ ngày <b>{syncDate.format('DD/MM/YYYY')}</b> đến nay.</p>
-          <p>Các đơn hàng hợp lệ chưa được xử lý sẽ được tính toán chia thưởng và đưa vào bể đồng chia tương ứng.</p>
-          <p style={{ color: '#ff4d4f', marginTop: 16 }}>
-            ⚠️ Thao tác này có thể cộng ví trực tiếp cho các thành viên và xếp hàng đợi mới!
-          </p>
+          <p>Các đơn hàng hợp lệ chưa được xử lý sẽ được đưa vào bể đồng chia tương ứng và tính toán tích lũy.</p>
+          {skipWalletUpdate ? (
+            <p style={{ color: '#52c41a', marginTop: 16, fontWeight: 'bold' }}>
+              ✔️ Chế độ mô phỏng: Chỉ tính toán tích lũy & xếp bể, TUYỆT ĐỐI KHÔNG cộng tiền vào ví người dùng!
+            </p>
+          ) : (
+            <p style={{ color: '#ff4d4f', marginTop: 16, fontWeight: 'bold' }}>
+              ⚠️ Chế độ thực tế: THAO TÁC NÀY SẼ CỘNG VÍ TRỰC TIẾP CHO NGƯỜI DÙNG!
+            </p>
+          )}
         </div>
       ),
       okText: 'Bắt đầu đồng bộ',
@@ -190,6 +193,7 @@ const HeapReward: React.FC = () => {
           setSyncLoading(true);
           const res = await api.post('/admin/heap-reward/sync', {
             fromDate: syncDate.toISOString(),
+            skipWalletUpdate,
           });
           const data = res.data;
           
@@ -212,7 +216,6 @@ const HeapReward: React.FC = () => {
 
           // Tải lại danh sách
           fetchPlacements(selectedPoolLevel);
-          fetchPromisingPlacements(selectedPromisingPoolLevel);
         } catch (e: any) {
           const errMsg = e?.response?.data?.message || e?.message || 'Đồng bộ thất bại';
           notification.error({
@@ -449,8 +452,7 @@ const HeapReward: React.FC = () => {
               <Option value="">Tất cả các bể</Option>
               <Option value="100">Bể 100 PV</Option>
               <Option value="500">Bể 500 PV</Option>
-              <Option value="3000">Bể 3000 PV</Option>
-              <Option value="5000">Bể 5000 PV</Option>
+              <Option value="2000">Bể 2000 PV</Option>
             </Select>
           </div>
           <Card title="Danh sách thành viên trong các bể đồng chia">
@@ -464,39 +466,13 @@ const HeapReward: React.FC = () => {
           </Card>
         </Tabs.TabPane>
 
-        {/* TAB 2: HÀNG ĐỢI SẢN PHẨM TRIỂN VỌNG */}
-        <Tabs.TabPane tab="Hàng đợi Doanh Số Triển Vọng (Promising Product Queue)" key="2">
-          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>Lọc theo hạn mức bể:</span>
-            <Select 
-              defaultValue="" 
-              style={{ width: 150 }} 
-              onChange={(val) => setSelectedPromisingPoolLevel(val ? Number(val) : undefined)}
-            >
-              <Option value="">Tất cả</Option>
-              <Option value="3000">Bể 3000 PV</Option>
-              <Option value="5000">Bể 5000 PV</Option>
-            </Select>
-          </div>
-          <Card title="Hàng đợi chia thưởng sản phẩm triển vọng (Tối đa 10 ID hoạt động đồng thời)">
-            <Table 
-              dataSource={promisingPlacements} 
-              columns={promisingColumns} 
-              rowKey="id" 
-              loading={promisingLoading}
-              pagination={{ pageSize: 20 }}
-            />
-          </Card>
-        </Tabs.TabPane>
-
-        {/* TAB 3: CẤU HÌNH HỆ THỐNG */}
+        {/* TAB 2: CẤU HÌNH HỆ THỐNG */}
         {isAdminAccount && (
           <Tabs.TabPane tab="Cấu hình hệ thống Bể & Quỹ" key="3">
             <Card title="Thiết lập tỷ lệ trích quỹ theo bể và hạn mức Max Payout">
               <Form form={form} layout="vertical" onFinish={onFinishConfig}>
                 <Row gutter={24}>
-                  {/* BÊN TRÁI: CẤU HÌNH ĐỒNG CHIA */}
-                  <Col xs={24} md={12}>
+                  <Col xs={24} md={16}>
                     <Title level={4} style={{ marginBottom: 16 }}>Cấu hình Bể Đồng Chia (Heap Pool)</Title>
                     
                     <Row gutter={16}>
@@ -527,56 +503,12 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_3000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
+                        <Form.Item label="Bể 2000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_2000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_3000">
-                          <InputNumber min={0} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item label="Bể 5000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_5000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
-                          <InputNumber min={0} max={100} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item label="Bể 5000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_5000">
-                          <InputNumber min={0} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-                  </Col>
-
-                  {/* BÊN PHẢI: CẤU HÌNH SẢN PHẨM TRIỂN VỌNG */}
-                  <Col xs={24} md={12}>
-                    <Title level={4} style={{ marginBottom: 16 }}>Cấu hình Quỹ Sản Phẩm Triển Vọng</Title>
-                    
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Tỷ lệ trích (%)" name="PROMISING_POOL_PERCENT_3000">
-                          <InputNumber min={0} max={100} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item label="Bể 3000 PV: Max Payout ($)" name="PROMISING_MAX_PAYOUT_3000">
-                          <InputNumber min={0} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col span={12}>
-                        <Form.Item label="Bể 5000 PV: Tỷ lệ trích (%)" name="PROMISING_POOL_PERCENT_5000">
-                          <InputNumber min={0} max={100} style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={12}>
-                        <Form.Item label="Bể 5000 PV: Max Payout ($)" name="PROMISING_MAX_PAYOUT_5000">
+                        <Form.Item label="Bể 2000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_2000">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -603,13 +535,20 @@ const HeapReward: React.FC = () => {
                   <div>
                     <span style={{ marginRight: 8, fontWeight: 'bold' }}>Chọn ngày bắt đầu:</span>
                     <DatePicker 
-                      value={syncDate} 
-                      onChange={(date) => setSyncDate(date)} 
-                      format="DD/MM/YYYY"
-                      placeholder="Chọn ngày bắt đầu"
-                      disabledDate={(current) => current && current > dayjs().endOf('day')}
+                       value={syncDate} 
+                       onChange={(date) => setSyncDate(date)} 
+                       format="DD/MM/YYYY"
+                       placeholder="Chọn ngày bắt đầu"
+                       disabledDate={(current) => current && current > dayjs().endOf('day')}
                     />
                   </div>
+                  <Checkbox 
+                    checked={skipWalletUpdate} 
+                    onChange={(e) => setSkipWalletUpdate(e.target.checked)}
+                    style={{ fontWeight: 'bold', color: '#1890ff' }}
+                  >
+                    Chỉ xếp bể & chạy mô phỏng (KHÔNG cộng tiền ví)
+                  </Checkbox>
                   <Button 
                     type="primary" 
                     danger 
@@ -639,10 +578,7 @@ const HeapReward: React.FC = () => {
                         <Option value="all">Tất cả các bể</Option>
                         <Option value="heap-100">Bể Heap 100 PV</Option>
                         <Option value="heap-500">Bể Heap 500 PV</Option>
-                        <Option value="heap-3000">Bể Heap 3000 PV</Option>
-                        <Option value="heap-5000">Bể Heap 5000 PV</Option>
-                        <Option value="promising-3000">Bể Triển vọng 3000 PV</Option>
-                        <Option value="promising-5000">Bể Triển vọng 5000 PV</Option>
+                        <Option value="heap-2000">Bể Heap 2000 PV</Option>
                       </Select>
                     </div>
                     <Button 

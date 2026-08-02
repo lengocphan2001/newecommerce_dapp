@@ -12,9 +12,10 @@ export class HeapRewardController {
     @Body()
     body: {
       fromDate: string;
+      skipWalletUpdate?: boolean;
     },
   ) {
-    return this.heapRewardService.syncOrdersFromDate(body.fromDate);
+    return this.heapRewardService.syncOrdersFromDate(body.fromDate, body.skipWalletUpdate);
   }
 
   @Post('rollback')
@@ -48,18 +49,4 @@ export class HeapRewardController {
     return this.heapRewardService.getHistories(query);
   }
 
-  @Get('promising-placements')
-  async getPromisingPlacements(@Query() query: any) {
-    return this.heapRewardService.getPromisingPlacements(query);
-  }
-
-  @Delete('promising-placements/:id')
-  async deletePromisingPlacement(@Param('id') id: string) {
-    return this.heapRewardService.deletePromisingPlacement(id);
-  }
-
-  @Get('promising-histories')
-  async getPromisingHistories(@Query() query: any) {
-    return this.heapRewardService.getPromisingHistories(query);
-  }
 }

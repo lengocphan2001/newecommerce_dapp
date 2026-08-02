@@ -147,7 +147,7 @@ const PackagePurchasesPage: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <Title level={2}>Package Purchases</Title>
-          <Text type="secondary">Confirm user package payments to activate their package (CTV, NPP, TV).</Text>
+          <Text type="secondary">Confirm user package payments to activate their package (CTV, ĐT, TV).</Text>
         </div>
         <Space>
           <Select

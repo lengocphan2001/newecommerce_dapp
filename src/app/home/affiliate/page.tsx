@@ -189,8 +189,16 @@ export default function AffiliatePage() {
     });
   };
 
-  const getRank = (packageType?: string) => {
-    return packageType || "NONE";
+  const getRank = (packageType?: string, accumulatedPurchases?: string | number) => {
+    const total = Number(accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return "Đại lý";
+    }
+    const type = String(packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') return "Đối Tác";
+    if (type === 'CTV') return "CTV";
+    if (type === 'TV') return "Thành Viên";
+    return type || "NONE";
   };
 
   const getNextRank = (packageType?: string) => {
@@ -378,8 +386,12 @@ export default function AffiliatePage() {
                   <p className="text-lg font-bold leading-tight text-text-dark">
                     {shortAddress(referralInfo.walletAddress)}
                   </p>
-                  <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                    {t("rank")} : {getRank(referralInfo.packageType)}
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    (Number(referralInfo.accumulatedPurchases) || 0) >= 600
+                      ? 'bg-amber-500 text-white'
+                      : 'text-gray-600 bg-gray-100'
+                  }`}>
+                    {t("rank")} : {getRank(referralInfo.packageType, referralInfo.accumulatedPurchases)}
                   </span>
                 </div>
                 <p className="text-primary-dark text-sm font-medium">

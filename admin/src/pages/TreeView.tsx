@@ -26,7 +26,7 @@ interface TreeNode {
   username: string | null;
   fullName: string;
   email: string;
-  packageType: 'NONE' | 'CTV' | 'NPP';
+  packageType: string;
   avatar?: string;
   leftBranchTotal: number;
   rightBranchTotal: number;
@@ -48,9 +48,14 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       node.position === 'right' ? '#52c41a' :
         '#722ed1';
 
-  const getPackageColor = (packageType: 'NONE' | 'CTV' | 'NPP') => {
+  const getPackageColor = (packageType: string) => {
+    const total = Number(node.totalPurchaseAmount) || 0;
+    if (total >= 600) {
+      return 'orange';
+    }
     switch (packageType) {
       case 'NPP':
+      case 'DT':
         return 'gold';
       case 'CTV':
         return 'blue';
@@ -102,7 +107,15 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       <div style={{ textAlign: 'center' }}>
         <div style={{ marginBottom: 8 }}>
           <Tag color={getPackageColor(node.packageType)} style={{ marginBottom: 4, fontSize: '11px' }}>
-            {node.packageType}
+            {(() => {
+              const total = Number(node.totalPurchaseAmount) || 0;
+              if (total >= 600) return 'Đại lý';
+              const type = node.packageType;
+              if (type === 'NPP' || type === 'DT') return 'Đối Tác';
+              if (type === 'CTV') return 'CTV';
+              if (type === 'TV') return 'Thành Viên';
+              return type;
+            })()}
           </Tag>
         </div>
         {node.username && (

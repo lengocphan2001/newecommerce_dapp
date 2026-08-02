@@ -13,7 +13,6 @@ import { PackagesModule } from '../packages/packages.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductHistory } from '../heap-reward/entities/promising-product-history.entity';
 
 @Module({
   imports: [
@@ -22,7 +21,7 @@ import { PromisingProductHistory } from '../heap-reward/entities/promising-produ
     PackagesModule,
     forwardRef(() => AffiliateModule),
     forwardRef(() => AdminModule),
-    TypeOrmModule.forFeature([PasswordResetToken, HeapRewardHistory, PromisingProductHistory]),
+    TypeOrmModule.forFeature([PasswordResetToken, HeapRewardHistory]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

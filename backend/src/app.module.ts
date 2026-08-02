@@ -56,8 +56,6 @@ import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
 import { HeapRewardModule } from './heap-reward/heap-reward.module';
 import { HeapRewardPlacement } from './heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from './heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductPlacement } from './heap-reward/entities/promising-product-placement.entity';
-import { PromisingProductHistory } from './heap-reward/entities/promising-product-history.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
 import { RankPoolModule } from './rank-pool/rank-pool.module';
 import { RankPoolPlacement } from './rank-pool/entities/rank-pool-placement.entity';
@@ -124,8 +122,6 @@ import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
           PasswordResetToken,
           HeapRewardPlacement,
           HeapRewardHistory,
-          PromisingProductPlacement,
-          PromisingProductHistory,
           RankPoolPlacement,
           RankPoolHistory,
         ],

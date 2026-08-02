@@ -398,6 +398,7 @@ export const api = {
     fullName: string;
     email: string;
     packageType: string;
+    totalPurchaseAmount: number;
     createdAt: string;
     directReferralCount: number;
   }>> {

@@ -5,7 +5,6 @@ import { DataSource } from 'typeorm';
 import { User } from '../src/user/entities/user.entity';
 import { Product } from '../src/product/entities/product.entity';
 import { Order, OrderStatus } from '../src/order/entities/order.entity';
-import { PromisingProductPlacement } from '../src/heap-reward/entities/promising-product-placement.entity';
 import { HeapRewardPlacement } from '../src/heap-reward/entities/heap-reward-placement.entity';
 import { SystemConfig } from '../src/admin/entities/system-config.entity';
 
@@ -20,49 +19,33 @@ async function run() {
   const userRepo = dataSource.getRepository(User);
   const productRepo = dataSource.getRepository(Product);
   const orderRepo = dataSource.getRepository(Order);
-  const promisingPlacementRepo = dataSource.getRepository(PromisingProductPlacement);
   const heapPlacementRepo = dataSource.getRepository(HeapRewardPlacement);
   const configRepo = dataSource.getRepository(SystemConfig);
 
   try {
     console.log('--- DỌN DẸP DỮ LIỆU CŨ ĐỂ KHỞI TẠO TEST ---');
-    await promisingPlacementRepo.createQueryBuilder().delete().execute();
     await heapPlacementRepo.createQueryBuilder().delete().execute();
     
     // Xóa và tạo lại cấu hình mặc định để đồng bộ
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_100' });
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_500' });
-    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_3000' });
-    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_5000' });
-    await configRepo.delete({ key: 'PROMISING_POOL_PERCENT_3000' });
-    await configRepo.delete({ key: 'PROMISING_POOL_PERCENT_5000' });
-    await configRepo.delete({ key: 'PROMISING_MAX_PAYOUT_3000' });
-    await configRepo.delete({ key: 'PROMISING_MAX_PAYOUT_5000' });
+    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_2000' });
 
     await configRepo.save([
       { key: 'HEAP_POOL_PERCENT_100', value: '5' },
       { key: 'HEAP_POOL_PERCENT_500', value: '10' },
-      { key: 'HEAP_POOL_PERCENT_3000', value: '10' },
-      { key: 'HEAP_POOL_PERCENT_5000', value: '10' },
-      { key: 'PROMISING_POOL_PERCENT_3000', value: '5' },
-      { key: 'PROMISING_POOL_PERCENT_5000', value: '10' },
-      { key: 'PROMISING_MAX_PAYOUT_3000', value: '100' }, // Để max payout nhỏ dễ test push out
-      { key: 'PROMISING_MAX_PAYOUT_5000', value: '100' }, // Để max payout nhỏ dễ test push out
+      { key: 'HEAP_POOL_PERCENT_2000', value: '10' },
     ]);
 
-    // Tạo sản phẩm triển vọng test
+    // Tạo sản phẩm test
     console.log('Tạo sản phẩm test...');
-    let testProduct = await productRepo.findOne({ where: { name: 'Sản Phẩm Triển Vọng Test' } });
+    let testProduct = await productRepo.findOne({ where: { name: 'Sản Phẩm Test' } });
     if (!testProduct) {
       testProduct = productRepo.create({
-        name: 'Sản Phẩm Triển Vọng Test',
-        price: 1, // Sẽ tùy chỉnh theo giá trị đơn hàng
+        name: 'Sản Phẩm Test',
+        price: 1,
         stock: 9999,
-        isPromisingProduct: true,
       });
-      await productRepo.save(testProduct);
-    } else {
-      testProduct.isPromisingProduct = true;
       await productRepo.save(testProduct);
     }
 
@@ -105,34 +88,19 @@ async function run() {
     const placementsU1 = await heapPlacementRepo.find({ where: { userId: users[0].id } });
     console.log(`User 1 Heap Placements:`, placementsU1.map(p => `Bể ${p.poolLevel} - Active: ${p.isActive}`));
 
-    console.log('--- TEST CASE 2: ĐƠN HÀNG 3000 PV (NHẢY CÂY 100, 500, 3000) ---');
-    // Lần lượt 12 user mua đơn 3000 PV để test hàng đợi sản phẩm triển vọng (giới hạn 10 người)
+    console.log('--- TEST CASE 2: ĐƠN HÀNG 2000 PV (NHẢY CÂY 100, 500, 2000) ---');
     for (let i = 0; i < 12; i++) {
       const user = users[i];
       let order = orderRepo.create({
         userId: user.id,
-        items: [{ productId: testProduct.id, productName: testProduct.name, quantity: 3000, price: 1 }],
-        totalAmount: 3000,
+        items: [{ productId: testProduct.id, productName: testProduct.name, quantity: 2000, price: 1 }],
+        totalAmount: 2000,
         status: OrderStatus.CONFIRMED,
       });
       order = await orderRepo.save(order);
       await heapService.processOrderIfEligible(order.id);
-      console.log(`Đã xử lý xong đơn hàng 3000 PV cho User ${i + 1}`);
+      console.log(`Đã xử lý xong đơn hàng 2000 PV cho User ${i + 1}`);
     }
-
-    // Xem số lượng vị trí trong quỹ thưởng sản phẩm triển vọng bể 3000
-    const activePromising = await promisingPlacementRepo.find({ where: { poolLevel: 3000, isActive: true } });
-    const inactivePromising = await promisingPlacementRepo.find({ where: { poolLevel: 3000, isActive: false } });
-
-    console.log(`Số ID active trong quỹ sản phẩm triển vọng 3000 PV (Yêu cầu <= 10): ${activePromising.length}`);
-    console.log(`Số ID chờ trong hàng đợi (Yêu cầu = 2): ${inactivePromising.length}`);
-
-    // In danh sách xếp thứ tự
-    const allQueue = await promisingPlacementRepo.find({ where: { poolLevel: 3000 }, order: { createdAt: 'ASC' } });
-    console.log('Chi tiết hàng đợi:');
-    allQueue.forEach((q, idx) => {
-      console.log(`  [Vị trí ${idx + 1}] UserID: ${q.userId.substring(0, 8)}... - Active: ${q.isActive} - Đã nhận: ${q.totalRewarded}`);
-    });
 
   } catch (e: any) {
     console.error('Lỗi mô phỏng:', e);

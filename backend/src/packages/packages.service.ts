@@ -91,24 +91,38 @@ export class PackagesService implements OnModuleInit {
       }
     }
 
-    // Seed NEW NPP (Level 3)
-    // Check for NPP again (it shouldn't exist if we migrated it, or it will exist if we already seeded new one)
-    const newNpp = await this.packagesRepository.findOne({
-      where: { code: 'NPP' },
+    // Migration: Rename old NPP (Level 3) to DT (Đối Tác)
+    const nppPackage = await this.packagesRepository.findOne({
+      where: { code: 'NPP', level: 3 },
     });
-    if (!newNpp) {
-      this.logger.log('Seeding NEW NPP package (Level 3)');
+    if (nppPackage) {
+      this.logger.log('Migrating NPP package (Level 3) to DT (Đối Tác)');
+      nppPackage.code = 'DT';
+      nppPackage.name = 'Đối Tác';
+      nppPackage.description = 'Gói Đối Tác Chính Thức';
+      await this.packagesRepository.save(nppPackage);
+      await this.dataSource.query(
+        `UPDATE users SET packageType = 'DT' WHERE packageType = 'NPP'`,
+      );
+    }
+
+    // Seed DT (Level 3)
+    const dt = await this.packagesRepository.findOne({
+      where: { code: 'DT' },
+    });
+    if (!dt) {
+      this.logger.log('Seeding DT package (Level 3)');
       await this.packagesRepository.save({
-        name: 'Nhà Phân Phối',
-        code: 'NPP',
-        description: 'Gói Nhà Phân Phối Chính Thức',
-        price: 0.01, // Higher price for new NPP
-        directCommissionRate: 0.3, // Higher comm?
+        name: 'Đối Tác',
+        code: 'DT',
+        description: 'Gói Đối Tác Chính Thức',
+        price: 0.01, // Higher price
+        directCommissionRate: 0.3,
         groupCommissionRate: 0.15,
         managementRateF1: 0.15,
         managementRateF2: 0.1,
         managementRateF3: 0.1,
-        managementRateF4: 0.05, // Extra level?
+        managementRateF4: 0.05,
         reconsumptionThreshold: 0.05,
         reconsumptionRequired: 0.005,
         level: 3,

@@ -10,7 +10,7 @@ export default function CartPage() {
   const { items, updateQuantity, removeItem, totalAmount, totalItems, clearCart } = useShoppingCart();
   const router = useRouter();
   const { t } = useI18n();
-  const [referralInfo, setReferralInfo] = useState<{ packageType?: string } | null>(null);
+  const [referralInfo, setReferralInfo] = useState<{ packageType?: string; accumulatedPurchases?: string | number } | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [mounted, setMounted] = useState(false);
 
@@ -69,8 +69,16 @@ export default function CartPage() {
     }).format(price);
   };
 
-  const getRankName = (packageType?: string) => {
-    return packageType || 'NONE';
+  const getRankName = (packageType?: string, accumulatedPurchases?: string | number) => {
+    const total = Number(accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return 'Đại lý';
+    }
+    const type = String(packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') return 'Đối Tác';
+    if (type === 'CTV') return 'CTV';
+    if (type === 'TV') return 'Thành Viên';
+    return type || 'NONE';
   };
 
   // Final total
@@ -160,7 +168,7 @@ export default function CartPage() {
                     <p className="text-slate-800 font-bold text-base leading-tight">{t("cashback2Percent")}</p>
                   </div>
                   <p className="text-slate-500 text-xs font-medium leading-normal">
-                    {t("affiliateLevel")} <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType)}</span>
+                    {t("affiliateLevel")} <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType, referralInfo.accumulatedPurchases)}</span>
                   </p>
                 </div>
                 <a

@@ -212,7 +212,7 @@ export class AuthController {
       // Return defaults if not found
       const pt = packageType.toUpperCase();
       if (pt === 'TV') return { packageValue: 0.001 };
-      if (pt === 'NPP') return { packageValue: 0.01 };
+      if (pt === 'NPP' || pt === 'DT') return { packageValue: 0.01 };
       return { packageValue: 0.0001 };
     }
 

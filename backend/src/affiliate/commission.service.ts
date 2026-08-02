@@ -525,7 +525,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentTV) || 0;
     if (code === 'CTV') return Number(product.commissionPercentCTV) || 0;
-    if (code === 'NPP') return Number(product.commissionPercentNPP) || 0;
+    if (code === 'NPP' || code === 'DT') return Number(product.commissionPercentNPP) || 0;
     return 0;
   }
 
@@ -538,7 +538,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentGroupTV) || 0;
     if (code === 'CTV') return Number(product.commissionPercentGroupCTV) || 0;
-    if (code === 'NPP') return Number(product.commissionPercentGroupNPP) || 0;
+    if (code === 'NPP' || code === 'DT') return Number(product.commissionPercentGroupNPP) || 0;
     return 0;
   }
 
@@ -553,7 +553,7 @@ export class CommissionService {
       return Number(product.commissionPercentManagementTV) || 0;
     if (code === 'CTV')
       return Number(product.commissionPercentManagementCTV) || 0;
-    if (code === 'NPP')
+    if (code === 'NPP' || code === 'DT')
       return Number(product.commissionPercentManagementNPP) || 0;
     return 0;
   }

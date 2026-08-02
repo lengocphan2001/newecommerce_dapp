@@ -120,6 +120,7 @@ const AffiliatePage: React.FC = () => {
   const getPackageTypeColor = (type: string) => {
     switch (type) {
       case 'NPP':
+      case 'DT':
         return 'blue';
       case 'CTV':
         return 'green';
@@ -342,7 +343,8 @@ const AffiliatePage: React.FC = () => {
               <Select.Option value="NONE">NONE</Select.Option>
               <Select.Option value="TV">TV (Thành Viên)</Select.Option>
               <Select.Option value="CTV">CTV (Cộng Tác Viên)</Select.Option>
-              <Select.Option value="NPP">NPP (Nhà Phân Phối)</Select.Option>
+              <Select.Option value="DT">ĐT (Đối tác)</Select.Option>
+              <Select.Option value="NPP">NPP (Nhà Phân Phối - Cũ)</Select.Option>
             </Select>
           </Form.Item>
           <Form.Item name="isActive" label="Active Status" valuePropName="checked">

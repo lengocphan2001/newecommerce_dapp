@@ -105,6 +105,18 @@ export default function BinaryTreeView() {
     }).format(price);
   };
 
+  const getMemberTag = (member: TreeNode) => {
+    const total = Number(member.totalPurchaseAmount) || 0;
+    if (total >= 600) {
+      return 'Đại lý';
+    }
+    const type = String(member.packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') return 'Đối Tác';
+    if (type === 'CTV') return 'CTV';
+    if (type === 'TV') return 'Thành Viên';
+    return type === 'NONE' ? 'User' : type;
+  };
+
   const formatVolume = (volume: number) => {
     return new Intl.NumberFormat("en-US", {
       minimumFractionDigits: 4,
@@ -250,9 +262,14 @@ export default function BinaryTreeView() {
                     </p>
                     <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[8px] px-1 rounded font-bold ${member.packageType === 'NONE' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                        {member.packageType}
+                      <span className={`text-[8px] px-1 rounded font-bold ${
+                        (Number(member.totalPurchaseAmount) || 0) >= 600
+                          ? 'bg-amber-500 text-white'
+                          : member.packageType === 'NONE'
+                          ? 'bg-gray-100 text-gray-600'
+                          : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {getMemberTag(member)}
                       </span>
                       {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
                         <p className="text-[9px] text-emerald-600 font-bold">
@@ -317,9 +334,14 @@ export default function BinaryTreeView() {
                     </p>
                     <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[8px] px-1 rounded font-bold ${member.packageType === 'NONE' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                        {member.packageType}
+                      <span className={`text-[8px] px-1 rounded font-bold ${
+                        (Number(member.totalPurchaseAmount) || 0) >= 600
+                          ? 'bg-amber-500 text-white'
+                          : member.packageType === 'NONE'
+                          ? 'bg-gray-100 text-gray-600'
+                          : 'bg-purple-100 text-purple-700'
+                      }`}>
+                        {getMemberTag(member)}
                       </span>
                       {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
                         <p className="text-[9px] text-emerald-600 font-bold">

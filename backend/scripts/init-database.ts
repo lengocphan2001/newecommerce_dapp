@@ -49,8 +49,6 @@ import { MatrixRewardOrderProcessed } from '../src/matrix-reward/entities/matrix
 import { PasswordResetToken } from '../src/auth/entities/password-reset-token.entity';
 import { HeapRewardPlacement } from '../src/heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from '../src/heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductPlacement } from '../src/heap-reward/entities/promising-product-placement.entity';
-import { PromisingProductHistory } from '../src/heap-reward/entities/promising-product-history.entity';
 import { RankPoolPlacement } from '../src/rank-pool/entities/rank-pool-placement.entity';
 import { RankPoolHistory } from '../src/rank-pool/entities/rank-pool-history.entity';
 
@@ -234,8 +232,6 @@ async function initializeDatabase() {
       PasswordResetToken,
       HeapRewardPlacement,
       HeapRewardHistory,
-      PromisingProductPlacement,
-      PromisingProductHistory,
       RankPoolPlacement,
       RankPoolHistory,
     ],

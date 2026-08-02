@@ -208,6 +208,18 @@ export default function ProfilePage() {
     return Math.min(progress, 100);
   };
 
+  const getPackageTag = () => {
+    const total = Number(userInfo?.accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return 'Đại lý';
+    }
+    const type = String(userInfo?.packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') return 'Đối Tác';
+    if (type === 'CTV') return 'CTV';
+    if (type === 'TV') return 'Thành Viên';
+    return type === 'NONE' ? 'User' : type;
+  };
+
   return (
     <div className="bg-white text-slate-900 min-h-screen flex flex-col font-display">
       <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-[0_1px_3px_rgba(16,185,129,0.15)]">
@@ -281,8 +293,12 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center gap-2 mt-1">
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 <span className="text-slate-500 text-sm font-medium">Binary ID: {userInfo?.username || "99887722"}</span>
-                <span className="bg-primary/10 text-primary-dark text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                  {userInfo?.packageType === 'NONE' ? 'User' : userInfo?.packageType}
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                  (Number(userInfo?.accumulatedPurchases) || 0) >= 600
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-primary/10 text-primary-dark'
+                }`}>
+                  {getPackageTag()}
                 </span>
               </div>
               {userInfo?.rank && userInfo.rank !== 'NONE' && (
@@ -352,11 +368,11 @@ export default function ProfilePage() {
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">{t("reconsumptionTimesLabel")}</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
-                        const totalRecon = Number(userInfo?.totalReconsumptionAmount) || 0;
+                        const totalRecon = Number(userInfo?.accumulatedPurchases) || 0;
                         const pkgType = (userInfo?.packageType || "").toUpperCase();
                         let reqAmount = 40; // Default requirement in USD for CTV
-                        if (pkgType === "NPP") {
-                          reqAmount = 400; // Requirement in USD for NPP
+                        if (pkgType === "NPP" || pkgType === "DT") {
+                          reqAmount = 400; // Requirement in USD for NPP/DT
                         }
                         const reconsumptionTimes = Math.floor(totalRecon / reqAmount);
                         return `${reconsumptionTimes} ${t("timesUnit")}`;
@@ -367,7 +383,7 @@ export default function ProfilePage() {
                     <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">{t("reconsumptionAmountLabel")}</p>
                     <p className="text-base font-black text-slate-900">
                       {(() => {
-                        const totalRecon = Number(userInfo?.totalReconsumptionAmount) || 0;
+                        const totalRecon = Number(userInfo?.accumulatedPurchases) || 0;
                         return `$${totalRecon.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,

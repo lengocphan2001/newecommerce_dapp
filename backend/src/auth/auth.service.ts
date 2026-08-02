@@ -31,7 +31,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductHistory } from '../heap-reward/entities/promising-product-history.entity';
 
 @Injectable()
 export class AuthService {
@@ -58,8 +57,6 @@ export class AuthService {
     private passwordResetTokenRepo: Repository<PasswordResetToken>,
     @InjectRepository(HeapRewardHistory)
     private heapRewardHistoryRepo: Repository<HeapRewardHistory>,
-    @InjectRepository(PromisingProductHistory)
-    private promisingProductHistoryRepo: Repository<PromisingProductHistory>,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -674,12 +671,6 @@ export class AuthService {
       take: 24,
     });
 
-    const promisingRewards = await this.promisingProductHistoryRepo.find({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-      take: 24,
-    });
-
     const recentActivityRaw = [
       ...recentCommissions,
       ...heapRewards.map((h: any) => ({
@@ -691,15 +682,6 @@ export class AuthService {
         fromUserId: null,
         fromUser: null,
       })),
-      ...promisingRewards.map((h: any) => ({
-        id: h.id,
-        type: 'HEAP_REWARD',
-        amount: h.amount,
-        status: 'COMPLETED',
-        createdAt: h.createdAt,
-        fromUserId: null,
-        fromUser: null,
-      }))
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();

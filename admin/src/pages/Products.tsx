@@ -926,7 +926,7 @@ const Products: React.FC = () => {
                                 Cấu hình hoa hồng theo từng gói – cùng form như trang Package. Chỉ chỉnh các gói có trong hệ thống.
                               </Typography.Text>
                               {packages.length === 0 ? (
-                                <Typography.Text type="secondary">Chưa có gói nào. Vào trang Package để tạo gói (TV, CTV, NPP...).</Typography.Text>
+                                <Typography.Text type="secondary">Chưa có gói nào. Vào trang Package để tạo gói (TV, CTV, ĐT...).</Typography.Text>
                               ) : (
                                 packages.map((pkg) => (
                                   <Card key={pkg.id} title={`${pkg.name} (${pkg.code})`} size="small" style={{ marginBottom: 16 }}>

@@ -16,6 +16,7 @@ export default function F1ListPage() {
     fullName: string;
     email: string;
     packageType: string;
+    totalPurchaseAmount: number;
     createdAt: string;
     directReferralCount: number;
   }>>([]);
@@ -96,7 +97,22 @@ export default function F1ListPage() {
                           <td className="py-2.5 px-1 font-medium text-text-dark">{f1.username || "-"}</td>
                           <td className="py-2.5 px-1 text-gray-600 hidden sm:table-cell truncate max-w-[120px]">{f1.fullName || "-"}</td>
                           <td className="py-2.5 px-1">
-                            <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{f1.packageType || "NONE"}</span>
+                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                              (Number(f1.totalPurchaseAmount) || 0) >= 600
+                                ? 'bg-amber-500 text-white'
+                                : 'text-gray-600 bg-gray-100'
+                            }`}>
+                              {Number(f1.totalPurchaseAmount) >= 600
+                                ? 'Đại lý'
+                                : f1.packageType === 'NPP' || f1.packageType === 'DT'
+                                ? 'Đối Tác'
+                                : f1.packageType === 'CTV'
+                                ? 'CTV'
+                                : f1.packageType === 'TV'
+                                ? 'Thành Viên'
+                                : f1.packageType || 'NONE'
+                              }
+                            </span>
                           </td>
                           <td className="py-2.5 px-1 text-center">
                             <span className="inline-flex items-center justify-center min-w-[1.75rem] font-semibold text-primary-dark bg-primary/10 rounded-full text-xs">

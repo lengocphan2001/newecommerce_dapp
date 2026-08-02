@@ -554,6 +554,24 @@ const Users: React.FC = () => {
     return `$${max.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} USDT`;
   };
 
+  const renderPackageTag = (packageType: string, totalPurchaseAmount?: number | string) => {
+    const total = Number(totalPurchaseAmount) || 0;
+    if (total >= 600) {
+      return <Tag color="gold" style={{ fontWeight: 'bold' }}>Đại lý</Tag>;
+    }
+    const pt = String(packageType || '').toUpperCase();
+    if (pt === 'NPP' || pt === 'DT') {
+      return <Tag color="blue">ĐT (Đối tác)</Tag>;
+    }
+    if (pt === 'CTV') {
+      return <Tag color="green">CTV</Tag>;
+    }
+    if (pt === 'TV') {
+      return <Tag color="default">Thành Viên</Tag>;
+    }
+    return <Tag color="default">{packageType || 'User'}</Tag>;
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -926,7 +944,7 @@ const Users: React.FC = () => {
                           .filter((p) => p?.code)
                           .map((p) => (
                             <Select.Option key={p.code} value={p.code}>
-                              {p.code}
+                              {p.code === 'DT' || p.code === 'NPP' ? 'ĐT (Đối tác)' : p.code === 'TV' ? 'Thành Viên' : p.code}
                             </Select.Option>
                           ))}
                       </Select>
@@ -1076,6 +1094,9 @@ const Users: React.FC = () => {
                 <Descriptions.Item label="ID">{userDetail.user.id}</Descriptions.Item>
                 <Descriptions.Item label="Email">{userDetail.user.email}</Descriptions.Item>
                 <Descriptions.Item label="Full Name">{userDetail.user.fullName}</Descriptions.Item>
+                <Descriptions.Item label="Package Type">
+                  {renderPackageTag(userDetail.user.packageType, userDetail.user.totalPurchaseAmount)}
+                </Descriptions.Item>
                 <Descriptions.Item label="Username">{userDetail.user.username || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Phone">{userDetail.user.phone || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Country">{userDetail.user.country || 'N/A'}</Descriptions.Item>
@@ -1380,7 +1401,12 @@ const Users: React.FC = () => {
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount || record.totalPurchases),
+                  },
                   {
                     title: 'Total Purchases',
                     dataIndex: 'totalPurchases',
@@ -1464,7 +1490,12 @@ const Users: React.FC = () => {
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
                 ]}
                 style={{ marginBottom: 24 }}
@@ -1479,7 +1510,12 @@ const Users: React.FC = () => {
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
                 ]}
               />
@@ -1514,7 +1550,12 @@ const Users: React.FC = () => {
                 columns={[
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
                 ]}
                 style={{ marginBottom: 24 }}
@@ -1528,7 +1569,12 @@ const Users: React.FC = () => {
                 columns={[
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
                   { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
                 ]}
               />
