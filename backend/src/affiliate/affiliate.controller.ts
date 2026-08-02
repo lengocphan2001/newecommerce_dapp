@@ -207,4 +207,20 @@ export class AffiliateController {
       dto.reason,
     );
   }
+
+  @Post('admin/commissions/compensate-missed-direct')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async compensateMissedDirectCommissions(
+    @Body() body: { fromDate?: string }
+  ) {
+    return this.affiliateService.compensateMissedDirectCommissions(body.fromDate);
+  }
+
+  @Post('admin/orders/:id/compensate-commission')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async compensateSingleOrderCommission(
+    @Param('id') id: string
+  ) {
+    return this.affiliateService.compensateSingleOrderCommission(id);
+  }
 }

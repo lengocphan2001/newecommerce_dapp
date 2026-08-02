@@ -10,6 +10,9 @@ import {
   Modal,
   Descriptions,
   Typography,
+  DatePicker,
+  Form,
+  notification,
 } from 'antd';
 import {
   CheckOutlined,
@@ -20,7 +23,9 @@ import {
   StopOutlined,
   DownloadOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { commissionService, Commission } from '../services/commissionService';
+import api from '../services/api';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -44,6 +49,30 @@ const CommissionsPage: React.FC = () => {
   const [cancelTargetIds, setCancelTargetIds] = useState<string[]>([]);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [compensateModalOpen, setCompensateModalOpen] = useState(false);
+  const [compensateDate, setCompensateDate] = useState<dayjs.Dayjs | null>(dayjs().subtract(30, 'day'));
+  const [compensating, setCompensating] = useState(false);
+
+  const handleCompensate = async () => {
+    try {
+      setCompensating(true);
+      const res = await api.post('/affiliate/admin/commissions/compensate-missed-direct', {
+        fromDate: compensateDate ? compensateDate.format('YYYY-MM-DD') : undefined,
+      });
+      notification.success({
+        message: 'Bù hoa hồng thành công!',
+        description: `Đã bù hoa hồng cho ${res.data.compensatedCount} đơn hàng. Tổng tiền bù: $${res.data.totalCompensatedAmount.toLocaleString()} USD.`,
+        duration: 10,
+      });
+      setCompensateModalOpen(false);
+      fetchCommissions();
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Có lỗi xảy ra khi bù hoa hồng';
+      message.error(msg);
+    } finally {
+      setCompensating(false);
+    }
+  };
 
   useEffect(() => {
     fetchCommissions();
@@ -516,6 +545,14 @@ const CommissionsPage: React.FC = () => {
       <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2}>Commissions Management</Title>
         <Space>
+          <Button 
+            type="primary" 
+            ghost 
+            icon={<ReloadOutlined />} 
+            onClick={() => setCompensateModalOpen(true)}
+          >
+            Compensate Missed Direct
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={fetchCommissions}>
             Refresh
           </Button>
@@ -757,6 +794,35 @@ const CommissionsPage: React.FC = () => {
           value={cancelReason}
           onChange={(e) => setCancelReason(e.target.value)}
           placeholder="Ví dụ: sai sót đơn hàng, điều chỉnh thủ công..."
+        />
+      </Modal>
+
+      <Modal
+        title="Bù hoa hồng trực tiếp bị thiếu"
+        open={compensateModalOpen}
+        onCancel={() => {
+          if (!compensating) {
+            setCompensateModalOpen(false);
+          }
+        }}
+        onOk={handleCompensate}
+        confirmLoading={compensating}
+        okText="Bắt đầu quét & bù"
+        cancelText="Đóng"
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 16, color: '#555' }}>
+          Hệ thống sẽ quét tất cả các đơn hàng đã được **CONFIRMED** từ ngày được chọn đến hiện tại. 
+          Nếu đơn hàng nào chưa được chia hoa hồng Direct (trực tiếp hoặc sản phẩm) cho F1, hệ thống sẽ tự động tính toán và bổ sung.
+        </p>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Quét từ ngày:</div>
+        <DatePicker
+          style={{ width: '100%' }}
+          value={compensateDate}
+          onChange={(date) => setCompensateDate(date)}
+          disabledDate={(current) => current && current > dayjs().endOf('day')}
+          format="YYYY-MM-DD"
+          allowClear={false}
         />
       </Modal>
     </div>

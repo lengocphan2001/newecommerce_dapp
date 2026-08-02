@@ -282,7 +282,12 @@ const Products: React.FC = () => {
         };
         if (raw && typeof raw === 'object') {
           for (const [code, c] of Object.entries(raw)) {
-            if (c && typeof c === 'object') push(code, c);
+            if (c && typeof c === 'object') {
+              push(code, c);
+              if (code === 'NPP') {
+                push('DT', c);
+              }
+            }
           }
         }
         packages.forEach((p) => {
@@ -380,7 +385,7 @@ const Products: React.FC = () => {
         };
         for (const [code, c] of Object.entries(commissionConfigByPackage) as [string, ConfigEntry][]) {
           if (!c || typeof c !== 'object') continue;
-          converted[code] = {
+          const entry = {
             directCommissionRate: c.directCommissionRate != null ? Number(c.directCommissionRate) / 100 : 0,
             groupCommissionRate: c.groupCommissionRate != null ? Number(c.groupCommissionRate) / 100 : 0,
             groupCommissionMinSales: c.groupCommissionMinSales ?? 0,
@@ -391,6 +396,10 @@ const Products: React.FC = () => {
             reconsumptionThreshold: c.reconsumptionThreshold ?? 0,
             reconsumptionRequired: c.reconsumptionRequired ?? 0,
           };
+          converted[code] = entry;
+          if (code === 'DT') {
+            converted['NPP'] = entry;
+          }
         }
         commissionConfigByPackage = Object.keys(converted).length ? converted : undefined;
       }

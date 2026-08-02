@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, MoreThanOrEqual } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import {
@@ -474,9 +474,12 @@ export class CommissionService {
   } | null {
     const code = (packageCode || '').toUpperCase();
     if (!code || code === 'NONE') return null;
-    const byPkg =
+    let byPkg =
       product.commissionConfigByPackage &&
       product.commissionConfigByPackage[code];
+    if (!byPkg && code === 'DT' && product.commissionConfigByPackage) {
+      byPkg = product.commissionConfigByPackage['NPP'];
+    }
     if (byPkg && typeof byPkg === 'object') {
       return {
         directCommissionRate: Number(byPkg.directCommissionRate ?? 0),
@@ -1784,5 +1787,213 @@ export class CommissionService {
     }
 
     return commission;
+  }
+
+  async compensateMissedDirectCommissions(fromDateStr?: string): Promise<{ success: boolean; compensatedCount: number; totalCompensatedAmount: number }> {
+    this.logger.log(`Starting compensation of missed direct commissions from date: ${fromDateStr || 'last 30 days'}`);
+    const fromDate = fromDateStr ? new Date(fromDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const orders = await this.orderRepository.find({
+      where: {
+        status: OrderStatus.CONFIRMED,
+        createdAt: MoreThanOrEqual(fromDate),
+      },
+    });
+
+    let compensatedCount = 0;
+    let totalCompensatedAmount = 0;
+
+    for (const order of orders) {
+      if (!order.userId) continue;
+
+      const buyer = await this.userRepository.findOne({
+        where: { id: order.userId },
+        select: ['id', 'referralUserId', 'packageType'],
+      });
+      if (!buyer || !buyer.referralUserId) continue;
+
+      // Check if a direct or product commission already exists for this order
+      const existingDirect = await this.commissionRepository.findOne({
+        where: {
+          orderId: order.id,
+          type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+        },
+      });
+
+      if (existingDirect) {
+        continue;
+      }
+
+      // Check if this order has items
+      const items = Array.isArray(order.items) ? order.items : [];
+      if (items.length === 0) continue;
+
+      // Load products map
+      const productMap = await this.getOrderProductsMap(order);
+
+      // Determine if we need to call calculateDirectCommission or calculateProductCommission
+      let hasPackageDirect = false;
+      let hasProductDirect = false;
+
+      for (const item of items) {
+        if (!item?.productId) continue;
+        const product = productMap.get(item.productId);
+        if (!product) continue;
+        if (product.useProductCommission === true) {
+          hasProductDirect = true;
+        } else {
+          hasPackageDirect = true;
+        }
+      }
+
+      const prevCount = await this.commissionRepository.count({
+        where: {
+          orderId: order.id,
+          type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+        },
+      });
+
+      if (hasPackageDirect) {
+        await this.calculateDirectCommission(order, buyer, productMap);
+      }
+      if (hasProductDirect) {
+        await this.calculateProductCommission(order, buyer, productMap);
+      }
+
+      const newCommissions = await this.commissionRepository.find({
+        where: {
+          orderId: order.id,
+          type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+        },
+      });
+
+      if (newCommissions.length > prevCount) {
+        compensatedCount++;
+        for (const comm of newCommissions) {
+          totalCompensatedAmount += Number(comm.amount) || 0;
+        }
+      }
+    }
+
+    this.logger.log(`Compensated ${compensatedCount} orders. Total compensated amount: ${totalCompensatedAmount} USD`);
+    return {
+      success: true,
+      compensatedCount,
+      totalCompensatedAmount,
+    };
+  }
+
+  async compensateSingleOrderCommission(orderId: string): Promise<{ success: boolean; compensated: boolean; amount: number; message: string }> {
+    this.logger.log(`Compensating missed direct commissions for order: ${orderId}`);
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Không tìm thấy đơn hàng: ${orderId}`);
+    }
+
+    if (order.status !== OrderStatus.CONFIRMED && order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException(`Đơn hàng phải ở trạng thái CONFIRMED hoặc DELIVERED.`);
+    }
+
+    if (!order.userId) {
+      throw new BadRequestException('Đơn hàng không có userId (guest order).');
+    }
+
+    const buyer = await this.userRepository.findOne({
+      where: { id: order.userId },
+      select: ['id', 'referralUserId', 'packageType'],
+    });
+
+    if (!buyer || !buyer.referralUserId) {
+      return {
+        success: true,
+        compensated: false,
+        amount: 0,
+        message: 'Đơn hàng không có người giới thiệu (F1).',
+      };
+    }
+
+    // Check if a direct or product commission already exists for this order
+    const existingDirect = await this.commissionRepository.findOne({
+      where: {
+        orderId: order.id,
+        type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+      },
+    });
+
+    if (existingDirect) {
+      return {
+        success: true,
+        compensated: false,
+        amount: 0,
+        message: 'Đơn hàng này đã được nhận hoa hồng trực tiếp trước đó.',
+      };
+    }
+
+    // Check items
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (items.length === 0) {
+      throw new BadRequestException('Đơn hàng không có sản phẩm.');
+    }
+
+    // Load products map
+    const productMap = await this.getOrderProductsMap(order);
+
+    let hasPackageDirect = false;
+    let hasProductDirect = false;
+
+    for (const item of items) {
+      if (!item?.productId) continue;
+      const product = productMap.get(item.productId);
+      if (!product) continue;
+      if (product.useProductCommission === true) {
+        hasProductDirect = true;
+      } else {
+        hasPackageDirect = true;
+      }
+    }
+
+    const prevCount = await this.commissionRepository.count({
+      where: {
+        orderId: order.id,
+        type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+      },
+    });
+
+    if (hasPackageDirect) {
+      await this.calculateDirectCommission(order, buyer, productMap);
+    }
+    if (hasProductDirect) {
+      await this.calculateProductCommission(order, buyer, productMap);
+    }
+
+    const newCommissions = await this.commissionRepository.find({
+      where: {
+        orderId: order.id,
+        type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+      },
+    });
+
+    if (newCommissions.length > prevCount) {
+      let compensatedAmount = 0;
+      for (const comm of newCommissions) {
+        compensatedAmount += Number(comm.amount) || 0;
+      }
+      return {
+        success: true,
+        compensated: true,
+        amount: compensatedAmount,
+        message: `Bù hoa hồng thành công! Đã chuyển $${compensatedAmount.toLocaleString()} USD hoa hồng trực tiếp cho người giới thiệu.`,
+      };
+    }
+
+    return {
+      success: true,
+      compensated: false,
+      amount: 0,
+      message: 'Không tìm thấy cấu hình hoa hồng hợp lệ hoặc người giới thiệu chưa đủ điều kiện nhận.',
+    };
   }
 }

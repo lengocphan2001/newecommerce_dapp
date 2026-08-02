@@ -176,4 +176,12 @@ export class AffiliateService {
   async cancelCommissions(commissionIds: string[], reason?: string) {
     return this.commissionService.cancelCommissions(commissionIds, reason);
   }
+
+  async compensateMissedDirectCommissions(fromDate?: string) {
+    return this.commissionService.compensateMissedDirectCommissions(fromDate);
+  }
+
+  async compensateSingleOrderCommission(orderId: string) {
+    return this.commissionService.compensateSingleOrderCommission(orderId);
+  }
 }

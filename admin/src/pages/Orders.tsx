@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input, Upload } from 'antd';
+import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input, Upload, notification } from 'antd';
 import { ReloadOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { orderService, Order } from '../services/orderService';
 import { adminService } from '../services/adminService';
+import api from '../services/api';
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -122,6 +123,30 @@ const Orders: React.FC = () => {
       fetchOrders(getQueryParams());
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to approve order');
+    }
+  };
+
+  const handleCompensateCommission = async (orderId: string) => {
+    try {
+      const res = await api.post(`/affiliate/admin/orders/${orderId}/compensate-commission`);
+      if (res.data.compensated) {
+        notification.success({
+          message: 'Bù hoa hồng thành công!',
+          description: res.data.message || 'Đã bù hoa hồng thành công cho đơn hàng này.',
+        });
+      } else {
+        notification.info({
+          message: 'Thông báo',
+          description: res.data.message || 'Không có hoa hồng nào cần bù hoặc không đủ điều kiện.',
+        });
+      }
+      fetchOrders(getQueryParams());
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Có lỗi xảy ra khi bù hoa hồng';
+      notification.error({
+        message: 'Lỗi khi bù hoa hồng',
+        description: msg,
+      });
     }
   };
 
@@ -246,18 +271,30 @@ const Orders: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 150,
       render: (_: any, record: Order) => (
-        <Button
-          type="link"
-          size="small"
-          onClick={() => {
-            setSelectedOrder(record);
-            setModalVisible(true);
-          }}
-        >
-          Chi tiết
-        </Button>
+        <Space size="middle">
+          <Button
+            type="link"
+            size="small"
+            onClick={() => {
+              setSelectedOrder(record);
+              setModalVisible(true);
+            }}
+          >
+            Chi tiết
+          </Button>
+          {(record.status?.toLowerCase() === 'confirmed' || record.status?.toLowerCase() === 'delivered') && (
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => handleCompensateCommission(record.id)}
+            >
+              Bù hoa hồng
+            </Button>
+          )}
+        </Space>
       ),
     },
   ];
