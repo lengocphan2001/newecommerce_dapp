@@ -49,10 +49,10 @@ export class HeapRewardService {
 
       const orderTotal = Number(order.totalAmount) || 0;
 
-      // Phân loại mốc PV cho Heap Reward (chỉ gồm 3 bể đồng chia: 100$, 500$, 2000$)
+      // Phân loại mốc PV cho Heap Reward (chỉ gồm 3 bể đồng chia: 100$, 500$, 2400$)
       let poolLevel = 0;
-      if (orderTotal >= 2000) {
-        poolLevel = 2000;
+      if (orderTotal >= 2400) {
+        poolLevel = 2400;
       } else if (orderTotal >= 500) {
         poolLevel = 500;
       } else if (orderTotal >= 100) {
@@ -66,8 +66,8 @@ export class HeapRewardService {
 
       // Xử lý nhảy cây đồng chia (Heap Reward)
       const poolsToJoin: number[] = [];
-      if (poolLevel === 2000) {
-        poolsToJoin.push(100, 500, 2000);
+      if (poolLevel === 2400) {
+        poolsToJoin.push(100, 500, 2400);
       } else if (poolLevel === 500) {
         poolsToJoin.push(500);
       } else if (poolLevel === 100) {
@@ -143,7 +143,7 @@ export class HeapRewardService {
   }
 
   private getOrderPoolLevel(amount: number): number {
-    if (amount >= 2000) return 2000;
+    if (amount >= 2400) return 2400;
     if (amount >= 500) return 500;
     if (amount >= 100) return 100;
     return 0;
@@ -165,7 +165,7 @@ export class HeapRewardService {
       const maxPayouts: Record<number, number> = {
         100: await this.getConfigValue('HEAP_MAX_PAYOUT_100', 200),
         500: await this.getConfigValue('HEAP_MAX_PAYOUT_500', 1000),
-        2000: await this.getConfigValue('HEAP_MAX_PAYOUT_2000', 4000),
+        2400: await this.getConfigValue('HEAP_MAX_PAYOUT_2400', 4000),
       };
 
       await this.placementRepo.manager.transaction(async (manager) => {
@@ -190,12 +190,15 @@ export class HeapRewardService {
           if (buyerUserId && placement.userId === buyerUserId) {
             return false;
           }
-          // Nếu đơn hàng kích hoạt mới là 2000 PV, và bể đang xét nhỏ hơn đơn hàng kích hoạt này
-          if (triggerOrderPoolLevel === 2000 && poolLevel < triggerOrderPoolLevel) {
-            // Chỉ những người có đơn hàng kích hoạt gốc >= 2000 PV được nhận
+          // Nếu đơn hàng kích hoạt mới là 2400 PV, và bể đang xét nhỏ hơn đơn hàng kích hoạt này
+          if (triggerOrderPoolLevel === 2400 && poolLevel < triggerOrderPoolLevel) {
+            // Chỉ những người có đơn hàng kích hoạt gốc >= 2400 PV được nhận (hoặc manually added / legacy không có triggerOrder)
+            if (!placement.triggerOrder) {
+              return true; // Manually added by admin or legacy placement - always eligible
+            }
             const placementTriggerAmount = Number(placement.triggerOrder?.totalAmount || 0);
             const placementTriggerLevel = this.getOrderPoolLevel(placementTriggerAmount);
-            return placementTriggerLevel >= 2000;
+            return placementTriggerLevel >= 2400;
           }
           // Với các trường hợp đơn 100, 500 hoặc khi poolLevel === triggerOrderPoolLevel thì chia cho tất cả
           return true;
@@ -481,5 +484,44 @@ export class HeapRewardService {
     }
 
     return builder.getMany();
+  }
+
+  async addManualPlacement(queryStr: string, poolLevel: number) {
+    if (!queryStr) {
+      throw new BadRequestException('Vui lòng cung cấp thông tin tìm kiếm user (ID, username hoặc email).');
+    }
+    const user = await this.userRepo.findOne({
+      where: [
+        { id: queryStr },
+        { username: queryStr },
+        { email: queryStr },
+      ],
+    });
+    if (!user) {
+      throw new BadRequestException('Không tìm thấy người dùng phù hợp.');
+    }
+
+    const validPools = [100, 500, 2400];
+    if (!validPools.includes(poolLevel)) {
+      throw new BadRequestException('Bể đồng chia không hợp lệ. Phải là 100, 500 hoặc 2400.');
+    }
+
+    const existing = await this.placementRepo.findOne({
+      where: { userId: user.id, poolLevel, isActive: true },
+    });
+    if (existing) {
+      throw new BadRequestException('Người dùng này đã có vị trí hoạt động trong bể này rồi.');
+    }
+
+    const placement = this.placementRepo.create({
+      userId: user.id,
+      poolLevel,
+      isActive: true,
+      totalRewarded: 0,
+      triggerOrderId: null,
+      timesEntered: 1,
+    });
+    await this.placementRepo.save(placement);
+    return { success: true, placement };
   }
 }

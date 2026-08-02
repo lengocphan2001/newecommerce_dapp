@@ -44,6 +44,17 @@ export class HeapRewardController {
     return this.heapRewardService.deletePlacement(id);
   }
 
+  @Post('placements/manual')
+  async addManualPlacement(
+    @Body()
+    body: {
+      userId: string;
+      poolLevel: number;
+    },
+  ) {
+    return this.heapRewardService.addManualPlacement(body.userId, body.poolLevel);
+  }
+
   @Get('histories')
   async getHistories(@Query() query: any) {
     return this.heapRewardService.getHistories(query);

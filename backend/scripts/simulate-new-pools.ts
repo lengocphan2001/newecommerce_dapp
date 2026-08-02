@@ -29,12 +29,12 @@ async function run() {
     // Xóa và tạo lại cấu hình mặc định để đồng bộ
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_100' });
     await configRepo.delete({ key: 'HEAP_POOL_PERCENT_500' });
-    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_2000' });
+    await configRepo.delete({ key: 'HEAP_POOL_PERCENT_2400' });
 
     await configRepo.save([
       { key: 'HEAP_POOL_PERCENT_100', value: '5' },
       { key: 'HEAP_POOL_PERCENT_500', value: '10' },
-      { key: 'HEAP_POOL_PERCENT_2000', value: '10' },
+      { key: 'HEAP_POOL_PERCENT_2400', value: '10' },
     ]);
 
     // Tạo sản phẩm test
@@ -88,18 +88,18 @@ async function run() {
     const placementsU1 = await heapPlacementRepo.find({ where: { userId: users[0].id } });
     console.log(`User 1 Heap Placements:`, placementsU1.map(p => `Bể ${p.poolLevel} - Active: ${p.isActive}`));
 
-    console.log('--- TEST CASE 2: ĐƠN HÀNG 2000 PV (NHẢY CÂY 100, 500, 2000) ---');
+    console.log('--- TEST CASE 2: ĐƠN HÀNG 2400 PV (NHẢY CÂY 100, 500, 2400) ---');
     for (let i = 0; i < 12; i++) {
       const user = users[i];
       let order = orderRepo.create({
         userId: user.id,
-        items: [{ productId: testProduct.id, productName: testProduct.name, quantity: 2000, price: 1 }],
-        totalAmount: 2000,
+        items: [{ productId: testProduct.id, productName: testProduct.name, quantity: 2400, price: 1 }],
+        totalAmount: 2400,
         status: OrderStatus.CONFIRMED,
       });
       order = await orderRepo.save(order);
       await heapService.processOrderIfEligible(order.id);
-      console.log(`Đã xử lý xong đơn hàng 2000 PV cho User ${i + 1}`);
+      console.log(`Đã xử lý xong đơn hàng 2400 PV cho User ${i + 1}`);
     }
 
   } catch (e: any) {

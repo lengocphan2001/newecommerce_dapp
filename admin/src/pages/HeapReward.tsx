@@ -11,6 +11,7 @@ import {
   Modal,
   Popconfirm,
   Tabs,
+  Input,
   Select,
   Row,
   Col,
@@ -50,6 +51,28 @@ const HeapReward: React.FC = () => {
   const [skipWalletUpdate, setSkipWalletUpdate] = useState(false);
   const [rollbackPool, setRollbackPool] = useState<string>('all');
   const [rollbackLoading, setRollbackLoading] = useState(false);
+  const [isAddManualModalVisible, setIsAddManualModalVisible] = useState(false);
+  const [manualForm] = Form.useForm();
+  const [manualSubmitLoading, setManualSubmitLoading] = useState(false);
+
+  const handleAddManualSubmit = async (values: any) => {
+    try {
+      setManualSubmitLoading(true);
+      await api.post('/admin/heap-reward/placements/manual', {
+        userId: values.userQuery,
+        poolLevel: Number(values.poolLevel),
+      });
+      notification.success({ message: 'Thêm thành viên vào bể thành công!' });
+      setIsAddManualModalVisible(false);
+      manualForm.resetFields();
+      fetchPlacements(selectedPoolLevel);
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Có lỗi xảy ra khi thêm thành viên';
+      notification.error({ message: msg });
+    } finally {
+      setManualSubmitLoading(false);
+    }
+  };
 
   const fetchPlacements = async (poolLevel?: number) => {
     try {
@@ -128,10 +151,10 @@ const HeapReward: React.FC = () => {
       form.setFieldsValue({
         HEAP_POOL_PERCENT_100: getVal('HEAP_POOL_PERCENT_100', 5),
         HEAP_POOL_PERCENT_500: getVal('HEAP_POOL_PERCENT_500', 10),
-        HEAP_POOL_PERCENT_2000: getVal('HEAP_POOL_PERCENT_2000', 10),
+        HEAP_POOL_PERCENT_2400: getVal('HEAP_POOL_PERCENT_2400', 10),
         HEAP_MAX_PAYOUT_100: getVal('HEAP_MAX_PAYOUT_100', 200),
         HEAP_MAX_PAYOUT_500: getVal('HEAP_MAX_PAYOUT_500', 1000),
-        HEAP_MAX_PAYOUT_2000: getVal('HEAP_MAX_PAYOUT_2000', 4000),
+        HEAP_MAX_PAYOUT_2400: getVal('HEAP_MAX_PAYOUT_2400', 4000),
       });
     } catch (e) {
       notification.error({ message: 'Lỗi khi tải cấu hình hệ thống' });
@@ -442,18 +465,25 @@ const HeapReward: React.FC = () => {
       <Tabs defaultActiveKey="1" style={{ marginTop: 16 }}>
         {/* TAB 1: DANH SÁCH BỂ ĐỒNG CHIA */}
         <Tabs.TabPane tab="Danh sách Bể Đồng Chia (Heap Placements)" key="1">
-          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>Lọc theo bể:</span>
-            <Select 
-              defaultValue="" 
-              style={{ width: 150 }} 
-              onChange={(val) => setSelectedPoolLevel(val ? Number(val) : undefined)}
-            >
-              <Option value="">Tất cả các bể</Option>
-              <Option value="100">Bể 100 PV</Option>
-              <Option value="500">Bể 500 PV</Option>
-              <Option value="2000">Bể 2000 PV</Option>
-            </Select>
+          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Lọc theo bể:</span>
+              <Select 
+                defaultValue="" 
+                style={{ width: 150 }} 
+                onChange={(val) => setSelectedPoolLevel(val ? Number(val) : undefined)}
+              >
+                <Option value="">Tất cả các bể</Option>
+                <Option value="100">Bể 100 PV</Option>
+                <Option value="500">Bể 500 PV</Option>
+                <Option value="2400">Bể 2400 PV</Option>
+              </Select>
+            </div>
+            {isAdminAccount && (
+              <Button type="primary" onClick={() => setIsAddManualModalVisible(true)}>
+                Thêm thủ công vào bể
+              </Button>
+            )}
           </div>
           <Card title="Danh sách thành viên trong các bể đồng chia">
             <Table 
@@ -503,12 +533,12 @@ const HeapReward: React.FC = () => {
 
                     <Row gutter={16}>
                       <Col span={12}>
-                        <Form.Item label="Bể 2000 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_2000" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
+                        <Form.Item label="Bể 2400 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_2400" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                       <Col span={12}>
-                        <Form.Item label="Bể 2000 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_2000">
+                        <Form.Item label="Bể 2400 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_2400">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
@@ -578,7 +608,7 @@ const HeapReward: React.FC = () => {
                         <Option value="all">Tất cả các bể</Option>
                         <Option value="heap-100">Bể Heap 100 PV</Option>
                         <Option value="heap-500">Bể Heap 500 PV</Option>
-                        <Option value="heap-2000">Bể Heap 2000 PV</Option>
+                        <Option value="heap-2400">Bể Heap 2400 PV</Option>
                       </Select>
                     </div>
                     <Button 
@@ -621,6 +651,45 @@ const HeapReward: React.FC = () => {
           size="small"
           pagination={false}
         />
+      </Modal>
+
+      <Modal
+        title="Thêm thủ công thành viên vào bể đồng chia"
+        open={isAddManualModalVisible}
+        onCancel={() => {
+          setIsAddManualModalVisible(false);
+          manualForm.resetFields();
+        }}
+        onOk={() => manualForm.submit()}
+        confirmLoading={manualSubmitLoading}
+        okText="Thêm thành viên"
+        cancelText="Hủy"
+      >
+        <Form
+          form={manualForm}
+          layout="vertical"
+          onFinish={handleAddManualSubmit}
+          initialValues={{ poolLevel: '100' }}
+        >
+          <Form.Item
+            label="Thông tin User (ID, Username hoặc Email)"
+            name="userQuery"
+            rules={[{ required: true, message: 'Vui lòng nhập ID, Username hoặc Email của user' }]}
+          >
+            <Input placeholder="Nhập ID, username hoặc email..." />
+          </Form.Item>
+          <Form.Item
+            label="Chọn bể đồng chia"
+            name="poolLevel"
+            rules={[{ required: true, message: 'Vui lòng chọn bể đồng chia' }]}
+          >
+            <Select>
+              <Option value="100">Bể Heap 100 PV</Option>
+              <Option value="500">Bể Heap 500 PV</Option>
+              <Option value="2400">Bể Heap 2400 PV</Option>
+            </Select>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
