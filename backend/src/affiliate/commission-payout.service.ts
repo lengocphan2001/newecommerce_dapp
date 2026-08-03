@@ -67,8 +67,8 @@ export class CommissionPayoutService {
     const query = this.commissionRepository
       .createQueryBuilder('commission')
       .leftJoinAndSelect('commission.user', 'user')
-      .where('commission.status = :status', {
-        status: CommissionStatus.PENDING,
+      .where('commission.status IN (:...statuses)', {
+        statuses: [CommissionStatus.PENDING, CommissionStatus.BLOCKED],
       })
       .orderBy('commission.createdAt', 'ASC')
       .limit(limit);
@@ -173,7 +173,7 @@ export class CommissionPayoutService {
         commissions = await this.commissionRepository.find({
           where: {
             id: In(specificCommissionIds),
-            status: CommissionStatus.PENDING,
+            status: In([CommissionStatus.PENDING, CommissionStatus.BLOCKED]),
           },
           relations: ['user'],
         });
@@ -182,7 +182,7 @@ export class CommissionPayoutService {
         commissions = await this.commissionRepository.find({
           where: {
             userId: In(userIds),
-            status: CommissionStatus.PENDING,
+            status: In([CommissionStatus.PENDING, CommissionStatus.BLOCKED]),
           },
           relations: ['user'],
         });
@@ -190,7 +190,7 @@ export class CommissionPayoutService {
 
       if (commissions.length === 0) {
         throw new Error(
-          'No pending commissions found for the provided recipients',
+          'No pending or blocked commissions found for the provided recipients',
         );
       }
 
@@ -361,12 +361,12 @@ export class CommissionPayoutService {
     }
 
     const commissions = await this.commissionRepository.find({
-      where: { id: In(commissionIds), status: CommissionStatus.PENDING },
+      where: { id: In(commissionIds), status: In([CommissionStatus.PENDING, CommissionStatus.BLOCKED]) },
       relations: ['user'],
     });
 
     if (commissions.length === 0) {
-      throw new Error('No pending commissions found for the given IDs');
+      throw new Error('No pending or blocked commissions found for the given IDs');
     }
 
     const { recipients } = await this.preparePayoutBatch(commissions);

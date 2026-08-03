@@ -11,6 +11,7 @@ import { BranchVolumeLog } from '../affiliate/entities/branch-volume-log.entity'
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
 import { AuditLog } from '../audit-log/entities/audit-log.entity';
 import { Kyc } from '../kyc/entities/kyc.entity';
+import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { Kyc } from '../kyc/entities/kyc.entity';
       AuditLog,
       Kyc,
     ]),
+    PackagesModule,
   ],
   controllers: [UserController, MeController],
   providers: [UserService],

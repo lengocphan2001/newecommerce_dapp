@@ -1225,7 +1225,17 @@ export class CommissionService {
   private getEffectiveThresholdFromProductConfig(
     totalPurchaseAmount: number,
     config: { reconsumptionThreshold: number; reconsumptionRequired: number },
+    customMaxCommission?: number | null,
   ): number {
+    if (customMaxCommission !== undefined && customMaxCommission !== null) {
+      const val = Number(customMaxCommission);
+      if (val === -1) {
+        return 999999999;
+      }
+      if (val > 0) {
+        return val;
+      }
+    }
     const threshold = Number(config.reconsumptionThreshold) || 0;
     const required = Number(config.reconsumptionRequired) || 1;
     const total = Number(totalPurchaseAmount) || 0;
@@ -1254,6 +1264,7 @@ export class CommissionService {
     const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
       Number(user.totalPurchaseAmount),
       productConfig,
+      user.customMaxCommission,
     );
     if (Number(user.totalCommissionReceived) < effectiveThreshold) return true;
     return false;
@@ -1290,6 +1301,7 @@ export class CommissionService {
       const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
         Number(updatedUser.totalPurchaseAmount),
         productConfig,
+        updatedUser.customMaxCommission,
       );
       // Không set `packageType = NONE` để giữ nguyên trạng thái user.
       void effectiveThreshold;
@@ -1649,8 +1661,8 @@ export class CommissionService {
       throw new Error('Commission not found');
     }
 
-    if (commission.status !== CommissionStatus.PENDING) {
-      throw new Error('Commission status is not PENDING');
+    if (commission.status !== CommissionStatus.PENDING && commission.status !== CommissionStatus.BLOCKED) {
+      throw new Error('Commission status is not PENDING or BLOCKED');
     }
 
     commission.status = CommissionStatus.PAID;

@@ -153,8 +153,14 @@ export class PackagesService implements OnModuleInit {
     pkg: { reconsumptionThreshold: number; price: number },
     customMaxCommission?: number | null,
   ): number {
-    if (customMaxCommission !== undefined && customMaxCommission !== null && Number(customMaxCommission) > 0) {
-      return Number(customMaxCommission);
+    if (customMaxCommission !== undefined && customMaxCommission !== null) {
+      const val = Number(customMaxCommission);
+      if (val === -1) {
+        return 999999999;
+      }
+      if (val > 0) {
+        return val;
+      }
     }
     const maxThreshold = Number(pkg.reconsumptionThreshold) || 0;
     const required = Number(pkg.price) || 1;

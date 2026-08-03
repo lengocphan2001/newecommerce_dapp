@@ -18,6 +18,7 @@ import { AuditLog } from '../audit-log/entities/audit-log.entity';
 import { Kyc } from '../kyc/entities/kyc.entity';
 import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { PackagesService } from '../packages/packages.service';
 
 @Injectable()
 export class UserService {
@@ -38,6 +39,7 @@ export class UserService {
     private kycRepository: Repository<Kyc>,
     @InjectRepository(BranchVolumeLog)
     private branchVolumeLogRepository: Repository<BranchVolumeLog>,
+    private packagesService: PackagesService,
   ) { }
 
   async findAll(search?: string) {
@@ -882,6 +884,22 @@ export class UserService {
       });
       if (!ref) {
         throw new BadRequestException('Referral user (referralUserId) not found');
+      }
+    }
+    
+    // Automatically set/increase totalPurchaseAmount to match package price if packageType changes and it is currently lower
+    if (patch.packageType !== undefined && patch.packageType !== user.packageType) {
+      if (patch.packageType !== 'NONE') {
+        const pkg = await this.packagesService.findByCode(String(patch.packageType));
+        if (pkg) {
+          const currentPurchase = patch.totalPurchaseAmount !== undefined
+            ? Number(patch.totalPurchaseAmount)
+            : Number(user.totalPurchaseAmount || 0);
+          
+          if (currentPurchase < Number(pkg.price)) {
+            patch.totalPurchaseAmount = Number(pkg.price);
+          }
+        }
       }
     }
 

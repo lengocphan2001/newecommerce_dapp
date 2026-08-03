@@ -235,12 +235,12 @@ const CommissionsPage: React.FC = () => {
   const handleApproveBatch = async () => {
     const pendingIds = selectedRowKeys.filter((key) => {
       const c = filteredCommissions.find((x) => x.id === key);
-      return c?.status === 'pending';
+      return c?.status === 'pending' || c?.status === 'blocked';
     }) as string[];
 
     if (pendingIds.length === 0) {
       message.warning(
-        'Chỉ commission đang pending mới được duyệt chi trả. Hãy chọn ít nhất một dòng pending.',
+        'Chỉ commission đang pending hoặc blocked mới được duyệt chi trả. Hãy chọn ít nhất một dòng pending/blocked.',
       );
       return;
     }
@@ -487,7 +487,7 @@ const CommissionsPage: React.FC = () => {
           >
             View
           </Button>
-          {record.status === 'pending' && (
+          {(record.status === 'pending' || record.status === 'blocked') && (
             <Button
               type="primary"
               size="small"
@@ -532,7 +532,7 @@ const CommissionsPage: React.FC = () => {
   const pendingCount = filteredCommissions.filter((c) => c.status === 'pending').length;
   const selectedApproveIds = selectedRowKeys.filter((key) => {
     const c = filteredCommissions.find((x) => x.id === key);
-    return c?.status === 'pending';
+    return c?.status === 'pending' || c?.status === 'blocked';
   }) as string[];
   const selectedCancelIds = selectedRowKeys.filter((key) => {
     const c = filteredCommissions.find((x) => x.id === key);
@@ -661,7 +661,7 @@ const CommissionsPage: React.FC = () => {
                 Cancel
               </Button>
             ),
-          selectedCommission?.status === 'pending' && (
+          (selectedCommission?.status === 'pending' || selectedCommission?.status === 'blocked') && (
             <Button
               key="approve"
               type="primary"
@@ -754,7 +754,7 @@ const CommissionsPage: React.FC = () => {
                 </Descriptions.Item>
               )}
             </Descriptions>
-            {selectedCommission.status === 'pending' && (
+            {(selectedCommission.status === 'pending' || selectedCommission.status === 'blocked') && (
               <div style={{ marginTop: '16px' }}>
                 <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Approval Notes:</div>
                 <TextArea

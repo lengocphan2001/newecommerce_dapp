@@ -346,6 +346,16 @@ const CommissionPayout: React.FC = () => {
       },
     },
     {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string) => {
+        const isBlocked = String(status || '').toUpperCase() === 'BLOCKED';
+        return <Tag color={isBlocked ? 'red' : 'orange'}>{isBlocked ? 'Blocked' : 'Pending'}</Tag>;
+      },
+    },
+    {
       title: 'Amount',
       dataIndex: 'amount',
       key: 'amount',
@@ -479,14 +489,14 @@ const CommissionPayout: React.FC = () => {
   const validCommissions = pendingCommissions.filter(
     (c) => {
       const status = String(c.status || '').toUpperCase();
-      return status === 'PENDING';
+      return status === 'PENDING' || status === 'BLOCKED';
     }
   );
 
   const payableCommissions = pendingCommissions.filter(
     (c) => {
       const status = String(c.status || '').toUpperCase();
-      return status === 'PENDING' && c.user?.walletAddress;
+      return (status === 'PENDING' || status === 'BLOCKED') && c.user?.walletAddress;
     }
   );
 
@@ -639,9 +649,12 @@ const CommissionPayout: React.FC = () => {
               rowSelection={{
                 selectedRowKeys: selectedCommissions,
                 onChange: (keys) => setSelectedCommissions(keys as string[]),
-                getCheckboxProps: (record: PendingCommission) => ({
-                  disabled: record.status !== 'PENDING',
-                }),
+                getCheckboxProps: (record: PendingCommission) => {
+                  const status = String(record.status || '').toUpperCase();
+                  return {
+                    disabled: status !== 'PENDING' && status !== 'BLOCKED',
+                  };
+                },
               }}
               columns={pendingColumns}
               dataSource={validCommissions}
