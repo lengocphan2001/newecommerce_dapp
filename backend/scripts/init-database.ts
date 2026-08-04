@@ -294,8 +294,8 @@ async function initializeDatabase() {
     const defaults: Array<{ key: string; value: string }> = [
       { key: 'minPayoutThreshold', value: '50' },
       { key: 'indirectCommissionRateF2', value: '5' },
-      { key: 'commissionDepositWalletPercent', value: '12' },
-      { key: 'commissionWithdrawWalletPercent', value: '80' },
+      { key: 'commissionDepositWalletPercent', value: '20' },
+      { key: 'commissionWithdrawWalletPercent', value: '70' },
       { key: 'matrixRewardEnabled', value: 'true' },
       { key: 'matrixRewardMinOrderUsd', value: '100' },
       { key: 'matrixRewardMaxOrderUsd', value: '0' },

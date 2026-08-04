@@ -51,8 +51,8 @@ export class AdminService {
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
   private readonly defaultMinPayoutThreshold = 50;
   private readonly defaultIndirectCommissionRateF2 = 5;
-  private readonly defaultCommissionDepositWalletPercent = 12;
-  private readonly defaultCommissionWithdrawWalletPercent = 80;
+  private readonly defaultCommissionDepositWalletPercent = 20;
+  private readonly defaultCommissionWithdrawWalletPercent = 70;
 
   constructor(
     @InjectRepository(User)

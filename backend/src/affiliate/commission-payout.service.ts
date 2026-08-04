@@ -194,9 +194,9 @@ export class CommissionPayoutService {
         );
       }
 
-      const withdrawPercent = 65; // 65%
-      const reconsumptionPercent = 25; // 25%
-      const taxPercent = 10; // 10% (trừ luôn)
+      const { depositPercent: reconsumptionPercent, withdrawPercent } =
+        await this.adminService.getCommissionWalletDistribution();
+      const taxPercent = 100 - withdrawPercent - reconsumptionPercent;
       this.logger.log(
         `Internal payout distribution: withdraw=${withdrawPercent}%, reconsumption(tiêu dùng)=${reconsumptionPercent}%, tax(thuế)=${taxPercent}%`,
       );

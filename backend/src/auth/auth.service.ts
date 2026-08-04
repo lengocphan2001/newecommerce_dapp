@@ -740,8 +740,9 @@ export class AuthService {
     // Get min payout threshold from system config
     const minPayoutThreshold = await this.adminService.getMinPayoutThreshold();
 
-    const withdrawPercent = 65;
-    const reconsumptionPercent = 25;
+    const { depositPercent: reconsumptionPercent, withdrawPercent } =
+      await this.adminService.getCommissionWalletDistribution();
+    const taxPercent = 100 - withdrawPercent - reconsumptionPercent;
     const grossCommission = Number(user.totalCommissionReceived) || 0;
     const distributedCommission =
       grossCommission * ((withdrawPercent + reconsumptionPercent) / 100);
@@ -772,7 +773,7 @@ export class AuthService {
       bonusCommission: formatDecimal(user.totalCommissionReceived),
       currentMonthCommission: formatDecimal(currentMonthCommission),
       bonusCommissionNet: formatDecimal(distributedCommission),
-      payoutFeePercent: 10,
+      payoutFeePercent: taxPercent,
       commissionDepositWalletPercent: reconsumptionPercent,
       commissionWithdrawWalletPercent: withdrawPercent,
       fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
