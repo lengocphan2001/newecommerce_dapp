@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -181,5 +182,18 @@ export class OrderController {
     }
     const userId = req.user.userId || req.user.sub;
     return this.orderService.confirmPayment(id, transactionHash, userId);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  async deleteOrderAndRollback(
+    @Param('id') id: string,
+    @Request() req: any,
+  ) {
+    if (!req.user.isAdmin) {
+      throw new Error('Unauthorized: Only admin can delete and rollback orders');
+    }
+    await this.orderService.deleteOrderAndRollback(id);
+    return { success: true, message: 'Đơn hàng và các hoa hồng/doanh số liên quan đã được xóa và thu hồi thành công.' };
   }
 }

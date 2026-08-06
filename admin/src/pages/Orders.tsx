@@ -150,6 +150,29 @@ const Orders: React.FC = () => {
     }
   };
 
+  const handleDeleteOrder = (orderId: string) => {
+    Modal.confirm({
+      title: 'Xác nhận xóa đơn hàng nhầm lẫn?',
+      content: (
+        <div style={{ color: '#ef4444' }}>
+          <strong>CẢNH BÁO NGUY HIỂM:</strong> Hành động này sẽ xóa vĩnh viễn đơn hàng khỏi cơ sở dữ liệu và <strong>ĐẢO NGƯỢC/THU HỒI TOÀN BỘ HOA HỒNG, DOANH SỐ CÁ NHÂN, DOANH SỐ NHÁNH TUYẾN TRÊN VÀ MATRIX REWARDS</strong> phát sinh từ đơn hàng này. Việc này không thể hoàn tác!
+        </div>
+      ),
+      okText: 'Xóa vĩnh viễn & Thu hồi',
+      okType: 'danger',
+      cancelText: 'Hủy bỏ',
+      onOk: async () => {
+        try {
+          const res = await api.delete(`/orders/${orderId}`);
+          message.success(res.data.message || 'Xóa đơn hàng và thu hồi hoa hồng thành công.');
+          fetchOrders(getQueryParams());
+        } catch (error: any) {
+          message.error(error?.response?.data?.message || 'Xóa đơn hàng thất bại.');
+        }
+      }
+    });
+  };
+
   const columns = [
     {
       title: 'Order ID',
@@ -294,6 +317,14 @@ const Orders: React.FC = () => {
               Bù hoa hồng
             </Button>
           )}
+          <Button
+            type="link"
+            size="small"
+            danger
+            onClick={() => handleDeleteOrder(record.id)}
+          >
+            Xóa & Thu hồi
+          </Button>
         </Space>
       ),
     },
