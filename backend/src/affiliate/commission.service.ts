@@ -555,9 +555,8 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV')
       return Number(product.commissionPercentManagementTV) || 0;
-    if (code === 'CTV')
-      return Number(product.commissionPercentManagementCTV) || 0;
     return Number(product.commissionPercentManagementNPP) || 0;
+  }
 
   /**
    * Hoa hồng sản phẩm: tính trên TỪNG SẢN PHẨM riêng biệt (order có 2 sản phẩm → 2 bộ hoa hồng độc lập).
