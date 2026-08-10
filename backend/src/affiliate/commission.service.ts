@@ -531,8 +531,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentTV) || 0;
     if (code === 'CTV') return Number(product.commissionPercentCTV) || 0;
-    if (code === 'NPP' || code === 'DT') return Number(product.commissionPercentNPP) || 0;
-    return 0;
+    return Number(product.commissionPercentNPP) || 0;
   }
 
   /** Group: % hoa hồng nhóm theo gói người mua. */
@@ -544,8 +543,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentGroupTV) || 0;
     if (code === 'CTV') return Number(product.commissionPercentGroupCTV) || 0;
-    if (code === 'NPP' || code === 'DT') return Number(product.commissionPercentGroupNPP) || 0;
-    return 0;
+    return Number(product.commissionPercentGroupNPP) || 0;
   }
 
   /** Management: % hoa hồng quản lý (F1/F2/F3) khi nguồn là product group, theo gói người mua. */
@@ -559,10 +557,7 @@ export class CommissionService {
       return Number(product.commissionPercentManagementTV) || 0;
     if (code === 'CTV')
       return Number(product.commissionPercentManagementCTV) || 0;
-    if (code === 'NPP' || code === 'DT')
-      return Number(product.commissionPercentManagementNPP) || 0;
-    return 0;
-  }
+    return Number(product.commissionPercentManagementNPP) || 0;
 
   /**
    * Hoa hồng sản phẩm: tính trên TỪNG SẢN PHẨM riêng biệt (order có 2 sản phẩm → 2 bộ hoa hồng độc lập).
