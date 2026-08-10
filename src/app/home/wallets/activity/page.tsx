@@ -222,7 +222,7 @@ export default function ActivityPage() {
         }
 
         const commissionType = isHeapReward
-          ? t('heapRewardCommission')
+          ? `${t('heapRewardCommission')} $${activity.poolLevel || 500}`
           : activityType === 'INDIRECT'
             ? t('indirectCommission')
           : t('directCommission');
@@ -248,7 +248,7 @@ export default function ActivityPage() {
           ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-        const heapDetail = t('heapRewardFromPool');
+        const heapDetail = activity.poolLevel ? `Pool Heap $${activity.poolLevel}` : t('heapRewardFromPool');
         const description = isHeapReward
           ? (datetimeStr ? `${datetimeStr} • ${heapDetail}` : heapDetail)
           : (datetimeStr

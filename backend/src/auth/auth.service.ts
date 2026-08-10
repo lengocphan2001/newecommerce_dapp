@@ -683,6 +683,7 @@ export class AuthService {
         createdAt: h.createdAt,
         fromUserId: null,
         fromUser: null,
+        poolLevel: h.poolLevel,
       })),
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
@@ -720,6 +721,7 @@ export class AuthService {
         createdAt: createdAtStr,
         fromUserId: c.fromUserId,
         fromUsername,
+        poolLevel: c.poolLevel,
       };
     });
 
