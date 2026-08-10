@@ -28,6 +28,7 @@ export default function ProfilePage() {
     currentCommission?: number;
     totalPurchaseAmount?: number;
   } | null>(null);
+  const [bankingConfig, setBankingConfig] = useState<any>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
 
@@ -41,11 +42,16 @@ export default function ProfilePage() {
     void loadInitialData();
   }, []);
 
+  const getRate = () => {
+    return bankingConfig?.usdtPriceVnd > 0 ? bankingConfig.usdtPriceVnd : 25000;
+  };
+
   const loadInitialData = async () => {
-    const [profileOutcome, reconOutcome, kycOutcome] = await Promise.allSettled([
+    const [profileOutcome, reconOutcome, kycOutcome, bankCfgOutcome] = await Promise.allSettled([
       api.getProfile(),
       api.checkReconsumption(),
       api.getKycStatus(),
+      api.getBankingConfig(),
     ]);
 
     if (profileOutcome.status === "fulfilled") {
@@ -83,6 +89,10 @@ export default function ProfilePage() {
       setKycStatus(kycOutcome.value?.status ?? "UNVERIFIED");
     } else {
       setKycStatus("UNVERIFIED");
+    }
+
+    if (bankCfgOutcome.status === "fulfilled") {
+      setBankingConfig(bankCfgOutcome.value);
     }
   };
 
@@ -354,7 +364,7 @@ export default function ProfilePage() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-bold text-slate-800">{t("maxCommission")}</span>
                   <span className="text-sm font-bold text-blue-700">
-                    ${reconsumptionStatus.currentCommission ? reconsumptionStatus.currentCommission.toLocaleString('en-US', { maximumFractionDigits: 4 }) : "0.00"} / ${reconsumptionStatus.threshold}
+                    {reconsumptionStatus.currentCommission ? Math.round(reconsumptionStatus.currentCommission * getRate()).toLocaleString('vi-VN') : "0"} / {Math.round(reconsumptionStatus.threshold * getRate()).toLocaleString('vi-VN')} VND
                   </span>
                 </div>
                 <div className="h-3 bg-slate-200 rounded-full overflow-hidden mb-3">
@@ -384,10 +394,8 @@ export default function ProfilePage() {
                     <p className="text-base font-black text-slate-900">
                       {(() => {
                         const totalRecon = Number(userInfo?.accumulatedPurchases) || 0;
-                        return `$${totalRecon.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}`;
+                        const totalReconVnd = Math.round(totalRecon * getRate());
+                        return `${totalReconVnd.toLocaleString("vi-VN")} VND`;
                       })()}
                     </p>
                   </div>
