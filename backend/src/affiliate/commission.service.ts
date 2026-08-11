@@ -480,8 +480,10 @@ export class CommissionService {
     let byPkg =
       product.commissionConfigByPackage &&
       product.commissionConfigByPackage[code];
-    if (!byPkg && code === 'DT' && product.commissionConfigByPackage) {
-      byPkg = product.commissionConfigByPackage['NPP'];
+    if (!byPkg && product.commissionConfigByPackage) {
+      if (code !== 'TV' && code !== 'CTV') {
+        byPkg = product.commissionConfigByPackage['DT'] || product.commissionConfigByPackage['NPP'];
+      }
     }
     if (byPkg && typeof byPkg === 'object') {
       return {
