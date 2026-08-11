@@ -419,9 +419,8 @@ export default function AffiliatePage() {
         : parseFloat(String(referralInfo.treeStats.weakBranchTotalVolume)) || 0)
     : Math.min(leftVolume, rightVolume);
 
-  // Doanh số cần đạt (Z = X_start - Y_start, Z_new = Z - Y_current_month)
-  const strongVolumeAtStart = Math.max(leftVolumeAtStart, rightVolumeAtStart);
-  const targetVolume = Math.max(0, strongVolumeAtStart - weakBranchTotalVolume);
+  // Doanh số chênh lệch (Target Sales Volume) = Nhánh lớn - Nhánh nhỏ
+  const targetVolume = Math.abs(leftVolume - rightVolume);
 
   const maxCommission = getMaxCommission();
   const receivedCommission =
