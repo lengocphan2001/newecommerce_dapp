@@ -277,10 +277,10 @@ export default function ProductDetailClient() {
   if (loading) {
     return (
       <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-20 bg-background text-text-main font-display antialiased">
-        <div className="animate-pulse space-y-4 p-4">
-          <div className="aspect-square bg-gray-200 rounded"></div>
-          <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        <div className="space-y-4 p-4">
+          <div className="aspect-square skeleton-shimmer rounded-xl"></div>
+          <div className="h-6 skeleton-shimmer rounded w-3/4"></div>
+          <div className="h-4 skeleton-shimmer rounded w-1/2"></div>
         </div>
       </div>
     );

@@ -342,12 +342,12 @@ export default function ProductsPage() {
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 animate-pulse"
+                  className="bg-white rounded-xl overflow-hidden border border-gray-100 p-3 space-y-3 shadow-sm"
                 >
-                  <div className="relative aspect-square w-full bg-gray-50"></div>
-                  <div className="p-3 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="relative aspect-square w-full skeleton-shimmer rounded-lg"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 skeleton-shimmer rounded w-3/4"></div>
+                    <div className="h-4 skeleton-shimmer rounded w-1/2"></div>
                   </div>
                 </div>
               ))}
@@ -370,7 +370,7 @@ export default function ProductsPage() {
                 <div
                   key={product.id}
                   onClick={() => handleProductClick(product.id)}
-                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 hover:border-primary/30 transition-all hover:shadow-lg"
+                  className="group premium-card overflow-hidden cursor-pointer"
                 >
                   <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
                     {product.thumbnailUrl ? (

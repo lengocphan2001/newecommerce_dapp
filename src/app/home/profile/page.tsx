@@ -412,7 +412,7 @@ export default function ProfilePage() {
           {/* Email verification */}
           
 
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+          <div className="premium-card overflow-hidden">
           <button
               onClick={() => router.push('/home/profile/kyc')}
               className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
@@ -460,7 +460,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+          <div className="premium-card overflow-hidden">
             <button className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors">
               <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-teal-50 text-teal-600">
                 <span className="material-symbols-outlined text-xl font-medium">shield</span>
@@ -484,7 +484,7 @@ export default function ProfilePage() {
               <span className="flex-1 font-semibold text-left">{t("logout")}</span>
             </button>
           </div>
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] p-4">
+          <div className="premium-card overflow-hidden p-4">
             <p className="text-sm font-semibold text-slate-800 mb-3">{t("identityVerification")}</p>
             <p className="text-xs text-slate-500 mb-3">{t("identityVerificationDesc")}</p>
             <button

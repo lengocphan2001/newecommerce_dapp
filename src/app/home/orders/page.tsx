@@ -335,11 +335,12 @@ function OrdersPageContent() {
               return (
                 <div
                   key={order.id}
+                  role="button"
                   onClick={() => router.push(`/home/orders/detail?id=${order.id}`)}
-                  className={`flex flex-col gap-3 rounded-2xl p-4 shadow-[0_2px_12px_rgba(37,99,235,0.06)] border ${isCancelled
-                    ? "bg-slate-50 border-slate-200 opacity-75"
-                    : "bg-white border-blue-100"
-                    } active:scale-[0.99] transition-all duration-200 cursor-pointer`}
+                  className={`flex flex-col gap-3 p-4 premium-card ${isCancelled
+                    ? "bg-slate-50 opacity-75"
+                    : "bg-white"
+                    } cursor-pointer`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex items-start gap-3">

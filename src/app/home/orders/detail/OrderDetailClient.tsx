@@ -201,7 +201,7 @@ export default function OrderDetailClient() {
             <div className="flex-1 px-4 pt-4 flex flex-col gap-5">
 
                 {/* Status Card */}
-                <div className="rounded-2xl overflow-hidden shadow-[0_4px_20px_-2px_rgba(16,185,129,0.15)] bg-white relative group border border-emerald-100">
+                <div className="relative group overflow-hidden premium-card bg-white">
                     {/* Background Image Overlay */}
                     <div className="absolute inset-0 opacity-10 bg-center bg-cover grayscale" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDAH9U60gKAgxWRKdFBYLD-BwpafTxxP6cTE3FPgJ_avx6WK-jGQwhYtkwW1GGQq2ljz4VF50AxQB12uwKbxq7fIfLP4-Npdo2kiFrYDV0EeYgGBTIU5zWjRfqOnJqhb92Piq_1O3j1Et6Kl6LENcT6SLtnl9OJtyQ0mWWW-J5GpojX7_zqETwLBy4m8y1JqFVpujsjxOQXKuO0926RjddxvM3cThQUB1oGS9bKEbvgUlGpek7QKHMnRqQcEZgnIpJXozsOiQ0W0sE")' }}></div>
                     <div className="absolute inset-0 bg-gradient-to-b from-white/40 via-white/80 to-white"></div>
@@ -219,11 +219,6 @@ export default function OrderDetailClient() {
                                         {t("lastUpdated")} {formatDate(order.updatedAt)}
                                     </p>
                                 )}
-                            </div>
-                            <div className={`p-3 rounded-xl shadow-sm border ${isCancelled ? "bg-red-50 text-red-500 border-red-100" : "bg-emerald-50 text-primary-dark border-emerald-100"}`}>
-                                <span className="material-symbols-outlined text-2xl">
-                                    {isCancelled ? "cancel" : order.status === 'delivered' ? "check_circle" : "local_shipping"}
-                                </span>
                             </div>
                         </div>
 
@@ -278,7 +273,7 @@ export default function OrderDetailClient() {
                     <h3 className="text-slate-800 text-lg font-bold mb-3 px-1">{t("productList")}</h3>
                     <div className="flex flex-col gap-3">
                         {itemsWithImages.map((item, idx) => (
-                            <div key={idx} className="flex gap-4 bg-white p-3 rounded-2xl items-center shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 hover:border-primary transition-colors">
+                            <div key={idx} className="flex gap-4 p-3 items-center premium-card bg-white">
                                 <div
                                     className="bg-center bg-no-repeat bg-cover rounded-xl size-[80px] shrink-0 bg-slate-50 border border-slate-100"
                                     style={{ backgroundImage: `url("${item.thumbnailUrl || 'https://placehold.co/80x80/F3F4F6/6B7280.png?text=Product'}")` }}
@@ -307,7 +302,7 @@ export default function OrderDetailClient() {
                 </div>
 
                 {/* Shipping & Payment Info */}
-                <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 space-y-5">
+                <div className="p-5 space-y-5 premium-card bg-white">
                     <h3 className="text-slate-900 font-bold text-base border-b border-slate-100 pb-2">{t("shippingPaymentInfo")}</h3>
 
                     <div className="flex items-start gap-4">
@@ -395,7 +390,7 @@ export default function OrderDetailClient() {
                 </div>
 
                 {/* Summary */}
-                <div className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] border border-gray-100 space-y-3 mb-4">
+                <div className="p-5 space-y-3 mb-4 premium-card bg-white">
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-slate-500">{t("subtotal")}</span>
                         <span className="text-slate-900 font-medium">{formatPriceVND(order.totalAmount - (order.shippingFee || 0) - (order.vatAmount || 0))}</span>
