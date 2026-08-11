@@ -743,6 +743,28 @@ export class UserService {
     };
   }
 
+  async isDownline(sponsorId: string, targetUserId: string): Promise<boolean> {
+    if (!sponsorId || !targetUserId) return false;
+    if (sponsorId === targetUserId) return false;
+
+    let currentId = targetUserId;
+    const visited = new Set<string>();
+
+    while (currentId) {
+      if (currentId === sponsorId) return true;
+      if (visited.has(currentId)) break; // Prevent circular references
+      visited.add(currentId);
+
+      const u = await this.userRepository.findOne({
+        where: { id: currentId },
+        select: ['id', 'referralUserId'],
+      });
+      if (!u || !u.referralUserId) break;
+      currentId = u.referralUserId;
+    }
+    return false;
+  }
+
   async create(createUserDto: any) {
     // Only hash password if it exists (wallet registration doesn't need password)
     const userData = { ...createUserDto };

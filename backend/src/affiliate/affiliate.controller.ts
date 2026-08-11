@@ -32,6 +32,15 @@ export class AffiliateController {
     return this.affiliateService.register(registerDto);
   }
 
+  @Get('validate-downline/:username')
+  async validateDownline(
+    @Request() req: any,
+    @Param('username') username: string,
+  ) {
+    const sponsorId = req.user.userId || req.user.sub || req.user.id;
+    return this.affiliateService.validateDownline(sponsorId, username);
+  }
+
   @Get('all-stats')
   async getAllStats(@Request() req: any) {
     // Chỉ admin mới có thể xem tất cả stats

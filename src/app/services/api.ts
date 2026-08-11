@@ -455,13 +455,15 @@ export const api = {
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet' | 'cod',
-    options?: { shippingPhone?: string; shippingName?: string }
+    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet' | 'cod' | 'withdraw_wallet',
+    options?: { shippingPhone?: string; shippingName?: string; buyerUsername?: string; notes?: string }
   ) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const body: Record<string, unknown> = { items, transactionHash, shippingAddress, paymentMethod };
     if (options?.shippingPhone != null) body.shippingPhone = options.shippingPhone;
     if (options?.shippingName != null) body.shippingName = options.shippingName;
+    if (options?.buyerUsername != null) body.buyerUsername = options.buyerUsername;
+    if (options?.notes != null) body.notes = options.notes;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -486,6 +488,20 @@ export const api = {
       apiCache.invalidate('profile');
       apiCache.invalidate('referralInfo');
       apiCache.invalidate('checkReconsumption');
+    }
+    return response.json();
+  },
+
+  async validateDownline(username: string) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/affiliate/validate-downline/${encodeURIComponent(username)}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ message: 'Validation failed' }));
+      throw new Error(err.message || 'Validation failed');
     }
     return response.json();
   },
@@ -945,7 +961,7 @@ export const api = {
     return response.json();
   },
 
-  async purchasePackage(packageId: string) {
+  async purchasePackage(packageId: string, buyerUsername?: string, useWithdrawWallet?: boolean) {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
     const response = await fetch(`${API_BASE_URL}/package-purchases`, {
@@ -954,7 +970,7 @@ export const api = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ packageId }),
+      body: JSON.stringify({ packageId, buyerUsername, useWithdrawWallet }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));

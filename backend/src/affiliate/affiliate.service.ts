@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommissionService } from './commission.service';
@@ -191,5 +191,58 @@ export class AffiliateService {
 
   async getMonthlyStats(month: string) {
     return this.commissionService.getMonthlyStats(month);
+  }
+
+  async validateDownline(sponsorId: string, targetUsername: string): Promise<any> {
+    if (!targetUsername?.trim()) {
+      throw new BadRequestException('Username is required');
+    }
+
+    const targetUser = await this.userRepository.findOne({
+      where: { username: targetUsername.trim() },
+      select: ['id', 'username', 'fullName', 'referralUserId'],
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('Username not found');
+    }
+
+    if (targetUser.id === sponsorId) {
+      throw new BadRequestException('Cannot purchase for yourself');
+    }
+
+    // Check if targetUser is a downline of sponsorId
+    let currentId = targetUser.id;
+    const visited = new Set<string>();
+    let isDownline = false;
+
+    while (currentId) {
+      if (currentId === sponsorId) {
+        isDownline = true;
+        break;
+      }
+      if (visited.has(currentId)) break; // Prevent infinite loop
+      visited.add(currentId);
+
+      const u = await this.userRepository.findOne({
+        where: { id: currentId },
+        select: ['id', 'referralUserId'],
+      });
+      if (!u || !u.referralUserId) break;
+      currentId = u.referralUserId;
+    }
+
+    if (!isDownline) {
+      throw new BadRequestException('User is not in your downline organization');
+    }
+
+    return {
+      valid: true,
+      user: {
+        id: targetUser.id,
+        username: targetUser.username,
+        fullName: targetUser.fullName,
+      },
+    };
   }
 }

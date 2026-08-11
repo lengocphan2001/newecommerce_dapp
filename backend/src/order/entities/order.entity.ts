@@ -116,6 +116,9 @@ export class Order {
   @Column({ nullable: true, default: 'wallet' })
   paymentMethod: string;
 
+  @Column({ type: 'text', nullable: true })
+  notes: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

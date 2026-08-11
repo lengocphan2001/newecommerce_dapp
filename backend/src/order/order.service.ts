@@ -160,6 +160,50 @@ export class OrderService {
   }
 
   async create(createOrderDto: CreateOrderDto, userId?: string) {
+    let buyerId = userId;
+    let proxyNote = '';
+
+    if (createOrderDto.buyerUsername?.trim()) {
+      if (!userId) {
+        throw new BadRequestException('Phải đăng nhập để sử dụng tính năng mua hộ.');
+      }
+      const buyer = await this.userRepository.findOne({
+        where: { username: createOrderDto.buyerUsername.trim() },
+        select: ['id', 'username', 'fullName', 'referralUserId'],
+      });
+      if (!buyer) {
+        throw new NotFoundException('Username người được mua hộ không tồn tại.');
+      }
+
+      // Check downline
+      let isDownline = false;
+      let currentId = buyer.id;
+      const visited = new Set<string>();
+      while (currentId) {
+        if (currentId === userId) {
+          isDownline = true;
+          break;
+        }
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        
+        const u = await this.userRepository.findOne({
+          where: { id: currentId },
+          select: ['id', 'referralUserId'],
+        });
+        if (!u || !u.referralUserId) break;
+        currentId = u.referralUserId;
+      }
+
+      if (!isDownline) {
+        throw new BadRequestException('User được mua hộ không thuộc tuyến dưới của bạn.');
+      }
+
+      buyerId = buyer.id;
+      const sponsor = await this.userRepository.findOne({ where: { id: userId }, select: ['username'] });
+      proxyNote = `Mua hộ bởi @${sponsor?.username || userId}`;
+    }
+
     // Lấy thông tin sản phẩm và tính tổng tiền
     const items: Array<{
       productId: string;
@@ -241,7 +285,7 @@ export class OrderService {
     }
 
     // Yêu cầu đăng nhập nếu dùng ví thanh toán
-    if ((paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet') && !userId) {
+    if ((paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet' || paymentMethod === 'withdraw_wallet') && !userId) {
       throw new BadRequestException('Phương thức thanh toán bằng ví yêu cầu người dùng đăng nhập.');
     }
 
@@ -287,14 +331,33 @@ export class OrderService {
       await this.userRepository.save(user);
     }
 
-    // Determine initial status: Crypto (transactionHash), deposit_wallet or pv_wallet → CONFIRMED; Banking → PENDING
+    // Ví thưởng (withdraw_wallet): trừ số dư ví thưởng của người thanh toán (userId)
+    if (paymentMethod === 'withdraw_wallet' && userId) {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found');
+      const withdrawBal = Number(user.withdrawWalletBalance ?? 0);
+
+      if (withdrawBal < finalTotal) {
+        throw new BadRequestException(
+          `Số dư ví thưởng không đủ. Hiện tại: $${withdrawBal.toFixed(2)} PV, cần: $${finalTotal.toFixed(2)} PV`,
+        );
+      }
+
+      user.withdrawWalletBalance = withdrawBal - finalTotal;
+      await this.userRepository.save(user);
+    }
+
+    // Determine initial status: Crypto (transactionHash), deposit_wallet, pv_wallet or withdraw_wallet → CONFIRMED; Banking → PENDING
     const initialStatus =
-      createOrderDto.transactionHash || paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet'
+      createOrderDto.transactionHash ||
+      paymentMethod === 'deposit_wallet' ||
+      paymentMethod === 'pv_wallet' ||
+      paymentMethod === 'withdraw_wallet'
         ? OrderStatus.CONFIRMED
         : OrderStatus.PENDING;
 
     const order = this.orderRepository.create({
-      userId,
+      userId: buyerId,
       items,
       totalAmount: finalTotal,
       shippingFee: shippingFee > 0 ? shippingFee : undefined,
@@ -306,6 +369,7 @@ export class OrderService {
       shippingPhone: createOrderDto.shippingPhone,
       shippingName: createOrderDto.shippingName,
       paymentMethod,
+      notes: proxyNote ? (createOrderDto.notes ? `${createOrderDto.notes} | ${proxyNote}` : proxyNote) : createOrderDto.notes,
     });
 
     const savedOrder = await this.orderRepository.save(order);
