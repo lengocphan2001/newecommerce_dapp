@@ -561,7 +561,7 @@ export default function HomePage() {
             <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>
           </div>
           {loading ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
@@ -580,7 +580,7 @@ export default function HomePage() {
               <p className="text-gray-500">{t("noProducts")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}

@@ -338,7 +338,7 @@ export default function ProductsPage() {
 
         {loading ? (
           <div className="px-4 pt-4 pb-8 bg-white">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
@@ -365,7 +365,7 @@ export default function ProductsPage() {
               <h3 className="text-lg font-bold text-text-dark">{getCountryLabel(selectedCountries)}</h3>
               <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}

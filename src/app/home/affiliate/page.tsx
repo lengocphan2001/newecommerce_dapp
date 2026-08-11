@@ -468,143 +468,53 @@ export default function AffiliatePage() {
             paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))",
           }}
         >
-          {/* Profile & Earnings Section */}
-          <div className="px-4 py-4 space-y-4">
-            {/* Compact Profile Header */}
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
-              <div className="relative">
-                <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-14 ring-2 ring-primary ring-offset-2 ring-offset-white bg-gradient-to-br from-primary/20 to-white">
-                  <div className="h-full w-full rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary text-2xl">
-                      person
-                    </span>
-                  </div>
-                </div>
-                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
-                  <span
-                    className="material-symbols-outlined text-[18px] text-primary"
-                    title="Verified"
-                  >
-                    verified
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col justify-center flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-lg font-bold leading-tight text-text-dark">
-                    {shortAddress(referralInfo.walletAddress)}
-                  </p>
-                  {(() => {
-                    const badge = getRankBadgeInfo();
-                    return (
-                      <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border shadow-sm transition-all duration-300 ${badge.class}`}>
-                        <span className="material-symbols-outlined text-[14px] font-bold">{badge.icon}</span>
-                        {badge.label}
-                      </span>
-                    );
-                  })()}
-                </div>
-                <p className="text-primary-dark text-sm font-medium">
-                  Hoa hồng tháng này:{" "}
-                  {formatPrice(referralInfo.currentMonthCommission || "0")} PV
-                </p>
-              </div>
-            </div>
-
+          {/* Main Grid for desktop/tablet */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 py-4">
             
-          </div>
-
-
-
-
-          {/* Maximum Commission & Branch Totals */}
-          <div className="px-4 py-2">
-            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-3">
-              <h4 className="text-sm font-bold text-text-dark mb-3">
-                {t("commission")} & {t("networkStructure")}
-              </h4>
-              <div className="space-y-3">
-                {/* Total Commission Can Receive */}
-                {referralInfo.packageType !== "NONE" && (
-                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
-                    <div className="flex items-center gap-2 border-b border-primary/10 pb-2">
-                      <span className="material-symbols-outlined text-primary text-xl">
-                        account_balance_wallet
-                      </span>
-                      <span className="text-sm font-bold text-gray-800">
-                        {lang === "vi" ? "Thông tin hoa hồng" : "Commission Info"}
+            {/* Left Column: Profile & Stats */}
+            <div className="space-y-4">
+              {/* Compact Profile Header */}
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
+                <div className="relative">
+                  <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-14 ring-2 ring-primary ring-offset-2 ring-offset-white bg-gradient-to-br from-primary/20 to-white">
+                    <div className="h-full w-full rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary text-2xl">
+                        person
                       </span>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600 font-medium">
-                          {lang === "vi" ? "Đã nhận" : "Received"}
-                        </span>
-                        <span className="font-bold text-slate-800">
-                          {formatPriceVND(receivedCommission)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600 font-medium">
-                          {lang === "vi" ? "Có thể nhận" : "Can receive"}
-                        </span>
-                        <span className="font-bold text-primary-dark">
-                          {formatPriceVND(maxCommission)}
-                        </span>
-                      </div>
-                    </div>
                   </div>
-                )}
-                {/* Nhánh yếu tháng hiện tại */}
-                <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
-                    <span className="text-sm font-bold text-amber-800">
-                      {lang === "vi" ? "Doanh số tính thưởng" : "Doanh số tính thưởng"}
+                  <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+                    <span
+                      className="material-symbols-outlined text-[18px] text-primary"
+                      title="Verified"
+                    >
+                      verified
                     </span>
                   </div>
-                  <p className="text-2xl font-bold text-amber-700">
-                    {formatPriceVND(weakBranchMonthlyVolume)}
-                  </p>
                 </div>
-
-                {/* Doanh số nhánh yếu (Tích lũy) */}
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
-                    <span className="text-sm font-bold text-blue-800">
-                      {lang === "vi" ? "Doanh số tích lũy" : "Weak Leg Volume"}
-                    </span>
+                <div className="flex flex-col justify-center flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-bold leading-tight text-text-dark">
+                      {shortAddress(referralInfo.walletAddress)}
+                    </p>
+                    {(() => {
+                      const badge = getRankBadgeInfo();
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border shadow-sm transition-all duration-300 ${badge.class}`}>
+                          <span className="material-symbols-outlined text-[14px] font-bold">{badge.icon}</span>
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
                   </div>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {formatPriceVND(weakBranchTotalVolume)}
+                  <p className="text-primary-dark text-sm font-medium">
+                    Hoa hồng tháng này:{" "}
+                    {formatPrice(referralInfo.currentMonthCommission || "0")} PV
                   </p>
                 </div>
-
-                {/* Doanh số cần đạt */}
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
-                    <span className="text-sm font-bold text-purple-800">
-                      {lang === "vi" ? "Doanh số chênh lệch" : "Target Sales Volume"}
-                    </span>
-                  </div>
-                  <p className="text-2xl font-bold text-purple-700">
-                    {formatPriceVND(targetVolume)}
-                  </p>
-                </div>
-
-
               </div>
-            </div>
-          </div>
 
-        
-
-          {/* Quick Stats Grid */}
-          <div className="px-4 py-2">
-            <div className="grid grid-cols-1 gap-3">
-              
+              {/* Quick Stats Card */}
               <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="material-symbols-outlined text-primary-dark text-xl">
@@ -623,6 +533,87 @@ export default function AffiliatePage() {
                   </span>
                   {newTodayCount} {t("newToday")}
                 </p>
+              </div>
+            </div>
+
+            {/* Right Column: Binary Volume Cards */}
+            <div className="space-y-4">
+              {/* Maximum Commission & Branch Totals */}
+              <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <h4 className="text-sm font-bold text-text-dark mb-3">
+                  {t("commission")} & {t("networkStructure")}
+                </h4>
+                <div className="space-y-3">
+                  {/* Total Commission Can Receive */}
+                  {referralInfo.packageType !== "NONE" && (
+                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
+                      <div className="flex items-center gap-2 border-b border-primary/10 pb-2">
+                        <span className="material-symbols-outlined text-primary text-xl">
+                          account_balance_wallet
+                        </span>
+                        <span className="text-sm font-bold text-gray-800">
+                          {lang === "vi" ? "Thông tin hoa hồng" : "Commission Info"}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 font-medium">
+                            {lang === "vi" ? "Đã nhận" : "Received"}
+                          </span>
+                          <span className="font-bold text-slate-800">
+                            {formatPriceVND(receivedCommission)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 font-medium">
+                            {lang === "vi" ? "Có thể nhận" : "Can receive"}
+                          </span>
+                          <span className="font-bold text-primary-dark">
+                            {formatPriceVND(maxCommission)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Nhánh yếu tháng hiện tại */}
+                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
+                      <span className="text-sm font-bold text-amber-800">
+                        {lang === "vi" ? "Doanh số tính thưởng" : "Doanh số tính thưởng"}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-700">
+                      {formatPriceVND(weakBranchMonthlyVolume)}
+                    </p>
+                  </div>
+
+                  {/* Doanh số nhánh yếu (Tích lũy) */}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
+                      <span className="text-sm font-bold text-blue-800">
+                        {lang === "vi" ? "Doanh số tích lũy" : "Weak Leg Volume"}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {formatPriceVND(weakBranchTotalVolume)}
+                    </p>
+                  </div>
+
+                  {/* Doanh số cần đạt */}
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
+                      <span className="text-sm font-bold text-purple-800">
+                        {lang === "vi" ? "Doanh số chênh lệch" : "Target Sales Volume"}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-700">
+                      {formatPriceVND(targetVolume)}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

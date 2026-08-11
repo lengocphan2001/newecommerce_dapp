@@ -254,8 +254,9 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-md mx-auto pb-32">
-        <section className="flex flex-col items-center py-8 px-4">
+      <main className="flex-1 w-full max-w-md md:max-w-4xl lg:max-w-5xl mx-auto pb-32">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+          <section className="flex flex-col items-center py-8 px-4">
           <div className="relative">
             <div className="w-32 h-32 rounded-full border-4 border-white p-0.5 bg-white overflow-hidden shadow-lg ring-1 ring-slate-100">
               <div
@@ -496,6 +497,7 @@ export default function ProfilePage() {
             </button>
           </div>
         </section>
+        </div>
 
         <div className="mt-8 text-center px-4">
           <p className="text-[11px] text-slate-400 font-medium tracking-wide">Shoplife DAPP v2.1.0 • BINARY ECOSYSTEM</p>

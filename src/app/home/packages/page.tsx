@@ -92,7 +92,7 @@ export default function PackagesPage() {
   return (
     <div className="flex flex-col bg-zinc-50 min-h-screen">
       <AppHeader title="Packages" showBack />
-      <main className="flex-1 pb-24 px-4 max-w-md mx-auto w-full" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}>
+      <main className="flex-1 pb-24 px-4 max-w-md md:max-w-4xl lg:max-w-5xl mx-auto w-full" style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}>
         <p className="text-sm text-zinc-600 mt-2 mb-4">
           Buy a package to activate your commission level (CTV, Đối tác, TV). After payment, admin will confirm and your package will be activated.
         </p>
@@ -119,7 +119,7 @@ export default function PackagesPage() {
         {loading ? (
           <div className="py-8 text-center text-zinc-500">Loading...</div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {packages.map((pkg) => (
               <div
                 key={pkg.id}
