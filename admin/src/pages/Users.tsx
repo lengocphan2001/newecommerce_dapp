@@ -1187,6 +1187,30 @@ const Users: React.FC = () => {
                 <Descriptions.Item label="Right Branch Total">
                   ${userDetail.user.rightBranchTotal} USDT
                 </Descriptions.Item>
+                <Descriptions.Item label="Doanh số tính thưởng (Nhánh yếu tháng này)">
+                  <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>
+                    ${(userDetail.treeStats?.left && userDetail.treeStats?.right
+                      ? (Number(userDetail.treeStats.left.volume || 0) <= Number(userDetail.treeStats.right.volume || 0)
+                        ? Number(userDetail.treeStats.left.monthlyVolume || 0)
+                        : Number(userDetail.treeStats.right.monthlyVolume || 0))
+                      : 0).toLocaleString()} USDT
+                  </span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Doanh số tích lũy (Nhánh yếu tích lũy)">
+                  <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                    ${Math.min(
+                      Number(userDetail.user.leftBranchTotal || 0),
+                      Number(userDetail.user.rightBranchTotal || 0)
+                    ).toLocaleString()} USDT
+                  </span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Doanh số chênh lệch">
+                  <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
+                    ${Math.abs(
+                      Number(userDetail.user.leftBranchTotal || 0) - Number(userDetail.user.rightBranchTotal || 0)
+                    ).toLocaleString()} USDT
+                  </span>
+                </Descriptions.Item>
               </Descriptions>
 
               <Card
@@ -1522,25 +1546,54 @@ const Users: React.FC = () => {
             </TabPane>
 
             <TabPane tab="Binary Tree" key="tree">
-              <Card title="Tree Statistics" style={{ marginBottom: 16 }}>
-                <Descriptions bordered column={2}>
-                  <Descriptions.Item label="Left Branch Count">
-                    {userDetail.treeStats?.left?.count || 0}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Left Branch Volume">
-                    ${userDetail.treeStats?.left?.volume || '0.00'} USDT
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Right Branch Count">
-                    {userDetail.treeStats?.right?.count || 0}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Right Branch Volume">
-                    ${userDetail.treeStats?.right?.volume || '0.00'} USDT
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Total Members">
-                    {userDetail.treeStats?.total || 0}
-                  </Descriptions.Item>
-                </Descriptions>
-              </Card>
+              {(() => {
+                const leftVolumeVal = Number(userDetail.treeStats?.left?.volume || 0);
+                const rightVolumeVal = Number(userDetail.treeStats?.right?.volume || 0);
+                const leftMonthlyVal = Number(userDetail.treeStats?.left?.monthlyVolume || 0);
+                const rightMonthlyVal = Number(userDetail.treeStats?.right?.monthlyVolume || 0);
+                const currentWeakSideVal = leftVolumeVal <= rightVolumeVal ? "left" : "right";
+
+                const weakBranchMonthlyVal = currentWeakSideVal === "left" ? leftMonthlyVal : rightMonthlyVal;
+                const weakBranchAccumulatedVal = Math.min(leftVolumeVal, rightVolumeVal);
+                const targetVolumeVal = Math.abs(leftVolumeVal - rightVolumeVal);
+
+                return (
+                  <Card title="Tree Statistics" style={{ marginBottom: 16 }}>
+                    <Descriptions bordered column={2}>
+                      <Descriptions.Item label="Left Branch Count">
+                        {userDetail.treeStats?.left?.count || 0}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Left Branch Volume">
+                        ${leftVolumeVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Right Branch Count">
+                        {userDetail.treeStats?.right?.count || 0}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Right Branch Volume">
+                        ${rightVolumeVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Total Members">
+                        {userDetail.treeStats?.total || 0}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Doanh số tính thưởng (Nhánh yếu tháng này)">
+                        <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>
+                          ${weakBranchMonthlyVal.toLocaleString()} USDT
+                        </span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Doanh số tích lũy (Nhánh yếu tích lũy)">
+                        <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                          ${weakBranchAccumulatedVal.toLocaleString()} USDT
+                        </span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Doanh số chênh lệch (Lớn - Nhỏ)">
+                        <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
+                          ${targetVolumeVal.toLocaleString()} USDT
+                        </span>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                );
+              })()}
 
               <Title level={5}>Left Branch Members ({userDetail.treeStats?.left?.members?.length || 0})</Title>
               <Table

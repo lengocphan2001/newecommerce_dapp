@@ -437,6 +437,27 @@ export class UserService {
     // calculamos los descendientes de ambas ramas en memoria usando una sola consulta indexada.
     const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
 
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
+
+    const getMonthlyVolume = async (side: 'left' | 'right'): Promise<number> => {
+      const row = await this.branchVolumeLogRepository
+        .createQueryBuilder('log')
+        .select('COALESCE(SUM(log.amount), 0)', 'sum')
+        .where('log.userId = :userId', { userId })
+        .andWhere('log.side = :side', { side })
+        .andWhere('log.createdAt >= :start', { start: startOfMonth })
+        .andWhere('log.createdAt < :end', { end: endOfMonth })
+        .getRawOne<{ sum: string }>();
+      return parseFloat(row?.sum || '0') || 0;
+    };
+
+    const [leftMonthlyVolume, rightMonthlyVolume] = await Promise.all([
+      getMonthlyVolume('left'),
+      getMonthlyVolume('right'),
+    ]);
+
     const weakBranchTotalVolume = await this.calculateWeakBranchAccumulatedVolume(
       userId,
       user.leftBranchTotal || 0,
@@ -449,12 +470,14 @@ export class UserService {
         members: leftMembers,
         volume: user.leftBranchTotal || 0,
         total: user.leftBranchTotal || 0,
+        monthlyVolume: leftMonthlyVolume,
       },
       right: {
         count: rightMembers.length,
         members: rightMembers,
         volume: user.rightBranchTotal || 0,
         total: user.rightBranchTotal || 0,
+        monthlyVolume: rightMonthlyVolume,
       },
       total: leftMembers.length + rightMembers.length,
       weakBranchTotalVolume,

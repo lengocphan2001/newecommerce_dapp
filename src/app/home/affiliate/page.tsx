@@ -406,11 +406,9 @@ export default function AffiliatePage() {
       ? referralInfo.treeStats.right.monthlyVolume
       : parseFloat(String(referralInfo.treeStats.right.monthlyVolume ?? "0")) || 0;
 
-  // Xác định nhánh yếu tại thời điểm đầu tháng (trước khi có doanh số tháng này)
-  const leftVolumeAtStart = leftVolume - leftMonthlyVolume;
-  const rightVolumeAtStart = rightVolume - rightMonthlyVolume;
-  const startOfMonthWeakSide = leftVolumeAtStart <= rightVolumeAtStart ? "left" : "right";
-  const weakBranchMonthlyVolume = startOfMonthWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
+  // Xác định nhánh yếu tại thời điểm hiện tại (năng động theo thời gian thực)
+  const currentWeakSide = leftVolume <= rightVolume ? "left" : "right";
+  const weakBranchMonthlyVolume = currentWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
 
   // Doanh số nhánh yếu tích lũy (cộng dồn doanh số tính thưởng của các tháng từ tháng 7/2026 trở đi)
   const weakBranchTotalVolume = referralInfo.treeStats?.weakBranchTotalVolume !== undefined
