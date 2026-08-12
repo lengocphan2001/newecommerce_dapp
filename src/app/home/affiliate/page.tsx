@@ -408,17 +408,25 @@ export default function AffiliatePage() {
 
   // Xác định nhánh yếu tại thời điểm hiện tại (năng động theo thời gian thực)
   const currentWeakSide = leftVolume <= rightVolume ? "left" : "right";
-  const weakBranchMonthlyVolume = currentWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
+  // Tạm thời hiển thị doanh số về 0 theo yêu cầu
+  // const weakBranchMonthlyVolume = currentWeakSide === "left" ? leftMonthlyVolume : rightMonthlyVolume;
+  const weakBranchMonthlyVolume = 0;
 
   // Doanh số nhánh yếu tích lũy (cộng dồn doanh số tính thưởng của các tháng từ tháng 7/2026 trở đi)
+  // Tạm thời hiển thị doanh số về 0 theo yêu cầu
+  /*
   const weakBranchTotalVolume = referralInfo.treeStats?.weakBranchTotalVolume !== undefined
     ? (typeof referralInfo.treeStats.weakBranchTotalVolume === "number"
         ? referralInfo.treeStats.weakBranchTotalVolume
         : parseFloat(String(referralInfo.treeStats.weakBranchTotalVolume)) || 0)
     : Math.min(leftVolume, rightVolume);
+  */
+  const weakBranchTotalVolume = 0;
 
   // Doanh số chênh lệch (Target Sales Volume) = Nhánh lớn - Nhánh nhỏ
-  const targetVolume = Math.abs(leftVolume - rightVolume);
+  // Tạm thời hiển thị doanh số về 0 theo yêu cầu
+  // const targetVolume = Math.abs(leftVolume - rightVolume);
+  const targetVolume = 0;
 
   const maxCommission = getMaxCommission();
   const receivedCommission =
