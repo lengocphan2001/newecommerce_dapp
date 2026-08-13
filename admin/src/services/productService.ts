@@ -77,6 +77,7 @@ export const productService = {
   update: (id: string, data: Partial<Product>) => api.put<Product>(`/products/${id}`, data),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/products/${id}`),
   togglePush: (id: string) => api.put<Product>(`/products/${id}/push`),
+  reorder: (ids: string[]) => api.put<{ success: boolean }>('/products/reorder', { ids }),
   export: () => api.get('/products/export', { responseType: 'blob' }),
   importCsv: (file: File) => {
     const fd = new FormData();

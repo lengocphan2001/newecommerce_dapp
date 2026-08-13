@@ -23,12 +23,20 @@ export class ProductService {
     return this.productRepository.save(product);
   }
 
+  async reorder(ids: string[]) {
+    for (let i = 0; i < ids.length; i++) {
+      await this.productRepository.update(ids[i], { sortOrder: i + 1 });
+    }
+    return { success: true };
+  }
+
   async findAll(query: any) {
     // Build query with relations
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .orderBy('product.pushedAt', 'DESC')
+      .orderBy('product.sortOrder', 'ASC')
+      .addOrderBy('product.pushedAt', 'DESC')
       .addOrderBy('product.createdAt', 'DESC');
 
     // Filter by category if provided

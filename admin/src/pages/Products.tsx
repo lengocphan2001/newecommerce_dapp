@@ -17,18 +17,48 @@ import {
   Tabs,
   Card,
   Tag,
+  Alert,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined, UploadOutlined, MenuOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
 import { packagesService, Package } from '../services/packagesService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
+import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+
 import api from '../services/api';
 
 const availableTags = ['SALE', 'COMING_SOON', 'HOT', 'NEW', 'SOLD_OUT'];
 const { Title } = Typography;
+
+interface RowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  'data-row-key': string;
+}
+
+const SortableRow: React.FC<RowProps> = ({ children, ...props }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props['data-row-key'],
+  });
+
+  const style: React.CSSProperties = {
+    ...props.style,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    cursor: 'move',
+    ...(isDragging ? { position: 'relative', zIndex: 9999, background: '#fafafa' } : {}),
+  };
+
+  return (
+    <tr {...props} ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </tr>
+  );
+};
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,6 +67,36 @@ const Products: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [productTypeOptions, setProductTypeOptions] = useState<{ code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSortingMode, setIsSortingMode] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const onDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (active.id !== over?.id) {
+      const activeIndex = filteredProducts.findIndex((p) => p.id === active.id);
+      const overIndex = filteredProducts.findIndex((p) => p.id === over?.id);
+      
+      const newProducts = arrayMove(filteredProducts, activeIndex, overIndex);
+      setFilteredProducts(newProducts);
+      setProducts(newProducts);
+
+      setLoading(true);
+      try {
+        await productService.reorder(newProducts.map((p) => p.id));
+        message.success('Cập nhật thứ tự sản phẩm thành công');
+      } catch (error) {
+        message.error('Lỗi cập nhật thứ tự sản phẩm');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form] = Form.useForm();
@@ -565,6 +625,19 @@ const Products: React.FC = () => {
     },
   ];
 
+  const tableColumns = isSortingMode
+    ? [
+        {
+          title: 'Sắp xếp',
+          key: 'sort',
+          width: 80,
+          align: 'center' as const,
+          render: () => <MenuOutlined style={{ cursor: 'move', color: '#1890ff', fontSize: 16 }} />,
+        },
+        ...columns.filter((col) => col.key !== 'actions'),
+      ]
+    : columns;
+
   return (
     <div style={{ width: '100%', overflow: 'hidden' }}>
       <div
@@ -579,40 +652,89 @@ const Products: React.FC = () => {
       >
         <h1 style={{ margin: 0, fontSize: 'clamp(20px, 4vw, 24px)' }}>Products Management</h1>
         <Space wrap>
-          <Input.Search
-            placeholder="Search products..."
-            allowClear
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 250 }}
-          />
-          <Upload
-            accept=".csv,text/csv"
-            showUploadList={false}
-            beforeUpload={(file) => {
-              handleImportCsv(file as any);
-              return false;
+          {!isSortingMode && (
+            <>
+              <Input.Search
+                placeholder="Search products..."
+                allowClear
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ width: 250 }}
+              />
+              <Upload
+                accept=".csv,text/csv"
+                showUploadList={false}
+                beforeUpload={(file) => {
+                  handleImportCsv(file as any);
+                  return false;
+                }}
+              >
+                <Button icon={<UploadOutlined />}>Import CSV</Button>
+              </Upload>
+              <Button icon={<DownloadOutlined />} onClick={handleExport}>
+                Export Products
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                Add Product
+              </Button>
+            </>
+          )}
+          <Button
+            type={isSortingMode ? "primary" : "default"}
+            danger={isSortingMode}
+            icon={<MenuOutlined />}
+            onClick={() => {
+              if (isSortingMode) {
+                // Refresh data when leaving sorting mode
+                fetchProducts();
+              }
+              setIsSortingMode(!isSortingMode);
             }}
           >
-            <Button icon={<UploadOutlined />}>Import CSV</Button>
-          </Upload>
-          <Button icon={<DownloadOutlined />} onClick={handleExport}>
-            Export Products
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            Add Product
+            {isSortingMode ? "Thoát chế độ sắp xếp" : "Sắp xếp sản phẩm"}
           </Button>
         </Space>
       </div>
-      <div style={{ overflowX: 'auto', width: '100%' }}>
-        <Table
-          columns={columns}
-          dataSource={filteredProducts}
-          loading={loading}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 'max-content' }}
+
+      {isSortingMode && (
+        <Alert
+          message="Chế độ sắp xếp sản phẩm đang bật"
+          description="Bạn có thể kéo thả trực tiếp các dòng sản phẩm để thay đổi vị trí của chúng. Phân trang, tìm kiếm và các thao tác chỉnh sửa tạm thời được ẩn để đảm bảo tính chính xác."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
         />
+      )}
+
+      <div style={{ overflowX: 'auto', width: '100%' }}>
+        {isSortingMode ? (
+          <DndContext sensors={sensors} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
+            <SortableContext items={filteredProducts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+              <Table
+                components={{
+                  body: {
+                    row: SortableRow,
+                  },
+                }}
+                columns={tableColumns}
+                dataSource={filteredProducts}
+                loading={loading}
+                rowKey="id"
+                pagination={false}
+                scroll={{ x: 'max-content' }}
+              />
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <Table
+            columns={tableColumns}
+            dataSource={filteredProducts}
+            loading={loading}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 'max-content' }}
+          />
+        )}
       </div>
       <Modal
         title={editingProduct ? 'Edit Product' : 'Create Product'}

@@ -164,6 +164,15 @@ export class ProductController {
     return this.productService.create(createProductDto);
   }
 
+  @Put('reorder')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async reorder(@Body() body: { ids: string[] }) {
+    if (!body || !Array.isArray(body.ids)) {
+      throw new BadRequestException('ids must be an array of product ids');
+    }
+    return this.productService.reorder(body.ids);
+  }
+
   @Put(':id/push')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async togglePush(@Param('id') id: string) {
