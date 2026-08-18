@@ -1189,19 +1189,15 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Doanh số tính thưởng (Nhánh yếu tháng này)">
                   <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>
-                    ${(userDetail.treeStats?.left && userDetail.treeStats?.right
-                      ? (Number(userDetail.treeStats.left.volume || 0) <= Number(userDetail.treeStats.right.volume || 0)
-                        ? Number(userDetail.treeStats.left.monthlyVolume || 0)
-                        : Number(userDetail.treeStats.right.monthlyVolume || 0))
-                      : 0).toLocaleString()} USDT
+                    ${Math.min(
+                      Number(userDetail.treeStats?.left?.monthlyVolume || 0),
+                      Number(userDetail.treeStats?.right?.monthlyVolume || 0)
+                    ).toLocaleString()} USDT
                   </span>
                 </Descriptions.Item>
                 <Descriptions.Item label="Doanh số tích lũy (Nhánh yếu tích lũy)">
                   <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
-                    ${Math.min(
-                      Number(userDetail.user.leftBranchTotal || 0),
-                      Number(userDetail.user.rightBranchTotal || 0)
-                    ).toLocaleString()} USDT
+                    ${Number(userDetail.treeStats?.weakBranchTotalVolume || 0).toLocaleString()} USDT
                   </span>
                 </Descriptions.Item>
                 <Descriptions.Item label="Doanh số chênh lệch">
@@ -1551,10 +1547,9 @@ const Users: React.FC = () => {
                 const rightVolumeVal = Number(userDetail.treeStats?.right?.volume || 0);
                 const leftMonthlyVal = Number(userDetail.treeStats?.left?.monthlyVolume || 0);
                 const rightMonthlyVal = Number(userDetail.treeStats?.right?.monthlyVolume || 0);
-                const currentWeakSideVal = leftVolumeVal <= rightVolumeVal ? "left" : "right";
 
-                const weakBranchMonthlyVal = currentWeakSideVal === "left" ? leftMonthlyVal : rightMonthlyVal;
-                const weakBranchAccumulatedVal = Math.min(leftVolumeVal, rightVolumeVal);
+                const weakBranchMonthlyVal = Math.min(leftMonthlyVal, rightMonthlyVal);
+                const weakBranchAccumulatedVal = Number(userDetail.treeStats?.weakBranchTotalVolume || 0);
                 const targetVolumeVal = Math.abs(leftVolumeVal - rightVolumeVal);
 
                 return (
@@ -1563,14 +1558,20 @@ const Users: React.FC = () => {
                       <Descriptions.Item label="Left Branch Count">
                         {userDetail.treeStats?.left?.count || 0}
                       </Descriptions.Item>
-                      <Descriptions.Item label="Left Branch Volume">
+                      <Descriptions.Item label="Left Branch Volume (Total)">
                         ${leftVolumeVal.toLocaleString()} USDT
                       </Descriptions.Item>
                       <Descriptions.Item label="Right Branch Count">
                         {userDetail.treeStats?.right?.count || 0}
                       </Descriptions.Item>
-                      <Descriptions.Item label="Right Branch Volume">
+                      <Descriptions.Item label="Right Branch Volume (Total)">
                         ${rightVolumeVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Left Branch Monthly Volume">
+                        ${leftMonthlyVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Right Branch Monthly Volume">
+                        ${rightMonthlyVal.toLocaleString()} USDT
                       </Descriptions.Item>
                       <Descriptions.Item label="Total Members">
                         {userDetail.treeStats?.total || 0}
