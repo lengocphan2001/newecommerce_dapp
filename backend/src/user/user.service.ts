@@ -643,7 +643,6 @@ export class UserService {
 
       const orders = await this.orderRepository
         .createQueryBuilder('order')
-        .select(['order.items', 'order.status'])
         .where('order.userId IN (:...ids)', { ids })
         .andWhere('order.status IN (:...statuses)', {
           statuses: [
