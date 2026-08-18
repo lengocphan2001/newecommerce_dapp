@@ -424,7 +424,47 @@ export class UserService {
     leftBranchTotal: number,
     rightBranchTotal: number,
   ): Promise<number> {
-    return Math.min(leftBranchTotal, rightBranchTotal);
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['createdAt'],
+    });
+    if (!user) return 0;
+
+    const start = new Date(user.createdAt || new Date());
+    const now = new Date();
+
+    // Mốc bắt đầu tích lũy tối thiểu là tháng hiện tại (Tháng 8/2026) theo quy định mới
+    let startYear = 2026;
+    let startMonth = 8; // Tháng 8
+
+    // Nếu user đăng ký sau tháng 8/2026, ta tính từ tháng đăng ký của user
+    const userRegYear = start.getFullYear();
+    const userRegMonth = start.getMonth() + 1;
+
+    if (userRegYear > startYear || (userRegYear === startYear && userRegMonth > startMonth)) {
+      startYear = userRegYear;
+      startMonth = userRegMonth;
+    }
+
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    let totalAccumulated = 0;
+    let y = startYear;
+    let m = startMonth;
+
+    while (y < currentYear || (y === currentYear && m <= currentMonth)) {
+      const { left, right } = await this.getBranchMonthlyVolume(userId, y, m);
+      totalAccumulated += Math.min(left, right);
+
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+
+    return totalAccumulated;
   }
 
   async getBinaryTreeStats(userId: string) {
