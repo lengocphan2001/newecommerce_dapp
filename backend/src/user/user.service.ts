@@ -449,12 +449,17 @@ export class UserService {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
+    // Lấy trước IDs của các thành viên trong nhánh để tối ưu hóa truy vấn trong vòng lặp
+    const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
+    const leftIds = leftMembers.map((m) => m.id);
+    const rightIds = rightMembers.map((m) => m.id);
+
     let totalAccumulated = 0;
     let y = startYear;
     let m = startMonth;
 
     while (y < currentYear || (y === currentYear && m <= currentMonth)) {
-      const { left, right } = await this.getBranchMonthlyVolume(userId, y, m);
+      const { left, right } = await this.getBranchMonthlyVolume(userId, y, m, leftIds, rightIds);
       totalAccumulated += Math.min(left, right);
 
       m++;
@@ -478,25 +483,8 @@ export class UserService {
     const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    const endOfMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-
-    const getMonthlyVolume = async (side: 'left' | 'right'): Promise<number> => {
-      const row = await this.branchVolumeLogRepository
-        .createQueryBuilder('log')
-        .select('COALESCE(SUM(log.amount), 0)', 'sum')
-        .where('log.userId = :userId', { userId })
-        .andWhere('log.side = :side', { side })
-        .andWhere('log.createdAt >= :start', { start: startOfMonth })
-        .andWhere('log.createdAt < :end', { end: endOfMonth })
-        .getRawOne<{ sum: string }>();
-      return parseFloat(row?.sum || '0') || 0;
-    };
-
-    const [leftMonthlyVolume, rightMonthlyVolume] = await Promise.all([
-      getMonthlyVolume('left'),
-      getMonthlyVolume('right'),
-    ]);
+    const { left: leftMonthlyVolume, right: rightMonthlyVolume } =
+      await this.getBranchMonthlyVolume(userId, now.getFullYear(), now.getMonth() + 1);
 
     const weakBranchTotalVolume = await this.calculateWeakBranchAccumulatedVolume(
       userId,
@@ -598,25 +586,8 @@ export class UserService {
 
     // 4. Calculate monthly volume for left & right branch
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    const endOfMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-
-    const getMonthlyVolume = async (side: 'left' | 'right'): Promise<number> => {
-      const row = await this.branchVolumeLogRepository
-        .createQueryBuilder('log')
-        .select('COALESCE(SUM(log.amount), 0)', 'sum')
-        .where('log.userId = :userId', { userId })
-        .andWhere('log.side = :side', { side })
-        .andWhere('log.createdAt >= :start', { start: startOfMonth })
-        .andWhere('log.createdAt < :end', { end: endOfMonth })
-        .getRawOne<{ sum: string }>();
-      return parseFloat(row?.sum || '0') || 0;
-    };
-
-    const [leftMonthlyVolume, rightMonthlyVolume] = await Promise.all([
-      getMonthlyVolume('left'),
-      getMonthlyVolume('right'),
-    ]);
+    const { left: leftMonthlyVolume, right: rightMonthlyVolume } =
+      await this.getBranchMonthlyVolume(userId, now.getFullYear(), now.getMonth() + 1);
 
     const weakBranchTotalVolume = await this.calculateWeakBranchAccumulatedVolume(
       userId,
@@ -646,33 +617,61 @@ export class UserService {
   }
 
   /**
-   * Tính tổng doanh số nhánh trái / phải trong tháng chỉ định.
-   * Lấy trực tiếp từ lịch sử biến động doanh số nhánh (BranchVolumeLog).
+   * Tính tổng doanh số nhánh trái / phải trong tháng chỉ định dựa trên đơn hàng (Order) của các thành viên nhánh.
    */
   async getBranchMonthlyVolume(
     userId: string,
     year: number,
     month: number,
+    leftIds?: string[],
+    rightIds?: string[],
   ): Promise<{ left: number; right: number }> {
-    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
-    const end   = new Date(year, month, 1, 0, 0, 0, 0);
+    let lIds = leftIds;
+    let rIds = rightIds;
 
-    const getMonthlyVolume = async (side: 'left' | 'right'): Promise<number> => {
-      const row = await this.branchVolumeLogRepository
-        .createQueryBuilder('log')
-        .select('COALESCE(SUM(log.amount), 0)', 'sum')
-        .where('log.userId = :userId', { userId })
-        .andWhere('log.side = :side', { side })
-        .andWhere('log.createdAt >= :start', { start })
-        .andWhere('log.createdAt < :end', { end })
-        .getRawOne<{ sum: string }>();
-      return parseFloat(row?.sum || '0') || 0;
+    if (!lIds || !rIds) {
+      const { leftMembers, rightMembers } = await this.getBinaryTreeMembers(userId);
+      lIds = leftMembers.map((m) => m.id);
+      rIds = rightMembers.map((m) => m.id);
+    }
+
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end = new Date(year, month, 1, 0, 0, 0, 0);
+
+    const getVolumeForIds = async (ids: string[]): Promise<number> => {
+      if (ids.length === 0) return 0;
+
+      const orders = await this.orderRepository
+        .createQueryBuilder('order')
+        .select(['order.items', 'order.status'])
+        .where('order.userId IN (:...ids)', { ids })
+        .andWhere('order.status IN (:...statuses)', {
+          statuses: [
+            OrderStatus.CONFIRMED,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+          ],
+        })
+        .andWhere('order.createdAt >= :start', { start })
+        .andWhere('order.createdAt < :end', { end })
+        .getMany();
+
+      let sum = 0;
+      for (const order of orders) {
+        const items = Array.isArray(order.items) ? order.items : [];
+        for (const item of items) {
+          sum += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+        }
+      }
+      return sum;
     };
 
     const [left, right] = await Promise.all([
-      getMonthlyVolume('left'),
-      getMonthlyVolume('right'),
+      getVolumeForIds(lIds),
+      getVolumeForIds(rIds),
     ]);
+
     return { left, right };
   }
 
