@@ -173,4 +173,8 @@ export class UpdateUserDto {
   @Min(0)
   @IsOptional()
   customMaxCommission?: number | null;
+
+  @IsString()
+  @IsOptional()
+  manualRank?: string;
 }

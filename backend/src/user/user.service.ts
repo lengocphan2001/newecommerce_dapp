@@ -74,6 +74,7 @@ export class UserService {
         'u.reconsumptionWalletBalance AS reconsumptionWalletBalance',
         'kyc_latest.status AS kycStatus',
         'kyc_latest.createdAt AS kycSubmittedAt',
+        'u.manualRank AS manualRank',
       ])
       .orderBy('u.createdAt', 'DESC');
 
@@ -99,6 +100,7 @@ export class UserService {
       reconsumptionWalletBalance: number | string;
       kycStatus: string | null;
       kycSubmittedAt: Date | string | null;
+      manualRank: string | null;
     }>();
 
     return rows.map((row) => ({
@@ -116,6 +118,7 @@ export class UserService {
       reconsumptionWalletBalance: Number(row.reconsumptionWalletBalance || 0),
       kycStatus: row.kycStatus ?? 'UNVERIFIED',
       kycSubmittedAt: row.kycSubmittedAt ?? null,
+      manualRank: row.manualRank ?? 'NONE',
     }));
   }
 

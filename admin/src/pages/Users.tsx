@@ -67,6 +67,7 @@ function buildEditFormValues(u: Record<string, unknown>) {
     withdrawWalletBalance: toNum(u.withdrawWalletBalance),
     reconsumptionWalletBalance: toNum(u.reconsumptionWalletBalance),
     customMaxCommission: u.customMaxCommission !== undefined && u.customMaxCommission !== null ? toNum(u.customMaxCommission) : undefined,
+    manualRank: u.manualRank ?? 'NONE',
   };
 }
 
@@ -242,6 +243,7 @@ const Users: React.FC = () => {
           withdrawWalletBalance: values.withdrawWalletBalance,
           reconsumptionWalletBalance: values.reconsumptionWalletBalance,
           customMaxCommission: values.customMaxCommission !== undefined && values.customMaxCommission !== '' && values.customMaxCommission !== null ? Number(values.customMaxCommission) : null,
+          manualRank: values.manualRank,
         };
 
         if (values.referralUserId !== undefined) {
@@ -572,6 +574,25 @@ const Users: React.FC = () => {
     return <Tag color="default">{packageType || 'User'}</Tag>;
   };
 
+  const renderRankTag = (rank?: string) => {
+    if (!rank || rank === 'NONE' || rank === 'C0') {
+      return <Tag color="default">NONE</Tag>;
+    }
+    const colorMap: Record<string, string> = {
+      DAILY: 'blue',
+      C1: 'orange',
+      C2: 'cyan',
+      C3: 'gold',
+      C4: 'purple',
+      C5: 'magenta',
+      C6: 'red',
+      C7: 'volcano',
+      C8: 'geekblue',
+      C9: 'gold',
+    };
+    return <Tag color={colorMap[rank] || 'purple'} style={{ fontWeight: 'bold' }}>{rank}</Tag>;
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -653,6 +674,12 @@ const Users: React.FC = () => {
           </Space>
         );
       },
+    },
+    {
+      title: 'Cấp bậc Đại lý',
+      dataIndex: 'manualRank',
+      key: 'manualRank',
+      render: (manualRank: string) => renderRankTag(manualRank),
     },
     {
       title: 'Actions',
@@ -947,6 +974,21 @@ const Users: React.FC = () => {
                               {p.code === 'DT' || p.code === 'NPP' ? 'ĐT (Đối tác)' : p.code === 'TV' ? 'Thành Viên' : p.code}
                             </Select.Option>
                           ))}
+                      </Select>
+                    </Form.Item>
+                    <Form.Item name="manualRank" label="Cấp bậc đại lý (Manual Rank)">
+                      <Select placeholder="Chọn cấp bậc">
+                        <Select.Option value="NONE">NONE</Select.Option>
+                        <Select.Option value="DAILY">DAILY</Select.Option>
+                        <Select.Option value="C1">C1</Select.Option>
+                        <Select.Option value="C2">C2</Select.Option>
+                        <Select.Option value="C3">C3</Select.Option>
+                        <Select.Option value="C4">C4</Select.Option>
+                        <Select.Option value="C5">C5</Select.Option>
+                        <Select.Option value="C6">C6</Select.Option>
+                        <Select.Option value="C7">C7</Select.Option>
+                        <Select.Option value="C8">C8</Select.Option>
+                        <Select.Option value="C9">C9</Select.Option>
                       </Select>
                     </Form.Item>
                     <Form.Item name="customMaxCommission" label="Custom Max Commission Limit (override)">

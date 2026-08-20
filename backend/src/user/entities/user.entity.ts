@@ -77,6 +77,9 @@ export class User {
   @Column({ default: 'NONE' })
   packageType: string; // Loại gói user (dynamic code)
 
+  @Column({ default: 'NONE' })
+  manualRank: string; // Cấp bậc đại lý set thủ công (NONE, DAILY, C1, C2, C3, C4, C5, C6, C7, C8, C9)
+
   /** Rank lãnh đạo do admin thiết lập hàng tháng dựa trên doanh số */
   @Column({
     type: 'enum',

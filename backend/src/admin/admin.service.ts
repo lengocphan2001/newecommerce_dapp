@@ -410,6 +410,22 @@ export class AdminService {
     return this.getUserDetail(userId);
   }
 
+  async updateUserManualRank(userId: string, rank: string) {
+    const validRanks = ['NONE', 'DAILY', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
+    const upperRank = (rank || '').toUpperCase().trim();
+    if (!validRanks.includes(upperRank)) {
+      throw new BadRequestException(`Cấp bậc không hợp lệ. Cho phép: ${validRanks.join(', ')}`);
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userRepository.update(userId, { manualRank: upperRank });
+    return this.getUserDetail(userId);
+  }
+
   /**
    * Trừ số dư ví rút tiền (withdrawWalletBalance). Không tạo WalletWithdrawRequest.
    * Dùng transaction + khóa dòng để tránh race khi trừ.

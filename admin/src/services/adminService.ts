@@ -8,6 +8,8 @@ export const adminService = {
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
   updateUserFakeCommission: (id: string, fakeReceivedCommission: number) =>
     api.patch(`/admin/users/${id}/fake-commission`, { fakeReceivedCommission }),
+  updateUserManualRank: (id: string, rank: string) =>
+    api.patch(`/admin/users/${id}/manual-rank`, { rank }),
   deductUserWithdrawWallet: (
     id: string,
     data: { amount: number; reason?: string },

@@ -32,6 +32,7 @@ export interface User {
   customMaxCommission?: number | null;
   kycStatus?: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   kycSubmittedAt?: string | null;
+  manualRank?: string;
   createdAt?: string;
 }
 

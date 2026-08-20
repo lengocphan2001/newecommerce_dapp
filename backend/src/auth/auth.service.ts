@@ -791,13 +791,21 @@ export class AuthService {
       emailVerified: user.emailVerified,
       monthlyStats: latestStats ? {
         month: latestStats.month,
-        calculatedRank: latestStats.calculatedRank,
+        calculatedRank: user.manualRank && user.manualRank !== 'NONE' ? user.manualRank : latestStats.calculatedRank,
         groupSales: formatDecimal(latestStats.groupSales),
         personalSales: formatDecimal(latestStats.personalSales),
         groupRewardAmount: formatDecimal(latestStats.groupRewardAmount),
         globalShareAmount: formatDecimal(latestStats.globalShareAmount),
         isProcessed: latestStats.isProcessed,
-      } : null,
+      } : (user.manualRank && user.manualRank !== 'NONE' ? {
+        month: 'current',
+        calculatedRank: user.manualRank,
+        groupSales: '0.00',
+        personalSales: '0.00',
+        groupRewardAmount: '0.00',
+        globalShareAmount: '0.00',
+        isProcessed: false,
+      } : null),
     };
   }
 

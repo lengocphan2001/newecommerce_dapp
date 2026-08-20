@@ -1519,6 +1519,11 @@ export class CommissionService {
     const num = (v: string | null | undefined): number =>
       v === null || v === undefined ? 0 : parseFloat(String(v)) || 0;
 
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'manualRank'],
+    });
+
     const latestStats = await this.userMonthlyStatsRepository.findOne({
       where: { userId },
       order: { month: 'DESC' },
@@ -1534,13 +1539,21 @@ export class CommissionService {
       },
       monthlyStats: latestStats ? {
         month: latestStats.month,
-        calculatedRank: latestStats.calculatedRank,
+        calculatedRank: user && user.manualRank && user.manualRank !== 'NONE' ? user.manualRank : latestStats.calculatedRank,
         groupSales: Number(latestStats.groupSales) || 0,
         personalSales: Number(latestStats.personalSales) || 0,
         groupRewardAmount: Number(latestStats.groupRewardAmount) || 0,
         globalShareAmount: Number(latestStats.globalShareAmount) || 0,
         isProcessed: latestStats.isProcessed,
-      } : null,
+      } : (user && user.manualRank && user.manualRank !== 'NONE' ? {
+        month: 'current',
+        calculatedRank: user.manualRank,
+        groupSales: 0,
+        personalSales: 0,
+        groupRewardAmount: 0,
+        globalShareAmount: 0,
+        isProcessed: false,
+      } : null),
     };
   }
 
@@ -2042,7 +2055,7 @@ export class CommissionService {
 
     // 2. Fetch all users
     const users = await this.userRepository.find({
-      select: ['id', 'username', 'email', 'referralUserId', 'totalPurchaseAmount'],
+      select: ['id', 'username', 'email', 'referralUserId', 'totalPurchaseAmount', 'manualRank'],
     });
 
     // 3. Fetch all orders in the month
@@ -2113,8 +2126,12 @@ export class CommissionService {
 
     // Step 5.1: Is user Đại lý? (Lifetime purchase >= 15M VND / $600)
     for (const u of users) {
-      const isDaiLy = Number(u.totalPurchaseAmount) >= 600;
-      ranksMap.set(u.id, isDaiLy ? 'DAILY' : 'C0');
+      if (u.manualRank && u.manualRank !== 'NONE') {
+        ranksMap.set(u.id, u.manualRank);
+      } else {
+        const isDaiLy = Number(u.totalPurchaseAmount) >= 600;
+        ranksMap.set(u.id, isDaiLy ? 'DAILY' : 'C0');
+      }
     }
 
     // Ranks values hierarchy helper
@@ -2129,6 +2146,14 @@ export class CommissionService {
 
     for (const r of ranksToProcess) {
       for (const u of users) {
+        const currentRank = ranksMap.get(u.id) || 'C0';
+        const rankOrder = ['C0', 'DAILY', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
+        if (u.manualRank && u.manualRank !== 'NONE') {
+          if (rankOrder.indexOf(currentRank) >= rankOrder.indexOf(r)) {
+            continue;
+          }
+        }
+
         const f1Ids = f1Map.get(u.id) || [];
         let isPromoted = false;
 

@@ -175,6 +175,15 @@ export class AdminController {
     );
   }
 
+  @Patch('users/:id/manual-rank')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async updateUserManualRank(
+    @Param('id') id: string,
+    @Body('rank') rank: string,
+  ) {
+    return this.adminService.updateUserManualRank(id, rank);
+  }
+
   /** Trừ số dư ví rút tiền (USDT) — không tạo yêu cầu rút; dùng khi điều chỉnh sai sót. */
   @Post('users/:id/withdraw-wallet/deduct')
   @UseGuards(JwtAuthGuard, AdminGuard)
