@@ -72,6 +72,7 @@ export default function AffiliatePage() {
     packageType: string;
     createdAt: string;
     directReferralCount: number;
+    binaryTeam?: 'left' | 'right' | null;
   }>>([]);
   const [f1Loading, setF1Loading] = useState(false);
 
@@ -428,6 +429,15 @@ export default function AffiliatePage() {
       ? parseFloat(referralInfo.fakeReceivedCommission || "0")
       : Number(referralInfo.fakeReceivedCommission) || 0);
 
+  const teams = [
+    { name: "A", monthlyVolume: leftMonthlyVolume, totalVolume: leftVolume, color: "bg-blue-500" },
+    { name: "B", monthlyVolume: rightMonthlyVolume, totalVolume: rightVolume, color: "bg-purple-500" },
+    { name: "C", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+    { name: "D", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+    { name: "E", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+    { name: "F", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+  ];
+
   return (
     <div className="flex flex-col bg-background-gray antialiased">
       {/* Content Wrapper */}
@@ -590,7 +600,7 @@ export default function AffiliatePage() {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
                       <span className="text-sm font-bold text-blue-800">
-                        {lang === "vi" ? "Doanh số tích lũy" : "Weak Leg Volume"}
+                        {lang === "vi" ? "Doanh số tích lũy" : "Bonus Calculation Volume"}
                       </span>
                     </div>
                     <p className="text-2xl font-bold text-blue-700">
@@ -603,7 +613,7 @@ export default function AffiliatePage() {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
                       <span className="text-sm font-bold text-purple-800">
-                        {lang === "vi" ? "Doanh số chênh lệch" : "Target Sales Volume"}
+                        {lang === "vi" ? "Doanh số chênh lệch" : "Adjustment Volume"}
                       </span>
                     </div>
                     <p className="text-2xl font-bold text-purple-700">
@@ -611,6 +621,49 @@ export default function AffiliatePage() {
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Doanh số Đội nhóm */}
+          <div className="px-4 py-2">
+            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-bold text-text-dark mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">groups</span>
+                {t("teamSalesTitle")}
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                {teams.map((team) => (
+                  <div key={team.name} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`h-6 w-6 rounded-full ${team.color} flex items-center justify-center text-white text-[10px] font-bold`}>
+                        {team.name}
+                      </div>
+                      <span className="text-xs font-bold text-gray-700">Team {team.name}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-gray-500">
+                        {t("monthlySales")}:
+                      </div>
+                      <div className="text-xs font-bold text-gray-800">
+                        {formatPrice(team.monthlyVolume)} PV
+                      </div>
+                      <div className="text-[9px] text-gray-400">
+                        {formatPriceVND(team.monthlyVolume)}
+                      </div>
+                      
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        {t("accumulatedSales")}:
+                      </div>
+                      <div className="text-xs font-bold text-gray-800">
+                        {formatPrice(team.totalVolume)} PV
+                      </div>
+                      <div className="text-[9px] text-gray-400">
+                        {formatPriceVND(team.totalVolume)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -635,6 +688,7 @@ export default function AffiliatePage() {
                           <th className="py-2 px-1 font-medium">{t("username")}</th>
                           <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("fullName")}</th>
                           <th className="py-2 px-1 font-medium">{t("rank")}</th>
+                          <th className="py-2 px-1 font-medium">{t("f1Team")}</th>
                           <th className="py-2 px-1 font-medium text-center">{t("f1DirectReferrals")}</th>
                           <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("f1JoinedDate")}</th>
                         </tr>
@@ -646,6 +700,22 @@ export default function AffiliatePage() {
                             <td className="py-2.5 px-1 text-gray-600 hidden sm:table-cell truncate max-w-[120px]">{f1.fullName || "-"}</td>
                             <td className="py-2.5 px-1">
                               <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{f1.packageType || "NONE"}</span>
+                            </td>
+                            <td className="py-2.5 px-1">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                f1.binaryTeam === 'left'
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  : f1.binaryTeam === 'right'
+                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                  : 'bg-gray-50 text-gray-500 border border-gray-200'
+                              }`}>
+                                {f1.binaryTeam === 'left'
+                                  ? (lang === 'vi' ? 'Team 1 (Trái)' : lang === 'ko' ? '팀 1 (좌)' : 'Team 1 (Left)')
+                                  : f1.binaryTeam === 'right'
+                                  ? (lang === 'vi' ? 'Team 2 (Phải)' : lang === 'ko' ? '팀 2 (우)' : 'Team 2 (Right)')
+                                  : '-'
+                                }
+                              </span>
                             </td>
                             <td className="py-2.5 px-1 text-center">
                               <span className="inline-flex items-center justify-center min-w-[1.75rem] font-semibold text-primary-dark bg-primary/10 rounded-full text-xs">

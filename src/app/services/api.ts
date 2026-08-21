@@ -401,6 +401,7 @@ export const api = {
     totalPurchaseAmount: number;
     createdAt: string;
     directReferralCount: number;
+    binaryTeam?: 'left' | 'right' | null;
   }>> {
     const token = localStorage.getItem('token');
     if (!token) {

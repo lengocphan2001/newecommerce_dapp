@@ -8,7 +8,7 @@ import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
 
 export default function F1ListPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [f1List, setF1List] = useState<Array<{
     id: string;
@@ -19,6 +19,7 @@ export default function F1ListPage() {
     totalPurchaseAmount: number;
     createdAt: string;
     directReferralCount: number;
+    binaryTeam?: 'left' | 'right' | null;
   }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -82,11 +83,12 @@ export default function F1ListPage() {
               ) : (
                 <div className="overflow-x-auto -mx-1">
                   <table className="w-full text-sm border-collapse">
-                    <thead>
+                     <thead>
                       <tr className="border-b border-gray-200 text-left text-gray-600">
                         <th className="py-2 px-1 font-medium">{t("username")}</th>
                         <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("fullName")}</th>
                         <th className="py-2 px-1 font-medium">{t("rank")}</th>
+                        <th className="py-2 px-1 font-medium">{t("f1Team")}</th>
                         <th className="py-2 px-1 font-medium text-center">{t("f1DirectReferrals")}</th>
                         <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("f1JoinedDate")}</th>
                       </tr>
@@ -111,6 +113,22 @@ export default function F1ListPage() {
                                 : f1.packageType === 'TV'
                                 ? 'Thành Viên'
                                 : f1.packageType || 'NONE'
+                              }
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-1">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              f1.binaryTeam === 'left'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : f1.binaryTeam === 'right'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : 'bg-gray-50 text-gray-500 border border-gray-200'
+                            }`}>
+                              {f1.binaryTeam === 'left'
+                                ? (lang === 'vi' ? 'Team 1 (Trái)' : lang === 'ko' ? '팀 1 (좌)' : 'Team 1 (Left)')
+                                : f1.binaryTeam === 'right'
+                                ? (lang === 'vi' ? 'Team 2 (Phải)' : lang === 'ko' ? '팀 2 (우)' : 'Team 2 (Right)')
+                                : '-'
                               }
                             </span>
                           </td>

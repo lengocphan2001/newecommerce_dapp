@@ -370,6 +370,7 @@ export class UserService {
       totalPurchaseAmount: number;
       position: string | null;
       directReferralCount: number;
+      binaryTeam?: 'left' | 'right' | null;
     }>
   > {
     const f1Users = await this.userRepository.find({
@@ -405,19 +406,42 @@ export class UserService {
       }
     }
 
-    const result = f1Users.map((u) => ({
-      id: u.id,
-      username: u.username,
-      fullName: u.fullName,
-      email: u.email,
-      phone: u.phone,
-      status: u.status,
-      packageType: u.packageType || 'NONE',
-      createdAt: u.createdAt,
-      totalPurchaseAmount: u.totalPurchaseAmount,
-      position: u.position,
-      directReferralCount: countsByReferrer.get(u.id) || 0,
-    }));
+    const allUsers = await this.userRepository.find({
+      select: ['id', 'parentId', 'position'],
+    });
+    const userMap = new Map<string, { parentId: string | null; position: 'left' | 'right' | null }>();
+    for (const u of allUsers) {
+      userMap.set(u.id, { parentId: u.parentId, position: u.position });
+    }
+
+    const result = f1Users.map((u) => {
+      let binaryTeam: 'left' | 'right' | null = null;
+      let currentId: string | null = u.id;
+      while (currentId) {
+        const parentInfo = userMap.get(currentId);
+        if (!parentInfo) break;
+        if (parentInfo.parentId === userId) {
+          binaryTeam = parentInfo.position;
+          break;
+        }
+        currentId = parentInfo.parentId;
+      }
+
+      return {
+        id: u.id,
+        username: u.username,
+        fullName: u.fullName,
+        email: u.email,
+        phone: u.phone,
+        status: u.status,
+        packageType: u.packageType || 'NONE',
+        createdAt: u.createdAt,
+        totalPurchaseAmount: u.totalPurchaseAmount,
+        position: u.position,
+        directReferralCount: countsByReferrer.get(u.id) || 0,
+        binaryTeam,
+      };
+    });
 
     return result;
   }

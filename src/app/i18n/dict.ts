@@ -407,6 +407,7 @@ export type I18nKey =
   | "enter6DigitCode"
   | "usernameInvalidNoSpecial"
   | "selectSide"
+  | "f1Team"
   | "milestoneReward"
   | "reconsumptionRequiredDesc"
   | "maxCommissionReached"
@@ -452,7 +453,10 @@ export type I18nKey =
   | "packagesPendingWaitAdmin"
   | "packagesLoading"
   | "packagesNoneAvailable"
-  | "packagesBuy";
+  | "packagesBuy"
+  | "teamSalesTitle"
+  | "monthlySales"
+  | "accumulatedSales";
 
 export const DEFAULT_LANG: Lang = "vi";
 
@@ -861,6 +865,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     goToKyc: "Đến trang xác minh",
     enter6DigitCode: "Vui lòng nhập đủ 6 số.",
     selectSide: "Chọn team",
+    f1Team: "Team/Nhánh",
     reconsumptionRequiredDesc: "Bạn đã đạt ngưỡng hoa hồng tối đa. Vui lòng mua thêm gói để tiếp tục nhận thưởng.",
     maxCommissionReached: "Giới Hạn Hoa Hồng",
     whyLocked: "Tại sao bị khóa?",
@@ -905,7 +910,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycBankName: "Tên ngân hàng",
     kycBankAccountNumber: "Số tài khoản",
     kycBankAccountHolder: "Chủ tài khoản",
-    kycBankBranch: "Chi nhánh"
+    kycBankBranch: "Chi nhánh",
+    teamSalesTitle: "Doanh số Đội nhóm",
+    monthlySales: "Doanh số tháng này",
+    accumulatedSales: "Doanh số tích lũy"
   },
   en: {
     appName: "Shoplife",
@@ -1311,6 +1319,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     goToKyc: "Go to verification",
     enter6DigitCode: "Please enter 6 digits.",
     selectSide: "Select Team",
+    f1Team: "Team/Branch",
     reconsumptionRequiredDesc: "You have reached the maximum commission threshold. Please purchase more packages to continue receiving rewards.",
     maxCommissionReached: "Maximum Commission Reached",
     whyLocked: "Why is it locked?",
@@ -1355,7 +1364,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycBankName: "Bank name",
     kycBankAccountNumber: "Account number",
     kycBankAccountHolder: "Account holder name",
-    kycBankBranch: "Branch"
+    kycBankBranch: "Branch",
+    teamSalesTitle: "Team Sales Volume",
+    monthlySales: "Monthly Sales",
+    accumulatedSales: "Accumulated Sales"
   },
   ko: {
     appName: "Shoplife",
@@ -1761,6 +1773,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     goToKyc: "인증 페이지로",
     enter6DigitCode: "6자리를 입력하세요.",
     selectSide: "팀 선택",
+    f1Team: "팀/지점",
     reconsumptionRequiredDesc: "최대 커미션 기준에 도달했습니다. 보상을 계속 받으려면 패키지를 추가로 구매하십시오.",
     maxCommissionReached: "최대 커미션 도달",
     whyLocked: "왜 잠겼나요?",
@@ -1805,6 +1818,9 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycBankName: "은행명",
     kycBankAccountNumber: "계좌번호",
     kycBankAccountHolder: "예금주",
-    kycBankBranch: "지점"
+    kycBankBranch: "지점",
+    teamSalesTitle: "팀 매출",
+    monthlySales: "이번 달 매출",
+    accumulatedSales: "누적 매출"
   },
 };
