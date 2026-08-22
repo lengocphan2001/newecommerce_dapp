@@ -802,8 +802,8 @@ export class UserService {
       FROM downline
     `, [parentId]);
 
-    const leftMembers = [];
-    const rightMembers = [];
+    const leftMembers: any[] = [];
+    const rightMembers: any[] = [];
 
     for (const d of descendants) {
       const formattedMember = {
