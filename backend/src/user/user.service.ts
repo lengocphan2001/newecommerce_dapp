@@ -406,26 +406,33 @@ export class UserService {
       }
     }
 
-    const allUsers = await this.userRepository.find({
-      select: ['id', 'parentId', 'position'],
-    });
-    const userMap = new Map<string, { parentId: string | null; position: 'left' | 'right' | null }>();
-    for (const u of allUsers) {
-      userMap.set(u.id, { parentId: u.parentId, position: u.position });
+    const isPostgres = this.userRepository.metadata.connection.options.type === 'postgres';
+    const qParentId = isPostgres ? '"parentId"' : 'parentId';
+    const param = isPostgres ? '$1' : '?';
+
+    // Fetch only descendants of the current user using recursive CTE
+    const descendants: Array<{ id: string; branch: 'left' | 'right' }> = await this.userRepository.query(`
+      WITH RECURSIVE downline AS (
+        SELECT id, ${qParentId}, position as branch
+        FROM users
+        WHERE ${qParentId} = ${param} AND position IN ('left', 'right')
+        
+        UNION ALL
+        
+        SELECT u.id, u.${qParentId}, d.branch
+        FROM users u
+        INNER JOIN downline d ON u.${qParentId} = d.id
+      )
+      SELECT id, branch FROM downline
+    `, [userId]);
+
+    const descendantBranchMap = new Map<string, 'left' | 'right'>();
+    for (const d of descendants) {
+      descendantBranchMap.set(d.id, d.branch);
     }
 
     const result = f1Users.map((u) => {
-      let binaryTeam: 'left' | 'right' | null = null;
-      let currentId: string | null = u.id;
-      while (currentId) {
-        const parentInfo = userMap.get(currentId);
-        if (!parentInfo) break;
-        if (parentInfo.parentId === userId) {
-          binaryTeam = parentInfo.position;
-          break;
-        }
-        currentId = parentInfo.parentId;
-      }
+      const binaryTeam = descendantBranchMap.get(u.id) || null;
 
       return {
         id: u.id,
@@ -553,68 +560,56 @@ export class UserService {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    // 1. Fetch all users with only necessary columns (1 single query)
-    const users = await this.userRepository.find({
-      select: ['id', 'parentId', 'position', 'createdAt'],
-    });
+    const isPostgres = this.userRepository.metadata.connection.options.type === 'postgres';
+    const qParentId = isPostgres ? '"parentId"' : 'parentId';
+    const qCreatedAt = isPostgres ? '"createdAt"' : 'createdAt';
+    const param = isPostgres ? '$1' : '?';
 
-    // 2. Build parent-to-children map
-    const parentToChildren = new Map<string, Array<{ id: string; position: string; createdAt: Date }>>();
-    for (const u of users) {
-      if (u.parentId) {
-        if (!parentToChildren.has(u.parentId)) {
-          parentToChildren.set(u.parentId, []);
+    // Executing recursive CTE to get downline members
+    const descendants: Array<{ id: string; branch: 'left' | 'right'; createdAt: string | Date }> = await this.userRepository.query(`
+      WITH RECURSIVE downline AS (
+        SELECT id, ${qParentId}, position, ${qCreatedAt}, position as branch
+        FROM users
+        WHERE ${qParentId} = ${param} AND position IN ('left', 'right')
+        
+        UNION ALL
+        
+        SELECT u.id, u.${qParentId}, u.position, u.${qCreatedAt}, d.branch
+        FROM users u
+        INNER JOIN downline d ON u.${qParentId} = d.id
+      )
+      SELECT id, branch, ${qCreatedAt} as "createdAt" FROM downline
+    `, [userId]);
+
+    let leftCount = 0;
+    let leftNewSince = 0;
+    const leftIds: string[] = [];
+
+    let rightCount = 0;
+    let rightNewSince = 0;
+    const rightIds: string[] = [];
+
+    for (const d of descendants) {
+      const createdTime = new Date(d.createdAt);
+      if (d.branch === 'left') {
+        leftCount++;
+        leftIds.push(d.id);
+        if (createdTime >= startOfDay) {
+          leftNewSince++;
         }
-        parentToChildren.get(u.parentId)!.push({
-          id: u.id,
-          position: u.position,
-          createdAt: u.createdAt ? new Date(u.createdAt) : new Date(0),
-        });
+      } else if (d.branch === 'right') {
+        rightCount++;
+        rightIds.push(d.id);
+        if (createdTime >= startOfDay) {
+          rightNewSince++;
+        }
       }
     }
-
-    // 3. Traverse helper to collect stats and downline IDs
-    const traverseBranch = (position: 'left' | 'right') => {
-      let count = 0;
-      let newSince = 0;
-      const ids: string[] = [];
-      const queue: string[] = [];
-
-      const startChildren = parentToChildren.get(userId) || [];
-      for (const child of startChildren) {
-        if (child.position === position) {
-          queue.push(child.id);
-          ids.push(child.id);
-          count++;
-          if (child.createdAt >= startOfDay) {
-            newSince++;
-          }
-        }
-      }
-
-      while (queue.length > 0) {
-        const cur = queue.shift()!;
-        const children = parentToChildren.get(cur) || [];
-        for (const child of children) {
-          queue.push(child.id);
-          ids.push(child.id);
-          count++;
-          if (child.createdAt >= startOfDay) {
-            newSince++;
-          }
-        }
-      }
-
-      return { count, newSince, ids };
-    };
-
-    const leftStats = traverseBranch('left');
-    const rightStats = traverseBranch('right');
 
     // 4. Calculate monthly volume for left & right branch
     const now = new Date();
     const { left: leftMonthlyVolume, right: rightMonthlyVolume } =
-      await this.getBranchMonthlyVolume(userId, now.getFullYear(), now.getMonth() + 1);
+      await this.getBranchMonthlyVolume(userId, now.getFullYear(), now.getMonth() + 1, leftIds, rightIds);
 
     const weakBranchTotalVolume = await this.calculateWeakBranchAccumulatedVolume(
       userId,
@@ -624,21 +619,21 @@ export class UserService {
 
     return {
       left: {
-        count: leftStats.count,
+        count: leftCount,
         members: [],
         volume: user.leftBranchTotal || 0,
         total: user.leftBranchTotal || 0,
         monthlyVolume: leftMonthlyVolume,
       },
       right: {
-        count: rightStats.count,
+        count: rightCount,
         members: [],
         volume: user.rightBranchTotal || 0,
         total: user.rightBranchTotal || 0,
         monthlyVolume: rightMonthlyVolume,
       },
-      total: leftStats.count + rightStats.count,
-      newTodayCount: leftStats.newSince + rightStats.newSince,
+      total: leftCount + rightCount,
+      newTodayCount: leftNewSince + rightNewSince,
       weakBranchTotalVolume,
     };
   }
@@ -768,67 +763,63 @@ export class UserService {
   }
 
   private async getBinaryTreeMembers(parentId: string): Promise<{ leftMembers: any[]; rightMembers: any[] }> {
-    // Obtenemos todos los usuarios y sus datos básicos de parentesco y perfil en una sola consulta rápida indexada
-    // para evitar el problema de consultas concurrentes N+1 o recursividad profunda en base de datos.
-    const users = await this.userRepository.find({
-      select: [
-        'id',
-        'username',
-        'fullName',
-        'avatar',
-        'packageType',
-        'position',
-        'leftBranchTotal',
-        'rightBranchTotal',
-        'totalPurchaseAmount',
-        'createdAt',
-        'parentId',
-      ],
-    });
+    const isPostgres = this.userRepository.metadata.connection.options.type === 'postgres';
+    const qParentId = isPostgres ? '"parentId"' : 'parentId';
+    const qCreatedAt = isPostgres ? '"createdAt"' : 'createdAt';
+    const qFullName = isPostgres ? '"fullName"' : 'fullName';
+    const qPackageType = isPostgres ? '"packageType"' : 'packageType';
+    const qLeftBranchTotal = isPostgres ? '"leftBranchTotal"' : 'leftBranchTotal';
+    const qRightBranchTotal = isPostgres ? '"rightBranchTotal"' : 'rightBranchTotal';
+    const qTotalPurchaseAmount = isPostgres ? '"totalPurchaseAmount"' : 'totalPurchaseAmount';
+    const param = isPostgres ? '$1' : '?';
 
-    // Construye un mapa de adyacencia de padre a hijos en O(N) tiempo de CPU
-    const parentToChildren = new Map<string, any[]>();
-    for (const u of users) {
-      if (u.parentId) {
-        if (!parentToChildren.has(u.parentId)) {
-          parentToChildren.set(u.parentId, []);
-        }
-        parentToChildren.get(u.parentId)!.push(u);
+    const descendants: any[] = await this.userRepository.query(`
+      WITH RECURSIVE downline AS (
+        SELECT id, username, ${qFullName}, avatar, ${qPackageType}, position, ${qLeftBranchTotal}, ${qRightBranchTotal}, ${qTotalPurchaseAmount}, ${qCreatedAt}, ${qParentId}, position as branch, 1 as depth
+        FROM users
+        WHERE ${qParentId} = ${param} AND position IN ('left', 'right')
+        
+        UNION ALL
+        
+        SELECT u.id, u.username, u.${qFullName}, u.avatar, u.${qPackageType}, u.position, u.${qLeftBranchTotal}, u.${qRightBranchTotal}, u.${qTotalPurchaseAmount}, u.${qCreatedAt}, u.${qParentId}, d.branch, d.depth + 1 as depth
+        FROM users u
+        INNER JOIN downline d ON u.${qParentId} = d.id
+      )
+      SELECT 
+        id, 
+        username, 
+        ${qFullName} as "fullName", 
+        avatar, 
+        ${qPackageType} as "packageType", 
+        position, 
+        ${qLeftBranchTotal} as "leftBranchTotal", 
+        ${qRightBranchTotal} as "rightBranchTotal", 
+        ${qTotalPurchaseAmount} as "totalPurchaseAmount", 
+        ${qCreatedAt} as "createdAt", 
+        ${qParentId} as "parentId", 
+        branch, 
+        depth 
+      FROM downline
+    `, [parentId]);
+
+    const leftMembers = [];
+    const rightMembers = [];
+
+    for (const d of descendants) {
+      const formattedMember = {
+        ...d,
+        leftBranchTotal: typeof d.leftBranchTotal === 'number' ? d.leftBranchTotal : parseFloat(d.leftBranchTotal || '0') || 0,
+        rightBranchTotal: typeof d.rightBranchTotal === 'number' ? d.rightBranchTotal : parseFloat(d.rightBranchTotal || '0') || 0,
+        totalPurchaseAmount: typeof d.totalPurchaseAmount === 'number' ? d.totalPurchaseAmount : parseFloat(d.totalPurchaseAmount || '0') || 0,
+      };
+      if (d.branch === 'left') {
+        leftMembers.push(formattedMember);
+      } else {
+        rightMembers.push(formattedMember);
       }
     }
 
-    // Función auxiliar de recorrido BFS en memoria
-    const traverse = (startPosition: 'left' | 'right'): any[] => {
-      const descendants: any[] = [];
-      const startChildren = parentToChildren.get(parentId) || [];
-      const queue: Array<{ id: string; depth: number }> = [];
-
-      for (const child of startChildren) {
-        if (child.position === startPosition) {
-          queue.push({ id: child.id, depth: 1 });
-          descendants.push({ ...child, depth: 1 });
-        }
-      }
-
-      while (queue.length > 0) {
-        const item = queue.shift();
-        if (!item) continue;
-
-        const children = parentToChildren.get(item.id) || [];
-        for (const child of children) {
-          const nextDepth = item.depth + 1;
-          queue.push({ id: child.id, depth: nextDepth });
-          descendants.push({ ...child, depth: nextDepth });
-        }
-      }
-
-      return descendants;
-    };
-
-    return {
-      leftMembers: traverse('left'),
-      rightMembers: traverse('right'),
-    };
+    return { leftMembers, rightMembers };
   }
 
   async isDownline(sponsorId: string, targetUserId: string): Promise<boolean> {

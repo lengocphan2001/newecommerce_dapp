@@ -41,6 +41,17 @@ export default function F1ListPage() {
     load();
   }, [router, t]);
 
+  const formatDateSimple = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString();
+    } catch {
+      return '-';
+    }
+  };
+
   const goToAffiliate = () => router.push("/home/affiliate");
 
   if (loading) {
@@ -137,8 +148,8 @@ export default function F1ListPage() {
                               {f1.directReferralCount}
                             </span>
                           </td>
-                          <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell">
-                            {f1.createdAt ? new Date(f1.createdAt).toLocaleDateString() : "-"}
+                          <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell" suppressHydrationWarning>
+                            {formatDateSimple(f1.createdAt)}
                           </td>
                         </tr>
                       ))}

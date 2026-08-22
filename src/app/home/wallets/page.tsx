@@ -497,6 +497,17 @@ export default function WalletsPage() {
     }
   };
 
+  const formatDateSimple = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString("vi-VN");
+    } catch {
+      return '';
+    }
+  };
+
   // Helper function to safely create Date for sorting
   const createDateSafe = (dateString: string | null | undefined): string => {
     if (!dateString) return new Date(0).toISOString();
@@ -643,8 +654,8 @@ export default function WalletsPage() {
                   </span>
                 )}
                 {referralInfo?.createdAt && (
-                  <span className="text-[10px] text-gray-400">
-                    {new Date(referralInfo.createdAt).toLocaleDateString("vi-VN")}
+                  <span className="text-[10px] text-gray-400" suppressHydrationWarning>
+                    {formatDateSimple(referralInfo.createdAt)}
                   </span>
                 )}
               </div>
@@ -779,7 +790,7 @@ export default function WalletsPage() {
                       <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
                         {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? approvedText : "Từ chối"}
                       </span>
-                      <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
+                      <span className="text-gray-500 text-xs" suppressHydrationWarning>{formatDateSimple(r.createdAt)}</span>
                     </div>
                   );
                 })}
@@ -829,7 +840,7 @@ export default function WalletsPage() {
                       <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
                         {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? approvedText : "Từ chối"}
                       </span>
-                      <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
+                      <span className="text-gray-500 text-xs" suppressHydrationWarning>{formatDateSimple(r.createdAt)}</span>
                     </div>
                   );
                 })}
@@ -1168,7 +1179,7 @@ export default function WalletsPage() {
                     </div>
                     <div className="flex flex-col">
                       <p className="text-sm font-semibold text-text-dark">{tx.title}</p>
-                      <p className="text-xs text-gray-500">{tx.date}</p>
+                      <p className="text-xs text-gray-500" suppressHydrationWarning>{tx.date}</p>
                     </div>
                   </div>
                   <div className="text-right">

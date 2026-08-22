@@ -199,6 +199,17 @@ export default function AffiliatePage() {
     });
   };
 
+  const formatDateSimple = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString();
+    } catch {
+      return '-';
+    }
+  };
+
   const getRank = (packageType?: string, accumulatedPurchases?: string | number) => {
     const total = Number(accumulatedPurchases) || 0;
     if (total >= 600) {
@@ -722,8 +733,8 @@ export default function AffiliatePage() {
                                 {f1.directReferralCount}
                               </span>
                             </td>
-                            <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell">
-                              {f1.createdAt ? new Date(f1.createdAt).toLocaleDateString() : "-"}
+                            <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell" suppressHydrationWarning>
+                              {formatDateSimple(f1.createdAt)}
                             </td>
                           </tr>
                         ))}
@@ -867,21 +878,27 @@ export default function AffiliatePage() {
                   };
 
                   const formatTimeAgo = (dateString: string) => {
-                    const date = new Date(dateString);
-                    const now = new Date();
-                    const diffMs = now.getTime() - date.getTime();
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffHours = Math.floor(diffMs / 3600000);
-                    const diffDays = Math.floor(diffMs / 86400000);
+                    if (!dateString) return '';
+                    try {
+                      const date = new Date(dateString);
+                      if (isNaN(date.getTime())) return '';
+                      const now = new Date();
+                      const diffMs = now.getTime() - date.getTime();
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffHours = Math.floor(diffMs / 3600000);
+                      const diffDays = Math.floor(diffMs / 86400000);
 
-                    if (diffMins < 1) return t("justNow");
-                    if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
-                    if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
-                    if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
-                    return date.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    });
+                      if (diffMins < 1) return t("justNow");
+                      if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
+                      if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
+                      if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
+                    } catch {
+                      return '';
+                    }
                   };
 
                   const activityStyle = getActivityIcon(activity.type);
@@ -926,7 +943,7 @@ export default function AffiliatePage() {
                               ? `${t("pending")} ${formatPrice(activity.amount)} PV`
                               : `+${formatPrice(activity.amount)} PV`}
                         </p>
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-[10px] text-gray-400" suppressHydrationWarning>
                           {formatTimeAgo(activity.createdAt)}
                         </p>
                       </div>
