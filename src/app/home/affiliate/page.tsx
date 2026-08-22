@@ -650,7 +650,9 @@ export default function AffiliatePage() {
                       <div className={`h-6 w-6 rounded-full ${team.color} flex items-center justify-center text-white text-[10px] font-bold`}>
                         {team.name}
                       </div>
-                      <span className="text-xs font-bold text-gray-700">Team {team.name}</span>
+                      <span className="text-xs font-bold text-gray-700">
+                        {lang === 'vi' ? `Đại lý ${team.name}` : lang === 'ko' ? `대리점 ${team.name}` : `Agency ${team.name}`}
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <div className="text-[10px] text-gray-500">
@@ -721,9 +723,9 @@ export default function AffiliatePage() {
                                   : 'bg-gray-50 text-gray-500 border border-gray-200'
                               }`}>
                                 {f1.binaryTeam === 'left'
-                                  ? (lang === 'vi' ? 'Team 1 (Trái)' : lang === 'ko' ? '팀 1 (좌)' : 'Team 1 (Left)')
+                                  ? (lang === 'vi' ? 'Đại lý A' : lang === 'ko' ? '대리점 A' : 'Agency A')
                                   : f1.binaryTeam === 'right'
-                                  ? (lang === 'vi' ? 'Team 2 (Phải)' : lang === 'ko' ? '팀 2 (우)' : 'Team 2 (Right)')
+                                  ? (lang === 'vi' ? 'Đại lý B' : lang === 'ko' ? '대리점 B' : 'Agency B')
                                   : '-'
                                 }
                               </span>

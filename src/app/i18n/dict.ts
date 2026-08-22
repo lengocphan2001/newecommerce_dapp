@@ -911,7 +911,7 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     kycBankAccountNumber: "Số tài khoản",
     kycBankAccountHolder: "Chủ tài khoản",
     kycBankBranch: "Chi nhánh",
-    teamSalesTitle: "Doanh số Đội nhóm",
+    teamSalesTitle: "Doanh số thưởng",
     monthlySales: "Doanh số tháng này",
     accumulatedSales: "Doanh số tích lũy"
   },

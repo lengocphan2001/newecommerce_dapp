@@ -136,9 +136,9 @@ export default function F1ListPage() {
                                 : 'bg-gray-50 text-gray-500 border border-gray-200'
                             }`}>
                               {f1.binaryTeam === 'left'
-                                ? (lang === 'vi' ? 'Team 1 (Trái)' : lang === 'ko' ? '팀 1 (좌)' : 'Team 1 (Left)')
+                                ? (lang === 'vi' ? 'Đại lý A' : lang === 'ko' ? '대리점 A' : 'Agency A')
                                 : f1.binaryTeam === 'right'
-                                ? (lang === 'vi' ? 'Team 2 (Phải)' : lang === 'ko' ? '팀 2 (우)' : 'Team 2 (Right)')
+                                ? (lang === 'vi' ? 'Đại lý B' : lang === 'ko' ? '대리점 B' : 'Agency B')
                                 : '-'
                               }
                             </span>
