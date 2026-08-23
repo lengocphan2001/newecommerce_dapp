@@ -1212,13 +1212,11 @@ export class AuthService {
 
       referralUserId = referralUser.id; // Lưu ID của người giới thiệu ban đầu
 
-      // Tự động đặt vào nhánh yếu (nhánh có doanh số thấp hơn) của người giới thiệu
-      // để cân bằng hệ thống và tối ưu hóa hoa hồng cân nhánh.
-      // Sử dụng vị trí "Extreme" để xây dựng chân mạnh (power leg) cho hệ thống.
-      const weakLeg = await this.userService.getWeakLeg(referralUserId);
+      // Tôn trọng nhánh người dùng chọn, nếu không có thì tự động chọn nhánh yếu
+      const targetLeg = walletRegisterDto.leg || await this.userService.getWeakLeg(referralUserId);
       const slot = await this.userService.findExtremeSlotInBranch(
         referralUserId,
-        weakLeg,
+        targetLeg,
       );
       parentId = slot.parentId; // Parent trực tiếp trong tree
       position = slot.position;
@@ -1331,11 +1329,11 @@ export class AuthService {
         throw new ConflictException('Referral code (username) does not exist');
       }
       referralUserId = referralUser.id;
-      // Luôn tự động chọn nhánh yếu để đảm bảo cấu trúc cây nhị phân phát triển cân bằng.
-      const weakLeg = await this.userService.getWeakLeg(referralUserId);
+      // Tôn trọng nhánh người dùng chọn, nếu không có thì tự động chọn nhánh yếu
+      const targetLeg = dto.leg || await this.userService.getWeakLeg(referralUserId);
       const slot = await this.userService.findExtremeSlotInBranch(
         referralUserId,
-        weakLeg,
+        targetLeg,
       );
       parentId = slot.parentId;
       position = slot.position;

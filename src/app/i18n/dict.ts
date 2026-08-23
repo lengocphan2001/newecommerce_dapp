@@ -407,6 +407,9 @@ export type I18nKey =
   | "enter6DigitCode"
   | "usernameInvalidNoSpecial"
   | "selectSide"
+  | "pleaseSelectTeam"
+  | "agentA"
+  | "agentB"
   | "f1Team"
   | "milestoneReward"
   | "reconsumptionRequiredDesc"
@@ -864,7 +867,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     identityVerificationDesc: "Xác minh danh tính của bạn qua KYC để sử dụng đầy đủ tính năng.",
     goToKyc: "Đến trang xác minh",
     enter6DigitCode: "Vui lòng nhập đủ 6 số.",
-    selectSide: "Chọn team",
+    selectSide: "Chọn đại lý",
+    pleaseSelectTeam: "Vui lòng chọn đại lý",
+    agentA: "Đại lý A",
+    agentB: "Đại lý B",
     f1Team: "Team/Nhánh",
     reconsumptionRequiredDesc: "Bạn đã đạt ngưỡng hoa hồng tối đa. Vui lòng mua thêm gói để tiếp tục nhận thưởng.",
     maxCommissionReached: "Giới Hạn Hoa Hồng",
@@ -1318,7 +1324,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     identityVerificationDesc: "Verify your identity via KYC to access all features.",
     goToKyc: "Go to verification",
     enter6DigitCode: "Please enter 6 digits.",
-    selectSide: "Select Team",
+    selectSide: "Select Agent",
+    pleaseSelectTeam: "Please select an agent",
+    agentA: "Agent A",
+    agentB: "Agent B",
     f1Team: "Team/Branch",
     reconsumptionRequiredDesc: "You have reached the maximum commission threshold. Please purchase more packages to continue receiving rewards.",
     maxCommissionReached: "Maximum Commission Reached",
@@ -1772,7 +1781,10 @@ export const DICT: Record<Lang, Record<I18nKey, string>> = {
     identityVerificationDesc: "KYC를 통해 신원을 확인하고 모든 기능을 이용하세요.",
     goToKyc: "인증 페이지로",
     enter6DigitCode: "6자리를 입력하세요.",
-    selectSide: "팀 선택",
+    selectSide: "대리점 선택",
+    pleaseSelectTeam: "대리점을 선택해주세요",
+    agentA: "대리점 A",
+    agentB: "대리점 B",
     f1Team: "팀/지점",
     reconsumptionRequiredDesc: "최대 커미션 기준에 도달했습니다. 보상을 계속 받으려면 패키지를 추가로 구매하십시오.",
     maxCommissionReached: "최대 커미션 도달",
