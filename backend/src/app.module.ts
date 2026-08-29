@@ -61,6 +61,10 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
 import { RankPoolModule } from './rank-pool/rank-pool.module';
 import { RankPoolPlacement } from './rank-pool/entities/rank-pool-placement.entity';
 import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
+import { AgentPoolModule } from './agent-pool/agent-pool.module';
+import { AgentPool } from './agent-pool/entities/agent-pool.entity';
+import { AgentPoolMember } from './agent-pool/entities/agent-pool-member.entity';
+import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entity';
 
 @Module({
   imports: [
@@ -126,6 +130,9 @@ import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
           HeapRewardHistory,
           RankPoolPlacement,
           RankPoolHistory,
+          AgentPool,
+          AgentPoolMember,
+          AgentPoolHistory,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
@@ -156,6 +163,7 @@ import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
     MatrixRewardModule,
     HeapRewardModule,
     RankPoolModule,
+    AgentPoolModule,
   ],
   controllers: [AppController],
   providers: [AppService],

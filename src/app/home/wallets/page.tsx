@@ -474,7 +474,8 @@ export default function WalletsPage() {
 
   const formatRecentActivityVND = (amount: number) => {
     const rate = usdtDepositRateVnd > 0 ? usdtDepositRateVnd : 25000;
-    const vndAmount = amount * rate;
+    const normalizedAmount = Math.abs(amount) > 10000 ? Math.abs(amount) / rate : Math.abs(amount);
+    const vndAmount = normalizedAmount * rate;
     return `${vndAmount.toLocaleString("vi-VN")} VND`;
   };
 
@@ -531,6 +532,7 @@ export default function WalletsPage() {
           activityType === "DIRECT" ||
           activityType === "INDIRECT" ||
           activityType === "HEAP_REWARD" ||
+          activityType === "AGENT_POOL" ||
           (activityType === "PRODUCT" && notes.startsWith("Product direct"))
         );
       })
@@ -545,9 +547,11 @@ export default function WalletsPage() {
             ? t("indirectCommission")
           : activityType === 'HEAP_REWARD'
             ? `${t("heapRewardCommission")} $${activity.poolLevel || 500}`
-            : activityType === 'GROUP'
-              ? t("groupCommission")
-              : t("managementCommission");
+            : activityType === 'AGENT_POOL'
+              ? `Bể đồng chia ${activity.poolLevel ? `(${activity.poolLevel}%)` : ''}`
+              : activityType === 'GROUP'
+                ? t("groupCommission")
+                : t("managementCommission");
 
         return {
           id: activity.id,
@@ -559,7 +563,7 @@ export default function WalletsPage() {
           createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
           icon: 'call_received',
           iconColor: 'text-[#13ec5b]',
-          skipWalletSplitDisplay: activityType === 'HEAP_REWARD',
+          skipWalletSplitDisplay: activityType === 'HEAP_REWARD' || activityType === 'AGENT_POOL',
         };
       }) || []),
     // Orders

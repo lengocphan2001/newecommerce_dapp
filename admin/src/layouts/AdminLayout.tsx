@@ -243,6 +243,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: null,
       adminOnly: true,
     },
+    {
+      key: '/agent-pool',
+      icon: <SafetyCertificateOutlined />,
+      label: 'Bể Đồng Chia Đại Lý',
+      permission: null,
+      adminOnly: true,
+    },
   ];
 
   // Filter menu items based on permissions

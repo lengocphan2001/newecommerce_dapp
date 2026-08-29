@@ -27,6 +27,7 @@ import { MatrixRewardNode } from '../matrix-reward/entities/matrix-reward-node.e
 import { HeapRewardPlacement } from '../heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
+import { AgentPoolService } from 'src/agent-pool/agent-pool.service';
 
 @Injectable()
 export class OrderService {
@@ -48,6 +49,7 @@ export class OrderService {
     private matrixRewardService: MatrixRewardService,
     @Inject(forwardRef(() => HeapRewardService))
     private heapRewardService: HeapRewardService,
+    private agentPoolService: AgentPoolService,
     @Inject(forwardRef(() => AdminService))
     private adminService: AdminService,
     private dataSource: DataSource,
@@ -549,6 +551,13 @@ export class OrderService {
       .processOrderIfEligible(order.id)
       .catch((err) =>
         console.error(`[HEAP] Error processing order ${order.id}:`, err),
+      );
+
+    // 7. Agent Level Pools (C1, C2, ...)
+    this.agentPoolService
+      .processOrder(order.id)
+      .catch((err) =>
+        console.error(`[AGENT-POOL] Error processing order ${order.id}:`, err),
       );
   }
 

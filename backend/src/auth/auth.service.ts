@@ -31,6 +31,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
+import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
 import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 
 @Injectable()
@@ -58,6 +59,8 @@ export class AuthService {
     private passwordResetTokenRepo: Repository<PasswordResetToken>,
     @InjectRepository(HeapRewardHistory)
     private heapRewardHistoryRepo: Repository<HeapRewardHistory>,
+    @InjectRepository(AgentPoolHistory)
+    private agentPoolHistoryRepo: Repository<AgentPoolHistory>,
     private dataSource: DataSource,
   ) {}
 
@@ -673,6 +676,12 @@ export class AuthService {
       take: 24,
     });
 
+    const agentPoolRewards = await this.agentPoolHistoryRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 24,
+    });
+
     const recentActivityRaw = [
       ...recentCommissions,
       ...heapRewards.map((h: any) => ({
@@ -684,6 +693,16 @@ export class AuthService {
         fromUserId: null,
         fromUser: null,
         poolLevel: h.poolLevel,
+      })),
+      ...agentPoolRewards.map((h: any) => ({
+        id: h.id,
+        type: 'AGENT_POOL',
+        amount: h.rewardAmount,
+        status: 'COMPLETED',
+        createdAt: h.createdAt,
+        fromUserId: null,
+        fromUser: null,
+        poolLevel: h.poolPercent,
       })),
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
