@@ -234,6 +234,7 @@ export type I18nKey =
   | "indirectCommission"
   | "heapRewardCommission"
   | "heapRewardFromPool"
+  | "agentPoolCommission"
   | "groupCommission"
   | "managementCommission"
   | "commissionReceived"

@@ -680,6 +680,7 @@ export class AuthService {
       where: { userId },
       order: { createdAt: 'DESC' },
       take: 24,
+      relations: ['pool'],
     });
 
     const recentActivityRaw = [
@@ -703,6 +704,7 @@ export class AuthService {
         fromUserId: null,
         fromUser: null,
         poolLevel: h.poolPercent,
+        poolCode: h.pool?.code || null,
       })),
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
@@ -741,6 +743,7 @@ export class AuthService {
         fromUserId: c.fromUserId,
         fromUsername,
         poolLevel: c.poolLevel,
+        poolCode: c.poolCode ?? null,
       };
     });
 

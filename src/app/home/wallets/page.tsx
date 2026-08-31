@@ -534,9 +534,9 @@ export default function WalletsPage() {
           : activityType === 'INDIRECT'
             ? t("indirectCommission")
           : activityType === 'HEAP_REWARD'
-            ? `${t("heapRewardCommission")} $${activity.poolLevel || 500}`
+            ? t("heapRewardCommission")
             : activityType === 'AGENT_POOL'
-              ? `Bể đồng chia ${activity.poolLevel ? `(${activity.poolLevel}%)` : ''}`
+              ? `${t("agentPoolCommission")}${activity.poolCode ? ` ${activity.poolCode}` : ''}`
               : activityType === 'GROUP'
                 ? t("groupCommission")
                 : t("managementCommission");

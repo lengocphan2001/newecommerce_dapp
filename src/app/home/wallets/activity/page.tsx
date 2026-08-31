@@ -213,16 +213,20 @@ export default function ActivityPage() {
         const activityType = String(activity.type || '').toUpperCase();
         const notes = String(activity?.notes || '');
         const isHeapReward = activityType === 'HEAP_REWARD';
+        const isAgentPool = activityType === 'AGENT_POOL';
+        const isPoolReward = isHeapReward || isAgentPool;
         const isDirectOrProductDirect =
           activityType === 'DIRECT' ||
           activityType === 'INDIRECT' ||
           (activityType === 'PRODUCT' && notes.startsWith('Product direct'));
-        if (!isDirectOrProductDirect && !isHeapReward) {
+        if (!isDirectOrProductDirect && !isPoolReward) {
           return;
         }
 
         const commissionType = isHeapReward
-          ? `${t('heapRewardCommission')} $${activity.poolLevel || 500}`
+          ? t('heapRewardCommission')
+          : isAgentPool
+            ? `${t('agentPoolCommission')}${activity.poolCode ? ` ${activity.poolCode}` : ''}`
           : activityType === 'INDIRECT'
             ? t('indirectCommission')
           : t('directCommission');
@@ -248,16 +252,15 @@ export default function ActivityPage() {
           ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-        const heapDetail = activity.poolLevel ? `Pool Heap $${activity.poolLevel}` : t('heapRewardFromPool');
-        const description = isHeapReward
-          ? (datetimeStr ? `${datetimeStr} • ${heapDetail}` : heapDetail)
+        const description = isPoolReward
+          ? datetimeStr
           : (datetimeStr
             ? `${datetimeStr} • ${fromMemberInfo}`
             : fromMemberInfo);
 
         const feePercent = referralInfo?.payoutFeePercent ?? 10;
         const grossAmount = parseFloat(activity.amount) || 0;
-        const netAmount = isHeapReward
+        const netAmount = isPoolReward
           ? grossAmount
           : grossAmount * (1 - feePercent / 100);
 
@@ -270,9 +273,9 @@ export default function ActivityPage() {
           amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
           status: ``,
           statusColor: 'text-primary',
-          icon: isHeapReward ? 'savings' : 'card_membership',
-          iconColor: isHeapReward ? 'text-emerald-600' : 'text-amber-500',
-          iconBgColor: isHeapReward ? 'bg-emerald-500/10' : 'bg-amber-500/10',
+          icon: isPoolReward ? 'savings' : 'card_membership',
+          iconColor: isPoolReward ? 'text-emerald-600' : 'text-amber-500',
+          iconBgColor: isPoolReward ? 'bg-emerald-500/10' : 'bg-amber-500/10',
           date: activityDate,
           fromUserId: activity.fromUserId,
           fromUsername: activity.fromUsername,
