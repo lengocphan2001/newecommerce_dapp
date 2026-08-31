@@ -22,6 +22,7 @@ import {
 import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDateTime } from '../utils/format';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -361,7 +362,7 @@ const HeapReward: React.FC = () => {
       title: 'Thời gian tham gia',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (text: string) => new Date(text).toLocaleString(),
+      render: (text: string) => formatDateTime(text),
     },
     {
       title: 'Đơn hàng kích hoạt',
@@ -416,7 +417,7 @@ const HeapReward: React.FC = () => {
       title: 'Thời gian tham gia',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (text: string) => new Date(text).toLocaleString(),
+      render: (text: string) => formatDateTime(text),
     },
     {
       title: 'Đơn hàng kích hoạt',

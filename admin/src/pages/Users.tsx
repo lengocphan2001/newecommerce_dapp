@@ -25,6 +25,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlin
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
 import { packagesService, Package } from '../services/packagesService';
+import { formatDateTime } from '../utils/format';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -1164,10 +1165,10 @@ const Users: React.FC = () => {
                   ) : 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Created At">
-                  {new Date(userDetail.user.createdAt).toLocaleString()}
+                  {formatDateTime(userDetail.user.createdAt)}
                 </Descriptions.Item>
                 <Descriptions.Item label="Updated At">
-                  {new Date(userDetail.user.updatedAt).toLocaleString()}
+                  {formatDateTime(userDetail.user.updatedAt)}
                 </Descriptions.Item>
               </Descriptions>
 
@@ -1402,7 +1403,7 @@ const Users: React.FC = () => {
                   },
                   { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag color={status === 'PAID' ? 'green' : 'orange'}>{status}</Tag> },
                   { title: 'Order ID', dataIndex: 'orderId', key: 'orderId' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>
@@ -1448,7 +1449,7 @@ const Users: React.FC = () => {
                     }
                   },
                   { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag>{status}</Tag> },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>
@@ -1498,7 +1499,7 @@ const Users: React.FC = () => {
                           title: 'Purchase Time',
                           dataIndex: 'purchasedAt',
                           key: 'purchasedAt',
-                          render: (date: string) => (date ? new Date(date).toLocaleString() : '-'),
+                          render: (date: string) => formatDateTime(date),
                         },
                         {
                           title: 'Order Amount',
@@ -1558,7 +1559,7 @@ const Users: React.FC = () => {
                     key: 'packageType',
                     render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
                   },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
                 style={{ marginBottom: 24 }}
               />
@@ -1578,7 +1579,7 @@ const Users: React.FC = () => {
                     key: 'packageType',
                     render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
                   },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>
@@ -1652,7 +1653,7 @@ const Users: React.FC = () => {
                     key: 'packageType',
                     render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
                   },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
                 style={{ marginBottom: 24 }}
               />
@@ -1671,7 +1672,7 @@ const Users: React.FC = () => {
                     key: 'packageType',
                     render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
                   },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>

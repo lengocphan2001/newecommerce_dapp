@@ -7,6 +7,7 @@ import TransactionProcessingModal, { ProcessingStep } from "@/app/components/Tra
 import { api } from "@/app/services/api";
 import { apiCache } from "@/app/services/apiCache";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { formatAmount, formatVnd } from "@/app/utils/format";
 
 export default function CheckoutPage() {
   const { items, totalAmount, clearCart } = useShoppingCart();
@@ -589,20 +590,8 @@ export default function CheckoutPage() {
   const canPayWithWithdrawWallet =
     (withdrawBalance ?? 0) >= finalTotal;
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 4,
-    }).format(price);
-  };
+  const formatPrice = (price: number) => formatAmount(price, 0, 4);
 
-  const formatVnd = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   return (
     <div className="bg-background-light font-display text-text-main antialiased flex flex-col">

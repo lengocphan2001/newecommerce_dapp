@@ -20,6 +20,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { formatUsdt } from '../utils/format';
 
 interface TreeNode {
   id: string;
@@ -64,19 +65,8 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
     }
   };
 
-  const formatPrice = (amount: number) => {
-    if (amount === 0 || amount === null || amount === undefined || isNaN(amount)) {
-      return '0.00';
-    }
-    // Fix floating-point precision issues
-    let str = amount.toFixed(8).replace(/\.?0+$/, '');
-    if (!str.includes('.')) str += '.00';
-    else {
-      const [int, dec] = str.split('.');
-      if (dec.length < 2) str = `${int}.${dec.padEnd(2, '0')}`;
-    }
-    return str;
-  };
+  const formatPrice = (amount: number) =>
+    formatUsdt(amount, { grouping: false });
 
   return (
     <div

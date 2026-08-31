@@ -25,6 +25,7 @@ import {
 import dayjs from 'dayjs';
 import { commissionService, Commission } from '../services/commissionService';
 import api from '../services/api';
+import { formatDateTime, formatUsdt } from '../utils/format';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -162,48 +163,7 @@ const CommissionsPage: React.FC = () => {
     setFilteredCommissions(filtered);
   };
 
-  /** Format date safely; avoid "Invalid Date" when API returns unexpected value */
-  const formatDate = (value: string | Date | number | null | undefined): string => {
-    if (value == null || value === '') return '-';
-    const d = value instanceof Date ? value : new Date(value as string | number);
-    return isNaN(d.getTime()) ? '-' : d.toLocaleString();
-  };
-
-  const formatPrice = (amount: number | string) => {
-    // Handle null/undefined/zero
-    if (amount === 0 || amount === null || amount === undefined || amount === '0') {
-      return '0.00';
-    }
-    
-    // Convert to number first to handle floating-point precision issues
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    
-    // Handle NaN
-    if (isNaN(num)) {
-      return '0.00';
-    }
-    
-    // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
-    // This fixes floating-point precision issues like 0.020000000000000004
-    let amountStr = num.toFixed(8);
-    
-    // Remove trailing zeros but keep at least 2 decimal places
-    amountStr = amountStr.replace(/\.?0+$/, '');
-    if (!amountStr.includes('.')) {
-      amountStr += '.00';
-    } else {
-      const [integerPart, decimalPart] = amountStr.split('.');
-      if (decimalPart.length < 2) {
-        amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
-      }
-    }
-    
-    // Split into integer and decimal parts for formatting
-    const [integerPart, decimalPart] = amountStr.split('.');
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    
-    return `${formattedInteger}.${decimalPart}`;
-  };
+  const formatPrice = (amount: number | string) => formatUsdt(amount);
 
   const handleApprove = async (id: string, notes?: string) => {
     try {
@@ -471,7 +431,7 @@ const CommissionsPage: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string | Date | null | undefined) => formatDate(date),
+      render: (date: string | Date | null | undefined) => formatDateTime(date),
     },
     {
       title: 'Actions',
@@ -723,7 +683,7 @@ const CommissionsPage: React.FC = () => {
                 </Descriptions.Item>
               )}
               <Descriptions.Item label="Created At" span={2}>
-                {formatDate(selectedCommission.createdAt)}
+                {formatDateTime(selectedCommission.createdAt)}
               </Descriptions.Item>
               {selectedCommission.status === 'paid' && (selectedCommission.payoutTxHash || selectedCommission.payoutDate) && (
                 <>
@@ -743,7 +703,7 @@ const CommissionsPage: React.FC = () => {
                   )}
                   {selectedCommission.payoutDate && (
                     <Descriptions.Item label="Paid At" span={2}>
-                      {formatDate(selectedCommission.payoutDate)}
+                      {formatDateTime(selectedCommission.payoutDate)}
                     </Descriptions.Item>
                   )}
                 </>

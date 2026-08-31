@@ -7,6 +7,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { MANUAL_RANK_VALUES } from '../common/constants/ranks';
 import { Repository, In } from 'typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -33,7 +35,6 @@ import {
 } from './fake-analytics-defaults';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
-import { AffiliateService } from '../affiliate/affiliate.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { Web3Service } from '../blockchain/web3.service';
 import { MailService } from '../mail/mail.service';
@@ -76,8 +77,6 @@ export class AdminService {
     private userService: UserService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
-    @Inject(forwardRef(() => AffiliateService))
-    private affiliateService: AffiliateService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
     private web3Service: Web3Service,
@@ -135,17 +134,13 @@ export class AdminService {
     };
   }
 
-  async getUsers(query: any) {
-    // TODO: Implement get users logic
-    return { message: 'Get users' };
-  }
-
-  async exportUsers() {
-    const users = await this.userRepository.find({
-      order: { createdAt: 'DESC' },
+  /** Lấy một lô user cho việc xuất CSV. Phân lô để không nạp cả bảng vào RAM. */
+  async exportUsers(skip = 0, take = 500) {
+    return this.userRepository.find({
+      order: { createdAt: 'DESC', id: 'DESC' },
+      skip,
+      take,
     });
-
-    return users;
   }
 
   private escapeCsv(val: string | number | null | undefined): string {
@@ -388,14 +383,18 @@ export class AdminService {
     };
   }
 
-  async getOrders(query: any) {
-    // TODO: Implement get orders logic
-    return { message: 'Get orders' };
-  }
+  async updateUserStatus(id: string, statusDto: UpdateUserStatusDto) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'status'],
+    });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
 
-  async updateUserStatus(id: string, statusDto: any) {
-    // TODO: Implement update user status logic
-    return { message: `Update user status ${id}` };
+    await this.userRepository.update({ id }, { status: statusDto.status });
+
+    return { id, status: statusDto.status };
   }
 
   async updateUserFakeReceivedCommission(
@@ -411,10 +410,11 @@ export class AdminService {
   }
 
   async updateUserManualRank(userId: string, rank: string) {
-    const validRanks = ['NONE', 'DAILY', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
     const upperRank = (rank || '').toUpperCase().trim();
-    if (!validRanks.includes(upperRank)) {
-      throw new BadRequestException(`Cấp bậc không hợp lệ. Cho phép: ${validRanks.join(', ')}`);
+    if (!MANUAL_RANK_VALUES.includes(upperRank)) {
+      throw new BadRequestException(
+        `Cấp bậc không hợp lệ. Cho phép: ${MANUAL_RANK_VALUES.join(', ')}`,
+      );
     }
 
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -613,10 +613,11 @@ export class AdminService {
             order: { createdAt: 'DESC' },
           })
         : [];
+    const f1IdSet = new Set(f1Ids);
     const commissionsByF1Order = new Map<string, any[]>();
     for (const c of allCommissions || []) {
       if (!c?.fromUserId || !c?.orderId) continue;
-      if (!f1Ids.includes(c.fromUserId)) continue;
+      if (!f1IdSet.has(c.fromUserId)) continue;
       const key = `${c.fromUserId}:${c.orderId}`;
       if (!commissionsByF1Order.has(key)) commissionsByF1Order.set(key, []);
       commissionsByF1Order.get(key)!.push(c);

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Table, Tag, Space, Input, Button, message, Modal, Form, Select } from 'antd';
 import { SearchOutlined, ReloadOutlined, EditOutlined } from '@ant-design/icons';
 import { affiliateService, Affiliate } from '../services/affiliateService';
+import { formatUsdt } from '../utils/format';
+import { formatDateTime } from '../utils/format';
 
 const AffiliatePage: React.FC = () => {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
@@ -81,41 +83,7 @@ const AffiliatePage: React.FC = () => {
     }
   };
 
-  const formatPrice = (amount: number | string) => {
-    // Handle null/undefined/zero
-    if (amount === 0 || amount === null || amount === undefined || amount === '0') {
-      return '0.00';
-    }
-
-    // Convert to number first to handle floating-point precision issues
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-
-    // Handle NaN
-    if (isNaN(num)) {
-      return '0.00';
-    }
-
-    // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
-    // This fixes floating-point precision issues like 0.020000000000000004
-    let amountStr = num.toFixed(8);
-
-    // Remove trailing zeros but keep at least 2 decimal places
-    amountStr = amountStr.replace(/\.?0+$/, '');
-    if (!amountStr.includes('.')) {
-      amountStr += '.00';
-    } else {
-      const [integerPart, decimalPart] = amountStr.split('.');
-      if (decimalPart.length < 2) {
-        amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
-      }
-    }
-
-    // Split into integer and decimal parts for formatting
-    const [integerPart, decimalPart] = amountStr.split('.');
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-    return `${formattedInteger}.${decimalPart}`;
-  };
+  const formatPrice = (amount: number | string) => formatUsdt(amount);
 
   const getPackageTypeColor = (type: string) => {
     switch (type) {
@@ -275,7 +243,7 @@ const AffiliatePage: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
+      render: (date: string) => formatDateTime(date),
     },
     {
       title: 'Action',

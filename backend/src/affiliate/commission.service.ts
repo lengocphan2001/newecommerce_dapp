@@ -21,9 +21,46 @@ import { PackagesService } from '../packages/packages.service';
 import { Package } from '../packages/entities/package.entity';
 import { Product } from '../product/entities/product.entity';
 import { SystemConfig } from '../admin/entities/system-config.entity';
+import {
+  buildChildrenMap,
+  computeSubtreeAggregates,
+} from '../common/utils/referral-tree';
+import {
+  DAILY_RANK_MIN_PURCHASE,
+  GLOBAL_SHARE_RATES,
+  GROUP_REWARD_TIERS,
+  MONTHLY_RANK_ORDER,
+  MONTHLY_RANK_PROMOTION_LOOP_LIMIT,
+  MONTHLY_RANK_PROMOTION_ORDER,
+  MONTHLY_RANK_RULES,
+  rankLabel,
+} from '../common/constants/ranks';
 
 /** Số cấp hoa hồng quản lý: chỉ trả cho 3 parent gần nhất (F1, F2, F3) kể từ người nhận group trở lên. */
 const MANAGEMENT_MAX_LEVELS = 3;
+
+/** Kết quả tính toán doanh số/cấp bậc của cả hệ thống trong một tháng. */
+export interface MonthlySnapshot {
+  month: string;
+  startDate: Date;
+  endDate: Date;
+  prevMonthStr: string;
+  users: User[];
+  f1Map: Map<string, string[]>;
+  /** Doanh số của cả nhánh, tính cả chính người đó. */
+  subtreeSalesMap: Map<string, number>;
+  /** Số người trong nhánh, tính cả chính người đó. */
+  subtreeCountMap: Map<string, number>;
+  personalSalesMap: Map<string, number>;
+  groupSalesMap: Map<string, number>;
+  ranksMap: Map<string, string>;
+  groupRewardRateMap: Map<string, number>;
+  groupRewardAmountMap: Map<string, number>;
+  globalShareMap: Map<string, number>;
+  usersByRank: Map<string, string[]>;
+  prevRatesMap: Map<string, number>;
+  totalNationalSales: number;
+}
 
 @Injectable()
 export class CommissionService {
@@ -32,6 +69,11 @@ export class CommissionService {
   private configCache: Map<string, Package> = new Map();
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastCacheUpdate: number = 0;
+  private monthlySnapshotCache: Map<
+    string,
+    { data: MonthlySnapshot; expiresAt: number }
+  > = new Map();
+  private static readonly MONTHLY_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 
   constructor(
     @InjectRepository(User)
@@ -2035,17 +2077,12 @@ export class CommissionService {
     };
   }
 
-  async calculateMonthlyRewards(
-    month: string,
-    performPayout: boolean = false,
-  ): Promise<{
-    success: boolean;
-    totalNationalSales: number;
-    statsCount: number;
-    payoutCount: number;
-    totalPayoutAmount: number;
-    usersStats: any[];
-  }> {
+  /**
+   * Tính toàn bộ doanh số cá nhân, doanh số nhóm, cấp bậc và các khoản thưởng
+   * của một tháng mà không ghi gì xuống DB. Dùng chung cho việc chốt số và cho
+   * màn hình xem chi tiết từng thành viên, để hai nơi không bao giờ lệch nhau.
+   */
+  private async buildMonthlySnapshot(month: string): Promise<MonthlySnapshot> {
     // 1. Parse month range
     const [yearStr, monthStr] = month.split('-');
     const y = parseInt(yearStr);
@@ -2082,41 +2119,35 @@ export class CommissionService {
     }
 
     // 4. Build referral tree children map to find F1s
-    const f1Map = new Map<string, string[]>();
-    for (const u of users) {
-      if (u.referralUserId) {
-        const list = f1Map.get(u.referralUserId) || [];
-        list.push(u.id);
-        f1Map.set(u.referralUserId, list);
-      }
+    const f1Map = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.referralUserId,
+    );
+
+    // Tổng doanh số từng nhánh trong một lượt duyệt thay vì duyệt lại cây cho
+    // mỗi user.
+    const { subtreeValue: subtreeSalesMap, subtreeCount: subtreeCountMap, cyclicNodeIds } =
+      computeSubtreeAggregates(
+        users.map((u) => u.id),
+        f1Map,
+        (id) => userPersonalSalesMap.get(id) || 0,
+      );
+
+    if (cyclicNodeIds.length > 0) {
+      this.logger.warn(
+        `Cây giới thiệu có ${cyclicNodeIds.length} node nằm trong vòng lặp khi tính tháng ${month}: ${cyclicNodeIds
+          .slice(0, 10)
+          .join(', ')}`,
+      );
     }
 
-    // Helper to get all descendants in the referral tree
-    const getDescendants = (userId: string): string[] => {
-      const descendants: string[] = [];
-      const visited = new Set<string>([userId]);
-      const queue = [userId];
-      while (queue.length > 0) {
-        const curr = queue.shift()!;
-        const f1s = f1Map.get(curr) || [];
-        for (const childId of f1s) {
-          if (!visited.has(childId)) {
-            visited.add(childId);
-            descendants.push(childId);
-            queue.push(childId);
-          }
-        }
-      }
-      return descendants;
-    };
-
-    // Calculate group sales in the month for each user
+    // Doanh số nhóm = tổng các nhánh F1, không tính doanh số cá nhân.
     const userGroupSalesMap = new Map<string, number>();
     for (const u of users) {
-      const descIds = getDescendants(u.id);
       let gSales = 0;
-      for (const descId of descIds) {
-        gSales += userPersonalSalesMap.get(descId) || 0;
+      for (const f1Id of f1Map.get(u.id) || []) {
+        gSales += subtreeSalesMap.get(f1Id) || 0;
       }
       userGroupSalesMap.set(u.id, gSales);
     }
@@ -2129,7 +2160,8 @@ export class CommissionService {
       if (u.manualRank && u.manualRank !== 'NONE') {
         ranksMap.set(u.id, u.manualRank);
       } else {
-        const isDaiLy = Number(u.totalPurchaseAmount) >= 600;
+        const isDaiLy =
+          Number(u.totalPurchaseAmount) >= DAILY_RANK_MIN_PURCHASE;
         ranksMap.set(u.id, isDaiLy ? 'DAILY' : 'C0');
       }
     }
@@ -2137,63 +2169,52 @@ export class CommissionService {
     // Ranks values hierarchy helper
     const isAtLeastRank = (userId: string, targetRank: string): boolean => {
       const currentRank = ranksMap.get(userId) || 'C0';
-      const rankOrder = ['C0', 'DAILY', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
-      return rankOrder.indexOf(currentRank) >= rankOrder.indexOf(targetRank);
+      return (
+        MONTHLY_RANK_ORDER.indexOf(currentRank) >=
+        MONTHLY_RANK_ORDER.indexOf(targetRank)
+      );
     };
 
-    // Iteratively determine ranks C1 to C9
-    const ranksToProcess = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
+    // Xét thăng cấp C1..C9, lặp lại tới khi không ai đổi cấp nữa.
+    // Một lượt duy nhất là không đủ: cấp dưới có thể vượt lên C1 ngay trong
+    // lượt đó, sau khi tuyến trên đã được xét, nên kết quả phụ thuộc thứ tự
+    // dòng trả về của DB. Cấp bậc chỉ tăng nên vòng lặp luôn dừng.
+    for (let pass = 0; ; pass++) {
+      let changed = false;
 
-    for (const r of ranksToProcess) {
-      for (const u of users) {
-        const currentRank = ranksMap.get(u.id) || 'C0';
-        const rankOrder = ['C0', 'DAILY', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
-        if (u.manualRank && u.manualRank !== 'NONE') {
-          if (rankOrder.indexOf(currentRank) >= rankOrder.indexOf(r)) {
+      for (const r of MONTHLY_RANK_PROMOTION_ORDER) {
+        const requirements = MONTHLY_RANK_RULES[r];
+        for (const u of users) {
+          const currentRank = ranksMap.get(u.id) || 'C0';
+          if (
+            MONTHLY_RANK_ORDER.indexOf(currentRank) >=
+            MONTHLY_RANK_ORDER.indexOf(r)
+          ) {
+            // Đã bằng hoặc cao hơn r, xét tiếp chỉ có thể hạ cấp.
             continue;
           }
-        }
 
-        const f1Ids = f1Map.get(u.id) || [];
-        let isPromoted = false;
+          const f1Ids = f1Map.get(u.id) || [];
+          const isPromoted = requirements.every(
+            (req) =>
+              f1Ids.filter((id) => isAtLeastRank(id, req.rank)).length >=
+              req.count,
+          );
 
-        if (r === 'C1') {
-          // At least 3 F1 are DAILY or higher
-          const dailyF1Count = f1Ids.filter((id) => isAtLeastRank(id, 'DAILY')).length;
-          isPromoted = dailyF1Count >= 3;
-        } else if (r === 'C2') {
-          // At least 3 F1 are C1 or higher
-          const c1F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C1')).length;
-          isPromoted = c1F1Count >= 3;
-        } else if (r === 'C3') {
-          const c2F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C2')).length;
-          isPromoted = c2F1Count >= 3;
-        } else if (r === 'C4') {
-          const c3F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C3')).length;
-          isPromoted = c3F1Count >= 3;
-        } else if (r === 'C5') {
-          const c4F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C4')).length;
-          isPromoted = c4F1Count >= 3;
-        } else if (r === 'C6') {
-          const c5F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C5')).length;
-          const c4F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C4')).length;
-          isPromoted = c5F1Count >= 2 && c4F1Count >= 3;
-        } else if (r === 'C7') {
-          const c6F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C6')).length;
-          const c5F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C5')).length;
-          isPromoted = c6F1Count >= 2 && c5F1Count >= 3;
-        } else if (r === 'C8') {
-          const c7F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C7')).length;
-          const c6F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C6')).length;
-          isPromoted = c7F1Count >= 2 && c6F1Count >= 3;
-        } else if (r === 'C9') {
-          const c7F1Count = f1Ids.filter((id) => isAtLeastRank(id, 'C7')).length;
-          isPromoted = c7F1Count >= 3;
+          if (isPromoted) {
+            ranksMap.set(u.id, r);
+            changed = true;
+          }
         }
+      }
 
-        if (isPromoted) {
-          ranksMap.set(u.id, r);
-        }
+      if (!changed) break;
+
+      if (pass >= MONTHLY_RANK_PROMOTION_LOOP_LIMIT) {
+        this.logger.warn(
+          `Xếp hạng tháng ${month} chưa hội tụ sau ${MONTHLY_RANK_PROMOTION_LOOP_LIMIT} lượt, dừng sớm`,
+        );
+        break;
       }
     }
 
@@ -2215,20 +2236,8 @@ export class CommissionService {
       const gSales = userGroupSalesMap.get(u.id) || 0;
       let currentMonthRate = 0;
 
-      // Check thresholds:
-      // Mốc 1: $400 - $4,000 -> 4%
-      // Mốc 2: $4,000 - $20,000 -> 6%
-      // Mốc 3: $20,000 - $40,000 -> 8%
-      // Mốc 4: > $40,000 -> 10%
-      if (gSales >= 40000) {
-        currentMonthRate = 0.10;
-      } else if (gSales >= 20000) {
-        currentMonthRate = 0.08;
-      } else if (gSales >= 4000) {
-        currentMonthRate = 0.06;
-      } else if (gSales >= 400) {
-        currentMonthRate = 0.04;
-      }
+      const tier = GROUP_REWARD_TIERS.find((t) => gSales >= t.min);
+      currentMonthRate = tier ? tier.rate : 0;
 
       // Apply "Không tụt hạng"
       const prevRate = prevRatesMap.get(u.id) || 0;
@@ -2240,17 +2249,7 @@ export class CommissionService {
 
     // 7. Calculate Global Share Rewards (Tầng 4)
     // C1: 4%, C2: 2%, C3: 1%, C4-C9: 0.5% each
-    const globalRates: Record<string, number> = {
-      C1: 0.04,
-      C2: 0.02,
-      C3: 0.01,
-      C4: 0.005,
-      C5: 0.005,
-      C6: 0.005,
-      C7: 0.005,
-      C8: 0.005,
-      C9: 0.005,
-    };
+    const globalRates = GLOBAL_SHARE_RATES;
 
     const usersByRank = new Map<string, string[]>();
     for (const u of users) {
@@ -2276,6 +2275,54 @@ export class CommissionService {
         }
       }
     }
+
+    return {
+      month,
+      startDate,
+      endDate,
+      prevMonthStr,
+      users,
+      f1Map,
+      subtreeSalesMap,
+      subtreeCountMap,
+      personalSalesMap: userPersonalSalesMap,
+      groupSalesMap: userGroupSalesMap,
+      ranksMap,
+      groupRewardRateMap: userGroupRewardRateMap,
+      groupRewardAmountMap: userGroupRewardAmountMap,
+      globalShareMap: userGlobalShareMap,
+      usersByRank,
+      prevRatesMap,
+      totalNationalSales,
+    };
+  }
+
+  /**
+   * Chốt doanh số tháng: ghi UserMonthlyStats, và khi performPayout = true thì
+   * tạo commission Tầng 3 / Tầng 4 và cộng vào ví người dùng.
+   */
+  async calculateMonthlyRewards(
+    month: string,
+    performPayout: boolean = false,
+  ): Promise<{
+    success: boolean;
+    totalNationalSales: number;
+    statsCount: number;
+    payoutCount: number;
+    totalPayoutAmount: number;
+    usersStats: any[];
+  }> {
+    const snapshot = await this.buildMonthlySnapshot(month);
+    const {
+      users,
+      totalNationalSales,
+      personalSalesMap: userPersonalSalesMap,
+      groupSalesMap: userGroupSalesMap,
+      ranksMap,
+      groupRewardRateMap: userGroupRewardRateMap,
+      groupRewardAmountMap: userGroupRewardAmountMap,
+      globalShareMap: userGlobalShareMap,
+    } = snapshot;
 
     // 8. Save or update UserMonthlyStats in DB and execute payouts if performPayout is true
     let statsCount = 0;
@@ -2370,6 +2417,9 @@ export class CommissionService {
       }
     });
 
+    // Dữ liệu tháng vừa đổi (và tỷ lệ tháng sau phụ thuộc tháng này), bỏ cache.
+    this.monthlySnapshotCache.clear();
+
     return {
       success: true,
       totalNationalSales,
@@ -2377,6 +2427,214 @@ export class CommissionService {
       payoutCount,
       totalPayoutAmount,
       usersStats: usersStatsResult,
+    };
+  }
+
+  /** Snapshot có cache ngắn hạn, dùng cho các màn hình chỉ đọc. */
+  private async getMonthlySnapshot(month: string): Promise<MonthlySnapshot> {
+    const cached = this.monthlySnapshotCache.get(month);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
+    }
+    const data = await this.buildMonthlySnapshot(month);
+    this.monthlySnapshotCache.set(month, {
+      data,
+      expiresAt: Date.now() + CommissionService.MONTHLY_SNAPSHOT_TTL_MS,
+    });
+    return data;
+  }
+
+  /**
+   * Đối chiếu danh sách F1 với điều kiện của một cấp bậc, trả về số lượng đạt
+   * và danh sách F1 nào được tính. Trả null nếu cấp đó không có điều kiện F1
+   * (C0, Đại lý).
+   */
+  private evaluateRankRequirements(
+    targetRank: string,
+    f1Ids: string[],
+    ranksMap: Map<string, string>,
+  ) {
+    const rules = MONTHLY_RANK_RULES[targetRank];
+    if (!rules) return null;
+
+    const qualifiedF1Ids = new Set<string>();
+    const requirements = rules.map((rule) => {
+      const matchedF1Ids = f1Ids.filter(
+        (id) =>
+          MONTHLY_RANK_ORDER.indexOf(ranksMap.get(id) || 'C0') >=
+          MONTHLY_RANK_ORDER.indexOf(rule.rank),
+      );
+      matchedF1Ids.forEach((id) => qualifiedF1Ids.add(id));
+      return {
+        requiredRank: rule.rank,
+        requiredRankLabel: rankLabel(rule.rank),
+        requiredCount: rule.count,
+        actualCount: matchedF1Ids.length,
+        satisfied: matchedF1Ids.length >= rule.count,
+        matchedF1Ids,
+      };
+    });
+
+    return {
+      rank: targetRank,
+      ruleText: rules
+        .map((r) => `${r.count} F1 đạt ${rankLabel(r.rank)} trở lên`)
+        .join(' và '),
+      requirements,
+      satisfied: requirements.every((r) => r.satisfied),
+      qualifiedF1Ids: Array.from(qualifiedF1Ids),
+    };
+  }
+
+  /**
+   * Chi tiết doanh số / cấp bậc tháng của một thành viên: F1 nào thỏa điều kiện
+   * cấp bậc, doanh số từng nhánh, cách ra tỷ lệ thưởng nhóm và tiền đồng chia.
+   */
+  async getMonthlyUserDetail(month: string, userId: string) {
+    const snapshot = await this.getMonthlySnapshot(month);
+
+    const user = snapshot.users.find((u) => u.id === userId);
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy thành viên');
+    }
+
+    const usersById = new Map(snapshot.users.map((u) => [u.id, u]));
+    const rank = snapshot.ranksMap.get(userId) || 'C0';
+    const f1Ids = snapshot.f1Map.get(userId) || [];
+    const personalSales = snapshot.personalSalesMap.get(userId) || 0;
+    const groupSales = snapshot.groupSalesMap.get(userId) || 0;
+
+    const currentQualification = this.evaluateRankRequirements(
+      rank,
+      f1Ids,
+      snapshot.ranksMap,
+    );
+    const nextRank =
+      MONTHLY_RANK_PROMOTION_ORDER.find(
+        (r) =>
+          MONTHLY_RANK_ORDER.indexOf(r) > MONTHLY_RANK_ORDER.indexOf(rank),
+      ) || null;
+    const nextQualification = nextRank
+      ? this.evaluateRankRequirements(nextRank, f1Ids, snapshot.ranksMap)
+      : null;
+
+    // Kiểm tra bất biến: sau khi vòng xét thăng cấp hội tụ, không ai còn đủ
+    // điều kiện lên cao hơn cấp đang giữ. Nếu cờ này bật thì vòng lặp đã chạm
+    // MONTHLY_RANK_PROMOTION_LOOP_LIMIT hoặc dữ liệu cây bất thường.
+    let eligibleRank = rank;
+    for (const r of MONTHLY_RANK_PROMOTION_ORDER) {
+      const q = this.evaluateRankRequirements(r, f1Ids, snapshot.ranksMap);
+      if (
+        q?.satisfied &&
+        MONTHLY_RANK_ORDER.indexOf(r) > MONTHLY_RANK_ORDER.indexOf(eligibleRank)
+      ) {
+        eligibleRank = r;
+      }
+    }
+    const rankLagging =
+      MONTHLY_RANK_ORDER.indexOf(eligibleRank) > MONTHLY_RANK_ORDER.indexOf(rank);
+
+    const currentQualifiedIds = new Set(
+      currentQualification?.qualifiedF1Ids || [],
+    );
+    const nextQualifiedIds = new Set(nextQualification?.qualifiedF1Ids || []);
+
+    const f1List = f1Ids
+      .map((id) => {
+        const f1 = usersById.get(id);
+        const f1PersonalSales = snapshot.personalSalesMap.get(id) || 0;
+        const branchSales = snapshot.subtreeSalesMap.get(id) || 0;
+        const f1Rank = snapshot.ranksMap.get(id) || 'C0';
+        return {
+          userId: id,
+          username: f1?.username || null,
+          email: f1?.email || null,
+          rank: f1Rank,
+          rankLabel: rankLabel(f1Rank),
+          manualRank: f1?.manualRank || null,
+          isDaiLy:
+            Number(f1?.totalPurchaseAmount || 0) >= DAILY_RANK_MIN_PURCHASE,
+          totalPurchaseAmount: Number(f1?.totalPurchaseAmount || 0),
+          personalSales: f1PersonalSales,
+          branchSales,
+          branchMemberCount: snapshot.subtreeCountMap.get(id) || 1,
+          f1Count: (snapshot.f1Map.get(id) || []).length,
+          countsTowardCurrentRank: currentQualifiedIds.has(id),
+          countsTowardNextRank: nextQualifiedIds.has(id),
+          sharePercent: groupSales > 0 ? branchSales / groupSales : 0,
+        };
+      })
+      .sort((a, b) => b.branchSales - a.branchSales);
+
+    const appliedRate = snapshot.groupRewardRateMap.get(userId) || 0;
+    const tier = GROUP_REWARD_TIERS.find((t) => groupSales >= t.min);
+    const rateThisMonth = tier ? tier.rate : 0;
+    const prevMonthRate = snapshot.prevRatesMap.get(userId) || 0;
+
+    const poolRate = GLOBAL_SHARE_RATES[rank] || 0;
+    const qualifiedSameRank = snapshot.usersByRank.get(rank) || [];
+
+    const storedStats = await this.userMonthlyStatsRepository.findOne({
+      where: { userId, month },
+    });
+
+    return {
+      month,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        manualRank: user.manualRank || null,
+        totalPurchaseAmount: Number(user.totalPurchaseAmount || 0),
+      },
+      rank,
+      rankLabel: rankLabel(rank),
+      eligibleRank,
+      eligibleRankLabel: rankLabel(eligibleRank),
+      rankLagging,
+      isManualRank: !!user.manualRank && user.manualRank !== 'NONE',
+      daiLyCondition: {
+        required: DAILY_RANK_MIN_PURCHASE,
+        actual: Number(user.totalPurchaseAmount || 0),
+        satisfied:
+          Number(user.totalPurchaseAmount || 0) >= DAILY_RANK_MIN_PURCHASE,
+      },
+      currentQualification,
+      nextQualification,
+      personalSales,
+      groupSales,
+      totalMemberCount: (snapshot.subtreeCountMap.get(userId) || 1) - 1,
+      f1List,
+      groupReward: {
+        groupSales,
+        tierLabel: tier ? tier.label : 'Chưa đạt mốc tối thiểu ($400)',
+        rateThisMonth,
+        prevMonth: snapshot.prevMonthStr,
+        prevMonthRate,
+        appliedRate,
+        keptFromPrevMonth: appliedRate > rateThisMonth,
+        amount: snapshot.groupRewardAmountMap.get(userId) || 0,
+      },
+      globalShare: {
+        rank,
+        rankLabel: rankLabel(rank),
+        poolRate,
+        totalNationalSales: snapshot.totalNationalSales,
+        poolAmount: snapshot.totalNationalSales * poolRate,
+        qualifiedCount: qualifiedSameRank.length,
+        amount: snapshot.globalShareMap.get(userId) || 0,
+      },
+      stored: storedStats
+        ? {
+            isProcessed: storedStats.isProcessed,
+            personalSales: Number(storedStats.personalSales),
+            groupSales: Number(storedStats.groupSales),
+            calculatedRank: storedStats.calculatedRank,
+            groupRewardRate: Number(storedStats.groupRewardRate),
+            groupRewardAmount: Number(storedStats.groupRewardAmount),
+            globalShareAmount: Number(storedStats.globalShareAmount),
+          }
+        : null,
     };
   }
 

@@ -36,7 +36,6 @@ import WalletWithdrawRequests from './pages/WalletWithdrawRequests';
 import BlockchainSettings from './pages/BlockchainSettings';
 import HeapReward from './pages/HeapReward';
 import MonthlySales from './pages/MonthlySales';
-import RankPool from './pages/RankPool';
 import AgentPool from './pages/AgentPool';
 import ProductTypes from './pages/ProductTypes';
 import './App.css';
@@ -428,18 +427,6 @@ function App() {
                   <AdminOnlyRoute>
                     <AdminLayout>
                       <ProductTypes />
-                    </AdminLayout>
-                  </AdminOnlyRoute>
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/rank-pool"
-              element={
-                <PrivateRoute>
-                  <AdminOnlyRoute>
-                    <AdminLayout>
-                      <RankPool />
                     </AdminLayout>
                   </AdminOnlyRoute>
                 </PrivateRoute>

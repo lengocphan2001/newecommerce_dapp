@@ -22,6 +22,8 @@ export enum OrderStatus {
 }
 
 @Entity('orders')
+@Index('IDX_orders_status_created_at', ['status', 'createdAt'])
+@Index('IDX_orders_created_at', ['createdAt'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;

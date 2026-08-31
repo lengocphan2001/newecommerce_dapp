@@ -49,8 +49,6 @@ import { MatrixRewardOrderProcessed } from '../src/matrix-reward/entities/matrix
 import { PasswordResetToken } from '../src/auth/entities/password-reset-token.entity';
 import { HeapRewardPlacement } from '../src/heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from '../src/heap-reward/entities/heap-reward-history.entity';
-import { RankPoolPlacement } from '../src/rank-pool/entities/rank-pool-placement.entity';
-import { RankPoolHistory } from '../src/rank-pool/entities/rank-pool-history.entity';
 import { UserMonthlyStats } from '../src/affiliate/entities/user-monthly-stats.entity';
 import { AgentPool } from '../src/agent-pool/entities/agent-pool.entity';
 import { AgentPoolMember } from '../src/agent-pool/entities/agent-pool-member.entity';
@@ -93,87 +91,6 @@ async function ensureUsersLoginOtpColumns(
   await dataSource.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "loginOtpExpiresAt" TIMESTAMP NULL;
   `);
-}
-
-async function ensureRankPoolTablesExist(
-  dataSource: DataSource,
-  isMySQL: boolean,
-): Promise<void> {
-  if (!isMySQL) return;
-
-  try {
-    // 1. Get the collation of users.id
-    const collationRows = await dataSource.query(`
-      SELECT COLLATION_NAME, CHARACTER_SET_NAME
-      FROM information_schema.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'id'
-    `);
-
-    let collation = '';
-    let charset = '';
-
-    if (collationRows && collationRows.length > 0) {
-      collation = collationRows[0].COLLATION_NAME;
-      charset = collationRows[0].CHARACTER_SET_NAME;
-    } else {
-      try {
-        const dbDefaults = await dataSource.query(`
-          SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME
-          FROM information_schema.SCHEMATA
-          WHERE SCHEMA_NAME = DATABASE()
-        `);
-        if (dbDefaults && dbDefaults.length > 0) {
-          collation = dbDefaults[0].DEFAULT_COLLATION_NAME;
-          charset = dbDefaults[0].DEFAULT_CHARACTER_SET_NAME;
-        }
-      } catch (e) {
-        console.error('Error fetching database default collation:', e);
-      }
-    }
-
-    if (!collation) collation = 'utf8mb4_unicode_ci';
-    if (!charset) charset = 'utf8mb4';
-
-    console.log(`Detected users.id collation: ${collation}, charset: ${charset}`);
-
-    // 2. Drop the tables if they exist to avoid conflict and recreate them with the correct collation
-    await dataSource.query(`DROP TABLE IF EXISTS \`rank_pool_histories\``);
-    await dataSource.query(`DROP TABLE IF EXISTS \`rank_pool_placements\``);
-
-    // 3. Create the tables with the exact charset and collation
-    await dataSource.query(`
-      CREATE TABLE IF NOT EXISTS \`rank_pool_placements\` (
-        \`id\` varchar(36) NOT NULL,
-        \`userId\` varchar(36) CHARACTER SET ${charset} COLLATE ${collation} NOT NULL,
-        \`rank\` enum('LEADER','MANAGER','DIRECTOR','DIAMOND') NOT NULL,
-        \`totalRewarded\` decimal(14,4) NOT NULL DEFAULT '0.0000',
-        \`isActive\` tinyint NOT NULL DEFAULT '1',
-        \`note\` text NULL,
-        \`createdAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        \`updatedAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-        PRIMARY KEY (\`id\`),
-        KEY \`IDX_rank_pool_placements_userId\` (\`userId\`),
-        KEY \`IDX_rank_pool_placements_rank\` (\`rank\`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=${charset} COLLATE=${collation};
-    `);
-
-    await dataSource.query(`
-      CREATE TABLE IF NOT EXISTS \`rank_pool_histories\` (
-        \`id\` varchar(36) NOT NULL,
-        \`userId\` varchar(36) CHARACTER SET ${charset} COLLATE ${collation} NOT NULL,
-        \`rank\` enum('LEADER','MANAGER','DIRECTOR','DIAMOND') NOT NULL,
-        \`amount\` decimal(14,4) NOT NULL,
-        \`note\` text NULL,
-        \`createdAt\` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        PRIMARY KEY (\`id\`),
-        KEY \`IDX_rank_pool_histories_userId\` (\`userId\`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=${charset} COLLATE=${collation};
-    `);
-
-    console.log('Created rank_pool_placements and rank_pool_histories tables with correct collation.');
-  } catch (err) {
-    console.error('Error pre-creating rank pool tables:', err);
-  }
 }
 
 async function initializeDatabase() {
@@ -236,8 +153,6 @@ async function initializeDatabase() {
       PasswordResetToken,
       HeapRewardPlacement,
       HeapRewardHistory,
-      RankPoolPlacement,
-      RankPoolHistory,
       UserMonthlyStats,
       AgentPool,
       AgentPoolMember,
@@ -251,9 +166,6 @@ async function initializeDatabase() {
     console.log('\nConnecting to database...');
     await dataSource.initialize();
     console.log('Database connected successfully!');
-
-    // Pre-create rank pool tables with matching collation
-    await ensureRankPoolTablesExist(dataSource, isMySQL);
 
     console.log('Synchronizing database schema...');
     await dataSource.synchronize();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { formatAmount } from "@/app/utils/format";
 
 interface TreeNode {
   id: string;
@@ -98,12 +99,7 @@ export default function BinaryTreeView() {
     // Search logic can be implemented later
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(price);
-  };
+  const formatPrice = (price: number) => formatAmount(price, 2, 2);
 
   const getMemberTag = (member: TreeNode) => {
     const total = Number(member.totalPurchaseAmount) || 0;

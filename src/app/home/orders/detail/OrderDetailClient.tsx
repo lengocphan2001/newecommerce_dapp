@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { formatAmount, formatVndPlain, usdToVnd } from "@/app/utils/format";
 
 interface OrderItem {
     productId: string;
@@ -90,17 +91,9 @@ export default function OrderDetailClient() {
         }
     };
 
-    const formatPrice = (price: number) => {
-        return new Intl.NumberFormat("en-US", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 4,
-        }).format(price);
-    };
+    const formatPrice = (price: number) => formatAmount(price, 0, 4);
 
-    const formatPriceVND = (amount: number) => {
-        const vndAmount = amount * 25000;
-        return `${vndAmount.toLocaleString("vi-VN")} VND`;
-    };
+    const formatPriceVND = (amount: number) => formatVndPlain(usdToVnd(amount));
 
     const copyToClipboard = async (text: string, e?: React.MouseEvent) => {
         e?.preventDefault();

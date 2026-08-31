@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Button, Tag, Space, message, Typography, Select, Popconfirm } from 'antd';
 import { ReloadOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { packagePurchaseService, PackagePurchase } from '../services/packagePurchaseService';
+import { formatDateTime } from '../utils/format';
 
 const { Title, Text } = Typography;
 
@@ -61,7 +62,7 @@ const PackagePurchasesPage: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v: string) => formatDateTime(v),
     },
     {
       title: 'User',
@@ -108,7 +109,7 @@ const PackagePurchasesPage: React.FC = () => {
       dataIndex: 'paidAt',
       key: 'paidAt',
       width: 160,
-      render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v: string) => formatDateTime(v),
     },
     {
       title: 'Actions',

@@ -9,12 +9,13 @@ import {
   UseGuards,
   Put,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AffiliateService } from './affiliate.service';
+import { CommissionService } from './commission.service';
 import {
   RegisterAffiliateDto,
-  WithdrawAffiliateDto,
   ApproveCommissionDto,
   ApproveSingleCommissionDto,
   CancelCommissionBatchDto,
@@ -25,7 +26,10 @@ import { JwtAuthGuard, AdminGuard } from '../common/guards';
 @Controller('affiliate')
 @UseGuards(JwtAuthGuard)
 export class AffiliateController {
-  constructor(private readonly affiliateService: AffiliateService) {}
+  constructor(
+    private readonly affiliateService: AffiliateService,
+    private readonly commissionService: CommissionService,
+  ) {}
 
   @Post('register')
   async register(@Body() registerDto: RegisterAffiliateDto) {
@@ -57,7 +61,7 @@ export class AffiliateController {
     if (!req.user.isAdmin && userId !== (req.user.userId || req.user.sub)) {
       throw new Error('Unauthorized');
     }
-    return this.affiliateService.getStats(userId);
+    return this.commissionService.getStats(userId);
   }
 
   @Get('commissions/:userId')
@@ -71,16 +75,6 @@ export class AffiliateController {
       throw new Error('Unauthorized');
     }
     return this.affiliateService.getCommissions(userId, query);
-  }
-
-  @Post('withdraw')
-  async withdraw(
-    @Body() withdrawDto: WithdrawAffiliateDto,
-    @Request() req: any,
-  ) {
-    // User chỉ có thể rút tiền của mình
-    const userId = req.user.userId || req.user.sub;
-    return this.affiliateService.withdraw({ ...withdrawDto, userId });
   }
 
   // ========== Admin endpoints ==========
@@ -156,7 +150,7 @@ export class AffiliateController {
   @Get('admin/commissions/:id')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async getCommissionDetail(@Param('id') id: string) {
-    return this.affiliateService.getCommissionDetail(id);
+    return this.commissionService.getCommissionDetail(id);
   }
 
   @Put('admin/commissions/:id/approve')
@@ -205,13 +199,13 @@ export class AffiliateController {
     @Param('id') id: string,
     @Body() dto: CancelSingleCommissionDto,
   ) {
-    return this.affiliateService.cancelCommission(id, dto.reason);
+    return this.commissionService.cancelCommission(id, dto.reason);
   }
 
   @Post('admin/commissions/cancel-batch')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async cancelCommissionsBatch(@Body() dto: CancelCommissionBatchDto) {
-    return this.affiliateService.cancelCommissions(
+    return this.commissionService.cancelCommissions(
       dto.commissionIds,
       dto.reason,
     );
@@ -222,7 +216,9 @@ export class AffiliateController {
   async compensateMissedDirectCommissions(
     @Body() body: { fromDate?: string }
   ) {
-    return this.affiliateService.compensateMissedDirectCommissions(body.fromDate);
+    return this.commissionService.compensateMissedDirectCommissions(
+      body.fromDate,
+    );
   }
 
   @Post('admin/orders/:id/compensate-commission')
@@ -230,7 +226,7 @@ export class AffiliateController {
   async compensateSingleOrderCommission(
     @Param('id') id: string
   ) {
-    return this.affiliateService.compensateSingleOrderCommission(id);
+    return this.commissionService.compensateSingleOrderCommission(id);
   }
 
   @Post('admin/commissions/monthly/calculate')
@@ -241,7 +237,10 @@ export class AffiliateController {
     if (!body.month) {
       throw new Error('Month is required (format: YYYY-MM)');
     }
-    return this.affiliateService.calculateMonthlyRewards(body.month, !!body.performPayout);
+    return this.commissionService.calculateMonthlyRewards(
+      body.month,
+      !!body.performPayout,
+    );
   }
 
   @Get('admin/commissions/monthly/stats')
@@ -252,6 +251,21 @@ export class AffiliateController {
     if (!month) {
       throw new Error('Month is required (format: YYYY-MM)');
     }
-    return this.affiliateService.getMonthlyStats(month);
+    return this.commissionService.getMonthlyStats(month);
+  }
+
+  @Get('admin/commissions/monthly/user-detail')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getMonthlyUserDetail(
+    @Query('month') month: string,
+    @Query('userId') userId: string
+  ) {
+    if (!month) {
+      throw new BadRequestException('Month is required (format: YYYY-MM)');
+    }
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
+    return this.commissionService.getMonthlyUserDetail(month, userId);
   }
 }

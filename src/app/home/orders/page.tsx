@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
 import { handleAuthError } from "@/app/utils/auth";
+import { formatAmount, formatVnd, usdToVnd } from "@/app/utils/format";
 
 interface OrderItem {
   productId: string;
@@ -105,23 +106,9 @@ function OrdersPageContent() {
     }
   };
 
-  const formatPrice = (amount: number) => {
-    return amount?.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    });
-  };
+  const formatPrice = (amount: number) => formatAmount(amount, 2, 4);
 
-  const formatPriceVND = (amount: number) => {
-    // Assuming 1 USDT ≈ 25,000 VND
-    const vndAmount = amount * 25000;
-    return vndAmount.toLocaleString("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-  };
+  const formatPriceVND = (amount: number) => formatVnd(usdToVnd(amount));
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);

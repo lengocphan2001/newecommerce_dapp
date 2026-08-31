@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Table, Input, Button, Space } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { walletService, Transaction } from '../services/walletService';
+import { formatDateTime } from '../utils/format';
 
 const Wallet: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -46,7 +47,7 @@ const Wallet: React.FC = () => {
       title: 'Created At',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
+      render: (date: string) => formatDateTime(date),
     },
   ];
 

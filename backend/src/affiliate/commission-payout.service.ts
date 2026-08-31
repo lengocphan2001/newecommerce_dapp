@@ -15,11 +15,7 @@ import {
   AuditLogEntityType,
 } from '../audit-log/entities/audit-log.entity';
 import { AdminService } from '../admin/admin.service';
-
-function roundMoney(num: number): number {
-  if (!Number.isFinite(num)) return 0;
-  return Math.round(num * 100) / 100;
-}
+import { roundMoney } from '../common/utils/number.util';
 
 const COMMISSION_FEE_PERCENT = 12;
 

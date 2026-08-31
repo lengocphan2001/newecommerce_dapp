@@ -8,6 +8,7 @@ import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
 import { QRCodeSVG } from "qrcode.react";
+import { formatAmount, formatVnd, usdToVnd } from "@/app/utils/format";
 
 export default function AffiliatePage() {
   const { t, lang } = useI18n();
@@ -172,32 +173,12 @@ export default function AffiliatePage() {
     }
   };
 
-  const formatPrice = (price: string | number) => {
-    const num = typeof price === "string" ? parseFloat(price) : price;
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(num);
-  };
+  const formatPrice = (price: string | number) => formatAmount(price, 2, 4);
 
-  const formatVolume = (volume: string | number) => {
-    const num = typeof volume === "string" ? parseFloat(volume) : volume;
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4,
-    }).format(num);
-  };
+  const formatVolume = (volume: string | number) => formatAmount(volume, 4, 4);
 
-  const formatPriceVND = (volume: string | number) => {
-    const num = typeof volume === "string" ? parseFloat(volume) : volume;
-    const vndAmount = num * 25000;
-    return vndAmount.toLocaleString("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-  };
+  const formatPriceVND = (volume: string | number) =>
+    formatVnd(usdToVnd(volume));
 
   const formatDateSimple = (dateString: string | null | undefined): string => {
     if (!dateString) return '-';

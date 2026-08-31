@@ -1,7 +1,14 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_LANG, DICT, type I18nKey, type Lang } from "@/app/i18n/dict";
+import {
+  DEFAULT_DICT,
+  DEFAULT_LANG,
+  loadDict,
+  type Dict,
+  type I18nKey,
+  type Lang,
+} from "@/app/i18n/dict";
 
 type I18nContextValue = {
   lang: Lang;
@@ -16,6 +23,11 @@ const STORAGE_KEY = "lang";
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   // Always start with DEFAULT_LANG (en) for every new session/access
   const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
+  // Only the default language is bundled up front; the others arrive here once
+  // their chunk has loaded.
+  const [dicts, setDicts] = useState<Partial<Record<Lang, Dict>>>({
+    [DEFAULT_LANG]: DEFAULT_DICT,
+  });
 
   useEffect(() => {
     // Clear any previously stored language to ensure next access is also default
@@ -38,6 +50,22 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (dicts[lang]) return;
+    loadDict(lang)
+      .then((loaded) => {
+        if (cancelled) return;
+        setDicts((prev) => (prev[lang] ? prev : { ...prev, [lang]: loaded }));
+      })
+      .catch(() => {
+        // Keep showing the default language if the chunk fails to load.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, dicts]);
+
   const setLang = useCallback((next: Lang) => {
     setLangState(next);
     try {
@@ -49,9 +77,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback(
     (key: I18nKey) => {
-      return DICT[lang]?.[key] ?? DICT[DEFAULT_LANG][key] ?? key;
+      return dicts[lang]?.[key] ?? DEFAULT_DICT[key] ?? key;
     },
-    [lang]
+    [dicts, lang]
   );
 
   const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
@@ -61,7 +89,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
 // Safe fallback so pages never crash if rendered outside I18nProvider
 const _fallbackT = (key: I18nKey): string =>
-  DICT[DEFAULT_LANG][key] ?? (key as string);
+  DEFAULT_DICT[key] ?? (key as string);
 const _fallbackCtx: I18nContextValue = {
   lang: DEFAULT_LANG,
   setLang: () => {},

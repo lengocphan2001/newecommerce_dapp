@@ -31,20 +31,10 @@ export class AffiliateService {
     };
   }
 
-  async getStats(userId: string) {
-    return this.commissionService.getStats(userId);
-  }
-
   async getCommissions(userId: string, query: any) {
     const type = query.type as CommissionType | undefined;
     const status = query.status as CommissionStatus | undefined;
     return this.commissionService.getCommissions(userId, { type, status });
-  }
-
-  async withdraw(withdrawDto: any) {
-    // TODO: Implement affiliate withdraw logic
-    // Có thể tích hợp với wallet service để rút tiền
-    return { message: 'Affiliate withdraw - to be implemented' };
   }
 
   /**
@@ -165,34 +155,6 @@ export class AffiliateService {
   /**
    * Lấy chi tiết commission (chỉ admin)
    */
-  async getCommissionDetail(commissionId: string) {
-    return this.commissionService.getCommissionDetail(commissionId);
-  }
-
-  async cancelCommission(commissionId: string, reason?: string) {
-    return this.commissionService.cancelCommission(commissionId, reason);
-  }
-
-  async cancelCommissions(commissionIds: string[], reason?: string) {
-    return this.commissionService.cancelCommissions(commissionIds, reason);
-  }
-
-  async compensateMissedDirectCommissions(fromDate?: string) {
-    return this.commissionService.compensateMissedDirectCommissions(fromDate);
-  }
-
-  async compensateSingleOrderCommission(orderId: string) {
-    return this.commissionService.compensateSingleOrderCommission(orderId);
-  }
-
-  async calculateMonthlyRewards(month: string, performPayout: boolean) {
-    return this.commissionService.calculateMonthlyRewards(month, performPayout);
-  }
-
-  async getMonthlyStats(month: string) {
-    return this.commissionService.getMonthlyStats(month);
-  }
-
   async validateDownline(sponsorId: string, targetUsername: string): Promise<any> {
     if (!targetUsername?.trim()) {
       throw new BadRequestException('Username is required');

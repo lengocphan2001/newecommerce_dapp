@@ -33,3 +33,15 @@ Withdraw requests VND value is stored statically to prevent display balances fro
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-withdraw-request-rate-and-amount-vnd.sql
 ```
+
+## Add indexes on `orders` (`status`, `createdAt`)
+
+Monthly reward calculation filters orders by status and a `createdAt` range, and the
+admin dashboard sorts by `createdAt`. Without these indexes both scan the whole table.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-orders-status-created-at-index.sql
+```
+
+MySQL has no `CREATE INDEX IF NOT EXISTS`, so run `SHOW INDEX FROM orders;` first and
+skip any statement whose index is already present.

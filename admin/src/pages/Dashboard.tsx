@@ -16,6 +16,7 @@ import { adminService } from '../services/adminService';
 import { commissionPayoutService } from '../services/commissionPayoutService';
 import type { ColumnsType } from 'antd/es/table';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDateTime } from '../utils/format';
 
 const { Title, Text } = Typography;
 
@@ -213,7 +214,7 @@ const Dashboard: React.FC = () => {
       title: 'Created At',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => formatDateTime(date),
     },
   ];
 

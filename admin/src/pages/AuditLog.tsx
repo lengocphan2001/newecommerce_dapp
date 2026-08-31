@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag } from 'antd';
 import { auditLogService, AuditLog } from '../services/auditLogService';
+import { formatDateTime } from '../utils/format';
 
 const AuditLogPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -52,7 +53,7 @@ const AuditLogPage: React.FC = () => {
       title: 'Created At',
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
+      render: (date: string) => formatDateTime(date),
     },
   ];
 

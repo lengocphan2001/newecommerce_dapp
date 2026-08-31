@@ -6,6 +6,7 @@ import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { formatAmount } from "@/app/utils/format";
 
 interface Transaction {
   id: string;
@@ -432,22 +433,9 @@ export default function WalletsPage() {
     }
   };
 
-  const formatPrice = (price: string | number) => {
-    const num = typeof price === 'string' ? parseFloat(price) : price;
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num);
-  };
+  const formatPrice = (price: string | number) => formatAmount(price, 2, 2);
 
-  const formatUSDT = (balance: string | number) => {
-    const num = typeof balance === 'string' ? parseFloat(balance) : balance;
-    if (isNaN(num) || num === 0) return "0.00";
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(num);
-  };
+  const formatUSDT = (balance: string | number) => formatAmount(balance, 2, 4);
 
   /** Tỷ giá chỉ cho modal rút ví — tách với tỷ giá nạp/checkout (`usdtPriceVnd`). */
   const usdtWithdrawRateVnd =

@@ -7,6 +7,7 @@ import LanguageSelect from "@/app/components/LanguageSelect";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { formatAmount } from "@/app/utils/format";
 
 interface Category {
   id: string;
@@ -250,12 +251,7 @@ export default function HomePage() {
     }).format(amount);
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
-  };
+  const formatPrice = (price: number) => formatAmount(price, 2, 4);
 
   const handleProductClick = (productId: string) => {
     router.push(`/home/products/detail?id=${productId}`);

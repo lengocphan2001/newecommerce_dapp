@@ -4,6 +4,7 @@ import { ReloadOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/ic
 import { orderService, Order } from '../services/orderService';
 import { adminService } from '../services/adminService';
 import api from '../services/api';
+import { formatDateTime } from '../utils/format';
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -289,7 +290,7 @@ const Orders: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
+      render: (date: string) => formatDateTime(date),
     },
     {
       title: 'Actions',
@@ -498,7 +499,7 @@ const Orders: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Created At">
               {selectedOrder.createdAt
-                ? new Date(selectedOrder.createdAt).toLocaleString()
+                ? formatDateTime(selectedOrder.createdAt)
                 : '-'}
             </Descriptions.Item>
           </Descriptions>

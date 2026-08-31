@@ -58,9 +58,6 @@ import { HeapRewardModule } from './heap-reward/heap-reward.module';
 import { HeapRewardPlacement } from './heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from './heap-reward/entities/heap-reward-history.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
-import { RankPoolModule } from './rank-pool/rank-pool.module';
-import { RankPoolPlacement } from './rank-pool/entities/rank-pool-placement.entity';
-import { RankPoolHistory } from './rank-pool/entities/rank-pool-history.entity';
 import { AgentPoolModule } from './agent-pool/agent-pool.module';
 import { AgentPool } from './agent-pool/entities/agent-pool.entity';
 import { AgentPoolMember } from './agent-pool/entities/agent-pool-member.entity';
@@ -128,8 +125,6 @@ import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entit
           PasswordResetToken,
           HeapRewardPlacement,
           HeapRewardHistory,
-          RankPoolPlacement,
-          RankPoolHistory,
           AgentPool,
           AgentPoolMember,
           AgentPoolHistory,
@@ -162,7 +157,6 @@ import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entit
     AnalyticsModule,
     MatrixRewardModule,
     HeapRewardModule,
-    RankPoolModule,
     AgentPoolModule,
   ],
   controllers: [AppController],

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
+import { formatAmount } from "@/app/utils/format";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, totalAmount, totalItems, clearCart } = useShoppingCart();
@@ -62,12 +63,7 @@ export default function CartPage() {
     }).format(amount);
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
-  };
+  const formatPrice = (price: number) => formatAmount(price, 2, 4);
 
   const getRankName = (packageType?: string, accumulatedPurchases?: string | number) => {
     const total = Number(accumulatedPurchases) || 0;

@@ -29,19 +29,14 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('dashboard')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async getDashboard() {
     return this.adminService.getDashboard();
   }
 
-  @Get('users')
-  async getUsers(@Query() query: any) {
-    return this.adminService.getUsers(query);
-  }
-
   @Get('users/export')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async exportUsers(@Res() res: Response) {
-    const users = await this.adminService.exportUsers();
-
     const escapeCsv = (
       val: string | number | Date | null | undefined,
     ): string => {
@@ -89,7 +84,7 @@ export class AdminController {
       'Updated At',
     ];
 
-    const rows = users.map((user) => [
+    const toRow = (user: any) => [
       escapeCsv(user.id),
       escapeCsv(user.username),
       escapeCsv(user.email),
@@ -119,16 +114,23 @@ export class AdminController {
       escapeCsv(user.passwordChangedAt),
       escapeCsv(user.createdAt),
       escapeCsv(user.updatedAt),
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
+    ];
 
     res.header('Content-Type', 'text/csv');
     res.header('Content-Disposition', 'attachment; filename="users.csv"');
-    return res.send(csvContent);
+    res.write(headers.join(','));
+
+    const BATCH_SIZE = 500;
+    for (let skip = 0; ; skip += BATCH_SIZE) {
+      const batch = await this.adminService.exportUsers(skip, BATCH_SIZE);
+      if (batch.length === 0) break;
+      for (const user of batch) {
+        res.write('\n' + toRow(user).join(','));
+      }
+      if (batch.length < BATCH_SIZE) break;
+    }
+
+    return res.end();
   }
 
   @Post('users/export-login-credentials')
@@ -146,16 +148,13 @@ export class AdminController {
   }
 
   @Get('users/:id/detail')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async getUserDetail(@Param('id') id: string) {
     return this.adminService.getUserDetail(id);
   }
 
-  @Get('orders')
-  async getOrders(@Query() query: any) {
-    return this.adminService.getOrders(query);
-  }
-
   @Put('users/:id/status')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async updateUserStatus(
     @Param('id') id: string,
     @Body() statusDto: UpdateUserStatusDto,
@@ -203,6 +202,7 @@ export class AdminController {
   }
 
   @Get('tree/:userId')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async getFullTree(
     @Param('userId') userId: string,
     @Query('maxDepth') maxDepth?: number,

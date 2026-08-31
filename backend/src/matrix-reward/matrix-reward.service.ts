@@ -18,6 +18,7 @@ import { Order, OrderStatus } from '../order/entities/order.entity';
 import { User } from '../user/entities/user.entity';
 import { SystemConfig } from '../admin/entities/system-config.entity';
 import { PackagesService } from '../packages/packages.service';
+import { roundMoney } from '../common/utils/number.util';
 
 const CFG_MIN_ORDER = 'matrixRewardMinOrderUsd';
 const CFG_MAX_ORDER = 'matrixRewardMaxOrderUsd';
@@ -39,11 +40,6 @@ type ProcessResult =
   | 'placed_root'       // đặt thành root cây, chưa có upline để trả
   | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
   | 'placed_no_upline'; // đặt vào cây nhưng tất cả upline đã đạt maxEarn
-
-function roundMoney(n: number): number {
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100) / 100;
-}
 
 function isDuplicateKeyError(err: unknown): boolean {
   const msg = String((err as any)?.message ?? err ?? '');

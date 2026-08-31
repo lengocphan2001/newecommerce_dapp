@@ -11,12 +11,38 @@ import {
   DatePicker,
   notification,
   Tabs,
+  Drawer,
+  Card,
+  Progress,
+  Alert,
+  Spin,
+  Empty,
+  Breadcrumb,
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../services/api';
+import PageHeader from '../components/PageHeader';
+import StatusTag, {
+  COMMISSION_STATUS_TAGS,
+  MONTHLY_PROCESSED_TAGS,
+} from '../components/StatusTag';
+import { shortIdColumn } from '../utils/tableColumns';
 
-const { Title } = Typography;
+const { Text } = Typography;
+
+const money = (val: any) =>
+  `${Number(val || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const percent = (val: any) => `${(Number(val || 0) * 100).toFixed(1)}%`;
+
+const rankTag = (rank?: string, label?: string) => {
+  const color = !rank || rank === 'C0' ? 'default' : rank === 'DAILY' ? 'green' : 'blue';
+  return <Tag color={color}>{label || rank || 'C0'}</Tag>;
+};
 
 const MonthlyRewards: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('calculate');
@@ -29,6 +55,312 @@ const MonthlyRewards: React.FC = () => {
   // History Tab states
   const [payoutHistory, setPayoutHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Detail Drawer states
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detail, setDetail] = useState<any>(null);
+  const [detailPath, setDetailPath] = useState<{ userId: string; username: string }[]>([]);
+
+  const loadDetail = async (userId: string) => {
+    if (!monthlyDate) return;
+    try {
+      setDetailLoading(true);
+      const res = await api.get('/affiliate/admin/commissions/monthly/user-detail', {
+        params: { month: monthlyDate.format('YYYY-MM'), userId },
+      });
+      setDetail(res.data);
+    } catch (e: any) {
+      message.error(e.response?.data?.message || 'Lấy chi tiết thành viên thất bại');
+      setDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const openDetail = (userId: string, username: string) => {
+    setDetailPath([{ userId, username }]);
+    setDetailOpen(true);
+    loadDetail(userId);
+  };
+
+  const drillDown = (userId: string, username: string) => {
+    setDetailPath((prev) => [...prev, { userId, username }]);
+    loadDetail(userId);
+  };
+
+  const goToPathIndex = (idx: number) => {
+    const target = detailPath[idx];
+    if (!target) return;
+    setDetailPath((prev) => prev.slice(0, idx + 1));
+    loadDetail(target.userId);
+  };
+
+  const renderQualification = (q: any, title: string) => {
+    if (!q) return null;
+    return (
+      <Card size="small" title={title} style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12 }}>
+          Điều kiện đạt {q.rank}: <strong>{q.ruleText}</strong>
+        </div>
+        {q.requirements.map((r: any) => (
+          <div
+            key={r.requiredRank}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}
+          >
+            <span style={{ minWidth: 260 }}>
+              F1 đạt {r.requiredRankLabel} trở lên: <strong>{r.actualCount}</strong> / {r.requiredCount}
+            </span>
+            <Progress
+              style={{ width: 200, margin: 0 }}
+              size="small"
+              percent={Math.min(100, Math.round((r.actualCount / r.requiredCount) * 100))}
+              status={r.satisfied ? 'success' : 'active'}
+            />
+          </div>
+        ))}
+        <Tag color={q.satisfied ? 'success' : 'warning'}>
+          {q.satisfied ? 'Đã đủ điều kiện' : 'Chưa đủ điều kiện'}
+        </Tag>
+      </Card>
+    );
+  };
+
+  const renderDetailBody = () => {
+    if (detailLoading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Spin size="large" />
+        </div>
+      );
+    }
+    if (!detail) {
+      return <Empty description="Không có dữ liệu" />;
+    }
+
+    const drift =
+      detail.stored &&
+      (detail.stored.calculatedRank !== detail.rank ||
+        Math.abs(Number(detail.stored.groupSales) - Number(detail.groupSales)) > 0.01);
+
+    return (
+      <div>
+        {detailPath.length > 1 && (
+          <Breadcrumb
+            style={{ marginBottom: 16 }}
+            items={detailPath.map((n, idx) => ({
+              title:
+                idx === detailPath.length - 1 ? (
+                  <span>{n.username}</span>
+                ) : (
+                  <Button type="link" style={{ padding: 0 }} onClick={() => goToPathIndex(idx)}>
+                    {n.username}
+                  </Button>
+                ),
+            }))}
+          />
+        )}
+
+        {detail.rankLagging && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={`Đủ điều kiện ${detail.eligibleRankLabel} nhưng đang được xếp ${detail.rankLabel}`}
+            description="Vòng xét thăng cấp đã hội tụ nhưng thành viên này vẫn thỏa điều kiện cấp cao hơn. Dấu hiệu dữ liệu cây tuyến bất thường. Kiểm tra log server trước khi chốt ví."
+          />
+        )}
+
+        {detail.isManualRank && (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={`Cấp bậc gán thủ công: ${detail.user.manualRank}. Điều kiện F1 bên dưới chỉ để tham khảo.`}
+          />
+        )}
+
+        {drift && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message="Số liệu đã chốt trong DB khác với số tính lại hiện tại"
+            description={`Đã chốt: ${detail.stored.calculatedRank} - doanh số nhóm ${money(
+              detail.stored.groupSales,
+            )}. Tính lại: ${detail.rank} - ${money(detail.groupSales)}.`}
+          />
+        )}
+
+        <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }} style={{ marginBottom: 16 }}>
+          <Descriptions.Item label="Thành viên">
+            {detail.user.username || detail.user.email || detail.user.id}
+          </Descriptions.Item>
+          <Descriptions.Item label="Cấp bậc tháng">
+            {rankTag(detail.rank, detail.rankLabel)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Doanh số cá nhân">{money(detail.personalSales)}</Descriptions.Item>
+          <Descriptions.Item label="Doanh số nhóm">{money(detail.groupSales)}</Descriptions.Item>
+          <Descriptions.Item label="Số F1">{detail.f1List.length}</Descriptions.Item>
+          <Descriptions.Item label="Tổng cấp dưới">{detail.totalMemberCount}</Descriptions.Item>
+          <Descriptions.Item label="Tổng mua tích lũy">
+            {money(detail.daiLyCondition.actual)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Điều kiện Đại lý">
+            <Tag color={detail.daiLyCondition.satisfied ? 'success' : 'default'}>
+              {detail.daiLyCondition.satisfied ? 'Đạt' : 'Chưa đạt'} (cần {money(detail.daiLyCondition.required)})
+            </Tag>
+          </Descriptions.Item>
+        </Descriptions>
+
+        {renderQualification(detail.currentQualification, `Điều kiện cấp hiện tại (${detail.rank})`)}
+        {renderQualification(
+          detail.nextQualification,
+          `Điều kiện lên cấp kế tiếp (${detail.nextQualification?.rank || '-'})`,
+        )}
+
+        <Card size="small" title="Cấp dưới F1 và doanh số từng nhánh" style={{ marginBottom: 12 }}>
+          <Table
+            size="small"
+            rowKey="userId"
+            dataSource={detail.f1List}
+            pagination={detail.f1List.length > 10 ? { pageSize: 10 } : false}
+            scroll={{ x: 900 }}
+            summary={(rows) => {
+              const total = rows.reduce((sum: number, r: any) => sum + Number(r.branchSales || 0), 0);
+              return (
+                <Table.Summary.Row>
+                  <Table.Summary.Cell index={0} colSpan={3}>
+                    <strong>Tổng doanh số nhánh</strong>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={3}>
+                    <strong>{money(total)}</strong>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={4} colSpan={3} />
+                </Table.Summary.Row>
+              );
+            }}
+            columns={[
+              {
+                title: 'F1',
+                key: 'username',
+                render: (_: any, r: any) => (
+                  <Button
+                    type="link"
+                    style={{ padding: 0 }}
+                    onClick={() => drillDown(r.userId, r.username || r.email || r.userId)}
+                  >
+                    {r.username || r.email || r.userId}
+                  </Button>
+                ),
+              },
+              {
+                title: 'Cấp bậc tháng',
+                key: 'rank',
+                render: (_: any, r: any) => (
+                  <Space size={4}>
+                    {rankTag(r.rank, r.rankLabel)}
+                    {r.manualRank && r.manualRank !== 'NONE' && <Tag color="purple">Thủ công</Tag>}
+                  </Space>
+                ),
+                sorter: (a: any, b: any) => a.rank.localeCompare(b.rank),
+              },
+              {
+                title: 'DS cá nhân',
+                dataIndex: 'personalSales',
+                key: 'personalSales',
+                render: money,
+                sorter: (a: any, b: any) => a.personalSales - b.personalSales,
+              },
+              {
+                title: 'DS nhánh',
+                dataIndex: 'branchSales',
+                key: 'branchSales',
+                render: money,
+                defaultSortOrder: 'descend' as const,
+                sorter: (a: any, b: any) => a.branchSales - b.branchSales,
+              },
+              {
+                title: '% doanh số nhóm',
+                dataIndex: 'sharePercent',
+                key: 'sharePercent',
+                render: percent,
+              },
+              {
+                title: 'Số người trong nhánh',
+                dataIndex: 'branchMemberCount',
+                key: 'branchMemberCount',
+              },
+              {
+                title: 'Tính cho cấp bậc',
+                key: 'counts',
+                render: (_: any, r: any) => (
+                  <Space size={4} wrap>
+                    {r.countsTowardCurrentRank && detail.currentQualification && (
+                      <Tag color="blue">{detail.currentQualification.rank}</Tag>
+                    )}
+                    {r.countsTowardNextRank && detail.nextQualification && (
+                      <Tag color="gold">{detail.nextQualification.rank}</Tag>
+                    )}
+                    {!r.countsTowardCurrentRank && !r.countsTowardNextRank && (
+                      <Text type="secondary">-</Text>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+          />
+        </Card>
+
+        <Card size="small" title="Thưởng nhóm (Tầng 3)" style={{ marginBottom: 12 }}>
+          <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+            <Descriptions.Item label="Doanh số nhóm">{money(detail.groupReward.groupSales)}</Descriptions.Item>
+            <Descriptions.Item label="Mốc đạt được">{detail.groupReward.tierLabel}</Descriptions.Item>
+            <Descriptions.Item label="Tỷ lệ theo tháng này">
+              {percent(detail.groupReward.rateThisMonth)}
+            </Descriptions.Item>
+            <Descriptions.Item label={`Tỷ lệ tháng ${detail.groupReward.prevMonth}`}>
+              {percent(detail.groupReward.prevMonthRate)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tỷ lệ áp dụng">
+              <strong>{percent(detail.groupReward.appliedRate)}</strong>
+              {detail.groupReward.keptFromPrevMonth && (
+                <Tag color="orange" style={{ marginLeft: 8 }}>
+                  Giữ theo tháng trước (không tụt hạng)
+                </Tag>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tiền thưởng nhóm">
+              <strong style={{ color: '#52c41a' }}>{money(detail.groupReward.amount)}</strong>
+            </Descriptions.Item>
+          </Descriptions>
+        </Card>
+
+        <Card size="small" title="Đồng chia toàn quốc (Tầng 4)">
+          <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+            <Descriptions.Item label="Cấp bậc">
+              {rankTag(detail.globalShare.rank, detail.globalShare.rankLabel)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Tỷ lệ quỹ theo cấp">
+              {percent(detail.globalShare.poolRate)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Doanh số toàn quốc">
+              {money(detail.globalShare.totalNationalSales)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Quỹ đồng chia của cấp">
+              {money(detail.globalShare.poolAmount)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Số người cùng cấp">
+              {detail.globalShare.qualifiedCount}
+            </Descriptions.Item>
+            <Descriptions.Item label="Nhận được">
+              <strong style={{ color: '#52c41a' }}>{money(detail.globalShare.amount)}</strong>
+            </Descriptions.Item>
+          </Descriptions>
+        </Card>
+      </div>
+    );
+  };
 
   const fetchMonthlyStats = async () => {
     if (!monthlyDate) return;
@@ -120,7 +452,7 @@ const MonthlyRewards: React.FC = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      <Title level={2} style={{ marginBottom: '24px' }}>Monthly Rewards Management</Title>
+      <PageHeader title="Monthly Rewards Management" />
 
       <Tabs activeKey={activeTab} onChange={setActiveTab} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
         <Tabs.TabPane tab="Tính toán & Chốt số" key="calculate">
@@ -174,6 +506,7 @@ const MonthlyRewards: React.FC = () => {
             dataSource={monthlyStatsData}
             loading={monthlyLoading}
             rowKey={(record) => record.id || record.userId}
+            scroll={{ x: 1300 }}
             columns={[
               {
                 title: 'User',
@@ -187,27 +520,19 @@ const MonthlyRewards: React.FC = () => {
                 title: 'Cấp bậc tháng',
                 dataIndex: 'calculatedRank',
                 key: 'calculatedRank',
-                render: (rank: string) => {
-                  const isC = rank?.startsWith('C');
-                  const isDaily = rank === 'DAILY';
-                  return (
-                    <Tag color={isC ? 'blue' : isDaily ? 'green' : 'default'}>
-                      {rank || 'C0'}
-                    </Tag>
-                  );
-                },
+                render: (rank: string) => rankTag(rank),
               },
               {
                 title: 'Doanh số cá nhân',
                 dataIndex: 'personalSales',
                 key: 'personalSales',
-                render: (val: number) => `$${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                render: (val: number) => money(val),
               },
               {
                 title: 'Doanh số nhóm',
                 dataIndex: 'groupSales',
                 key: 'groupSales',
-                render: (val: number) => `$${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                render: (val: number) => money(val),
               },
               {
                 title: 'Thưởng nhóm (Tầng 3)',
@@ -215,8 +540,9 @@ const MonthlyRewards: React.FC = () => {
                 key: 'groupRewardAmount',
                 render: (val: number, record: any) => (
                   <span>
-                    ${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    {Number(record.groupRewardRate) > 0 && ` (${(record.groupRewardRate * 100).toFixed(1)}%)`}
+                    {money(val)}
+                    {Number(record.groupRewardRate) > 0 &&
+                      ` (${(record.groupRewardRate * 100).toFixed(1)}%)`}
                   </span>
                 ),
               },
@@ -224,17 +550,34 @@ const MonthlyRewards: React.FC = () => {
                 title: 'Đồng chia (Tầng 4)',
                 dataIndex: 'globalShareAmount',
                 key: 'globalShareAmount',
-                render: (val: number) => `$${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`,
+                render: (val: number) => money(val),
               },
               {
                 title: 'Trạng thái',
                 dataIndex: 'isProcessed',
                 key: 'isProcessed',
                 render: (isProcessed: boolean) => (
-                  <Tag color={isProcessed ? 'success' : 'warning'}>
-                    {isProcessed ? 'Đã chốt & trả ví' : 'Chờ chốt'}
-                  </Tag>
+                  <StatusTag status={!!isProcessed} map={MONTHLY_PROCESSED_TAGS} />
                 ),
+              },
+              {
+                title: 'Chi tiết',
+                key: 'detail',
+                fixed: 'right',
+                width: 110,
+                render: (_, record) => {
+                  const u = record.user || record;
+                  const userId = record.userId || u.id;
+                  return (
+                    <Button
+                      type="link"
+                      style={{ padding: 0 }}
+                      onClick={() => openDetail(userId, u.username || u.email || userId)}
+                    >
+                      Xem chi tiết
+                    </Button>
+                  );
+                },
               },
             ]}
           />
@@ -251,12 +594,7 @@ const MonthlyRewards: React.FC = () => {
             loading={historyLoading}
             rowKey="id"
             columns={[
-              {
-                title: 'ID giao dịch',
-                dataIndex: 'id',
-                key: 'id',
-                render: (id: string) => <span style={{ fontFamily: 'monospace' }}>{id.slice(0, 8)}...</span>,
-              },
+              shortIdColumn<any>('ID giao dịch', 'id'),
               {
                 title: 'Thành viên nhận',
                 key: 'user',
@@ -280,7 +618,9 @@ const MonthlyRewards: React.FC = () => {
                 title: 'Số tiền',
                 dataIndex: 'amount',
                 key: 'amount',
-                render: (val: number) => <strong style={{ color: '#52c41a' }}>${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} PV</strong>,
+                render: (val: number) => (
+                  <strong style={{ color: '#52c41a' }}>{money(val)}</strong>
+                ),
               },
               {
                 title: 'Ghi chú chốt',
@@ -291,10 +631,14 @@ const MonthlyRewards: React.FC = () => {
                 title: 'Trạng thái',
                 dataIndex: 'status',
                 key: 'status',
-                render: (status: string) => {
-                  const color = status === 'paid' ? 'success' : status === 'pending' ? 'warning' : status === 'cancelled' ? 'default' : 'error';
-                  return <Tag color={color}>{status.toUpperCase()}</Tag>;
-                },
+                render: (status: string) => (
+                  <StatusTag
+                    status={status}
+                    map={COMMISSION_STATUS_TAGS}
+                    fallbackColor="error"
+                    uppercase
+                  />
+                ),
               },
               {
                 title: 'Ngày chốt',
@@ -306,6 +650,18 @@ const MonthlyRewards: React.FC = () => {
           />
         </Tabs.TabPane>
       </Tabs>
+
+      <Drawer
+        title={`Chi tiết doanh số tháng ${monthlyDate ? monthlyDate.format('YYYY-MM') : ''}${
+          detailPath.length ? ` - ${detailPath[detailPath.length - 1].username}` : ''
+        }`}
+        width={1100}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        destroyOnHidden
+      >
+        {renderDetailBody()}
+      </Drawer>
     </div>
   );
 };

@@ -237,13 +237,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       adminOnly: true,
     },
     {
-      key: '/rank-pool',
-      icon: <GiftOutlined />,
-      label: 'Bể Rank',
-      permission: null,
-      adminOnly: true,
-    },
-    {
       key: '/agent-pool',
       icon: <SafetyCertificateOutlined />,
       label: 'Bể Đồng Chia Đại Lý',
