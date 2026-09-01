@@ -539,26 +539,31 @@ export class OrderService {
       );
     }
 
-    // 5. Matrix reward pool (binary trees per level) — đơn ≥ config USDT
-    this.matrixRewardService
-      .processOrderIfEligible(order.id)
-      .catch((err) =>
-        console.error(`[MATRIX] Error processing order ${order.id}:`, err),
-      );
+    // 5-7. Các bể thưởng chạy nền, nhưng tuần tự với nhau: cả ba đều cộng vào
+    // users.withdrawWalletBalance trong transaction riêng, chạy song song thì
+    // khoá chéo nhau và MySQL huỷ một transaction với ER_LOCK_DEADLOCK.
+    void (async () => {
+      // 5. Matrix reward pool (binary trees per level) — đơn ≥ config USDT
+      try {
+        await this.matrixRewardService.processOrderIfEligible(order.id);
+      } catch (err) {
+        console.error(`[MATRIX] Error processing order ${order.id}:`, err);
+      }
 
-    // 6. Heap Reward
-    this.heapRewardService
-      .processOrderIfEligible(order.id)
-      .catch((err) =>
-        console.error(`[HEAP] Error processing order ${order.id}:`, err),
-      );
+      // 6. Heap Reward
+      try {
+        await this.heapRewardService.processOrderIfEligible(order.id);
+      } catch (err) {
+        console.error(`[HEAP] Error processing order ${order.id}:`, err);
+      }
 
-    // 7. Agent Level Pools (C1, C2, ...)
-    this.agentPoolService
-      .processOrder(order.id)
-      .catch((err) =>
-        console.error(`[AGENT-POOL] Error processing order ${order.id}:`, err),
-      );
+      // 7. Agent Level Pools (C1, C2, ...)
+      try {
+        await this.agentPoolService.processOrder(order.id);
+      } catch (err) {
+        console.error(`[AGENT-POOL] Error processing order ${order.id}:`, err);
+      }
+    })();
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto) {

@@ -19,6 +19,10 @@ import {
   Col,
   Statistic,
   Tooltip,
+  Alert,
+  DatePicker,
+  Descriptions,
+  Empty,
 } from 'antd';
 import {
   PlusOutlined,
@@ -30,6 +34,8 @@ import {
   HistoryOutlined,
   TeamOutlined,
   DollarOutlined,
+  ExclamationCircleOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../services/api';
@@ -64,6 +70,16 @@ const AgentPool: React.FC = () => {
   const [histories, setHistories] = useState<any[]>([]);
   const [loadingHistories, setLoadingHistories] = useState<boolean>(false);
   const [historyPoolId, setHistoryPoolId] = useState<string | undefined>(undefined);
+
+  // Backfill state (bù các bể bị hụt do lỗi khi duyệt đơn)
+  const [backfillSince, setBackfillSince] = useState<any>(null);
+  const [backfillData, setBackfillData] = useState<any>(null);
+  const [loadingBackfill, setLoadingBackfill] = useState<boolean>(false);
+  const [selectedBackfillOrderIds, setSelectedBackfillOrderIds] = useState<string[]>([]);
+  const [isBackfillConfirmVisible, setIsBackfillConfirmVisible] = useState<boolean>(false);
+  const [backfillConfirmText, setBackfillConfirmText] = useState<string>('');
+  const [runningBackfill, setRunningBackfill] = useState<boolean>(false);
+  const [backfillResult, setBackfillResult] = useState<any>(null);
 
   // Forms
   const [addPoolForm] = Form.useForm();
@@ -132,6 +148,100 @@ const AgentPool: React.FC = () => {
     if (activeTab === 'members') fetchMembers();
     if (activeTab === 'histories') fetchHistories();
   }, [activeTab, selectedPoolId, historyPoolId]);
+
+  const fetchBackfillPreview = async () => {
+    try {
+      setLoadingBackfill(true);
+      const params: any = { limit: 500 };
+      if (backfillSince) params.since = backfillSince.startOf('day').toISOString();
+
+      const res = await api.get('/admin/agent-pool/backfill/preview', { params });
+      setBackfillData(res.data || null);
+      // Mặc định chọn hết các đơn quét được, admin có thể bỏ chọn từng đơn.
+      setSelectedBackfillOrderIds((res.data?.orders || []).map((o: any) => o.orderId));
+    } catch (e: any) {
+      notification.error({
+        message: 'Lỗi quét đơn thiếu bể',
+        description: e?.response?.data?.message,
+      });
+    } finally {
+      setLoadingBackfill(false);
+    }
+  };
+
+  const formatVndFromUsd = (val: number | string | null | undefined) => {
+    const safeVal = Number(val || 0);
+    const normalizedUsd = safeVal > 10000 ? safeVal / 25000 : safeVal;
+    return `${(normalizedUsd * 25000).toLocaleString('vi-VN')} VNĐ`;
+  };
+
+  // ── Backfill Handlers ─────────────────────────────────────────────────────
+
+  const BACKFILL_CONFIRM_PHRASE = 'BU THUONG';
+
+  const selectedBackfillOrders = (backfillData?.orders || []).filter((o: any) =>
+    selectedBackfillOrderIds.includes(o.orderId),
+  );
+
+  // Gom theo mã bể để admin thấy tiền sẽ vào bể nào trước khi bấm chạy.
+  const backfillSummaryByPool = (() => {
+    const map = new Map<string, { poolCode: string; orderCount: number; memberCount: number; payoutUsd: number }>();
+    for (const order of selectedBackfillOrders) {
+      for (const pool of order.missingPools || []) {
+        const current = map.get(pool.poolCode) || {
+          poolCode: pool.poolCode,
+          orderCount: 0,
+          memberCount: pool.memberCount,
+          payoutUsd: 0,
+        };
+        current.orderCount += 1;
+        current.memberCount = pool.memberCount;
+        current.payoutUsd += Number(pool.payoutUsd) || 0;
+        map.set(pool.poolCode, current);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.poolCode.localeCompare(b.poolCode));
+  })();
+
+  const backfillSelectedTotalUsd = selectedBackfillOrders.reduce(
+    (acc: number, o: any) => acc + (Number(o.estimatedPayoutUsd) || 0),
+    0,
+  );
+
+  const openBackfillConfirm = () => {
+    if (selectedBackfillOrderIds.length === 0) {
+      notification.warning({ message: 'Chưa chọn đơn hàng nào để bù' });
+      return;
+    }
+    setBackfillConfirmText('');
+    setIsBackfillConfirmVisible(true);
+  };
+
+  const handleRunBackfill = async () => {
+    try {
+      setRunningBackfill(true);
+      const res = await api.post('/admin/agent-pool/backfill/run', {
+        orderIds: selectedBackfillOrderIds,
+      });
+      setBackfillResult(res.data);
+      setIsBackfillConfirmVisible(false);
+      setBackfillConfirmText('');
+      notification.success({
+        message: 'Chạy bù thưởng xong',
+        description: `Đã bù ${res.data?.doneCount || 0} đơn, tổng ${formatVndFromUsd(
+          res.data?.totalPayoutUsd,
+        )}.`,
+      });
+      await fetchBackfillPreview();
+    } catch (e: any) {
+      notification.error({
+        message: 'Lỗi khi chạy bù thưởng',
+        description: e?.response?.data?.message,
+      });
+    } finally {
+      setRunningBackfill(false);
+    }
+  };
 
   // ── Pool Handlers ─────────────────────────────────────────────────────────
 
@@ -385,12 +495,6 @@ const AgentPool: React.FC = () => {
     },
   ];
 
-  const formatVndFromUsd = (val: number | string | null | undefined) => {
-    const safeVal = Number(val || 0);
-    const normalizedUsd = safeVal > 10000 ? safeVal / 25000 : safeVal;
-    return `${(normalizedUsd * 25000).toLocaleString('vi-VN')} VNĐ`;
-  };
-
   const historyColumns = [
     {
       title: 'Thời Gian',
@@ -449,6 +553,79 @@ const AgentPool: React.FC = () => {
           +{formatVndFromUsd(val)}
         </Text>
       ),
+    },
+  ];
+
+  const backfillColumns = [
+    {
+      title: 'Thời Gian Đơn',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date: string) => dayjs(date).format('DD/MM/YYYY HH:mm'),
+    },
+    {
+      title: 'Mã Đơn',
+      dataIndex: 'orderId',
+      key: 'orderId',
+      render: (id: string) => <Text code copyable={{ text: id }}>{id.slice(0, 8)}...</Text>,
+    },
+    {
+      title: 'Trạng Thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => <Tag color="blue">{status}</Tag>,
+    },
+    {
+      title: 'Giá Trị Đơn (Trừ VAT)',
+      dataIndex: 'orderNetAmount',
+      key: 'orderNetAmount',
+      render: (val: number) => formatVndFromUsd(val),
+    },
+    {
+      title: 'Bể Bị Thiếu',
+      dataIndex: 'missingPools',
+      key: 'missingPools',
+      render: (missingPools: any[]) => (
+        <Space wrap>
+          {(missingPools || []).map((p) => (
+            <Tooltip
+              key={p.poolId}
+              title={`${p.poolPercent}% chia cho ${p.memberCount} thành viên, mỗi người ${formatVndFromUsd(
+                p.rewardPerMemberUsd,
+              )}`}
+            >
+              <Tag color="volcano">{p.poolCode}</Tag>
+            </Tooltip>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: 'Tiền Sẽ Bù',
+      dataIndex: 'estimatedPayoutUsd',
+      key: 'estimatedPayoutUsd',
+      render: (val: number) => (
+        <Text type="danger" strong>
+          {formatVndFromUsd(val)}
+        </Text>
+      ),
+    },
+  ];
+
+  const backfillSummaryColumns = [
+    {
+      title: 'Bể',
+      dataIndex: 'poolCode',
+      key: 'poolCode',
+      render: (code: string) => <Tag color="blue">{code}</Tag>,
+    },
+    { title: 'Số Đơn Bù', dataIndex: 'orderCount', key: 'orderCount' },
+    { title: 'Số TV Nhận', dataIndex: 'memberCount', key: 'memberCount' },
+    {
+      title: 'Tổng Tiền Vào Bể',
+      dataIndex: 'payoutUsd',
+      key: 'payoutUsd',
+      render: (val: number) => <Text strong>{formatVndFromUsd(val)}</Text>,
     },
   ];
 
@@ -648,6 +825,143 @@ const AgentPool: React.FC = () => {
                 </div>
               ),
             },
+            {
+              key: 'backfill',
+              label: (
+                <span>
+                  <ThunderboltOutlined /> Bù Thưởng Thiếu
+                </span>
+              ),
+              children: (
+                <div>
+                  <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    message="Bù phần thưởng bể bị hụt"
+                    description="Quét các đơn đã duyệt nhưng chưa được chia đủ mọi bể (thường do lỗi khoá DB lúc duyệt đơn). Bước quét chỉ đọc dữ liệu. Tiền chỉ được cộng khi bấm chạy bù và xác nhận."
+                  />
+
+                  <Row justify="space-between" style={{ marginBottom: 16 }}>
+                    <Col>
+                      <Space wrap>
+                        <DatePicker
+                          placeholder="Chỉ quét đơn từ ngày..."
+                          value={backfillSince}
+                          onChange={(val) => setBackfillSince(val)}
+                          format="DD/MM/YYYY"
+                          allowClear
+                        />
+                        <Button
+                          type="primary"
+                          icon={<ReloadOutlined />}
+                          onClick={fetchBackfillPreview}
+                          loading={loadingBackfill}
+                        >
+                          Quét Đơn Thiếu Bể
+                        </Button>
+                      </Space>
+                    </Col>
+                    <Col>
+                      <Tooltip
+                        title={
+                          isAdminAccount
+                            ? undefined
+                            : 'Chỉ tài khoản admin mới được chạy bù thưởng'
+                        }
+                      >
+                        <Button
+                          danger
+                          type="primary"
+                          icon={<ThunderboltOutlined />}
+                          disabled={!isAdminAccount || selectedBackfillOrderIds.length === 0}
+                          onClick={openBackfillConfirm}
+                        >
+                          Chạy Bù {selectedBackfillOrderIds.length} Đơn Đã Chọn
+                        </Button>
+                      </Tooltip>
+                    </Col>
+                  </Row>
+
+                  {backfillData && (
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                      <Col span={8}>
+                        <Card size="small">
+                          <Statistic
+                            title="Đơn Thiếu Bể"
+                            value={backfillData.totalOrders || 0}
+                            suffix="đơn"
+                            valueStyle={{ color: '#fa541c' }}
+                          />
+                        </Card>
+                      </Col>
+                      <Col span={8}>
+                        <Card size="small">
+                          <Statistic
+                            title="Lượt Bể Bị Hụt"
+                            value={backfillData.totalMissingPools || 0}
+                            suffix="lượt"
+                            valueStyle={{ color: '#faad14' }}
+                          />
+                        </Card>
+                      </Col>
+                      <Col span={8}>
+                        <Card size="small">
+                          <Statistic
+                            title="Tổng Tiền Cần Bù"
+                            value={formatVndFromUsd(backfillData.totalAmountUsd)}
+                            valueStyle={{ color: '#cf1322' }}
+                          />
+                        </Card>
+                      </Col>
+                    </Row>
+                  )}
+
+                  {backfillData?.skippedPools?.length > 0 && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="Bể không được tính vào lần quét này"
+                      description={
+                        <Space direction="vertical" size={2}>
+                          {backfillData.skippedPools.map((p: any) => (
+                            <Text key={p.code}>
+                              <Tag color="default">{p.code}</Tag> {p.reason}
+                            </Text>
+                          ))}
+                        </Space>
+                      }
+                    />
+                  )}
+
+                  {backfillData?.truncated && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="Danh sách bị cắt bớt do quá nhiều đơn. Chạy bù xong hãy quét lại để xử lý phần còn lại."
+                    />
+                  )}
+
+                  {backfillData ? (
+                    <Table
+                      columns={backfillColumns}
+                      dataSource={backfillData.orders || []}
+                      rowKey="orderId"
+                      loading={loadingBackfill}
+                      pagination={{ pageSize: 20 }}
+                      rowSelection={{
+                        selectedRowKeys: selectedBackfillOrderIds,
+                        onChange: (keys) => setSelectedBackfillOrderIds(keys as string[]),
+                      }}
+                    />
+                  ) : (
+                    <Empty description="Chưa quét. Bấm 'Quét Đơn Thiếu Bể' để kiểm tra." />
+                  )}
+                </div>
+              ),
+            },
           ]}
         />
       </Card>
@@ -812,6 +1126,139 @@ const AgentPool: React.FC = () => {
             </Space>
           </Row>
         </Form>
+      </Modal>
+
+      {/* Modal xác nhận chạy bù thưởng */}
+      <Modal
+        title={
+          <span>
+            <ExclamationCircleOutlined style={{ color: '#cf1322', marginRight: 8 }} />
+            Xác Nhận Bù Thưởng Bể Bị Thiếu
+          </span>
+        }
+        open={isBackfillConfirmVisible}
+        onCancel={() => setIsBackfillConfirmVisible(false)}
+        width={720}
+        okText="Chạy Bù Thưởng"
+        cancelText="Hủy"
+        okButtonProps={{
+          danger: true,
+          disabled: backfillConfirmText.trim().toUpperCase() !== BACKFILL_CONFIRM_PHRASE,
+          loading: runningBackfill,
+        }}
+        onOk={handleRunBackfill}
+        destroyOnClose
+      >
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Thao tác cộng tiền thật, không tự hoàn tác được"
+          description="Tiền sẽ được cộng thẳng vào ví rút của từng thành viên trong bể và ghi vào lịch sử chia thưởng. Hãy sao lưu database trước khi chạy."
+        />
+
+        <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+          <Descriptions.Item label="Số đơn sẽ bù">
+            <Text strong>{selectedBackfillOrderIds.length} đơn</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Số lượt bể bù">
+            <Text strong>
+              {selectedBackfillOrders.reduce(
+                (acc: number, o: any) => acc + (o.missingPools?.length || 0),
+                0,
+              )}{' '}
+              lượt
+            </Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Khoảng thời gian đơn">
+            {selectedBackfillOrders.length > 0
+              ? `${dayjs(
+                  selectedBackfillOrders[selectedBackfillOrders.length - 1].createdAt,
+                ).format('DD/MM/YYYY')} - ${dayjs(selectedBackfillOrders[0].createdAt).format(
+                  'DD/MM/YYYY',
+                )}`
+              : '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Tổng tiền sẽ cộng">
+            <Text type="danger" strong style={{ fontSize: 16 }}>
+              {formatVndFromUsd(backfillSelectedTotalUsd)}
+            </Text>
+          </Descriptions.Item>
+        </Descriptions>
+
+        <Table
+          size="small"
+          columns={backfillSummaryColumns}
+          dataSource={backfillSummaryByPool}
+          rowKey="poolCode"
+          pagination={false}
+          style={{ marginBottom: 16 }}
+        />
+
+        <Text>
+          Gõ <Text code>{BACKFILL_CONFIRM_PHRASE}</Text> để mở khóa nút chạy:
+        </Text>
+        <Input
+          value={backfillConfirmText}
+          onChange={(e) => setBackfillConfirmText(e.target.value)}
+          placeholder={BACKFILL_CONFIRM_PHRASE}
+          style={{ marginTop: 8 }}
+        />
+      </Modal>
+
+      {/* Modal kết quả chạy bù */}
+      <Modal
+        title="Kết Quả Bù Thưởng"
+        open={Boolean(backfillResult)}
+        onCancel={() => setBackfillResult(null)}
+        footer={
+          <Button type="primary" onClick={() => setBackfillResult(null)}>
+            Đóng
+          </Button>
+        }
+        width={720}
+      >
+        <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+          <Descriptions.Item label="Đã bù">
+            <Text type="success" strong>{backfillResult?.doneCount || 0} đơn</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Bỏ qua">
+            {backfillResult?.skippedCount || 0} đơn
+          </Descriptions.Item>
+          <Descriptions.Item label="Lỗi">
+            <Text type={backfillResult?.failedCount ? 'danger' : undefined}>
+              {backfillResult?.failedCount || 0} đơn
+            </Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Tổng tiền đã cộng">
+            <Text strong>{formatVndFromUsd(backfillResult?.totalPayoutUsd)}</Text>
+          </Descriptions.Item>
+        </Descriptions>
+
+        <Table
+          size="small"
+          dataSource={(backfillResult?.results || []).filter((r: any) => r.status !== 'done')}
+          rowKey="orderId"
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: 'Mọi đơn đã chọn đều được bù thành công' }}
+          columns={[
+            {
+              title: 'Mã Đơn',
+              dataIndex: 'orderId',
+              key: 'orderId',
+              render: (id: string) => <Text code>{id.slice(0, 8)}...</Text>,
+            },
+            {
+              title: 'Trạng Thái',
+              dataIndex: 'status',
+              key: 'status',
+              render: (status: string) => (
+                <Tag color={status === 'failed' ? 'error' : 'default'}>{status}</Tag>
+              ),
+            },
+            { title: 'Lý Do', dataIndex: 'message', key: 'message' },
+          ]}
+        />
       </Modal>
     </div>
   );

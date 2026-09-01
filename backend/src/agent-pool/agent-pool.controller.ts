@@ -88,6 +88,20 @@ export class AdminAgentPoolController {
     await this.agentPoolService.processOrder(orderId);
     return { success: true, message: `Processed AgentPool for order ${orderId}` };
   }
+
+  // ── Backfill ─────────────────────────────────────────────────────────────
+
+  /** Chỉ đọc: liệt kê đơn đã duyệt còn thiếu bể và số tiền dự kiến bù. */
+  @Get('backfill/preview')
+  previewBackfill(@Query() query: { since?: string; limit?: string }) {
+    return this.agentPoolService.previewBackfill(query);
+  }
+
+  /** Ghi tiền: chạy bù cho đúng những đơn admin đã chọn. */
+  @Post('backfill/run')
+  runBackfill(@Body() dto: { orderIds: string[] }) {
+    return this.agentPoolService.runBackfill(dto);
+  }
 }
 
 @Controller('agent-pool')

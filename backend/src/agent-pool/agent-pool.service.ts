@@ -5,13 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AgentPool } from './entities/agent-pool.entity';
 import { AgentPoolMember } from './entities/agent-pool-member.entity';
 import { AgentPoolHistory } from './entities/agent-pool-history.entity';
 import { User } from '../user/entities/user.entity';
-import { Order } from '../order/entities/order.entity';
+import { Order, OrderStatus } from '../order/entities/order.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
+import { runWithDeadlockRetry } from '../common/utils';
 
 @Injectable()
 export class AgentPoolService {
@@ -267,6 +268,7 @@ export class AgentPoolService {
 
       const activePools = await this.poolRepo.find({
         where: { isActive: true },
+        order: { code: 'ASC' },
       });
 
       if (activePools.length === 0) {
@@ -275,32 +277,78 @@ export class AgentPoolService {
       }
 
       for (const pool of activePools) {
-        const percent = Number(pool.percent) || 0;
-        if (percent <= 0) continue;
-
-        const members = await this.memberRepo.find({
-          where: { poolId: pool.id, isActive: true },
-          relations: ['user'],
-        });
-
-        if (members.length === 0) {
-          this.logger.log(`Agent Pool ${pool.code} has 0 active members. Skipping for order ${orderId}.`);
-          continue;
+        // Một bể lỗi (deadlock, dữ liệu hỏng...) không được làm hỏng các bể còn
+        // lại: bắt lỗi trong vòng lặp để những bể sau vẫn được chia.
+        try {
+          await this.distributePool(pool, order, orderNetAmount);
+        } catch (error) {
+          this.logger.error(
+            `Agent Pool ${pool.code}: distribution failed for order ${orderId}`,
+            error,
+          );
         }
+      }
+    } catch (error) {
+      this.logger.error(`Failed to process AgentPool for order ${orderId}`, error);
+    }
+  }
 
-        const { poolTotalUsd, rewardPerMemberUsd } = AgentPoolService.calculatePoolRewardUsd({
-          orderNetUsd: orderNetAmount,
-          poolPercent: percent,
-          memberCount: members.length,
-        });
+  /**
+   * Distribute one pool's share of a single order to its active members.
+   * Runs in its own transaction and is replayed on a transient lock error.
+   */
+  private async distributePool(
+    pool: AgentPool,
+    order: Order,
+    orderNetAmount: number,
+  ): Promise<void> {
+    const percent = Number(pool.percent) || 0;
+    if (percent <= 0) return;
 
-        const rewardPerMember = Number((rewardPerMemberUsd || 0).toFixed(4));
-        const poolTotalAmount = Number((poolTotalUsd || 0).toFixed(4));
+    // Idempotent: đơn nào đã chia cho bể này rồi thì không chia lần hai, để có
+    // thể chạy lại an toàn những đơn bị hụt bể vì lỗi.
+    const alreadyDistributed = await this.historyRepo.count({
+      where: { orderId: order.id, poolId: pool.id },
+    });
+    if (alreadyDistributed > 0) {
+      this.logger.log(
+        `Agent Pool ${pool.code} already distributed for order ${order.id}. Skipping.`,
+      );
+      return;
+    }
 
-        if (rewardPerMember <= 0) continue;
+    const members = await this.memberRepo.find({
+      where: { poolId: pool.id, isActive: true },
+      relations: ['user'],
+      // Khoá các hàng user theo một thứ tự cố định giữa mọi bể và mọi đơn để
+      // giảm khả năng hai transaction khoá chéo nhau.
+      order: { userId: 'ASC' },
+    });
 
-        // Run distribution in DB Transaction per pool
-        await this.poolRepo.manager.transaction(async (manager) => {
+    if (members.length === 0) {
+      this.logger.log(
+        `Agent Pool ${pool.code} has 0 active members. Skipping for order ${order.id}.`,
+      );
+      return;
+    }
+
+    const { poolTotalUsd, rewardPerMemberUsd } = AgentPoolService.calculatePoolRewardUsd({
+      orderNetUsd: orderNetAmount,
+      poolPercent: percent,
+      memberCount: members.length,
+    });
+
+    const rewardPerMember = Number((rewardPerMemberUsd || 0).toFixed(4));
+    const poolTotalAmount = Number((poolTotalUsd || 0).toFixed(4));
+
+    if (rewardPerMember <= 0) return;
+
+    const totalAmt = Number(order.totalAmount) || 0;
+
+    // Run distribution in DB Transaction per pool
+    await runWithDeadlockRetry(
+      () =>
+        this.poolRepo.manager.transaction(async (manager) => {
           const tMemberRepo = manager.getRepository(AgentPoolMember);
           const tHistoryRepo = manager.getRepository(AgentPoolHistory);
           const tUserRepo = manager.getRepository(User);
@@ -337,15 +385,18 @@ export class AgentPoolService {
             });
             await tHistoryRepo.save(history);
           }
-        });
+        }),
+      {
+        onRetry: (attempt, error) =>
+          this.logger.warn(
+            `Agent Pool ${pool.code}: lock conflict on order ${order.id} (attempt ${attempt}), retrying — ${error?.message}`,
+          ),
+      },
+    );
 
-        this.logger.log(
-          `Agent Pool ${pool.code} (${percent}%): Distributed total ${poolTotalAmount} USD (${rewardPerMember}/user) to ${members.length} members for order ${orderId}.`,
-        );
-      }
-    } catch (error) {
-      this.logger.error(`Failed to process AgentPool for order ${orderId}`, error);
-    }
+    this.logger.log(
+      `Agent Pool ${pool.code} (${percent}%): Distributed total ${poolTotalAmount} USD (${rewardPerMember}/user) to ${members.length} members for order ${order.id}.`,
+    );
   }
 
   // ── 4. History & Reporting ─────────────────────────────────────────────────
@@ -401,6 +452,295 @@ export class AgentPoolService {
         joinedAt: m.createdAt,
       })),
       totalAgentPoolRewards: totalRewarded,
+    };
+  }
+
+  // ── 5. Backfill (bù các bể bị hụt) ────────────────────────────────────────
+
+  /**
+   * Đơn ở các trạng thái này đã được duyệt nên lẽ ra đã chia đủ mọi bể.
+   */
+  private static readonly BACKFILL_ORDER_STATUSES = [
+    OrderStatus.CONFIRMED,
+    OrderStatus.PROCESSING,
+    OrderStatus.SHIPPED,
+    OrderStatus.DELIVERED,
+  ];
+
+  private orderNetAmount(order: Order): number {
+    const totalAmt = Number(order.totalAmount) || 0;
+    const vatAmt = Number(order.vatAmount) || 0;
+    const shipFee = Number(order.shippingFee) || 0;
+    return Math.max(0, totalAmt - vatAmt - shipFee);
+  }
+
+  /**
+   * Tìm các đơn đã duyệt nhưng thiếu lịch sử chia của một hoặc nhiều bể, kèm số
+   * tiền dự kiến sẽ cộng nếu chạy bù. Chỉ đọc, không ghi gì.
+   */
+  async previewBackfill(query: { since?: string; limit?: string } = {}) {
+    const limit = Math.min(Math.max(Number(query.limit) || 200, 1), 1000);
+    const since = query.since ? new Date(query.since) : null;
+    if (since && isNaN(since.getTime())) {
+      throw new BadRequestException('Tham số "since" không phải ngày hợp lệ');
+    }
+
+    const pools = await this.poolRepo.find({ order: { code: 'ASC' } });
+
+    // Bể không chia được (tạm dừng, 0%, không có thành viên) thì việc thiếu
+    // lịch sử là đúng, không tính là hụt.
+    const payablePools: Array<{ pool: AgentPool; memberCount: number }> = [];
+    const skippedPools: Array<{ code: string; reason: string }> = [];
+
+    for (const pool of pools) {
+      const memberCount = await this.memberRepo.count({
+        where: { poolId: pool.id, isActive: true },
+      });
+      if (!pool.isActive) {
+        skippedPools.push({ code: pool.code, reason: 'Bể đang tạm dừng' });
+      } else if (Number(pool.percent) <= 0) {
+        skippedPools.push({ code: pool.code, reason: 'Phần trăm bể bằng 0' });
+      } else if (memberCount === 0) {
+        skippedPools.push({
+          code: pool.code,
+          reason: 'Bể không có thành viên hoạt động',
+        });
+      } else {
+        payablePools.push({ pool, memberCount });
+      }
+    }
+
+    if (payablePools.length === 0) {
+      return {
+        payablePools: [],
+        skippedPools,
+        orders: [],
+        totalOrders: 0,
+        totalMissingPools: 0,
+        totalAmountUsd: 0,
+        truncated: false,
+      };
+    }
+
+    const orders = await this.orderRepo.find({
+      where: {
+        status: In(AgentPoolService.BACKFILL_ORDER_STATUSES),
+        ...(since ? { createdAt: MoreThanOrEqual(since) } : {}),
+      },
+      select: [
+        'id',
+        'status',
+        'createdAt',
+        'totalAmount',
+        'vatAmount',
+        'shippingFee',
+      ],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Lấy toàn bộ cặp (đơn, bể) đã chia trong một lượt: hỏi từng đơn một sẽ
+    // thành hàng nghìn query khi hệ thống có nhiều đơn.
+    const paidByOrder = new Map<string, Set<string>>();
+    const CHUNK = 500;
+    for (let i = 0; i < orders.length; i += CHUNK) {
+      const ids = orders.slice(i, i + CHUNK).map((o) => o.id);
+      const rowsRaw = await this.historyRepo
+        .createQueryBuilder('h')
+        .select('h.orderId', 'orderId')
+        .addSelect('h.poolId', 'poolId')
+        .where('h.orderId IN (:...ids)', { ids })
+        .groupBy('h.orderId')
+        .addGroupBy('h.poolId')
+        .getRawMany();
+      for (const r of rowsRaw as Array<{ orderId: string; poolId: string }>) {
+        const set = paidByOrder.get(r.orderId) || new Set<string>();
+        set.add(r.poolId);
+        paidByOrder.set(r.orderId, set);
+      }
+    }
+
+    const rows: any[] = [];
+    let totalMissingPools = 0;
+    let totalAmountUsd = 0;
+    let truncated = false;
+
+    for (const order of orders) {
+      const netAmount = this.orderNetAmount(order);
+      if (netAmount <= 0) continue;
+
+      const paidPoolIds = paidByOrder.get(order.id) || new Set<string>();
+
+      const missing: any[] = [];
+      for (const { pool, memberCount } of payablePools) {
+        if (paidPoolIds.has(pool.id)) continue;
+        // Bể tạo sau đơn thì đơn đó chưa từng thuộc bể, không phải hụt.
+        if (pool.createdAt > order.createdAt) continue;
+
+        const { poolTotalUsd, rewardPerMemberUsd } =
+          AgentPoolService.calculatePoolRewardUsd({
+            orderNetUsd: netAmount,
+            poolPercent: Number(pool.percent),
+            memberCount,
+          });
+        const rewardPerMember = Number((rewardPerMemberUsd || 0).toFixed(4));
+        if (rewardPerMember <= 0) continue;
+
+        missing.push({
+          poolId: pool.id,
+          poolCode: pool.code,
+          poolName: pool.name,
+          poolPercent: Number(pool.percent),
+          memberCount,
+          poolTotalUsd: Number((poolTotalUsd || 0).toFixed(4)),
+          rewardPerMemberUsd: rewardPerMember,
+          payoutUsd: Number((rewardPerMember * memberCount).toFixed(4)),
+        });
+      }
+
+      if (missing.length === 0) continue;
+
+      if (rows.length >= limit) {
+        truncated = true;
+        break;
+      }
+
+      const orderAmountUsd = missing.reduce((acc, m) => acc + m.payoutUsd, 0);
+      totalMissingPools += missing.length;
+      totalAmountUsd += orderAmountUsd;
+
+      rows.push({
+        orderId: order.id,
+        createdAt: order.createdAt,
+        status: order.status,
+        orderTotalAmount: Number(order.totalAmount) || 0,
+        orderNetAmount: netAmount,
+        missingPools: missing,
+        missingPoolCodes: missing.map((m) => m.poolCode),
+        estimatedPayoutUsd: Number(orderAmountUsd.toFixed(4)),
+      });
+    }
+
+    return {
+      payablePools: payablePools.map(({ pool, memberCount }) => ({
+        poolId: pool.id,
+        poolCode: pool.code,
+        poolName: pool.name,
+        poolPercent: Number(pool.percent),
+        memberCount,
+      })),
+      skippedPools,
+      orders: rows,
+      totalOrders: rows.length,
+      totalMissingPools,
+      totalAmountUsd: Number(totalAmountUsd.toFixed(4)),
+      truncated,
+    };
+  }
+
+  /**
+   * Chạy bù cho các đơn được chọn. processOrder là idempotent theo (đơn, bể)
+   * nên bể đã chia rồi sẽ không bị cộng lần hai.
+   */
+  async runBackfill(dto: { orderIds: string[] }) {
+    const orderIds = Array.from(new Set(dto?.orderIds || [])).filter(Boolean);
+    if (orderIds.length === 0) {
+      throw new BadRequestException(
+        'Vui lòng chọn ít nhất một đơn hàng để chạy bù',
+      );
+    }
+    if (orderIds.length > 1000) {
+      throw new BadRequestException('Mỗi lần chạy bù tối đa 1000 đơn hàng');
+    }
+
+    const orders = await this.orderRepo.find({ where: { id: In(orderIds) } });
+    const orderMap = new Map(orders.map((o) => [o.id, o]));
+
+    const results: Array<{
+      orderId: string;
+      status: 'done' | 'skipped' | 'failed';
+      poolCodes: string[];
+      payoutUsd: number;
+      message?: string;
+    }> = [];
+
+    let totalPayoutUsd = 0;
+
+    for (const orderId of orderIds) {
+      const order = orderMap.get(orderId);
+      if (!order) {
+        results.push({
+          orderId,
+          status: 'skipped',
+          poolCodes: [],
+          payoutUsd: 0,
+          message: 'Không tìm thấy đơn hàng',
+        });
+        continue;
+      }
+      if (!AgentPoolService.BACKFILL_ORDER_STATUSES.includes(order.status)) {
+        results.push({
+          orderId,
+          status: 'skipped',
+          poolCodes: [],
+          payoutUsd: 0,
+          message: `Đơn ở trạng thái ${order.status}, không đủ điều kiện chia`,
+        });
+        continue;
+      }
+
+      const before = await this.historyRepo.find({ where: { orderId } });
+      const beforeIds = new Set(before.map((h) => h.poolId));
+
+      try {
+        await this.processOrder(orderId);
+      } catch (error: any) {
+        results.push({
+          orderId,
+          status: 'failed',
+          poolCodes: [],
+          payoutUsd: 0,
+          message: error?.message || 'Lỗi không xác định',
+        });
+        continue;
+      }
+
+      // Đối chiếu lịch sử trước/sau để báo đúng phần thực sự được bù.
+      const after = await this.historyRepo.find({
+        where: { orderId },
+        relations: ['pool'],
+      });
+      const added = after.filter((h) => !beforeIds.has(h.poolId));
+      const payoutUsd = Number(
+        added
+          .reduce((acc, h) => acc + (Number(h.rewardAmount) || 0), 0)
+          .toFixed(4),
+      );
+      totalPayoutUsd += payoutUsd;
+
+      results.push({
+        orderId,
+        status: added.length > 0 ? 'done' : 'skipped',
+        poolCodes: Array.from(
+          new Set(added.map((h) => h.pool?.code).filter(Boolean) as string[]),
+        ),
+        payoutUsd,
+        message: added.length > 0 ? undefined : 'Không có bể nào cần bù',
+      });
+    }
+
+    const doneCount = results.filter((r) => r.status === 'done').length;
+    this.logger.log(
+      `Backfill agent pool: ${doneCount}/${orderIds.length} đơn được bù, tổng ${totalPayoutUsd.toFixed(4)} USD.`,
+    );
+
+    return {
+      success: true,
+      requested: orderIds.length,
+      doneCount,
+      skippedCount: results.filter((r) => r.status === 'skipped').length,
+      failedCount: results.filter((r) => r.status === 'failed').length,
+      totalPayoutUsd: Number(totalPayoutUsd.toFixed(4)),
+      results,
     };
   }
 }
