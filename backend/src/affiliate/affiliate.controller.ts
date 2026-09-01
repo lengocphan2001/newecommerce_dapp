@@ -45,6 +45,13 @@ export class AffiliateController {
     return this.affiliateService.validateDownline(sponsorId, username);
   }
 
+  /** Tiến trình cấp bậc C1..C9 của chính người dùng đang đăng nhập. */
+  @Get('my-rank')
+  async getMyRank(@Request() req: any, @Query('month') month?: string) {
+    const userId = req.user.userId || req.user.sub || req.user.id;
+    return this.commissionService.getMyRankProgress(userId, month);
+  }
+
   @Get('all-stats')
   async getAllStats(@Request() req: any) {
     // Chỉ admin mới có thể xem tất cả stats

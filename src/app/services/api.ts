@@ -1057,6 +1057,32 @@ export const api = {
     return response.json();
   },
 
+  /** Tiến trình cấp bậc C1..C9 của người dùng đang đăng nhập. */
+  async getMyRank() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/affiliate/my-rank`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch rank progress');
+    }
+    return response.json();
+  },
+
+  /** Các bể đồng chia đại lý mà người dùng đang tham gia. */
+  async getMyAgentPools() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/agent-pool/my-summary`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch agent pool summary');
+    }
+    return response.json();
+  },
+
   async getKycStatus() {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');

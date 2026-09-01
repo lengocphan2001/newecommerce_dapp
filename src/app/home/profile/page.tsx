@@ -29,6 +29,9 @@ export default function ProfilePage() {
     totalPurchaseAmount?: number;
   } | null>(null);
   const [bankingConfig, setBankingConfig] = useState<any>(null);
+  const [rankInfo, setRankInfo] = useState<any>(null);
+  const [agentPools, setAgentPools] = useState<any>(null);
+  const [loadingRank, setLoadingRank] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
 
@@ -47,12 +50,15 @@ export default function ProfilePage() {
   };
 
   const loadInitialData = async () => {
-    const [profileOutcome, reconOutcome, kycOutcome, bankCfgOutcome] = await Promise.allSettled([
-      api.getProfile(),
-      api.checkReconsumption(),
-      api.getKycStatus(),
-      api.getBankingConfig(),
-    ]);
+    const [profileOutcome, reconOutcome, kycOutcome, bankCfgOutcome, rankOutcome, poolsOutcome] =
+      await Promise.allSettled([
+        api.getProfile(),
+        api.checkReconsumption(),
+        api.getKycStatus(),
+        api.getBankingConfig(),
+        api.getMyRank(),
+        api.getMyAgentPools(),
+      ]);
 
     if (profileOutcome.status === "fulfilled") {
       const info = profileOutcome.value;
@@ -93,6 +99,15 @@ export default function ProfilePage() {
 
     if (bankCfgOutcome.status === "fulfilled") {
       setBankingConfig(bankCfgOutcome.value);
+    }
+
+    if (rankOutcome.status === "fulfilled") {
+      setRankInfo(rankOutcome.value);
+    }
+    setLoadingRank(false);
+
+    if (poolsOutcome.status === "fulfilled") {
+      setAgentPools(poolsOutcome.value);
     }
   };
 
@@ -212,6 +227,28 @@ export default function ProfilePage() {
     return map[rank] ?? { background: '#f8fafc', color: '#475569', borderColor: '#cbd5e1' };
   };
 
+  /** Màu của từng cấp C1..C9, dùng chung với badge trên trang đại lý. */
+  const cRankTheme = (rank: string) => {
+    const map: Record<string, { badge: string; ring: string; text: string }> = {
+      C1: { badge: 'from-amber-600 to-amber-700', ring: 'ring-amber-200', text: 'text-amber-700' },
+      C2: { badge: 'from-slate-400 to-slate-500', ring: 'ring-slate-200', text: 'text-slate-600' },
+      C3: { badge: 'from-yellow-500 to-amber-500', ring: 'ring-yellow-200', text: 'text-amber-600' },
+      C4: { badge: 'from-cyan-500 to-blue-500', ring: 'ring-cyan-200', text: 'text-cyan-700' },
+      C5: { badge: 'from-rose-500 to-red-600', ring: 'ring-rose-200', text: 'text-rose-600' },
+      C6: { badge: 'from-blue-600 to-indigo-600', ring: 'ring-blue-200', text: 'text-indigo-700' },
+      C7: { badge: 'from-emerald-500 to-teal-600', ring: 'ring-emerald-200', text: 'text-emerald-700' },
+      C8: { badge: 'from-fuchsia-600 via-purple-600 to-violet-600', ring: 'ring-fuchsia-200', text: 'text-fuchsia-700' },
+      C9: { badge: 'from-yellow-500 via-orange-500 to-red-600', ring: 'ring-orange-200', text: 'text-orange-700' },
+    };
+    return map[rank] || { badge: 'from-slate-500 to-slate-600', ring: 'ring-slate-200', text: 'text-slate-600' };
+  };
+
+  const usdToVnd = (usd: number | string | null | undefined) =>
+    Math.round((Number(usd) || 0) * getRate()).toLocaleString('vi-VN') + ' VND';
+
+  const percentText = (rate: number | null | undefined) =>
+    `${((Number(rate) || 0) * 100).toFixed(((Number(rate) || 0) * 100) % 1 === 0 ? 0 : 1)}%`;
+
   const calculateCommissionProgress = () => {
     if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
     const progress = (reconsumptionStatus.currentCommission / reconsumptionStatus.threshold) * 100;
@@ -312,13 +349,20 @@ export default function ProfilePage() {
                   {getPackageTag()}
                 </span>
               </div>
-              {userInfo?.rank && userInfo.rank !== 'NONE' && (
+              {rankInfo?.isRanked ? (
+                <div
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r ${cRankTheme(rankInfo.rank).badge} text-white font-bold text-xs uppercase tracking-wider shadow-md`}
+                >
+                  <span className="material-symbols-outlined text-sm leading-none">workspace_premium</span>
+                  {rankInfo.rank}
+                </div>
+              ) : userInfo?.rank && userInfo.rank !== 'NONE' ? (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border font-bold text-xs uppercase tracking-wider shadow-sm"
                   style={rankStyle(userInfo.rank)}>
                   <span className="material-symbols-outlined text-sm leading-none">workspace_premium</span>
                   {userInfo.rank}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Buy package section - hidden for now (Packages CTV, NPP, TV)
@@ -358,6 +402,245 @@ export default function ProfilePage() {
               )}
             </div>
             */}
+
+            {/* Cấp bậc đại lý C1..C9: phần chính của màn hình profile */}
+            {loadingRank ? (
+              <div className="w-full max-w-sm mx-auto mt-6 rounded-2xl border-2 border-slate-100 p-4 animate-pulse">
+                <div className="h-5 w-32 bg-slate-100 rounded mb-3"></div>
+                <div className="h-20 bg-slate-100 rounded-xl"></div>
+              </div>
+            ) : rankInfo ? (
+              <div className="w-full max-w-sm mx-auto mt-6 space-y-4 text-left">
+                {/* Thẻ cấp bậc */}
+                <div
+                  className={`rounded-2xl p-5 text-white shadow-lg bg-gradient-to-br ${
+                    rankInfo.isRanked ? cRankTheme(rankInfo.rank).badge : 'from-slate-500 to-slate-600'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-white/70">
+                        {t("rankCurrentLabel")}
+                      </p>
+                      <p className="text-3xl font-black leading-tight">
+                        {rankInfo.isRanked ? rankInfo.rank : t("rankUnranked")}
+                      </p>
+                      <p className="text-xs font-medium text-white/80 mt-0.5">
+                        {rankInfo.rankLabel} • {t("rankMonthLabel")} {rankInfo.month}
+                      </p>
+                    </div>
+                    <span className="material-symbols-outlined text-4xl text-white/80">
+                      workspace_premium
+                    </span>
+                  </div>
+
+                  {rankInfo.isManualRank && (
+                    <p className="mt-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-xs leading-none">admin_panel_settings</span>
+                      {t("rankManualBadge")}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                        {t("rankGroupSales")}
+                      </p>
+                      <p className="text-sm font-black">{usdToVnd(rankInfo.groupSales)}</p>
+                    </div>
+                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                        {t("rankPersonalSales")}
+                      </p>
+                      <p className="text-sm font-black">{usdToVnd(rankInfo.personalSales)}</p>
+                    </div>
+                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                        {t("rankGroupReward")}
+                      </p>
+                      <p className="text-sm font-black">{usdToVnd(rankInfo.groupReward?.amount)}</p>
+                      <p className="text-[10px] text-white/70 font-medium">
+                        {t("rankGroupRewardRate")} {percentText(rankInfo.groupReward?.appliedRate)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                        {t("rankGlobalShare")}
+                      </p>
+                      <p className="text-sm font-black">{usdToVnd(rankInfo.globalShare?.amount)}</p>
+                      <p className="text-[10px] text-white/70 font-medium">
+                        {percentText(rankInfo.globalShare?.poolRate)} •{' '}
+                        {rankInfo.globalShare?.qualifiedCount || 0} {t("rankSharedWith")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 text-[11px] font-medium text-white/80">
+                    <span>
+                      {t("rankTeamSize")}: {rankInfo.totalMemberCount || 0}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/home/affiliate')}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors font-bold"
+                    >
+                      {t("rankViewTeam")}
+                      <span className="material-symbols-outlined text-sm leading-none">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Điều kiện lên cấp tiếp theo */}
+                <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-slate-800">{t("rankNextTitle")}</p>
+                    {rankInfo.nextRank && (
+                      <span
+                        className={`text-[11px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r ${cRankTheme(rankInfo.nextRank).badge} text-white`}
+                      >
+                        {rankInfo.nextRank}
+                      </span>
+                    )}
+                  </div>
+
+                  {!rankInfo.isRanked && rankInfo.daiLyCondition && !rankInfo.daiLyCondition.satisfied && (
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                        <span>{t("rankDailyCondition")}</span>
+                        <span>
+                          {usdToVnd(rankInfo.daiLyCondition.actual)} / {usdToVnd(rankInfo.daiLyCondition.required)}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              ((Number(rankInfo.daiLyCondition.actual) || 0) /
+                                (Number(rankInfo.daiLyCondition.required) || 1)) * 100,
+                            )}%`,
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {rankInfo.nextQualification ? (
+                    <div className="space-y-3">
+                      {rankInfo.nextQualification.requirements.map((req: any) => {
+                        const percent = Math.min(
+                          100,
+                          ((Number(req.actualCount) || 0) / (Number(req.requiredCount) || 1)) * 100,
+                        );
+                        return (
+                          <div key={`${req.requiredRank}-${req.requiredCount}`}>
+                            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                              <span>
+                                {t("rankRequirementLine")} {req.requiredRankLabel}
+                              </span>
+                              <span className={req.satisfied ? 'text-emerald-600' : 'text-slate-500'}>
+                                {req.actualCount}/{req.requiredCount}
+                              </span>
+                            </div>
+                            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  req.satisfied ? 'bg-emerald-500' : 'bg-blue-600'
+                                }`}
+                                style={{ width: `${percent}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs font-semibold text-emerald-600">{t("rankMaxReached")}</p>
+                  )}
+
+                  <p className="text-[10px] text-slate-400 font-medium mt-3">{t("rankThisMonthNote")}</p>
+                </div>
+
+                {/* Lộ trình C1..C9 */}
+                <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
+                  <p className="text-sm font-bold text-slate-800 mb-3">{t("rankLadderTitle")}</p>
+                  <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                    {(rankInfo.ladder || []).map((step: any) => (
+                      <div
+                        key={step.rank}
+                        className={`flex-shrink-0 w-[74px] rounded-xl border-2 p-2 text-center ${
+                          step.isCurrent
+                            ? 'border-transparent bg-gradient-to-br ' + cRankTheme(step.rank).badge + ' text-white shadow-md'
+                            : step.achieved
+                            ? 'border-emerald-200 bg-emerald-50'
+                            : 'border-slate-200 bg-slate-50'
+                        }`}
+                        title={step.ruleText}
+                      >
+                        <p className={`text-sm font-black ${step.isCurrent ? 'text-white' : 'text-slate-800'}`}>
+                          {step.rank}
+                        </p>
+                        <p
+                          className={`text-[10px] font-bold ${
+                            step.isCurrent ? 'text-white/80' : 'text-slate-500'
+                          }`}
+                        >
+                          {percentText(step.globalShareRate)}
+                        </p>
+                        {step.achieved && !step.isCurrent && (
+                          <span className="material-symbols-outlined text-sm text-emerald-600 leading-none">
+                            check_circle
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bể đồng chia đại lý */}
+                <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-slate-800">{t("rankPoolsTitle")}</p>
+                    {agentPools?.totalAgentPoolRewards ? (
+                      <span className="text-xs font-black text-emerald-600">
+                        {usdToVnd(agentPools.totalAgentPoolRewards)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {agentPools?.myPools?.length ? (
+                    <div className="space-y-2">
+                      {agentPools.myPools.map((pool: any) => (
+                        <div
+                          key={pool.memberId}
+                          className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+                        >
+                          <span
+                            className={`flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br ${cRankTheme(pool.poolCode).badge} text-white text-xs font-black`}
+                          >
+                            {pool.poolCode}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">{pool.poolName}</p>
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              {pool.poolPercent}% • {t("rankPoolTotalReward")} {usdToVnd(pool.totalRewarded)}
+                            </p>
+                          </div>
+                          {!pool.isActive && (
+                            <span className="text-[10px] font-bold uppercase text-slate-400">
+                              {t("rankPoolPaused")}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 font-medium">{t("rankPoolsEmpty")}</p>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             {/* Commission Progress Bar - dùng ternary để tránh render số 0 khi threshold = 0 */}
             {reconsumptionStatus && reconsumptionStatus.threshold ? (

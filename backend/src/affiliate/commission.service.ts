@@ -2638,6 +2638,101 @@ export class CommissionService {
     };
   }
 
+  /**
+   * Tiến trình cấp bậc của chính người dùng, dùng cho màn hình profile.
+   * Rút gọn từ getMonthlyUserDetail: chỉ giữ phần người dùng cần thấy và
+   * không trả email/ID của tuyến dưới.
+   */
+  async getMyRankProgress(userId: string, month?: string) {
+    const targetMonth = month || this.getCurrentMonthString();
+    const detail = await this.getMonthlyUserDetail(targetMonth, userId);
+
+    const isRanked =
+      detail.rank !== 'C0' && detail.rank !== 'DAILY' && !!detail.rank;
+
+    // Lộ trình đầy đủ để màn hình vẽ được các bậc phía trước, kèm tỷ lệ đồng
+    // chia quốc gia của từng bậc.
+    const ladder = MONTHLY_RANK_PROMOTION_ORDER.map((rank) => {
+      const rules = MONTHLY_RANK_RULES[rank] || [];
+      return {
+        rank,
+        rankLabel: rankLabel(rank),
+        globalShareRate: GLOBAL_SHARE_RATES[rank] || 0,
+        ruleText: rules
+          .map((r) => `${r.count} F1 đạt ${rankLabel(r.rank)} trở lên`)
+          .join(' và '),
+        achieved:
+          MONTHLY_RANK_ORDER.indexOf(detail.rank) >=
+          MONTHLY_RANK_ORDER.indexOf(rank),
+        isCurrent: detail.rank === rank,
+      };
+    });
+
+    const stripIds = (qualification: any) =>
+      qualification
+        ? {
+            rank: qualification.rank,
+            rankLabel: rankLabel(qualification.rank),
+            ruleText: qualification.ruleText,
+            satisfied: qualification.satisfied,
+            requirements: qualification.requirements.map((r: any) => ({
+              requiredRank: r.requiredRank,
+              requiredRankLabel: r.requiredRankLabel,
+              requiredCount: r.requiredCount,
+              actualCount: r.actualCount,
+              satisfied: r.satisfied,
+            })),
+          }
+        : null;
+
+    const nextQualification = stripIds(detail.nextQualification);
+
+    return {
+      month: detail.month,
+      rank: detail.rank,
+      rankLabel: detail.rankLabel,
+      isRanked,
+      isManualRank: detail.isManualRank,
+      daiLyCondition: detail.daiLyCondition,
+      currentQualification: stripIds(detail.currentQualification),
+      nextRank: nextQualification?.rank || null,
+      nextRankLabel: nextQualification?.rankLabel || null,
+      nextQualification,
+      personalSales: detail.personalSales,
+      groupSales: detail.groupSales,
+      totalMemberCount: detail.totalMemberCount,
+      f1Count: detail.f1List.length,
+      f1RankCounts: detail.f1List.reduce(
+        (acc: Record<string, number>, f1: any) => {
+          acc[f1.rank] = (acc[f1.rank] || 0) + 1;
+          return acc;
+        },
+        {},
+      ),
+      groupReward: {
+        tierLabel: detail.groupReward.tierLabel,
+        appliedRate: detail.groupReward.appliedRate,
+        rateThisMonth: detail.groupReward.rateThisMonth,
+        keptFromPrevMonth: detail.groupReward.keptFromPrevMonth,
+        amount: detail.groupReward.amount,
+      },
+      globalShare: {
+        poolRate: detail.globalShare.poolRate,
+        qualifiedCount: detail.globalShare.qualifiedCount,
+        poolAmount: detail.globalShare.poolAmount,
+        amount: detail.globalShare.amount,
+      },
+      ladder,
+      isProcessed: detail.stored?.isProcessed ?? false,
+    };
+  }
+
+  /** Tháng hiện tại theo định dạng YYYY-MM. */
+  private getCurrentMonthString(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
   async getMonthlyStats(month: string) {
     return this.userMonthlyStatsRepository.find({
       where: { month },
