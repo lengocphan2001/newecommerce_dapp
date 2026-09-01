@@ -1070,19 +1070,6 @@ export const api = {
     return response.json();
   },
 
-  /** Các bể đồng chia đại lý mà người dùng đang tham gia. */
-  async getMyAgentPools() {
-    const token = localStorage.getItem('token');
-    if (!token) throw new Error('Not authenticated');
-    const response = await fetch(`${API_BASE_URL}/agent-pool/my-summary`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch agent pool summary');
-    }
-    return response.json();
-  },
-
   async getKycStatus() {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');

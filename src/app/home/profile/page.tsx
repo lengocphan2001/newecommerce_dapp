@@ -30,7 +30,6 @@ export default function ProfilePage() {
   } | null>(null);
   const [bankingConfig, setBankingConfig] = useState<any>(null);
   const [rankInfo, setRankInfo] = useState<any>(null);
-  const [agentPools, setAgentPools] = useState<any>(null);
   const [loadingRank, setLoadingRank] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
@@ -50,14 +49,13 @@ export default function ProfilePage() {
   };
 
   const loadInitialData = async () => {
-    const [profileOutcome, reconOutcome, kycOutcome, bankCfgOutcome, rankOutcome, poolsOutcome] =
+    const [profileOutcome, reconOutcome, kycOutcome, bankCfgOutcome, rankOutcome] =
       await Promise.allSettled([
         api.getProfile(),
         api.checkReconsumption(),
         api.getKycStatus(),
         api.getBankingConfig(),
         api.getMyRank(),
-        api.getMyAgentPools(),
       ]);
 
     if (profileOutcome.status === "fulfilled") {
@@ -105,10 +103,6 @@ export default function ProfilePage() {
       setRankInfo(rankOutcome.value);
     }
     setLoadingRank(false);
-
-    if (poolsOutcome.status === "fulfilled") {
-      setAgentPools(poolsOutcome.value);
-    }
   };
 
   const loadUserProfile = async () => {
@@ -245,9 +239,6 @@ export default function ProfilePage() {
 
   const usdToVnd = (usd: number | string | null | undefined) =>
     Math.round((Number(usd) || 0) * getRate()).toLocaleString('vi-VN') + ' VND';
-
-  const percentText = (rate: number | null | undefined) =>
-    `${((Number(rate) || 0) * 100).toFixed(((Number(rate) || 0) * 100) % 1 === 0 ? 0 : 1)}%`;
 
   const calculateCommissionProgress = () => {
     if (!reconsumptionStatus?.threshold || !reconsumptionStatus?.currentCommission) return 0;
@@ -440,54 +431,6 @@ export default function ProfilePage() {
                       {t("rankManualBadge")}
                     </p>
                   )}
-
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                        {t("rankGroupSales")}
-                      </p>
-                      <p className="text-sm font-black">{usdToVnd(rankInfo.groupSales)}</p>
-                    </div>
-                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                        {t("rankPersonalSales")}
-                      </p>
-                      <p className="text-sm font-black">{usdToVnd(rankInfo.personalSales)}</p>
-                    </div>
-                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                        {t("rankGroupReward")}
-                      </p>
-                      <p className="text-sm font-black">{usdToVnd(rankInfo.groupReward?.amount)}</p>
-                      <p className="text-[10px] text-white/70 font-medium">
-                        {t("rankGroupRewardRate")} {percentText(rankInfo.groupReward?.appliedRate)}
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-white/15 backdrop-blur-sm p-3">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-                        {t("rankGlobalShare")}
-                      </p>
-                      <p className="text-sm font-black">{usdToVnd(rankInfo.globalShare?.amount)}</p>
-                      <p className="text-[10px] text-white/70 font-medium">
-                        {percentText(rankInfo.globalShare?.poolRate)} •{' '}
-                        {rankInfo.globalShare?.qualifiedCount || 0} {t("rankSharedWith")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-4 text-[11px] font-medium text-white/80">
-                    <span>
-                      {t("rankTeamSize")}: {rankInfo.totalMemberCount || 0}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => router.push('/home/affiliate')}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors font-bold"
-                    >
-                      {t("rankViewTeam")}
-                      <span className="material-symbols-outlined text-sm leading-none">chevron_right</span>
-                    </button>
-                  </div>
                 </div>
 
                 {/* Điều kiện lên cấp tiếp theo */}
@@ -560,84 +503,6 @@ export default function ProfilePage() {
                   )}
 
                   <p className="text-[10px] text-slate-400 font-medium mt-3">{t("rankThisMonthNote")}</p>
-                </div>
-
-                {/* Lộ trình C1..C9 */}
-                <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
-                  <p className="text-sm font-bold text-slate-800 mb-3">{t("rankLadderTitle")}</p>
-                  <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                    {(rankInfo.ladder || []).map((step: any) => (
-                      <div
-                        key={step.rank}
-                        className={`flex-shrink-0 w-[74px] rounded-xl border-2 p-2 text-center ${
-                          step.isCurrent
-                            ? 'border-transparent bg-gradient-to-br ' + cRankTheme(step.rank).badge + ' text-white shadow-md'
-                            : step.achieved
-                            ? 'border-emerald-200 bg-emerald-50'
-                            : 'border-slate-200 bg-slate-50'
-                        }`}
-                        title={step.ruleText}
-                      >
-                        <p className={`text-sm font-black ${step.isCurrent ? 'text-white' : 'text-slate-800'}`}>
-                          {step.rank}
-                        </p>
-                        <p
-                          className={`text-[10px] font-bold ${
-                            step.isCurrent ? 'text-white/80' : 'text-slate-500'
-                          }`}
-                        >
-                          {percentText(step.globalShareRate)}
-                        </p>
-                        {step.achieved && !step.isCurrent && (
-                          <span className="material-symbols-outlined text-sm text-emerald-600 leading-none">
-                            check_circle
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Bể đồng chia đại lý */}
-                <div className="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-md">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-bold text-slate-800">{t("rankPoolsTitle")}</p>
-                    {agentPools?.totalAgentPoolRewards ? (
-                      <span className="text-xs font-black text-emerald-600">
-                        {usdToVnd(agentPools.totalAgentPoolRewards)}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {agentPools?.myPools?.length ? (
-                    <div className="space-y-2">
-                      {agentPools.myPools.map((pool: any) => (
-                        <div
-                          key={pool.memberId}
-                          className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
-                        >
-                          <span
-                            className={`flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-br ${cRankTheme(pool.poolCode).badge} text-white text-xs font-black`}
-                          >
-                            {pool.poolCode}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate">{pool.poolName}</p>
-                            <p className="text-[11px] text-slate-500 font-medium">
-                              {pool.poolPercent}% • {t("rankPoolTotalReward")} {usdToVnd(pool.totalRewarded)}
-                            </p>
-                          </div>
-                          {!pool.isActive && (
-                            <span className="text-[10px] font-bold uppercase text-slate-400">
-                              {t("rankPoolPaused")}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 font-medium">{t("rankPoolsEmpty")}</p>
-                  )}
                 </div>
               </div>
             ) : null}
