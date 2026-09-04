@@ -38,6 +38,8 @@ const HeapReward: React.FC = () => {
   const [placements, setPlacements] = useState<any[]>([]);
   const [promisingPlacements, setPromisingPlacements] = useState<any[]>([]);
   const [selectedPoolLevel, setSelectedPoolLevel] = useState<number | undefined>(undefined);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedPromisingPoolLevel, setSelectedPromisingPoolLevel] = useState<number | undefined>(undefined);
   
   const [form] = Form.useForm();
@@ -66,7 +68,7 @@ const HeapReward: React.FC = () => {
       notification.success({ message: 'Thêm thành viên vào bể thành công!' });
       setIsAddManualModalVisible(false);
       manualForm.resetFields();
-      fetchPlacements(selectedPoolLevel);
+      fetchPlacements(selectedPoolLevel, searchKeyword);
     } catch (e: any) {
       const msg = e.response?.data?.message || 'Có lỗi xảy ra khi thêm thành viên';
       notification.error({ message: msg });
@@ -75,10 +77,15 @@ const HeapReward: React.FC = () => {
     }
   };
 
-  const fetchPlacements = async (poolLevel?: number) => {
+  const fetchPlacements = async (poolLevel?: number, search?: string) => {
     try {
       setLoading(true);
-      const url = `/admin/heap-reward/placements${poolLevel ? `?poolLevel=${poolLevel}` : ''}`;
+      const params = new URLSearchParams();
+      if (poolLevel) params.set('poolLevel', String(poolLevel));
+      const keyword = (search ?? '').trim();
+      if (keyword) params.set('search', keyword);
+      const queryString = params.toString();
+      const url = `/admin/heap-reward/placements${queryString ? `?${queryString}` : ''}`;
       const res = await api.get(url);
       setPlacements(res.data);
     } catch (e) {
@@ -106,7 +113,7 @@ const HeapReward: React.FC = () => {
       setLoading(true);
       await api.delete(`/admin/heap-reward/placements/${id}`);
       notification.success({ message: 'Đã xoá vị trí đồng chia thành công' });
-      fetchPlacements(selectedPoolLevel);
+      fetchPlacements(selectedPoolLevel, searchKeyword);
     } catch (e) {
       notification.error({ message: 'Lỗi khi xoá vị trí đồng chia' });
       setLoading(false);
@@ -163,11 +170,18 @@ const HeapReward: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPlacements(selectedPoolLevel);
+    fetchPlacements(selectedPoolLevel, searchKeyword);
     if (isAdminAccount) {
       fetchConfigs();
     }
-  }, [isAdminAccount, selectedPoolLevel]);
+  }, [isAdminAccount, selectedPoolLevel, searchKeyword]);
+
+  // Trì hoãn 400ms trước khi gọi API tìm kiếm.
+  // Tại sao: Tránh bắn request cho từng ký tự admin gõ vào ô tìm kiếm.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchKeyword(searchInput.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const onFinishConfig = async (values: any) => {
     try {
@@ -239,7 +253,7 @@ const HeapReward: React.FC = () => {
           });
 
           // Tải lại danh sách
-          fetchPlacements(selectedPoolLevel);
+          fetchPlacements(selectedPoolLevel, searchKeyword);
         } catch (e: any) {
           const errMsg = e?.response?.data?.message || e?.message || 'Đồng bộ thất bại';
           notification.error({
@@ -313,7 +327,7 @@ const HeapReward: React.FC = () => {
           });
 
           // Tải lại danh sách
-          fetchPlacements(selectedPoolLevel);
+          fetchPlacements(selectedPoolLevel, searchKeyword);
           fetchPromisingPlacements(selectedPromisingPoolLevel);
         } catch (e: any) {
           const errMsg = e?.response?.data?.message || e?.message || 'Hoàn tác thất bại';
@@ -479,6 +493,14 @@ const HeapReward: React.FC = () => {
                 <Option value="500">Bể 500 PV</Option>
                 <Option value="2400">Bể 2400 PV</Option>
               </Select>
+              <Input.Search
+                allowClear
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onSearch={(val) => setSearchKeyword(val.trim())}
+                placeholder="Tìm user: username, email, họ tên, SĐT hoặc ID"
+                style={{ width: 340 }}
+              />
             </div>
             {isAdminAccount && (
               <Button type="primary" onClick={() => setIsAddManualModalVisible(true)}>

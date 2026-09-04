@@ -430,6 +430,20 @@ export class HeapRewardService {
     if (query.userId) {
       builder.andWhere('p.userId = :userId', { userId: query.userId });
     }
+    // Tìm kiếm theo thông tin người dùng (username, email, họ tên, số điện thoại hoặc ID).
+    // Tại sao: Admin cần tra nhanh vị trí của một thành viên cụ thể trong bể mà không phải cuộn cả danh sách.
+    const search = typeof query.search === 'string' ? query.search.trim() : '';
+    if (search) {
+      const keyword = `%${search.toLowerCase()}%`;
+      builder.andWhere(
+        `(LOWER(user.username) LIKE :keyword
+          OR LOWER(user.email) LIKE :keyword
+          OR LOWER(user.fullName) LIKE :keyword
+          OR LOWER(user.phone) LIKE :keyword
+          OR LOWER(p.userId) LIKE :keyword)`,
+        { keyword },
+      );
+    }
     if (query.poolLevel) {
       builder.andWhere('p.poolLevel = :poolLevel', { poolLevel: Number(query.poolLevel) });
     }
