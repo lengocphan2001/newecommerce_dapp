@@ -466,7 +466,31 @@ const dict: Dict = {
   rankRequirementLine: "F1 등급",
   rankMaxReached: "최고 등급에 도달했습니다",
   rankDailyCondition: "대리점 조건",
-  rankThisMonthNote: "수치는 현재 월 기준이며 계속 갱신됩니다"
+  rankThisMonthNote: "수치는 현재 월 기준이며 계속 갱신됩니다",
+  treeViewDiagram: "다이어그램",
+  treeViewList: "목록",
+  treeDepth: "단계",
+  treeDepthLevels: "단계",
+  treeBackToRoot: "내 트리로 돌아가기",
+  treeYou: "나",
+  treeEmptySlot: "빈 자리",
+  treeInviteHere: "이 자리에 초대하기",
+  treeLoadMore: "하위 조직 더 보기",
+  treeNotFound: "현재 트리에서 회원을 찾을 수 없습니다",
+  treeJoinedAt: "가입일",
+  treePersonalVolume: "개인 매출",
+  treeTeam1Volume: "팀 1 매출",
+  treeTeam2Volume: "팀 2 매출",
+  treeViewMemberTree: "이 회원의 트리 보기",
+  treeMemberDetail: "회원 정보",
+  treeZoomIn: "확대",
+  treeZoomOut: "축소",
+  treeReset: "초기화",
+  treeLegendYou: "나",
+  treeLegendTeam1: "팀 1",
+  treeLegendTeam2: "팀 2",
+  treeTotalMembers: "명 표시 중",
+  treeClose: "닫기"
 };
 
 export default dict;

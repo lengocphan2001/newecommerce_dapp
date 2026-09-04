@@ -790,111 +790,12 @@ export class AdminService {
   }
 
   /**
-   * Get full binary tree structure recursively
+   * Get full binary tree structure recursively.
+   * Logic dựng cây nằm ở UserService để màn hình cây của admin và của người dùng
+   * dùng chung một nguồn.
    */
   async getFullTree(userId: string, maxDepth: number = 5): Promise<any> {
-    const rootUser = await this.userRepository.findOne({
-      where: { id: userId },
-      select: [
-        'id',
-        'username',
-        'fullName',
-        'email',
-        'packageType',
-        'avatar',
-        'leftBranchTotal',
-        'rightBranchTotal',
-        'totalPurchaseAmount',
-        'createdAt',
-      ],
-    });
-
-    if (!rootUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (maxDepth <= 0) {
-      return {
-        id: rootUser.id,
-        username: rootUser.username,
-        fullName: rootUser.fullName,
-        email: rootUser.email,
-        packageType: rootUser.packageType,
-        avatar: rootUser.avatar,
-        leftBranchTotal: parseFloat(String(rootUser.leftBranchTotal || 0)),
-        rightBranchTotal: parseFloat(String(rootUser.rightBranchTotal || 0)),
-        totalPurchaseAmount: parseFloat(String(rootUser.totalPurchaseAmount || 0)),
-        createdAt: rootUser.createdAt,
-        children: [],
-      };
-    }
-
-    const allNodes = new Map<string, any>();
-    allNodes.set(rootUser.id, rootUser);
-
-    let parentIds: string[] = [rootUser.id];
-    let depth = 0;
-    while (depth < maxDepth && parentIds.length > 0) {
-      const levelChildren = await this.userRepository.find({
-        where: { parentId: In(parentIds) },
-        select: [
-          'id',
-          'parentId',
-          'position',
-          'username',
-          'fullName',
-          'email',
-          'packageType',
-          'avatar',
-          'leftBranchTotal',
-          'rightBranchTotal',
-          'totalPurchaseAmount',
-          'createdAt',
-        ],
-        order: { createdAt: 'ASC' },
-      });
-
-      if (levelChildren.length === 0) {
-        break;
-      }
-
-      for (const child of levelChildren) {
-        if (!allNodes.has(child.id)) {
-          allNodes.set(child.id, child);
-        }
-      }
-      parentIds = levelChildren.map((child) => child.id);
-      depth += 1;
-    }
-
-    const toTreeNode = (node: any): any => ({
-      id: node.id,
-      username: node.username,
-      fullName: node.fullName,
-      email: node.email,
-      packageType: node.packageType,
-      avatar: node.avatar,
-      leftBranchTotal: parseFloat(String(node.leftBranchTotal || 0)),
-      rightBranchTotal: parseFloat(String(node.rightBranchTotal || 0)),
-      totalPurchaseAmount: parseFloat(String(node.totalPurchaseAmount || 0)),
-      createdAt: node.createdAt,
-      children: [],
-    });
-
-    const treeNodes = new Map<string, any>();
-    for (const node of allNodes.values()) {
-      treeNodes.set(node.id, toTreeNode(node));
-    }
-
-    for (const node of allNodes.values()) {
-      if (!node.parentId) continue;
-      const parent = treeNodes.get(node.parentId);
-      const child = treeNodes.get(node.id);
-      if (!parent || !child) continue;
-      parent.children.push({ ...child, position: node.position });
-    }
-
-    return treeNodes.get(rootUser.id);
+    return this.userService.buildBinaryTree(userId, maxDepth);
   }
 
   /**

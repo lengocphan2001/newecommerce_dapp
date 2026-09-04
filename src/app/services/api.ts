@@ -312,6 +312,61 @@ export const api = {
     return data;
   },
 
+  /**
+   * Cây nhị phân của người dùng đang đăng nhập.
+   * rootUserId để trống = cây của chính mình; truyền id của một thành viên tuyến
+   * dưới để xem cây con của họ (backend tự kiểm tra quyền).
+   */
+  async getMyTree(rootUserId?: string, maxDepth = 3) {
+    const cacheKey = `${rootUserId || 'me'}_${maxDepth}`;
+    const cached = apiCache.getTree(cacheKey);
+    if (cached != null) return cached as any;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const params = new URLSearchParams({ maxDepth: String(maxDepth) });
+    if (rootUserId) params.set('rootUserId', rootUserId);
+
+    const response = await fetch(`${API_BASE_URL}/auth/referral/tree?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        apiCache.invalidate('referralInfo');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to load tree' }));
+      throw new Error(error.message || 'Failed to load tree');
+    }
+    const data = await response.json();
+    apiCache.setTree(cacheKey, data);
+    return data;
+  },
+
+  /** Danh sách phẳng toàn bộ tuyến dưới, tách theo hai nhánh gốc. */
+  async getDownlineList() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/referral/downline`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        apiCache.invalidate('referralInfo');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to load downline' }));
+      throw new Error(error.message || 'Failed to load downline');
+    }
+    return response.json();
+  },
+
   /** Matrix reward pool — cấu hình công khai (cần đăng nhập). */
   async getMatrixRewardConfig() {
     const token = localStorage.getItem('token');

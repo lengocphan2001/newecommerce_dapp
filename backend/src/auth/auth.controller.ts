@@ -184,7 +184,29 @@ export class AuthController {
     @Query('position') position?: 'left' | 'right',
   ) {
     const targetUserId = userId || req.user.sub;
-    return this.authService.getChildren(targetUserId, position);
+    return this.authService.getChildren(req.user.sub, targetUserId, position);
+  }
+
+  /** Cây nhị phân của chính người dùng (hoặc của một thành viên tuyến dưới). */
+  @Get('referral/tree')
+  @UseGuards(JwtAuthGuard)
+  async getMyTree(
+    @Request() req: any,
+    @Query('rootUserId') rootUserId?: string,
+    @Query('maxDepth') maxDepth?: string,
+  ) {
+    return this.authService.getMyTree(
+      req.user.sub,
+      rootUserId,
+      maxDepth ? parseInt(maxDepth, 10) : 3,
+    );
+  }
+
+  /** Danh sách phẳng tuyến dưới theo hai nhánh, cho chế độ xem danh sách. */
+  @Get('referral/downline')
+  @UseGuards(JwtAuthGuard)
+  async getDownlineList(@Request() req: any) {
+    return this.authService.getDownlineList(req.user.sub);
   }
 
   @Get('referral/f1')

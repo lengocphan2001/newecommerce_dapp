@@ -466,7 +466,31 @@ const dict: Dict = {
   rankRequirementLine: "F1 đạt",
   rankMaxReached: "Bạn đang ở cấp bậc cao nhất",
   rankDailyCondition: "Điều kiện Đại lý",
-  rankThisMonthNote: "Số liệu tính theo tháng hiện tại, cập nhật liên tục"
+  rankThisMonthNote: "Số liệu tính theo tháng hiện tại, cập nhật liên tục",
+  treeViewDiagram: "Sơ đồ",
+  treeViewList: "Danh sách",
+  treeDepth: "Số cấp",
+  treeDepthLevels: "cấp",
+  treeBackToRoot: "Về cây của tôi",
+  treeYou: "Bạn",
+  treeEmptySlot: "Còn trống",
+  treeInviteHere: "Mời vào vị trí này",
+  treeLoadMore: "Xem tiếp tuyến dưới",
+  treeNotFound: "Không tìm thấy thành viên trong cây đang xem",
+  treeJoinedAt: "Ngày tham gia",
+  treePersonalVolume: "Doanh số cá nhân",
+  treeTeam1Volume: "Doanh số Team 1",
+  treeTeam2Volume: "Doanh số Team 2",
+  treeViewMemberTree: "Xem cây của thành viên này",
+  treeMemberDetail: "Thông tin thành viên",
+  treeZoomIn: "Phóng to",
+  treeZoomOut: "Thu nhỏ",
+  treeReset: "Mặc định",
+  treeLegendYou: "Bạn",
+  treeLegendTeam1: "Team 1",
+  treeLegendTeam2: "Team 2",
+  treeTotalMembers: "thành viên đang hiển thị",
+  treeClose: "Đóng"
 };
 
 export default dict;

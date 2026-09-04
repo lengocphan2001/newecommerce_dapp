@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   Inject,
   forwardRef,
   Logger,
@@ -972,7 +973,106 @@ export class AuthService {
     return detail;
   }
 
-  async getChildren(userId: string, position?: 'left' | 'right') {
+  /**
+   * Cây nhị phân của chính người dùng, hoặc của một thành viên nằm dưới họ.
+   * Payload đã lược bỏ email và giới hạn độ sâu để không lộ dữ liệu tuyến trên
+   * và không cho phép truy vấn quá nặng.
+   */
+  async getMyTree(
+    currentUserId: string,
+    rootUserId?: string,
+    maxDepth = 3,
+  ) {
+    const targetRootId = rootUserId || currentUserId;
+    await this.assertCanViewTreeOf(currentUserId, targetRootId);
+
+    const depth = Math.min(Math.max(Number(maxDepth) || 3, 1), 5);
+    const tree = await this.userService.buildBinaryTree(targetRootId, depth);
+
+    const sanitize = (node: any): any => ({
+      id: node.id,
+      username: node.username,
+      fullName: node.fullName,
+      avatar: node.avatar,
+      packageType: node.packageType,
+      position: node.position,
+      leftBranchTotal: node.leftBranchTotal,
+      rightBranchTotal: node.rightBranchTotal,
+      totalPurchaseAmount: node.totalPurchaseAmount,
+      createdAt: node.createdAt,
+      hasMoreChildren: !!node.hasMoreChildren,
+      children: (node.children || []).map(sanitize),
+    });
+
+    return {
+      maxDepth: depth,
+      isSelfRoot: targetRootId === currentUserId,
+      tree: sanitize(tree),
+    };
+  }
+
+  /**
+   * Danh sách phẳng toàn bộ tuyến dưới, tách theo hai nhánh gốc.
+   * Dùng cho chế độ xem danh sách của màn hình cây; getReferralInfo cố tình
+   * không trả members để giữ payload nhẹ nên không dùng lại được.
+   */
+  async getDownlineList(userId: string) {
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const { leftMembers, rightMembers } =
+      await this.userService.getBinaryTreeMembers(userId);
+
+    const strip = (member: any) => ({
+      id: member.id,
+      username: member.username,
+      fullName: member.fullName,
+      avatar: member.avatar,
+      packageType: member.packageType,
+      totalPurchaseAmount: member.totalPurchaseAmount,
+      createdAt: member.createdAt,
+      depth: member.depth,
+    });
+
+    const byDepth = (a: any, b: any) => a.depth - b.depth;
+
+    return {
+      left: {
+        members: leftMembers.sort(byDepth).map(strip),
+        count: leftMembers.length,
+        volume: parseFloat(String(user.leftBranchTotal || 0)),
+      },
+      right: {
+        members: rightMembers.sort(byDepth).map(strip),
+        count: rightMembers.length,
+        volume: parseFloat(String(user.rightBranchTotal || 0)),
+      },
+    };
+  }
+
+  /**
+   * Người dùng chỉ được xem cây của chính mình hoặc của thành viên nằm bên dưới
+   * mình trong cây nhị phân (theo parentId, nên bao gồm cả trường hợp tràn nhánh).
+   */
+  private async assertCanViewTreeOf(currentUserId: string, targetId: string) {
+    if (currentUserId === targetId) return;
+    const allowed = await this.userService.isBinaryDescendant(
+      currentUserId,
+      targetId,
+    );
+    if (!allowed) {
+      throw new ForbiddenException('Bạn không có quyền xem cây của tài khoản này');
+    }
+  }
+
+  async getChildren(
+    currentUserId: string,
+    userId: string,
+    position?: 'left' | 'right',
+  ) {
+    await this.assertCanViewTreeOf(currentUserId, userId);
     const children = await this.userService.getDownline(userId, position);
     return children.map((child: any) => {
       // Parse decimal values properly

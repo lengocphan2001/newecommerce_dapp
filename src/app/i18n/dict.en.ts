@@ -466,7 +466,31 @@ const dict: Dict = {
   rankRequirementLine: "F1 at",
   rankMaxReached: "You are at the highest rank",
   rankDailyCondition: "Agent requirement",
-  rankThisMonthNote: "Figures are for the current month and update continuously"
+  rankThisMonthNote: "Figures are for the current month and update continuously",
+  treeViewDiagram: "Diagram",
+  treeViewList: "List",
+  treeDepth: "Levels",
+  treeDepthLevels: "levels",
+  treeBackToRoot: "Back to my tree",
+  treeYou: "You",
+  treeEmptySlot: "Open spot",
+  treeInviteHere: "Invite to this spot",
+  treeLoadMore: "View deeper downline",
+  treeNotFound: "No member found in the current tree",
+  treeJoinedAt: "Joined",
+  treePersonalVolume: "Personal volume",
+  treeTeam1Volume: "Team 1 volume",
+  treeTeam2Volume: "Team 2 volume",
+  treeViewMemberTree: "View this member's tree",
+  treeMemberDetail: "Member details",
+  treeZoomIn: "Zoom in",
+  treeZoomOut: "Zoom out",
+  treeReset: "Reset",
+  treeLegendYou: "You",
+  treeLegendTeam1: "Team 1",
+  treeLegendTeam2: "Team 2",
+  treeTotalMembers: "members shown",
+  treeClose: "Close"
 };
 
 export default dict;

@@ -696,7 +696,7 @@ export class UserService {
     return { left, right };
   }
 
-  private async getBinaryTreeMembers(parentId: string): Promise<{ leftMembers: any[]; rightMembers: any[] }> {
+  async getBinaryTreeMembers(parentId: string): Promise<{ leftMembers: any[]; rightMembers: any[] }> {
     const isPostgres = this.userRepository.metadata.connection.options.type === 'postgres';
     const qParentId = isPostgres ? '"parentId"' : 'parentId';
     const qCreatedAt = isPostgres ? '"createdAt"' : 'createdAt';
@@ -754,6 +754,147 @@ export class UserService {
     }
 
     return { leftMembers, rightMembers };
+  }
+
+  /**
+   * Kiểm tra targetUserId có nằm trong cây nhị phân bên dưới rootUserId hay không.
+   * Khác isDownline(): hàm này đi theo parentId (vị trí đặt trong cây), còn
+   * isDownline() đi theo referralUserId (người giới thiệu). Với tràn nhánh
+   * (spillover) hai chuỗi này không trùng nhau, nên phần quyền của màn hình cây
+   * phải dùng đúng chuỗi parentId.
+   */
+  async isBinaryDescendant(
+    rootUserId: string,
+    targetUserId: string,
+  ): Promise<boolean> {
+    if (!rootUserId || !targetUserId) return false;
+    if (rootUserId === targetUserId) return false;
+
+    let currentId: string | null = targetUserId;
+    const visited = new Set<string>();
+
+    while (currentId) {
+      if (currentId === rootUserId) return true;
+      if (visited.has(currentId)) break; // Chặn dữ liệu vòng lặp
+      visited.add(currentId);
+
+      const u = await this.userRepository.findOne({
+        where: { id: currentId },
+        select: ['id', 'parentId'],
+      });
+      if (!u || !u.parentId) break;
+      currentId = u.parentId;
+    }
+    return false;
+  }
+
+  /**
+   * Dựng cây nhị phân lồng nhau từ rootUserId xuống maxDepth cấp.
+   * Duyệt theo từng cấp (BFS) nên tổng số truy vấn bằng số cấp, không phải số node.
+   * Node ở cấp cuối mang cờ hasMoreChildren để giao diện biết chỗ nào còn nhánh sâu hơn.
+   */
+  async buildBinaryTree(rootUserId: string, maxDepth = 5): Promise<any> {
+    const selectFields: (keyof User)[] = [
+      'id',
+      'parentId',
+      'position',
+      'username',
+      'fullName',
+      'email',
+      'packageType',
+      'avatar',
+      'leftBranchTotal',
+      'rightBranchTotal',
+      'totalPurchaseAmount',
+      'createdAt',
+    ];
+
+    const rootUser = await this.userRepository.findOne({
+      where: { id: rootUserId },
+      select: selectFields,
+    });
+
+    if (!rootUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const toTreeNode = (node: any) => ({
+      id: node.id,
+      username: node.username,
+      fullName: node.fullName,
+      email: node.email,
+      packageType: node.packageType,
+      avatar: node.avatar,
+      leftBranchTotal: parseFloat(String(node.leftBranchTotal || 0)),
+      rightBranchTotal: parseFloat(String(node.rightBranchTotal || 0)),
+      totalPurchaseAmount: parseFloat(String(node.totalPurchaseAmount || 0)),
+      createdAt: node.createdAt,
+      position: node.position,
+      hasMoreChildren: false,
+      children: [] as any[],
+    });
+
+    const allNodes = new Map<string, any>();
+    allNodes.set(rootUser.id, rootUser);
+
+    let parentIds: string[] = [rootUser.id];
+    let depth = 0;
+    let leafIds: string[] = [rootUser.id];
+
+    while (depth < maxDepth && parentIds.length > 0) {
+      const levelChildren = await this.userRepository.find({
+        where: { parentId: In(parentIds) },
+        select: selectFields,
+        order: { createdAt: 'ASC' },
+      });
+
+      if (levelChildren.length === 0) {
+        break;
+      }
+
+      for (const child of levelChildren) {
+        if (!allNodes.has(child.id)) {
+          allNodes.set(child.id, child);
+        }
+      }
+      parentIds = levelChildren.map((child) => child.id);
+      leafIds = parentIds;
+      depth += 1;
+    }
+
+    // Các node ở cấp cuối: hỏi thêm 1 truy vấn xem còn con bên dưới không.
+    const idsWithDeeperChildren = new Set<string>();
+    if (leafIds.length > 0) {
+      const deeper = await this.userRepository.find({
+        where: { parentId: In(leafIds) },
+        select: ['id', 'parentId'],
+      });
+      for (const d of deeper) {
+        if (d.parentId) idsWithDeeperChildren.add(d.parentId);
+      }
+    }
+
+    const treeNodes = new Map<string, any>();
+    for (const node of allNodes.values()) {
+      const treeNode = toTreeNode(node);
+      treeNode.hasMoreChildren = idsWithDeeperChildren.has(node.id);
+      treeNodes.set(node.id, treeNode);
+    }
+
+    for (const node of allNodes.values()) {
+      if (node.id === rootUser.id) continue;
+      if (!node.parentId) continue;
+      const parent = treeNodes.get(node.parentId);
+      const child = treeNodes.get(node.id);
+      if (!parent || !child) continue;
+      parent.children.push(child);
+    }
+
+    const rootNode = treeNodes.get(rootUser.id);
+    // Root hiển thị như gốc của cây đang xem, không mang vị trí trái/phải của
+    // chính nó bên dưới tuyến trên.
+    if (rootNode) rootNode.position = undefined;
+    return rootNode;
   }
 
   async isDownline(sponsorId: string, targetUserId: string): Promise<boolean> {

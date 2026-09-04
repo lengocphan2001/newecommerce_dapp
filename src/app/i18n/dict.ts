@@ -469,7 +469,31 @@ export type I18nKey =
   | "rankRequirementLine"
   | "rankMaxReached"
   | "rankDailyCondition"
-  | "rankThisMonthNote";
+  | "rankThisMonthNote"
+  | "treeViewDiagram"
+  | "treeViewList"
+  | "treeDepth"
+  | "treeDepthLevels"
+  | "treeBackToRoot"
+  | "treeYou"
+  | "treeEmptySlot"
+  | "treeInviteHere"
+  | "treeLoadMore"
+  | "treeNotFound"
+  | "treeJoinedAt"
+  | "treePersonalVolume"
+  | "treeTeam1Volume"
+  | "treeTeam2Volume"
+  | "treeViewMemberTree"
+  | "treeMemberDetail"
+  | "treeZoomIn"
+  | "treeZoomOut"
+  | "treeReset"
+  | "treeLegendYou"
+  | "treeLegendTeam1"
+  | "treeLegendTeam2"
+  | "treeTotalMembers"
+  | "treeClose";
 
 export const DEFAULT_LANG: Lang = "vi";
 
