@@ -6,6 +6,7 @@ import { AgentPoolHistory } from './entities/agent-pool-history.entity';
 import { User } from '../user/entities/user.entity';
 import { Order } from '../order/entities/order.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
+import { SystemConfig } from '../admin/entities/system-config.entity';
 import { AgentPoolService } from './agent-pool.service';
 import {
   AdminAgentPoolController,
@@ -21,6 +22,7 @@ import {
       User,
       Order,
       BankingConfig,
+      SystemConfig,
     ]),
   ],
   controllers: [AdminAgentPoolController, ClientAgentPoolController],

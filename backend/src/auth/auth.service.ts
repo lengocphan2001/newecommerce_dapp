@@ -705,6 +705,9 @@ export class AuthService {
         fromUser: null,
         poolLevel: h.poolPercent,
         poolCode: h.pool?.code || null,
+        withdrawAmount: h.withdrawAmount,
+        reconsumptionAmount: h.reconsumptionAmount,
+        taxAmount: h.taxAmount,
       })),
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
@@ -744,6 +747,16 @@ export class AuthService {
         fromUsername,
         poolLevel: c.poolLevel,
         poolCode: c.poolCode ?? null,
+        withdrawAmount:
+          c.withdrawAmount === undefined
+            ? null
+            : formatDecimal(c.withdrawAmount),
+        reconsumptionAmount:
+          c.reconsumptionAmount === undefined
+            ? null
+            : formatDecimal(c.reconsumptionAmount),
+        taxAmount:
+          c.taxAmount === undefined ? null : formatDecimal(c.taxAmount),
       };
     });
 

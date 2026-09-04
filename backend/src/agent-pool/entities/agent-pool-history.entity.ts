@@ -112,6 +112,45 @@ export class AgentPoolHistory {
   })
   rewardAmount: number;
 
+  /** Phần thưởng cộng vào ví rút tiền (users.withdrawWalletBalance). */
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 4,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  withdrawAmount: number;
+
+  /** Phần thưởng cộng vào ví tiêu dùng (users.reconsumptionWalletBalance). */
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 4,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  reconsumptionAmount: number;
+
+  /** Phần bị trừ thẳng (VAT/thuế), không vào ví nào. */
+  @Column({
+    type: 'decimal',
+    precision: 18,
+    scale: 4,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  taxAmount: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }

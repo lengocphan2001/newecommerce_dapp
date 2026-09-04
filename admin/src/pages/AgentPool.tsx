@@ -545,13 +545,37 @@ const AgentPool: React.FC = () => {
       render: (u: any) => u?.username || u?.email || u?.id,
     },
     {
-      title: 'Tiền Nhận Thực Tế',
+      title: 'Thưởng Gộp',
       dataIndex: 'rewardAmount',
       key: 'rewardAmount',
       render: (val: number) => (
         <Text type="success" strong style={{ fontSize: 14 }}>
           +{formatVndFromUsd(val)}
         </Text>
+      ),
+    },
+    {
+      title: 'Vào Ví Rút',
+      dataIndex: 'withdrawAmount',
+      key: 'withdrawAmount',
+      render: (val: number) => (
+        <Text type="success">+{formatVndFromUsd(val || 0)}</Text>
+      ),
+    },
+    {
+      title: 'Vào Ví Tiêu Dùng',
+      dataIndex: 'reconsumptionAmount',
+      key: 'reconsumptionAmount',
+      render: (val: number) => (
+        <Text type="success">+{formatVndFromUsd(val || 0)}</Text>
+      ),
+    },
+    {
+      title: 'Trừ Thuế/VAT',
+      dataIndex: 'taxAmount',
+      key: 'taxAmount',
+      render: (val: number) => (
+        <Text type="secondary">-{formatVndFromUsd(val || 0)}</Text>
       ),
     },
   ];
@@ -912,9 +936,22 @@ const AgentPool: React.FC = () => {
                             value={formatVndFromUsd(backfillData.totalAmountUsd)}
                             valueStyle={{ color: '#cf1322' }}
                           />
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Ví rút {formatVndFromUsd(backfillData.totalWithdrawUsd || 0)} · Ví tiêu dùng{' '}
+                            {formatVndFromUsd(backfillData.totalReconsumptionUsd || 0)}
+                          </Text>
                         </Card>
                       </Col>
                     </Row>
+                  )}
+
+                  {backfillData?.distribution && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message={`Tỷ lệ chia ví: ${backfillData.distribution.withdrawPercent}% ví rút, ${backfillData.distribution.reconsumptionPercent}% ví tiêu dùng, ${backfillData.distribution.taxPercent}% trừ thuế/VAT`}
+                    />
                   )}
 
                   {backfillData?.skippedPools?.length > 0 && (
@@ -1232,6 +1269,14 @@ const AgentPool: React.FC = () => {
           </Descriptions.Item>
           <Descriptions.Item label="Tổng tiền đã cộng">
             <Text strong>{formatVndFromUsd(backfillResult?.totalPayoutUsd)}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Vào ví rút">
+            <Text strong>{formatVndFromUsd(backfillResult?.totalWithdrawUsd || 0)}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Vào ví tiêu dùng">
+            <Text strong>
+              {formatVndFromUsd(backfillResult?.totalReconsumptionUsd || 0)}
+            </Text>
           </Descriptions.Item>
         </Descriptions>
 

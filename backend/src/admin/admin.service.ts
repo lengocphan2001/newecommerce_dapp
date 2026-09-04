@@ -20,6 +20,10 @@ import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
 import { SystemConfig } from './entities/system-config.entity';
 import {
+  DEFAULT_RECONSUMPTION_WALLET_PERCENT,
+  DEFAULT_WITHDRAW_WALLET_PERCENT,
+} from '../common/constants/wallet-distribution';
+import {
   Commission,
   CommissionStatus,
 } from '../affiliate/entities/commission.entity';
@@ -52,8 +56,10 @@ export class AdminService {
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
   private readonly defaultMinPayoutThreshold = 50;
   private readonly defaultIndirectCommissionRateF2 = 5;
-  private readonly defaultCommissionDepositWalletPercent = 20;
-  private readonly defaultCommissionWithdrawWalletPercent = 70;
+  private readonly defaultCommissionDepositWalletPercent =
+    DEFAULT_RECONSUMPTION_WALLET_PERCENT;
+  private readonly defaultCommissionWithdrawWalletPercent =
+    DEFAULT_WITHDRAW_WALLET_PERCENT;
 
   constructor(
     @InjectRepository(User)

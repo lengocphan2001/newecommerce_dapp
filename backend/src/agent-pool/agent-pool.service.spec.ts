@@ -27,4 +27,38 @@ describe('AgentPoolService', () => {
     expect(reward.poolTotalVnd).toBe(54000);
     expect(reward.rewardPerMemberVnd).toBe(54000);
   });
+
+  it('should split a reward into withdraw wallet, reconsumption wallet and tax', () => {
+    const split = AgentPoolService.splitRewardUsd(2.16, {
+      withdrawPercent: 70,
+      reconsumptionPercent: 20,
+      taxPercent: 10,
+    });
+
+    expect(split.withdrawAmount).toBe(1.512);
+    expect(split.reconsumptionAmount).toBe(0.432);
+    expect(split.taxAmount).toBe(0.216);
+    expect(
+      split.withdrawAmount + split.reconsumptionAmount + split.taxAmount,
+    ).toBeCloseTo(2.16, 4);
+  });
+
+  it('should keep the three parts summing to the reward when rounding', () => {
+    const reward = 0.0001;
+    const split = AgentPoolService.splitRewardUsd(reward, {
+      withdrawPercent: 70,
+      reconsumptionPercent: 20,
+      taxPercent: 10,
+    });
+
+    expect(
+      Number(
+        (
+          split.withdrawAmount +
+          split.reconsumptionAmount +
+          split.taxAmount
+        ).toFixed(4),
+      ),
+    ).toBe(reward);
+  });
 });

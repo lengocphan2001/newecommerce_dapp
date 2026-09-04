@@ -45,3 +45,14 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-orders-st
 
 MySQL has no `CREATE INDEX IF NOT EXISTS`, so run `SHOW INDEX FROM orders;` first and
 skip any statement whose index is already present.
+
+## Add wallet-split columns on `agent_pool_histories`
+
+Agent pool rewards used to go entirely into the withdraw wallet. They are now split
+70% withdraw wallet / 20% reconsumption wallet / 10% tax (percentages come from
+`system_config`), and each payout row records the split. Existing rows are backfilled
+as 100% withdraw so old history stays truthful.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-agent-pool-wallet-split.sql
+```

@@ -12,10 +12,47 @@ import { AgentPoolHistory } from './entities/agent-pool-history.entity';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
+import { SystemConfig } from '../admin/entities/system-config.entity';
 import { runWithDeadlockRetry } from '../common/utils';
+import {
+  DEFAULT_RECONSUMPTION_WALLET_PERCENT,
+  DEFAULT_WITHDRAW_WALLET_PERCENT,
+} from '../common/constants/wallet-distribution';
+
+export interface WalletDistribution {
+  withdrawPercent: number;
+  reconsumptionPercent: number;
+  taxPercent: number;
+}
 
 @Injectable()
 export class AgentPoolService {
+  /**
+   * Chia phần thưởng của một thành viên thành ví rút / ví tiêu dùng / thuế.
+   * Phần thuế lấy bằng số dư còn lại để tổng ba phần luôn đúng bằng reward.
+   */
+  static splitRewardUsd(
+    rewardUsd: number,
+    distribution: WalletDistribution,
+  ): {
+    withdrawAmount: number;
+    reconsumptionAmount: number;
+    taxAmount: number;
+  } {
+    const reward = Number(rewardUsd) || 0;
+    const withdrawAmount = Number(
+      ((reward * distribution.withdrawPercent) / 100).toFixed(4),
+    );
+    const reconsumptionAmount = Number(
+      ((reward * distribution.reconsumptionPercent) / 100).toFixed(4),
+    );
+    const taxAmount = Number(
+      (reward - withdrawAmount - reconsumptionAmount).toFixed(4),
+    );
+
+    return { withdrawAmount, reconsumptionAmount, taxAmount };
+  }
+
   static calculatePoolRewardUsd({
     orderNetUsd,
     poolPercent,
@@ -80,12 +117,59 @@ export class AgentPoolService {
     private orderRepo: Repository<Order>,
     @InjectRepository(BankingConfig)
     private bankingConfigRepo: Repository<BankingConfig>,
+    @InjectRepository(SystemConfig)
+    private systemConfigRepo: Repository<SystemConfig>,
   ) {}
 
   private async getUsdtToVndRate(): Promise<number> {
     const config = await this.bankingConfigRepo.findOne({ where: { id: 1 } });
     const rate = Number(config?.usdtPriceVnd ?? 25000);
     return Number.isFinite(rate) && rate > 0 ? rate : 25000;
+  }
+
+  /**
+   * Tỷ lệ chia ví dùng chung với hoa hồng: mặc định 70% ví rút, 20% ví tiêu
+   * dùng, 10% còn lại là thuế/VAT bị trừ thẳng, không cộng vào ví nào.
+   */
+  async getWalletDistribution(): Promise<WalletDistribution> {
+    const [withdrawRow, reconsumptionRow] = await Promise.all([
+      this.systemConfigRepo.findOne({
+        where: { key: 'commissionWithdrawWalletPercent' },
+      }),
+      this.systemConfigRepo.findOne({
+        where: { key: 'commissionDepositWalletPercent' },
+      }),
+    ]);
+
+    const parsePercent = (raw: string | undefined, fallback: number): number => {
+      const parsed = parseFloat(raw ?? '');
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) return fallback;
+      return parsed;
+    };
+
+    let withdrawPercent = parsePercent(withdrawRow?.value, DEFAULT_WITHDRAW_WALLET_PERCENT);
+    let reconsumptionPercent = parsePercent(
+      reconsumptionRow?.value,
+      DEFAULT_RECONSUMPTION_WALLET_PERCENT,
+    );
+
+    // Cấu hình hỏng (tổng > 100%) sẽ chia ra nhiều tiền hơn phần thưởng thật,
+    // nên quay về mặc định thay vì cộng thừa vào ví người dùng.
+    if (withdrawPercent + reconsumptionPercent > 100) {
+      this.logger.warn(
+        `Wallet distribution config invalid (withdraw=${withdrawPercent}%, reconsumption=${reconsumptionPercent}%). Falling back to ${DEFAULT_WITHDRAW_WALLET_PERCENT}/${DEFAULT_RECONSUMPTION_WALLET_PERCENT}.`,
+      );
+      withdrawPercent = DEFAULT_WITHDRAW_WALLET_PERCENT;
+      reconsumptionPercent = DEFAULT_RECONSUMPTION_WALLET_PERCENT;
+    }
+
+    return {
+      withdrawPercent,
+      reconsumptionPercent,
+      taxPercent: Number(
+        (100 - withdrawPercent - reconsumptionPercent).toFixed(2),
+      ),
+    };
   }
 
   // ── 1. Pool Management ───────────────────────────────────────────────────
@@ -276,11 +360,13 @@ export class AgentPoolService {
         return;
       }
 
+      const distribution = await this.getWalletDistribution();
+
       for (const pool of activePools) {
         // Một bể lỗi (deadlock, dữ liệu hỏng...) không được làm hỏng các bể còn
         // lại: bắt lỗi trong vòng lặp để những bể sau vẫn được chia.
         try {
-          await this.distributePool(pool, order, orderNetAmount);
+          await this.distributePool(pool, order, orderNetAmount, distribution);
         } catch (error) {
           this.logger.error(
             `Agent Pool ${pool.code}: distribution failed for order ${orderId}`,
@@ -301,6 +387,7 @@ export class AgentPoolService {
     pool: AgentPool,
     order: Order,
     orderNetAmount: number,
+    distribution: WalletDistribution,
   ): Promise<void> {
     const percent = Number(pool.percent) || 0;
     if (percent <= 0) return;
@@ -356,14 +443,28 @@ export class AgentPoolService {
           for (const m of members) {
             if (!m.userId) continue;
 
-            // 1. Plus money to user withdraw wallet balance using USD as the source of truth
-            await tUserRepo.increment(
-              { id: m.userId },
-              'withdrawWalletBalance',
-              rewardPerMember,
-            );
+            // 1. Chia phần thưởng: ví rút / ví tiêu dùng / thuế bị trừ thẳng.
+            //    USD là đơn vị gốc, VND chỉ quy đổi khi hiển thị.
+            const { withdrawAmount, reconsumptionAmount, taxAmount } =
+              AgentPoolService.splitRewardUsd(rewardPerMember, distribution);
 
-            // 2. Plus total rewarded for member
+            if (withdrawAmount > 0) {
+              await tUserRepo.increment(
+                { id: m.userId },
+                'withdrawWalletBalance',
+                withdrawAmount,
+              );
+            }
+
+            if (reconsumptionAmount > 0) {
+              await tUserRepo.increment(
+                { id: m.userId },
+                'reconsumptionWalletBalance',
+                reconsumptionAmount,
+              );
+            }
+
+            // 2. Plus total rewarded for member (ghi nhận phần thưởng gộp)
             await tMemberRepo.increment(
               { id: m.id },
               'totalRewarded',
@@ -382,6 +483,9 @@ export class AgentPoolService {
               poolTotalAmount: poolTotalAmount,
               memberCount: members.length,
               rewardAmount: rewardPerMember,
+              withdrawAmount,
+              reconsumptionAmount,
+              taxAmount,
             });
             await tHistoryRepo.save(history);
           }
@@ -395,7 +499,7 @@ export class AgentPoolService {
     );
 
     this.logger.log(
-      `Agent Pool ${pool.code} (${percent}%): Distributed total ${poolTotalAmount} USD (${rewardPerMember}/user) to ${members.length} members for order ${order.id}.`,
+      `Agent Pool ${pool.code} (${percent}%): Distributed total ${poolTotalAmount} USD (${rewardPerMember}/user) to ${members.length} members for order ${order.id}. Split: withdraw ${distribution.withdrawPercent}%, reconsumption ${distribution.reconsumptionPercent}%, tax ${distribution.taxPercent}%.`,
     );
   }
 
@@ -434,13 +538,22 @@ export class AgentPoolService {
     const totalRewardedResult = await this.historyRepo
       .createQueryBuilder('h')
       .select('SUM(h.rewardAmount)', 'sum')
+      .addSelect('SUM(h.withdrawAmount)', 'withdrawSum')
+      .addSelect('SUM(h.reconsumptionAmount)', 'reconsumptionSum')
       .where('h.userId = :userId', { userId })
       .getRawOne();
 
     const totalRewarded = parseFloat(totalRewardedResult?.sum || '0');
+    const totalWithdrawCredited = parseFloat(
+      totalRewardedResult?.withdrawSum || '0',
+    );
+    const totalReconsumptionCredited = parseFloat(
+      totalRewardedResult?.reconsumptionSum || '0',
+    );
 
     return {
       userId,
+      walletDistribution: await this.getWalletDistribution(),
       myPools: members.map((m) => ({
         memberId: m.id,
         poolId: m.poolId,
@@ -452,6 +565,8 @@ export class AgentPoolService {
         joinedAt: m.createdAt,
       })),
       totalAgentPoolRewards: totalRewarded,
+      totalAgentPoolWithdrawCredited: totalWithdrawCredited,
+      totalAgentPoolReconsumptionCredited: totalReconsumptionCredited,
     };
   }
 
@@ -485,6 +600,7 @@ export class AgentPoolService {
       throw new BadRequestException('Tham số "since" không phải ngày hợp lệ');
     }
 
+    const distribution = await this.getWalletDistribution();
     const pools = await this.poolRepo.find({ order: { code: 'ASC' } });
 
     // Bể không chia được (tạm dừng, 0%, không có thành viên) thì việc thiếu
@@ -512,12 +628,15 @@ export class AgentPoolService {
 
     if (payablePools.length === 0) {
       return {
+        distribution,
         payablePools: [],
         skippedPools,
         orders: [],
         totalOrders: 0,
         totalMissingPools: 0,
         totalAmountUsd: 0,
+        totalWithdrawUsd: 0,
+        totalReconsumptionUsd: 0,
         truncated: false,
       };
     }
@@ -562,6 +681,8 @@ export class AgentPoolService {
     const rows: any[] = [];
     let totalMissingPools = 0;
     let totalAmountUsd = 0;
+    let totalWithdrawUsd = 0;
+    let totalReconsumptionUsd = 0;
     let truncated = false;
 
     for (const order of orders) {
@@ -585,6 +706,11 @@ export class AgentPoolService {
         const rewardPerMember = Number((rewardPerMemberUsd || 0).toFixed(4));
         if (rewardPerMember <= 0) continue;
 
+        const split = AgentPoolService.splitRewardUsd(
+          rewardPerMember,
+          distribution,
+        );
+
         missing.push({
           poolId: pool.id,
           poolCode: pool.code,
@@ -593,7 +719,14 @@ export class AgentPoolService {
           memberCount,
           poolTotalUsd: Number((poolTotalUsd || 0).toFixed(4)),
           rewardPerMemberUsd: rewardPerMember,
+          withdrawPerMemberUsd: split.withdrawAmount,
+          reconsumptionPerMemberUsd: split.reconsumptionAmount,
+          taxPerMemberUsd: split.taxAmount,
           payoutUsd: Number((rewardPerMember * memberCount).toFixed(4)),
+          withdrawUsd: Number((split.withdrawAmount * memberCount).toFixed(4)),
+          reconsumptionUsd: Number(
+            (split.reconsumptionAmount * memberCount).toFixed(4),
+          ),
         });
       }
 
@@ -605,8 +738,15 @@ export class AgentPoolService {
       }
 
       const orderAmountUsd = missing.reduce((acc, m) => acc + m.payoutUsd, 0);
+      const orderWithdrawUsd = missing.reduce((acc, m) => acc + m.withdrawUsd, 0);
+      const orderReconsumptionUsd = missing.reduce(
+        (acc, m) => acc + m.reconsumptionUsd,
+        0,
+      );
       totalMissingPools += missing.length;
       totalAmountUsd += orderAmountUsd;
+      totalWithdrawUsd += orderWithdrawUsd;
+      totalReconsumptionUsd += orderReconsumptionUsd;
 
       rows.push({
         orderId: order.id,
@@ -617,10 +757,13 @@ export class AgentPoolService {
         missingPools: missing,
         missingPoolCodes: missing.map((m) => m.poolCode),
         estimatedPayoutUsd: Number(orderAmountUsd.toFixed(4)),
+        estimatedWithdrawUsd: Number(orderWithdrawUsd.toFixed(4)),
+        estimatedReconsumptionUsd: Number(orderReconsumptionUsd.toFixed(4)),
       });
     }
 
     return {
+      distribution,
       payablePools: payablePools.map(({ pool, memberCount }) => ({
         poolId: pool.id,
         poolCode: pool.code,
@@ -633,6 +776,8 @@ export class AgentPoolService {
       totalOrders: rows.length,
       totalMissingPools,
       totalAmountUsd: Number(totalAmountUsd.toFixed(4)),
+      totalWithdrawUsd: Number(totalWithdrawUsd.toFixed(4)),
+      totalReconsumptionUsd: Number(totalReconsumptionUsd.toFixed(4)),
       truncated,
     };
   }
@@ -660,10 +805,14 @@ export class AgentPoolService {
       status: 'done' | 'skipped' | 'failed';
       poolCodes: string[];
       payoutUsd: number;
+      withdrawUsd?: number;
+      reconsumptionUsd?: number;
       message?: string;
     }> = [];
 
     let totalPayoutUsd = 0;
+    let totalWithdrawUsd = 0;
+    let totalReconsumptionUsd = 0;
 
     for (const orderId of orderIds) {
       const order = orderMap.get(orderId);
@@ -710,12 +859,15 @@ export class AgentPoolService {
         relations: ['pool'],
       });
       const added = after.filter((h) => !beforeIds.has(h.poolId));
-      const payoutUsd = Number(
-        added
-          .reduce((acc, h) => acc + (Number(h.rewardAmount) || 0), 0)
-          .toFixed(4),
-      );
+      const sumOf = (pick: (h: AgentPoolHistory) => number) =>
+        Number(added.reduce((acc, h) => acc + (Number(pick(h)) || 0), 0).toFixed(4));
+
+      const payoutUsd = sumOf((h) => h.rewardAmount);
+      const withdrawUsd = sumOf((h) => h.withdrawAmount);
+      const reconsumptionUsd = sumOf((h) => h.reconsumptionAmount);
       totalPayoutUsd += payoutUsd;
+      totalWithdrawUsd += withdrawUsd;
+      totalReconsumptionUsd += reconsumptionUsd;
 
       results.push({
         orderId,
@@ -724,6 +876,8 @@ export class AgentPoolService {
           new Set(added.map((h) => h.pool?.code).filter(Boolean) as string[]),
         ),
         payoutUsd,
+        withdrawUsd,
+        reconsumptionUsd,
         message: added.length > 0 ? undefined : 'Không có bể nào cần bù',
       });
     }
@@ -740,6 +894,8 @@ export class AgentPoolService {
       skippedCount: results.filter((r) => r.status === 'skipped').length,
       failedCount: results.filter((r) => r.status === 'failed').length,
       totalPayoutUsd: Number(totalPayoutUsd.toFixed(4)),
+      totalWithdrawUsd: Number(totalWithdrawUsd.toFixed(4)),
+      totalReconsumptionUsd: Number(totalReconsumptionUsd.toFixed(4)),
       results,
     };
   }
