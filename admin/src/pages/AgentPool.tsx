@@ -71,6 +71,9 @@ const AgentPool: React.FC = () => {
   const [loadingHistories, setLoadingHistories] = useState<boolean>(false);
   const [historyPoolId, setHistoryPoolId] = useState<string | undefined>(undefined);
 
+  // Đồng bộ thành viên theo cấp bậc (C1..C9)
+  const [syncingMembers, setSyncingMembers] = useState<boolean>(false);
+
   // Backfill state (bù các bể bị hụt do lỗi khi duyệt đơn)
   const [backfillSince, setBackfillSince] = useState<any>(null);
   const [backfillData, setBackfillData] = useState<any>(null);
@@ -309,6 +312,31 @@ const AgentPool: React.FC = () => {
     }
   };
 
+  const handleSyncMembers = async () => {
+    setSyncingMembers(true);
+    try {
+      const res = await api.post('/admin/agent-pool/members/sync-all');
+      const data = res.data || {};
+      notification.success({
+        message: 'Đã đồng bộ thành viên theo cấp bậc',
+        description: `Quét ${data.scannedUserCount || 0} người: thêm mới ${
+          data.added?.length || 0
+        }, bật lại ${data.activated?.length || 0}, tắt ${
+          data.deactivated?.length || 0
+        }.`,
+      });
+      fetchMembers();
+      fetchPools();
+    } catch (e: any) {
+      notification.error({
+        message: 'Lỗi khi đồng bộ thành viên',
+        description: e?.response?.data?.message,
+      });
+    } finally {
+      setSyncingMembers(false);
+    }
+  };
+
   const handleToggleMemberStatus = async (id: string, currentStatus: boolean) => {
     try {
       await api.patch(`/admin/agent-pool/members/${id}/status`, {
@@ -463,6 +491,23 @@ const AgentPool: React.FC = () => {
           unCheckedChildren="Disabled"
         />
       ),
+    },
+    {
+      title: 'Nguồn',
+      dataIndex: 'source',
+      key: 'source',
+      render: (source: string, record: any) =>
+        source === 'AUTO' ? (
+          <Tooltip title="Do hệ thống thêm khi user đạt cấp đại lý, sẽ tự tắt nếu tụt cấp">
+            <Tag color="green">
+              Tự động{record.syncedRank ? ` (${record.syncedRank})` : ''}
+            </Tag>
+          </Tooltip>
+        ) : (
+          <Tooltip title="Admin thêm tay, đồng bộ cấp bậc không đụng tới">
+            <Tag color="default">Thủ công</Tag>
+          </Tooltip>
+        ),
     },
     {
       title: 'Ghi Chú',
@@ -787,13 +832,27 @@ const AgentPool: React.FC = () => {
                       </Space>
                     </Col>
                     <Col span={8} style={{ textAlign: 'right' }}>
-                      <Button
-                        type="primary"
-                        icon={<UserAddOutlined />}
-                        onClick={() => setIsAddMemberModalVisible(true)}
-                      >
-                        Thêm Thành Viên Vào Bể
-                      </Button>
+                      <Space>
+                        <Popconfirm
+                          title="Đồng bộ thành viên theo cấp bậc?"
+                          description="Quét lại cấp bậc của toàn hệ thống: ai đạt C5 sẽ nằm trong bể C1..C5, ai tụt cấp sẽ bị tắt. Chỉ ảnh hưởng các dòng do hệ thống thêm."
+                          onConfirm={handleSyncMembers}
+                          okText="Đồng bộ"
+                          cancelText="Hủy"
+                        >
+                          <Button icon={<SafetyCertificateOutlined />} loading={syncingMembers}>
+                            Đồng Bộ Theo Cấp Bậc
+                          </Button>
+                        </Popconfirm>
+
+                        <Button
+                          type="primary"
+                          icon={<UserAddOutlined />}
+                          onClick={() => setIsAddMemberModalVisible(true)}
+                        >
+                          Thêm Thành Viên Vào Bể
+                        </Button>
+                      </Space>
                     </Col>
                   </Row>
 

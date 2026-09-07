@@ -559,6 +559,17 @@ export class OrderService {
 
       // 7. Agent Level Pools (C1, C2, ...)
       try {
+        // Đơn mới có thể đưa người mua hoặc tuyến trên đủ điều kiện lên
+        // C1..C9, nên cập nhật thành viên bể trước khi chia phần của đơn này.
+        await this.agentPoolService.syncMembershipsForOrder(order.id);
+      } catch (err) {
+        console.error(
+          `[AGENT-POOL] Error syncing memberships for order ${order.id}:`,
+          err,
+        );
+      }
+
+      try {
         await this.agentPoolService.processOrder(order.id);
       } catch (err) {
         console.error(`[AGENT-POOL] Error processing order ${order.id}:`, err);

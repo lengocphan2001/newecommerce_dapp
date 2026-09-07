@@ -11,6 +11,7 @@ import { User } from '../user/entities/user.entity';
 import { MilestoneRewardConfig } from './entities/milestone-reward-config.entity';
 import { UserMilestone } from './entities/user-milestone.entity';
 import { AffiliateModule } from '../affiliate/affiliate.module';
+import { AgentPoolModule } from '../agent-pool/agent-pool.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { UserModule } from '../user/user.module';
 import { OrderModule } from '../order/order.module';
@@ -46,6 +47,7 @@ import { MatrixRewardLedger } from '../matrix-reward/entities/matrix-reward-ledg
     AuditLogModule,
     BlockchainModule,
     WalletModule,
+    forwardRef(() => AgentPoolModule),
   ],
   controllers: [
     AdminController,

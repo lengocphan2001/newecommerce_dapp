@@ -7,17 +7,45 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, MoreThanOrEqual, Repository } from 'typeorm';
 import { AgentPool } from './entities/agent-pool.entity';
-import { AgentPoolMember } from './entities/agent-pool-member.entity';
+import {
+  AgentPoolMember,
+  AgentPoolMemberSource,
+} from './entities/agent-pool-member.entity';
 import { AgentPoolHistory } from './entities/agent-pool-history.entity';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
 import { SystemConfig } from '../admin/entities/system-config.entity';
-import { runWithDeadlockRetry } from '../common/utils';
+import {
+  baseRankOf,
+  buildChildrenMap,
+  computeRankFromF1Ranks,
+  computeRanksMap,
+  isRankAtLeast,
+  runWithDeadlockRetry,
+} from '../common/utils';
+import {
+  MONTHLY_RANK_PROMOTION_ORDER,
+  rankLabel,
+} from '../common/constants/ranks';
 import {
   DEFAULT_RECONSUMPTION_WALLET_PERCENT,
   DEFAULT_WITHDRAW_WALLET_PERCENT,
 } from '../common/constants/wallet-distribution';
+
+/** Một thay đổi thành viên do việc đồng bộ cấp bậc tạo ra. */
+export interface AgentPoolSyncChange {
+  userId: string;
+  poolCode: string;
+  rank: string;
+}
+
+export interface AgentPoolSyncResult {
+  scannedUserCount: number;
+  added: AgentPoolSyncChange[];
+  activated: AgentPoolSyncChange[];
+  deactivated: AgentPoolSyncChange[];
+}
 
 export interface WalletDistribution {
   withdrawPercent: number;
@@ -570,7 +598,281 @@ export class AgentPoolService {
     };
   }
 
-  // ── 5. Backfill (bù các bể bị hụt) ────────────────────────────────────────
+  // ── 5. Rank sync (tự động thêm/gỡ thành viên theo cấp bậc) ───────────────
+
+  /**
+   * Chỉ những bể mang mã cấp đại lý mới được đồng bộ tự động. Bể mã khác
+   * (DAILY, VIP, bể thưởng riêng...) vẫn do admin quản lý bằng tay.
+   */
+  private static readonly SYNCED_POOL_CODES = MONTHLY_RANK_PROMOTION_ORDER;
+
+  /** Chặn vòng lặp khi cây giới thiệu bị hỏng. */
+  private static readonly MAX_UPLINE_DEPTH = 200;
+
+  /**
+   * Đồng bộ thành viên bể sau khi một đơn được duyệt.
+   *
+   * Đơn chỉ làm thay đổi tổng mua của người mua, nên cấp bậc chỉ có thể đổi ở
+   * người mua và tuyến trên của họ — không quét cả hệ thống.
+   */
+  async syncMembershipsForOrder(orderId: string): Promise<AgentPoolSyncResult> {
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      select: ['id', 'userId'],
+    });
+
+    if (!order?.userId) {
+      this.logger.warn(
+        `Order ${orderId} has no buyer. Skipping agent pool membership sync.`,
+      );
+      return AgentPoolService.emptySyncResult();
+    }
+
+    return this.syncMembershipsUpChain(order.userId);
+  }
+
+  /**
+   * Đi ngược tuyến trên từ một người, mỗi tầng tính lại cấp bậc từ cấp đã lưu
+   * của các F1 (`users.agentRank`) rồi đồng bộ bể cho đúng tầng đó.
+   *
+   * Dừng ngay khi gặp tầng không đổi cấp: cấp của tuyến trên chỉ phụ thuộc cấp
+   * của F1, nên tầng dưới không đổi thì tầng trên cũng không thể đổi.
+   */
+  async syncMembershipsUpChain(userId: string): Promise<AgentPoolSyncResult> {
+    const evaluated: Array<{ userId: string; rank: string }> = [];
+    const visited = new Set<string>();
+
+    let currentId: string | null | undefined = userId;
+
+    for (
+      let depth = 0;
+      currentId && depth < AgentPoolService.MAX_UPLINE_DEPTH;
+      depth++
+    ) {
+      if (visited.has(currentId)) {
+        this.logger.warn(
+          `Agent pool sync: tuyến trên của ${userId} có vòng lặp tại ${currentId}, dừng lại.`,
+        );
+        break;
+      }
+      visited.add(currentId);
+
+      const user = await this.userRepo.findOne({
+        where: { id: currentId },
+        select: [
+          'id',
+          'referralUserId',
+          'manualRank',
+          'agentRank',
+          'totalPurchaseAmount',
+        ],
+      });
+      if (!user) break;
+
+      const rank = computeRankFromF1Ranks(user, await this.getF1Ranks(user.id));
+      const storedRank = user.agentRank || null;
+
+      if (rank !== storedRank) {
+        await this.userRepo.update(user.id, { agentRank: rank });
+      }
+
+      evaluated.push({ userId: user.id, rank });
+
+      // Cấp không đổi thì các tầng trên cũng không đổi, không cần đi tiếp.
+      if (rank === storedRank) break;
+
+      currentId = user.referralUserId;
+    }
+
+    return this.applyMemberships(evaluated);
+  }
+
+  /**
+   * Cấp bậc của các F1 trực tiếp, lấy từ cấp đã lưu. F1 chưa từng được đồng bộ
+   * (agentRank rỗng) tạm tính theo cấp cơ bản; chạy `syncAllMemberships` một
+   * lần sau khi triển khai để mọi người đều có cấp đã lưu.
+   */
+  private async getF1Ranks(userId: string): Promise<string[]> {
+    const f1s = await this.userRepo.find({
+      where: { referralUserId: userId },
+      select: ['id', 'manualRank', 'agentRank', 'totalPurchaseAmount'],
+    });
+
+    return f1s.map((f1) => f1.agentRank || baseRankOf(f1));
+  }
+
+  /**
+   * Tính lại cấp bậc của toàn hệ thống rồi đồng bộ bể. Chỉ dùng cho lần chạy
+   * đầu (những người đã đủ cấp từ trước khi có tính năng này), khi sửa cấp thủ
+   * công hàng loạt, hoặc khi nghi ngờ dữ liệu bị lệch — không chạy theo đơn.
+   */
+  async syncAllMemberships(): Promise<AgentPoolSyncResult> {
+    const users = await this.userRepo.find({
+      select: [
+        'id',
+        'referralUserId',
+        'manualRank',
+        'agentRank',
+        'totalPurchaseAmount',
+      ],
+    });
+
+    const ranksMap = computeRanksMap(
+      users,
+      buildChildrenMap(
+        users,
+        (u) => u.id,
+        (u) => u.referralUserId,
+      ),
+      (limit) =>
+        this.logger.warn(
+          `Agent pool sync: xếp hạng chưa hội tụ sau ${limit} lượt, dừng sớm`,
+        ),
+    );
+
+    // Gom theo cấp để ghi vài câu UPDATE thay vì một câu cho mỗi người.
+    const idsByRank = new Map<string, string[]>();
+    for (const user of users) {
+      const rank = ranksMap.get(user.id) || 'C0';
+      if ((user.agentRank || null) === rank) continue;
+      const ids = idsByRank.get(rank) || [];
+      ids.push(user.id);
+      idsByRank.set(rank, ids);
+    }
+
+    for (const [rank, ids] of idsByRank) {
+      const CHUNK = 500;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        await this.userRepo.update(
+          { id: In(ids.slice(i, i + CHUNK)) },
+          { agentRank: rank },
+        );
+      }
+    }
+
+    return this.applyMemberships(
+      users.map((user) => ({
+        userId: user.id,
+        rank: ranksMap.get(user.id) || 'C0',
+      })),
+    );
+  }
+
+  /**
+   * Cho đúng danh sách (người, cấp bậc) đã tính sẵn, dựng lại thành viên bể:
+   * hạng cao hưởng luôn các bể hạng thấp hơn (C5 nằm trong C1..C5).
+   */
+  private async applyMemberships(
+    entries: Array<{ userId: string; rank: string }>,
+  ): Promise<AgentPoolSyncResult> {
+    const result = AgentPoolService.emptySyncResult();
+    result.scannedUserCount = entries.length;
+
+    if (entries.length === 0) return result;
+
+    const pools = (await this.poolRepo.find({ order: { code: 'ASC' } })).filter(
+      (pool) =>
+        AgentPoolService.SYNCED_POOL_CODES.includes(
+          (pool.code || '').trim().toUpperCase(),
+        ),
+    );
+
+    if (pools.length === 0) {
+      this.logger.log(
+        'No pool coded C1..C9 exists. Skipping agent pool membership sync.',
+      );
+      return result;
+    }
+
+    // Lấy sẵn mọi dòng thành viên liên quan để không hỏi DB theo từng cặp
+    // (người, bể).
+    const existingRows = await this.memberRepo.find({
+      where: {
+        userId: In(entries.map((entry) => entry.userId)),
+        poolId: In(pools.map((pool) => pool.id)),
+      },
+    });
+    const existingByKey = new Map(
+      existingRows.map((row) => [`${row.userId}:${row.poolId}`, row]),
+    );
+
+    const toSave: AgentPoolMember[] = [];
+
+    for (const { userId, rank } of entries) {
+      for (const pool of pools) {
+        const poolRank = (pool.code || '').trim().toUpperCase();
+        const qualifies = isRankAtLeast(rank, poolRank);
+        const existing = existingByKey.get(`${userId}:${pool.id}`);
+
+        if (qualifies) {
+          if (!existing) {
+            toSave.push(
+              this.memberRepo.create({
+                poolId: pool.id,
+                userId,
+                totalRewarded: 0,
+                isActive: true,
+                source: AgentPoolMemberSource.AUTO,
+                syncedRank: rank,
+                note: `Tự động thêm khi đạt cấp ${rankLabel(rank)}`,
+              }),
+            );
+            result.added.push({ userId, poolCode: poolRank, rank });
+            continue;
+          }
+
+          // Dòng admin thêm tay giữ nguyên trạng thái admin đặt.
+          if (existing.source !== AgentPoolMemberSource.AUTO) continue;
+
+          if (!existing.isActive) {
+            existing.isActive = true;
+            existing.syncedRank = rank;
+            existing.note = `Tự động bật lại khi đạt cấp ${rankLabel(rank)}`;
+            toSave.push(existing);
+            result.activated.push({ userId, poolCode: poolRank, rank });
+          } else if (existing.syncedRank !== rank) {
+            existing.syncedRank = rank;
+            toSave.push(existing);
+          }
+          continue;
+        }
+
+        // Không còn đủ điều kiện: chỉ tắt dòng do sync tạo ra, giữ lại row và
+        // totalRewarded để tra được lịch sử.
+        if (
+          existing &&
+          existing.isActive &&
+          existing.source === AgentPoolMemberSource.AUTO
+        ) {
+          existing.isActive = false;
+          existing.syncedRank = rank;
+          existing.note = `Tự động tắt vì cấp hiện tại là ${rankLabel(rank)}`;
+          toSave.push(existing);
+          result.deactivated.push({ userId, poolCode: poolRank, rank });
+        }
+      }
+    }
+
+    if (toSave.length > 0) {
+      await this.memberRepo.save(toSave, { chunk: 200 });
+      this.logger.log(
+        `Agent pool sync: thêm mới ${result.added.length}, bật lại ${result.activated.length}, tắt ${result.deactivated.length} (xét ${entries.length} người).`,
+      );
+    }
+
+    return result;
+  }
+
+  private static emptySyncResult(): AgentPoolSyncResult {
+    return {
+      scannedUserCount: 0,
+      added: [],
+      activated: [],
+      deactivated: [],
+    };
+  }
+
+  // ── 6. Backfill (bù các bể bị hụt) ────────────────────────────────────────
 
   /**
    * Đơn ở các trạng thái này đã được duyệt nên lẽ ra đã chia đủ mọi bể.

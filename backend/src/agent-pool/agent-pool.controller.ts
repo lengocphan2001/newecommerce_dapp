@@ -89,6 +89,20 @@ export class AdminAgentPoolController {
     return { success: true, message: `Processed AgentPool for order ${orderId}` };
   }
 
+  // ── Rank Sync ─────────────────────────────────────────────────────────────
+
+  /** Đồng bộ lại thành viên bể theo cấp bậc cho một người và tuyến trên. */
+  @Post('members/sync-order/:orderId')
+  syncMembersForOrder(@Param('orderId') orderId: string) {
+    return this.agentPoolService.syncMembershipsForOrder(orderId);
+  }
+
+  /** Quét lại toàn hệ thống: dùng cho lần chạy đầu hoặc khi sửa cấp thủ công. */
+  @Post('members/sync-all')
+  syncAllMembers() {
+    return this.agentPoolService.syncAllMemberships();
+  }
+
   // ── Backfill ─────────────────────────────────────────────────────────────
 
   /** Chỉ đọc: liệt kê đơn đã duyệt còn thiếu bể và số tiền dự kiến bù. */

@@ -25,12 +25,12 @@ import {
   buildChildrenMap,
   computeSubtreeAggregates,
 } from '../common/utils/referral-tree';
+import { computeRanksMap } from '../common/utils/rank-calculator';
 import {
   DAILY_RANK_MIN_PURCHASE,
   GLOBAL_SHARE_RATES,
   GROUP_REWARD_TIERS,
   MONTHLY_RANK_ORDER,
-  MONTHLY_RANK_PROMOTION_LOOP_LIMIT,
   MONTHLY_RANK_PROMOTION_ORDER,
   MONTHLY_RANK_RULES,
   rankLabel,
@@ -2153,70 +2153,11 @@ export class CommissionService {
     }
 
     // 5. Determine Ranks bottom-up
-    const ranksMap = new Map<string, string>();
-
-    // Step 5.1: Is user Đại lý? (Lifetime purchase >= 15M VND / $600)
-    for (const u of users) {
-      if (u.manualRank && u.manualRank !== 'NONE') {
-        ranksMap.set(u.id, u.manualRank);
-      } else {
-        const isDaiLy =
-          Number(u.totalPurchaseAmount) >= DAILY_RANK_MIN_PURCHASE;
-        ranksMap.set(u.id, isDaiLy ? 'DAILY' : 'C0');
-      }
-    }
-
-    // Ranks values hierarchy helper
-    const isAtLeastRank = (userId: string, targetRank: string): boolean => {
-      const currentRank = ranksMap.get(userId) || 'C0';
-      return (
-        MONTHLY_RANK_ORDER.indexOf(currentRank) >=
-        MONTHLY_RANK_ORDER.indexOf(targetRank)
-      );
-    };
-
-    // Xét thăng cấp C1..C9, lặp lại tới khi không ai đổi cấp nữa.
-    // Một lượt duy nhất là không đủ: cấp dưới có thể vượt lên C1 ngay trong
-    // lượt đó, sau khi tuyến trên đã được xét, nên kết quả phụ thuộc thứ tự
-    // dòng trả về của DB. Cấp bậc chỉ tăng nên vòng lặp luôn dừng.
-    for (let pass = 0; ; pass++) {
-      let changed = false;
-
-      for (const r of MONTHLY_RANK_PROMOTION_ORDER) {
-        const requirements = MONTHLY_RANK_RULES[r];
-        for (const u of users) {
-          const currentRank = ranksMap.get(u.id) || 'C0';
-          if (
-            MONTHLY_RANK_ORDER.indexOf(currentRank) >=
-            MONTHLY_RANK_ORDER.indexOf(r)
-          ) {
-            // Đã bằng hoặc cao hơn r, xét tiếp chỉ có thể hạ cấp.
-            continue;
-          }
-
-          const f1Ids = f1Map.get(u.id) || [];
-          const isPromoted = requirements.every(
-            (req) =>
-              f1Ids.filter((id) => isAtLeastRank(id, req.rank)).length >=
-              req.count,
-          );
-
-          if (isPromoted) {
-            ranksMap.set(u.id, r);
-            changed = true;
-          }
-        }
-      }
-
-      if (!changed) break;
-
-      if (pass >= MONTHLY_RANK_PROMOTION_LOOP_LIMIT) {
-        this.logger.warn(
-          `Xếp hạng tháng ${month} chưa hội tụ sau ${MONTHLY_RANK_PROMOTION_LOOP_LIMIT} lượt, dừng sớm`,
-        );
-        break;
-      }
-    }
+    const ranksMap = computeRanksMap(users, f1Map, (limit) =>
+      this.logger.warn(
+        `Xếp hạng tháng ${month} chưa hội tụ sau ${limit} lượt, dừng sớm`,
+      ),
+    );
 
     // Get previous month string
     const prevMonthDate = new Date(y, m - 2, 1);

@@ -46,6 +46,7 @@ import { CommissionService } from '../affiliate/commission.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { Web3Service } from '../blockchain/web3.service';
 import { MailService } from '../mail/mail.service';
+import { AgentPoolService } from '../agent-pool/agent-pool.service';
 
 function roundWithdrawBalance(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -91,6 +92,8 @@ export class AdminService {
     private commissionPayoutService: CommissionPayoutService,
     private web3Service: Web3Service,
     private mailService: MailService,
+    @Inject(forwardRef(() => AgentPoolService))
+    private agentPoolService: AgentPoolService,
   ) {}
 
   async getDashboard() {
@@ -433,6 +436,18 @@ export class AdminService {
     }
 
     await this.userRepository.update(userId, { manualRank: upperRank });
+
+    // Cấp gán tay quyết định cấp bậc thật, nên bể đại lý của người này và của
+    // tuyến trên phải cập nhật theo. Lỗi đồng bộ không được làm hỏng việc gán
+    // cấp: admin vẫn có nút đồng bộ lại trong màn hình bể đại lý.
+    try {
+      await this.agentPoolService.syncMembershipsUpChain(userId);
+    } catch (error) {
+      this.logger.error(
+        `Không đồng bộ được bể đại lý sau khi đổi cấp thủ công của ${userId}`,
+        error as Error,
+      );
+    }
 
     return this.getUserDetail(userId);
   }

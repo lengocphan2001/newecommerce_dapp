@@ -56,3 +56,30 @@ as 100% withdraw so old history stays truthful.
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-agent-pool-wallet-split.sql
 ```
+
+## Add `source` and `syncedRank` on `agent_pool_members`
+
+Approving an order now syncs pool membership with the buyer's (and their upline's)
+agent rank: a user ranked C5 is an active member of pools C1..C5, and drops out again
+when the rank falls. Rows the admin added by hand are marked `MANUAL` and are never
+touched by that sync.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-agent-pool-member-source.sql
+```
+
+Rows the sync creates are marked `AUTO`.
+
+## Add `agentRank` on `users`
+
+The membership sync needs each user's current rank on the row, so approving an order can
+recompute only the buyer and their upline (one query per level) instead of re-ranking the
+whole tree.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-user-agent-rank.sql
+```
+
+After running both migrations, call `POST /admin/agent-pool/members/sync-all` once: it fills
+`users.agentRank` for everybody and enrols users who already qualified before the feature
+existed. Until it runs, an F1 with an empty `agentRank` is counted at its base rank only.
