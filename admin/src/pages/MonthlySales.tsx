@@ -9,46 +9,70 @@ import {
   Tag,
   notification,
   Input,
+  Switch,
+  Tooltip,
 } from 'antd';
 import { DownloadOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
-interface MonthlySalesRow {
+interface MonthlyBranchSalesRow {
   userId: string;
   username: string;
   fullName: string;
   email: string;
   packageType: string;
-  totalSales: number;
+  personalSales: number;
+  leftSales: number;
+  rightSales: number;
+  strongSales: number;
+  weakSales: number;
+  strongSide: 'left' | 'right' | null;
+  leftMemberCount: number;
+  rightMemberCount: number;
 }
+
+const formatPv = (v: number) =>
+  Number(v || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
 
 const MonthlySales: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<MonthlySalesRow[]>([]);
-  const [filtered, setFiltered] = useState<MonthlySalesRow[]>([]);
+  const [data, setData] = useState<MonthlyBranchSalesRow[]>([]);
+  const [filtered, setFiltered] = useState<MonthlyBranchSalesRow[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
   const [search, setSearch] = useState('');
+  const [includeAll, setIncludeAll] = useState(false);
 
-  const fetchData = async (month: Dayjs) => {
+  const fetchData = async (month: Dayjs, all: boolean) => {
     try {
       setLoading(true);
-      const res = await api.get('/admin/monthly-sales', {
-        params: { year: month.year(), month: month.month() + 1 },
+      const res = await api.get('/admin/monthly-branch-sales', {
+        params: {
+          year: month.year(),
+          month: month.month() + 1,
+          ...(all ? { includeAll: 'true' } : {}),
+        },
       });
       setData(res.data);
       setFiltered(res.data);
     } catch (e: any) {
-      notification.error({ message: 'Lỗi tải dữ liệu', description: e?.response?.data?.message || e?.message });
+      notification.error({
+        message: 'Lỗi tải dữ liệu',
+        description: e?.response?.data?.message || e?.message,
+      });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData(selectedMonth);
+    fetchData(selectedMonth, includeAll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -70,16 +94,22 @@ const MonthlySales: React.FC = () => {
 
   const handleExport = async () => {
     try {
-      const res = await api.get('/admin/monthly-sales/export', {
-        params: { year: selectedMonth.year(), month: selectedMonth.month() + 1 },
+      const res = await api.get('/admin/monthly-branch-sales/export', {
+        params: {
+          year: selectedMonth.year(),
+          month: selectedMonth.month() + 1,
+          ...(includeAll ? { includeAll: 'true' } : {}),
+        },
         responseType: 'blob',
       });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
+      const url = window.URL.createObjectURL(
+        new Blob([res.data], { type: 'text/csv;charset=utf-8' }),
+      );
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute(
         'download',
-        `monthly-sales-${selectedMonth.year()}-${String(selectedMonth.month() + 1).padStart(2, '0')}.csv`,
+        `monthly-branch-sales-${selectedMonth.year()}-${String(selectedMonth.month() + 1).padStart(2, '0')}.csv`,
       );
       document.body.appendChild(link);
       link.click();
@@ -95,46 +125,118 @@ const MonthlySales: React.FC = () => {
       title: 'STT',
       key: 'index',
       width: 60,
+      fixed: 'left' as const,
       render: (_: any, __: any, idx: number) => idx + 1,
     },
     {
       title: 'Username',
       dataIndex: 'username',
       key: 'username',
+      width: 150,
+      fixed: 'left' as const,
       render: (v: string) => <span style={{ fontWeight: 600 }}>{v || '—'}</span>,
     },
     {
       title: 'Họ tên',
       dataIndex: 'fullName',
       key: 'fullName',
+      width: 160,
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
+      width: 200,
       ellipsis: true,
     },
     {
       title: 'Gói',
       dataIndex: 'packageType',
       key: 'packageType',
+      width: 110,
       render: (v: string) => <Tag color={v === 'NONE' ? 'default' : 'blue'}>{v}</Tag>,
     },
     {
-      title: 'Doanh số tháng (PV)',
-      dataIndex: 'totalSales',
-      key: 'totalSales',
-      sorter: (a: MonthlySalesRow, b: MonthlySalesRow) => a.totalSales - b.totalSales,
+      title: 'DS cá nhân (PV)',
+      dataIndex: 'personalSales',
+      key: 'personalSales',
+      width: 150,
+      align: 'right' as const,
+      sorter: (a: MonthlyBranchSalesRow, b: MonthlyBranchSalesRow) =>
+        a.personalSales - b.personalSales,
+      render: (v: number) => <span style={{ fontWeight: 600 }}>{formatPv(v)}</span>,
+    },
+    {
+      title: 'Nhánh trái (PV)',
+      dataIndex: 'leftSales',
+      key: 'leftSales',
+      width: 160,
+      align: 'right' as const,
+      sorter: (a: MonthlyBranchSalesRow, b: MonthlyBranchSalesRow) => a.leftSales - b.leftSales,
+      render: (v: number, r: MonthlyBranchSalesRow) => (
+        <span>
+          {formatPv(v)}
+          <Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>
+            ({r.leftMemberCount})
+          </Text>
+        </span>
+      ),
+    },
+    {
+      title: 'Nhánh phải (PV)',
+      dataIndex: 'rightSales',
+      key: 'rightSales',
+      width: 160,
+      align: 'right' as const,
+      sorter: (a: MonthlyBranchSalesRow, b: MonthlyBranchSalesRow) => a.rightSales - b.rightSales,
+      render: (v: number, r: MonthlyBranchSalesRow) => (
+        <span>
+          {formatPv(v)}
+          <Text type="secondary" style={{ marginLeft: 6, fontSize: 12 }}>
+            ({r.rightMemberCount})
+          </Text>
+        </span>
+      ),
+    },
+    {
+      title: 'Nhánh mạnh',
+      dataIndex: 'strongSide',
+      key: 'strongSide',
+      width: 120,
+      render: (v: 'left' | 'right' | null) =>
+        v === 'left' ? (
+          <Tag color="geekblue">Trái</Tag>
+        ) : v === 'right' ? (
+          <Tag color="purple">Phải</Tag>
+        ) : (
+          <Tag>Cân bằng</Tag>
+        ),
+    },
+    {
+      title: 'DS nhánh mạnh (PV)',
+      dataIndex: 'strongSales',
+      key: 'strongSales',
+      width: 170,
+      align: 'right' as const,
+      sorter: (a: MonthlyBranchSalesRow, b: MonthlyBranchSalesRow) => a.strongSales - b.strongSales,
+      render: (v: number) => formatPv(v),
+    },
+    {
+      title: 'DS nhánh yếu (PV)',
+      dataIndex: 'weakSales',
+      key: 'weakSales',
+      width: 170,
+      align: 'right' as const,
+      sorter: (a: MonthlyBranchSalesRow, b: MonthlyBranchSalesRow) => a.weakSales - b.weakSales,
       defaultSortOrder: 'descend' as const,
       render: (v: number) => (
-        <span style={{ fontWeight: 700, color: '#2563EB' }}>
-          {Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-        </span>
+        <span style={{ fontWeight: 700, color: '#2563EB' }}>{formatPv(v)}</span>
       ),
     },
   ];
 
-  const totalSales = filtered.reduce((s, r) => s + r.totalSales, 0);
+  const totalPersonal = filtered.reduce((s, r) => s + r.personalSales, 0);
+  const totalWeak = filtered.reduce((s, r) => s + r.weakSales, 0);
 
   return (
     <div style={{ padding: 24 }}>
@@ -152,7 +254,7 @@ const MonthlySales: React.FC = () => {
           <Button
             type="primary"
             icon={<ReloadOutlined />}
-            onClick={() => fetchData(selectedMonth)}
+            onClick={() => fetchData(selectedMonth, includeAll)}
             loading={loading}
           >
             Tải dữ liệu
@@ -160,6 +262,18 @@ const MonthlySales: React.FC = () => {
           <Button icon={<DownloadOutlined />} onClick={handleExport}>
             Export CSV
           </Button>
+          <Tooltip title="Bao gồm cả user không phát sinh doanh số nào trong tháng">
+            <Space size={6}>
+              <Switch
+                checked={includeAll}
+                onChange={checked => {
+                  setIncludeAll(checked);
+                  fetchData(selectedMonth, checked);
+                }}
+              />
+              <span>Hiện tất cả user</span>
+            </Space>
+          </Tooltip>
           <Input
             placeholder="Tìm kiếm username / tên / email..."
             prefix={<SearchOutlined />}
@@ -169,14 +283,29 @@ const MonthlySales: React.FC = () => {
             style={{ width: 280 }}
           />
         </Space>
+        <div style={{ marginTop: 12 }}>
+          <Text type="secondary">
+            Doanh số nhánh tính theo cây nhị phân (parentId / position), là tổng đơn hàng của toàn
+            bộ tuyến dưới bên nhánh đó, không tính đơn của chính user. Giá trị đơn = đơn giá × số
+            lượng, chưa gồm phí vận chuyển; trạng thái đơn: confirmed, processing, shipped,
+            delivered.
+          </Text>
+        </div>
       </Card>
 
       <Card
-        title={`Tháng ${selectedMonth.month() + 1}/${selectedMonth.year()} — ${filtered.length} user có doanh số`}
+        title={`Tháng ${selectedMonth.month() + 1}/${selectedMonth.year()} — ${filtered.length} user`}
         extra={
-          <span style={{ fontWeight: 700, color: '#2563EB' }}>
-            Tổng: {totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} PV
-          </span>
+          <Space size={16}>
+            <span>
+              Tổng DS cá nhân:{' '}
+              <span style={{ fontWeight: 700 }}>{formatPv(totalPersonal)} PV</span>
+            </span>
+            <span>
+              Tổng DS nhánh yếu:{' '}
+              <span style={{ fontWeight: 700, color: '#2563EB' }}>{formatPv(totalWeak)} PV</span>
+            </span>
+          </Space>
         }
       >
         <Table
@@ -185,7 +314,7 @@ const MonthlySales: React.FC = () => {
           rowKey="userId"
           loading={loading}
           pagination={{ pageSize: 50, showSizeChanger: true, showTotal: t => `${t} users` }}
-          scroll={{ x: 900 }}
+          scroll={{ x: 1600 }}
           size="middle"
         />
       </Card>

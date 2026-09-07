@@ -341,6 +341,102 @@ export class AdminController {
     return res.send(csvLines);
   }
 
+  /** Doanh số tháng theo nhánh nhị phân (nhánh mạnh / nhánh yếu) */
+  @Get('monthly-branch-sales')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async getMonthlyBranchSales(@Query() query: any) {
+    const { year, month } = this.parseMonthQuery(query);
+    return this.adminService.getMonthlyBranchSales(
+      year,
+      month,
+      query.includeAll === 'true',
+    );
+  }
+
+  /** Export CSV doanh số tháng theo nhánh nhị phân */
+  @Get('monthly-branch-sales/export')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async exportMonthlyBranchSales(@Query() query: any, @Res() res: Response) {
+    const { year, month } = this.parseMonthQuery(query);
+    const rows = await this.adminService.getMonthlyBranchSales(
+      year,
+      month,
+      query.includeAll === 'true',
+    );
+
+    const esc = (v: string | number | null | undefined) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const sideLabel = (side: 'left' | 'right' | null) =>
+      side === 'left' ? 'Trái' : side === 'right' ? 'Phải' : 'Cân bằng';
+
+    const headers = [
+      'User ID',
+      'Username',
+      'Họ tên',
+      'Email',
+      'Gói',
+      'DS cá nhân (PV)',
+      'DS nhánh trái (PV)',
+      'DS nhánh phải (PV)',
+      'Nhánh mạnh',
+      'DS nhánh mạnh (PV)',
+      'DS nhánh yếu (PV)',
+      'Thành viên nhánh trái',
+      'Thành viên nhánh phải',
+    ];
+
+    const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
+    res.header('Content-Type', 'text/csv; charset=utf-8');
+    res.header(
+      'Content-Disposition',
+      `attachment; filename="monthly-branch-sales-${monthLabel}.csv"`,
+    );
+
+    // BOM để Excel đọc đúng tiếng Việt. Ghi theo từng chunk vì bảng này có thể
+    // trả về toàn bộ user.
+    res.write('\uFEFF' + headers.join(',') + '\n');
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows
+        .slice(i, i + CHUNK_SIZE)
+        .map((r) =>
+          [
+            esc(r.userId),
+            esc(r.username),
+            esc(r.fullName),
+            esc(r.email),
+            esc(r.packageType),
+            r.personalSales.toFixed(4),
+            r.leftSales.toFixed(4),
+            r.rightSales.toFixed(4),
+            esc(sideLabel(r.strongSide)),
+            r.strongSales.toFixed(4),
+            r.weakSales.toFixed(4),
+            r.leftMemberCount,
+            r.rightMemberCount,
+          ].join(','),
+        )
+        .join('\n');
+      res.write(chunk + '\n');
+    }
+    return res.end();
+  }
+
+  /** year/month từ query, mặc định là tháng hiện tại. */
+  private parseMonthQuery(query: any): { year: number; month: number } {
+    const now = new Date();
+    const year = parseInt(query.year || String(now.getFullYear()), 10);
+    const month = parseInt(query.month || String(now.getMonth() + 1), 10);
+    if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+      throw new BadRequestException('year và month không hợp lệ');
+    }
+    return { year, month };
+  }
+
   /** Reset toàn bộ ví rút tiền (withdrawWalletBalance) về 0 cho tất cả user */
   @Post('users/reset-withdraw-wallet')
   @UseGuards(JwtAuthGuard, AdminGuard)

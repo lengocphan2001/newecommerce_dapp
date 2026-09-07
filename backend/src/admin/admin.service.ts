@@ -37,6 +37,10 @@ import {
   FAKE_ANALYTICS_DASHBOARD_KEY,
   getDefaultFakeAnalyticsDashboardPayload,
 } from './fake-analytics-defaults';
+import {
+  buildChildrenMap,
+  computeSubtreeAggregates,
+} from '../common/utils/referral-tree';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
@@ -429,6 +433,7 @@ export class AdminService {
     }
 
     await this.userRepository.update(userId, { manualRank: upperRank });
+
     return this.getUserDetail(userId);
   }
 
@@ -1351,6 +1356,157 @@ export class AdminService {
         totalSales: parseFloat(r.totalSales) || 0,
       };
     }).sort((a, b) => b.totalSales - a.totalSales);
+  }
+
+  /**
+   * Monthly sales per user broken down by binary-tree branch.
+   *
+   * `UserService.getBranchMonthlyVolume()` answers the same question for one
+   * user, but it runs a recursive CTE plus two order queries per call, so
+   * calling it for every user does not scale. This walks the whole binary tree
+   * once instead: two queries, then O(users + orders) in memory.
+   *
+   * Sales value matches getBranchMonthlyVolume: the sum of item price times
+   * quantity (shipping excluded), over orders in confirmed, processing,
+   * shipped or delivered state. A user's branch totals cover the descendants
+   * of that side only, never the user's own orders.
+   */
+  async getMonthlyBranchSales(
+    year: number,
+    month: number,
+    includeAll = false,
+  ): Promise<
+    {
+      userId: string;
+      username: string;
+      fullName: string;
+      email: string;
+      packageType: string;
+      personalSales: number;
+      leftSales: number;
+      rightSales: number;
+      strongSales: number;
+      weakSales: number;
+      strongSide: 'left' | 'right' | null;
+      leftMemberCount: number;
+      rightMemberCount: number;
+    }[]
+  > {
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end = new Date(year, month, 1, 0, 0, 0, 0);
+
+    const [users, orders] = await Promise.all([
+      this.userRepository.find({
+        select: [
+          'id',
+          'username',
+          'fullName',
+          'email',
+          'packageType',
+          'parentId',
+          'position',
+        ],
+      }),
+      this.orderRepository
+        .createQueryBuilder('o')
+        .select(['o.id', 'o.userId', 'o.items'])
+        .where('o.status IN (:...statuses)', {
+          statuses: [
+            OrderStatus.CONFIRMED,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+          ],
+        })
+        .andWhere('o.createdAt >= :start', { start })
+        .andWhere('o.createdAt < :end', { end })
+        .andWhere('o.userId IS NOT NULL')
+        .getMany(),
+    ]);
+
+    const personalSalesMap = new Map<string, number>();
+    for (const order of orders) {
+      if (!order.userId) continue;
+      const items = Array.isArray(order.items) ? order.items : [];
+      let value = 0;
+      for (const item of items) {
+        value += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+      }
+      personalSalesMap.set(
+        order.userId,
+        (personalSalesMap.get(order.userId) || 0) + value,
+      );
+    }
+
+    const childrenMap = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.parentId,
+    );
+    const positionMap = new Map(users.map((u) => [u.id, u.position]));
+
+    const { subtreeValue, subtreeCount, cyclicNodeIds } =
+      computeSubtreeAggregates(
+        users.map((u) => u.id),
+        childrenMap,
+        (id) => personalSalesMap.get(id) || 0,
+      );
+
+    if (cyclicNodeIds.length > 0) {
+      this.logger.warn(
+        `Cây nhị phân có ${cyclicNodeIds.length} node nằm trong vòng lặp khi tính doanh số nhánh ${year}-${month}: ${cyclicNodeIds
+          .slice(0, 10)
+          .join(', ')}`,
+      );
+    }
+
+    const rows = users.map((u) => {
+      let leftSales = 0;
+      let rightSales = 0;
+      let leftMemberCount = 0;
+      let rightMemberCount = 0;
+
+      for (const childId of childrenMap.get(u.id) || []) {
+        const side = positionMap.get(childId);
+        if (side === 'left') {
+          leftSales += subtreeValue.get(childId) || 0;
+          leftMemberCount += subtreeCount.get(childId) || 0;
+        } else if (side === 'right') {
+          rightSales += subtreeValue.get(childId) || 0;
+          rightMemberCount += subtreeCount.get(childId) || 0;
+        }
+      }
+
+      let strongSide: 'left' | 'right' | null = null;
+      if (leftSales > rightSales) strongSide = 'left';
+      else if (rightSales > leftSales) strongSide = 'right';
+
+      return {
+        userId: u.id,
+        username: u.username || '',
+        fullName: u.fullName || '',
+        email: u.email || '',
+        packageType: u.packageType || 'NONE',
+        personalSales: personalSalesMap.get(u.id) || 0,
+        leftSales,
+        rightSales,
+        strongSales: Math.max(leftSales, rightSales),
+        weakSales: Math.min(leftSales, rightSales),
+        strongSide,
+        leftMemberCount,
+        rightMemberCount,
+      };
+    });
+
+    const visible = includeAll
+      ? rows
+      : rows.filter(
+          (r) => r.personalSales > 0 || r.leftSales > 0 || r.rightSales > 0,
+        );
+
+    return visible.sort(
+      (a, b) => b.weakSales - a.weakSales || b.strongSales - a.strongSales,
+    );
   }
 
   private static readonly PRODUCT_TYPE_CONFIGS_KEY = 'PRODUCT_TYPE_CONFIGS';
