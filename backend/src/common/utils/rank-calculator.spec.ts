@@ -1,6 +1,7 @@
 import { buildChildrenMap } from './referral-tree';
 import {
   baseRankOf,
+  effectiveRankOf,
   computeRankFromF1Ranks,
   computeRanksMap,
   isRankAtLeast,
@@ -176,5 +177,28 @@ describe('baseRankOf', () => {
     expect(
       baseRankOf({ id: 'a', totalPurchaseAmount: 0, manualRank: 'C3' }),
     ).toBe('C3');
+  });
+});
+
+describe('effectiveRankOf', () => {
+  it('prefers the manual rank, then the synced one', () => {
+    expect(
+      effectiveRankOf({ id: 'a', totalPurchaseAmount: 600, agentRank: 'C3' }),
+    ).toBe('C3');
+    expect(
+      effectiveRankOf({
+        id: 'a',
+        totalPurchaseAmount: 600,
+        agentRank: 'C3',
+        manualRank: 'C5',
+      }),
+    ).toBe('C5');
+  });
+
+  it('falls back to the base rank when the user was never synced', () => {
+    expect(effectiveRankOf({ id: 'a', totalPurchaseAmount: 600 })).toBe(
+      'DAILY',
+    );
+    expect(effectiveRankOf({ id: 'a', totalPurchaseAmount: 10 })).toBe('C0');
   });
 });

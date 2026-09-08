@@ -137,3 +137,17 @@ export function computeRankFromF1Ranks(
 
   return rank;
 }
+
+/**
+ * Cấp bậc để hiển thị/xuất báo cáo cho một người.
+ *
+ * Cấp gán tay thắng, sau đó tới cấp đã đồng bộ (`users.agentRank`). Người chưa
+ * từng được đồng bộ chỉ suy ra được cấp cơ bản từ tổng mua, nên chạy
+ * `POST /admin/agent-pool/members/sync-all` một lần để mọi người có cấp thật.
+ */
+export function effectiveRankOf(
+  user: RankSourceUser & { agentRank?: string | null },
+): string {
+  if (user.manualRank && user.manualRank !== 'NONE') return user.manualRank;
+  return user.agentRank || baseRankOf(user);
+}

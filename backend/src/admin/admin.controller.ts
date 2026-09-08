@@ -23,6 +23,8 @@ import {
   DeductWithdrawWalletDto,
 } from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
+import { effectiveRankOf } from '../common/utils';
+import { rankLabel } from '../common/constants/ranks';
 
 @Controller('admin')
 export class AdminController {
@@ -63,6 +65,7 @@ export class AdminController {
       'Avatar',
       'Chain ID',
       'Package Type',
+      'Agent Rank',
       'Status',
       'Is Admin',
       'Email Verified',
@@ -95,6 +98,7 @@ export class AdminController {
       escapeCsv(user.avatar),
       escapeCsv(user.chainId),
       escapeCsv(user.packageType),
+      escapeCsv(rankLabel(effectiveRankOf(user))),
       escapeCsv(user.status),
       user.isAdmin ? 'true' : 'false',
       user.emailVerified ? 'true' : 'false',
