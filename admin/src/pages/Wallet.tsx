@@ -59,13 +59,14 @@ const Wallet: React.FC = () => {
           placeholder="Enter User ID"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
-          style={{ width: 200 }}
+          style={{ width: '100%', maxWidth: 200 }}
         />
         <Button type="primary" icon={<SearchOutlined />} onClick={fetchTransactions}>
           Search
         </Button>
       </Space>
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={transactions}
         loading={loading}

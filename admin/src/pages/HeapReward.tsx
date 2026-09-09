@@ -474,18 +474,18 @@ const HeapReward: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div className="admin-page" style={{ padding: '24px' }}>
       <Title level={2}>Quản lý Bể Đồng Chia & Sản Phẩm Triển Vọng</Title>
 
       <Tabs defaultActiveKey="1" style={{ marginTop: 16 }}>
         {/* TAB 1: DANH SÁCH BỂ ĐỒNG CHIA */}
         <Tabs.TabPane tab="Danh sách Bể Đồng Chia (Heap Placements)" key="1">
-          <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' , gap: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
               <span>Lọc theo bể:</span>
               <Select 
                 defaultValue="" 
-                style={{ width: 150 }} 
+                style={{ width: '100%', maxWidth: 150 }} 
                 onChange={(val) => setSelectedPoolLevel(val ? Number(val) : undefined)}
               >
                 <Option value="">Tất cả các bể</Option>
@@ -499,7 +499,7 @@ const HeapReward: React.FC = () => {
                 onChange={(e) => setSearchInput(e.target.value)}
                 onSearch={(val) => setSearchKeyword(val.trim())}
                 placeholder="Tìm user: username, email, họ tên, SĐT hoặc ID"
-                style={{ width: 340 }}
+                style={{ width: '100%', maxWidth: 340 }}
               />
             </div>
             {isAdminAccount && (
@@ -509,7 +509,8 @@ const HeapReward: React.FC = () => {
             )}
           </div>
           <Card title="Danh sách thành viên trong các bể đồng chia">
-            <Table 
+            <Table
+              scroll={{ x: 'max-content' }} 
               dataSource={placements} 
               columns={columns} 
               rowKey="id" 
@@ -524,43 +525,43 @@ const HeapReward: React.FC = () => {
           <Tabs.TabPane tab="Cấu hình hệ thống Bể & Quỹ" key="3">
             <Card title="Thiết lập tỷ lệ trích quỹ theo bể và hạn mức Max Payout">
               <Form form={form} layout="vertical" onFinish={onFinishConfig}>
-                <Row gutter={24}>
+                <Row gutter={[24, 24]}>
                   <Col xs={24} md={16}>
                     <Title level={4} style={{ marginBottom: 16 }}>Cấu hình Bể Đồng Chia (Heap Pool)</Title>
                     
-                    <Row gutter={16}>
-                      <Col span={12}>
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} md={12}>
                         <Form.Item label="Bể 100 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_100" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
-                      <Col span={12}>
+                      <Col xs={24} md={12}>
                         <Form.Item label="Bể 100 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_100">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                     </Row>
 
-                    <Row gutter={16}>
-                      <Col span={12}>
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} md={12}>
                         <Form.Item label="Bể 500 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_500" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
-                      <Col span={12}>
+                      <Col xs={24} md={12}>
                         <Form.Item label="Bể 500 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_500">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
                     </Row>
 
-                    <Row gutter={16}>
-                      <Col span={12}>
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} md={12}>
                         <Form.Item label="Bể 2400 PV: Tỷ lệ trích quỹ (%)" name="HEAP_POOL_PERCENT_2400" tooltip="% từ giá trị đơn được trích vào bể này và chia đều cho danh sách active (bao gồm user mới vào)">
                           <InputNumber min={0} max={100} style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
-                      <Col span={12}>
+                      <Col xs={24} md={12}>
                         <Form.Item label="Bể 2400 PV: Max Payout ($)" name="HEAP_MAX_PAYOUT_2400">
                           <InputNumber min={0} style={{ width: '100%' }} />
                         </Form.Item>
@@ -625,7 +626,7 @@ const HeapReward: React.FC = () => {
                       <span style={{ marginRight: 8, fontWeight: 'bold' }}>Chọn bể hoàn tác:</span>
                       <Select
                         value={rollbackPool}
-                        style={{ width: 220 }}
+                        style={{ width: '100%', maxWidth: 220 }}
                         onChange={setRollbackPool}
                       >
                         <Option value="all">Tất cả các bể</Option>
@@ -666,7 +667,8 @@ const HeapReward: React.FC = () => {
             <p><b>Trạng thái:</b> {selectedPlacement.isActive ? <Tag color="green">Đang nhận</Tag> : <Tag color="red">Đã out / Đang đợi</Tag>}</p>
           </div>
         )}
-        <Table 
+        <Table
+          scroll={{ x: 'max-content' }} 
           dataSource={placementHistories}
           columns={historyColumns}
           rowKey="id"

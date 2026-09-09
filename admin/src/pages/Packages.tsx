@@ -221,7 +221,7 @@ const PackagesPage: React.FC = () => {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 , gap: 12 }}>
                 <div>
                     <Title level={2}>Package Management</Title>
                     <Text type="secondary">Manage system packages, prices, and commission rates.</Text>
@@ -234,6 +234,7 @@ const PackagesPage: React.FC = () => {
 
             <Card>
                 <Table
+                  scroll={{ x: 'max-content' }}
                     dataSource={packages}
                     columns={columns}
                     rowKey="id"
@@ -254,12 +255,12 @@ const PackagesPage: React.FC = () => {
                     form={form}
                     layout="vertical"
                 >
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                         <Form.Item
                             name="name"
                             label="Package Name"
                             rules={[{ required: true, message: 'Please enter package name' }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <Input placeholder="e.g. Bronze Package" />
                         </Form.Item>
@@ -267,7 +268,7 @@ const PackagesPage: React.FC = () => {
                             name="code"
                             label="Code"
                             rules={[{ required: true, message: 'Please enter package code' }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <Input placeholder="e.g. BRONZE" disabled={!!editingId} />
                         </Form.Item>
@@ -280,12 +281,12 @@ const PackagesPage: React.FC = () => {
                         <Input.TextArea rows={2} />
                     </Form.Item>
 
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                         <Form.Item
                             name="price"
                             label="Price ($)"
                             rules={[{ required: true, message: 'Please enter price' }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} step={0.0001} precision={4} />
                         </Form.Item>
@@ -293,7 +294,7 @@ const PackagesPage: React.FC = () => {
                             name="level"
                             label="Level (Hierarchy)"
                             rules={[{ required: true, message: 'Please enter level' }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={1} step={1} precision={0} />
                         </Form.Item>
@@ -308,12 +309,12 @@ const PackagesPage: React.FC = () => {
                     </div>
 
                     <Title level={5} style={{ marginTop: 16 }}>Commission Rates (%)</Title>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                         <Form.Item
                             name="directCommissionRate"
                             label="Direct (%)"
                             rules={[{ required: true }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
@@ -321,7 +322,7 @@ const PackagesPage: React.FC = () => {
                             name="groupCommissionRate"
                             label="Group (%)"
                             rules={[{ required: true }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
@@ -330,33 +331,33 @@ const PackagesPage: React.FC = () => {
                             label="Min Branch Sales ($)"
                             rules={[{ required: true }]}
                             tooltip="Minimum cumulative sales required on EACH branch before group commission is paid"
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} step={100} precision={2} />
                         </Form.Item>
                     </div>
 
                     <Title level={5} style={{ marginTop: 16 }}>Management Commission (%)</Title>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                         <Form.Item
                             name="managementRateF1"
                             label="F1 (%)"
                             rules={[{ required: true }]}
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
                         <Form.Item
                             name="managementRateF2"
                             label="F2 (%)"
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
                         <Form.Item
                             name="managementRateF3"
                             label="F3 (%)"
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} max={100} />
                         </Form.Item>
@@ -371,13 +372,13 @@ const PackagesPage: React.FC = () => {
                     </Form.Item>
 
                     <Title level={5} style={{ marginTop: 16 }}>Reconsumption</Title>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                         <Form.Item
                             name="reconsumptionThreshold"
                             label="Threshold ($)"
                             rules={[{ required: true }]}
                             tooltip="Max commission before reset/re-purchase"
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} step={0.0001} />
                         </Form.Item>
@@ -386,7 +387,7 @@ const PackagesPage: React.FC = () => {
                             label="Required Amount ($)"
                             rules={[{ required: true }]}
                             tooltip="Amount needed to purchase to restore package"
-                            style={{ flex: 1 }}
+                            style={{ flex: '1 1 220px', minWidth: 220 }}
                         >
                             <InputNumber style={{ width: '100%' }} min={0} step={0.0001} />
                         </Form.Item>

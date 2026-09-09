@@ -97,7 +97,7 @@ const ProductTypes: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="admin-page" style={{ padding: 24 }}>
       <Title level={2}>Phân loại sản phẩm</Title>
       <Text type="secondary" style={{ display: 'block', marginBottom: 20 }}>
         Quản lý các loại sản phẩm dùng trong lọc tìm kiếm ở màn hình chính.
@@ -112,6 +112,7 @@ const ProductTypes: React.FC = () => {
         }
       >
         <Table
+          scroll={{ x: 'max-content' }}
           dataSource={types}
           columns={columns}
           rowKey="code"

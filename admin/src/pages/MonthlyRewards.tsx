@@ -112,7 +112,7 @@ const MonthlyRewards: React.FC = () => {
               F1 đạt {r.requiredRankLabel} trở lên: <strong>{r.actualCount}</strong> / {r.requiredCount}
             </span>
             <Progress
-              style={{ width: 200, margin: 0 }}
+              style={{ width: '100%', maxWidth: 200, margin: 0 }}
               size="small"
               percent={Math.min(100, Math.round((r.actualCount / r.requiredCount) * 100))}
               status={r.satisfied ? 'success' : 'active'}
@@ -451,7 +451,7 @@ const MonthlyRewards: React.FC = () => {
   }, [monthlyDate, activeTab]);
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div className="admin-page" style={{ padding: '24px' }}>
       <PageHeader title="Monthly Rewards Management" />
 
       <Tabs activeKey={activeTab} onChange={setActiveTab} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}>
@@ -584,12 +584,13 @@ const MonthlyRewards: React.FC = () => {
         </Tabs.TabPane>
 
         <Tabs.TabPane tab="Lịch sử chốt ví" key="history">
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end' , gap: 12 }}>
             <Button icon={<ReloadOutlined />} onClick={fetchPayoutHistory} loading={historyLoading}>
               Làm mới lịch sử
             </Button>
           </div>
           <Table
+            scroll={{ x: 'max-content' }}
             dataSource={payoutHistory}
             loading={historyLoading}
             rowKey="id"

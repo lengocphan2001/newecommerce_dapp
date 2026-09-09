@@ -271,7 +271,7 @@ const Orders: React.FC = () => {
             )}
             <Select
               value={statusUpper}
-              style={{ width: 120 }}
+              style={{ width: '100%', maxWidth: 120 }}
               onChange={(value) => handleStatusChange(record.id, value)}
             >
               <Select.Option value="PENDING">Pending</Select.Option>
@@ -346,7 +346,7 @@ const Orders: React.FC = () => {
           allowClear
           onChange={(e) => setSearchText(e.target.value)}
           onSearch={handleSearch}
-          style={{ width: 420 }}
+          style={{ width: '100%', maxWidth: 420 }}
         />
         <Button onClick={handleClearSearch} disabled={!searchText.trim()}>Xóa</Button>
         <Upload
@@ -381,7 +381,7 @@ const Orders: React.FC = () => {
         width={800}
       >
         {selectedOrder && (
-          <Descriptions bordered column={1}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 1 }}>
             <Descriptions.Item label="Order ID">{selectedOrder.id}</Descriptions.Item>
             <Descriptions.Item label="User ID">{selectedOrder.userId}</Descriptions.Item>
             <Descriptions.Item label="Status">
@@ -454,6 +454,7 @@ const Orders: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Items">
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={selectedOrder.items || []}
                 pagination={false}
                 size="small"

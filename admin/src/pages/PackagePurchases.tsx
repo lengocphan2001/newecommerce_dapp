@@ -145,7 +145,7 @@ const PackagePurchasesPage: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 , gap: 12 }}>
         <div>
           <Title level={2}>Package Purchases</Title>
           <Text type="secondary">Confirm user package payments to activate their package (CTV, ĐT, TV).</Text>
@@ -154,7 +154,7 @@ const PackagePurchasesPage: React.FC = () => {
           <Select
             placeholder="Filter by status"
             allowClear
-            style={{ width: 140 }}
+            style={{ width: '100%', maxWidth: 140 }}
             value={statusFilter || undefined}
             onChange={(v) => setStatusFilter(v || '')}
             options={[
@@ -167,6 +167,7 @@ const PackagePurchasesPage: React.FC = () => {
       </div>
       <Card>
         <Table
+          scroll={{ x: 'max-content' }}
           dataSource={purchases}
           columns={columns}
           rowKey="id"

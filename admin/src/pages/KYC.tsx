@@ -185,13 +185,13 @@ const KYC: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' , gap: 12 }}>
         <h1 style={{ margin: 0 }}>KYC Verification</h1>
         <Space>
           <Input.Search
             allowClear
             placeholder="Search ID, user, document, status..."
-            style={{ width: 320 }}
+            style={{ width: '100%', maxWidth: 320 }}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onSearch={(value) => setSearchText(value)}
@@ -207,6 +207,7 @@ const KYC: React.FC = () => {
         </Space>
       </div>
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={filteredKycs}
         loading={loading}
@@ -224,15 +225,15 @@ const KYC: React.FC = () => {
             <div style={{ marginBottom: 20 }}>
               <p><strong>Document Type:</strong> {selectedKyc.documentType}</p>
               <p><strong>Document Number:</strong> {selectedKyc.documentNumber}</p>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
                 {selectedKyc.frontImage && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 200 }}>
                     <p>Front Image</p>
                     <Image src={selectedKyc.frontImage} width="100%" />
                   </div>
                 )}
                 {selectedKyc.backImage && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 200 }}>
                     <p>Back Image</p>
                     <Image src={selectedKyc.backImage} width="100%" />
                   </div>

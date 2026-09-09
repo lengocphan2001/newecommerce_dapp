@@ -502,8 +502,8 @@ const CommissionsPage: React.FC = () => {
   const selectedCancelCount = selectedCancelIds.length;
 
   return (
-    <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="admin-page" style={{ padding: '24px' }}>
+      <div style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' , gap: 12 }}>
         <Title level={2}>Commissions Management</Title>
         <Space>
           <Button 
@@ -548,10 +548,10 @@ const CommissionsPage: React.FC = () => {
           allowClear
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 320 }}
+          style={{ width: '100%', maxWidth: 320 }}
         />
         <Select
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           value={selectedStatus}
           onChange={setSelectedStatus}
         >
@@ -563,7 +563,7 @@ const CommissionsPage: React.FC = () => {
         </Select>
 
         <Select
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           value={selectedType}
           onChange={setSelectedType}
         >
@@ -640,7 +640,7 @@ const CommissionsPage: React.FC = () => {
       >
         {selectedCommission && (
           <div>
-            <Descriptions bordered column={2}>
+            <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
               <Descriptions.Item label="ID" span={2}>
                 <span style={{ fontFamily: 'monospace' }}>{selectedCommission.id}</span>
               </Descriptions.Item>

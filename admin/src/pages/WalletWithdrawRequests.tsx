@@ -370,7 +370,7 @@ const WalletWithdrawRequests: React.FC = () => {
             onPressEnter={handleSearch}
             placeholder="Tìm theo user/email/sđt/wallet/id..."
             allowClear
-            style={{ width: 320 }}
+            style={{ width: '100%', maxWidth: 320 }}
             suffix={<SearchOutlined />}
           />
           <Button onClick={handleSearch} icon={<SearchOutlined />}>
@@ -432,7 +432,7 @@ const WalletWithdrawRequests: React.FC = () => {
               size="small"
               className="bg-slate-50 border-slate-200"
             >
-              <Descriptions size="small" column={2} bordered className="bg-white">
+              <Descriptions size="small" column={{ xs: 1, sm: 1, md: 2 }} bordered className="bg-white">
                 <Descriptions.Item label="Họ và tên">{selectedRequest.user?.fullName || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Username">{selectedRequest.user?.username || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Số điện thoại">{selectedRequest.user?.phone || 'N/A'}</Descriptions.Item>

@@ -167,7 +167,7 @@ const MilestoneRewardPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div className="admin-page" style={{ padding: '24px' }}>
       <Title level={2}>Milestone Reward Configuration</Title>
 
       <Alert
@@ -258,13 +258,14 @@ const MilestoneRewardPage: React.FC = () => {
                 placeholder="Referrer user ID to recheck"
                 value={recheckUserId}
                 onChange={(e) => setRecheckUserId(e.target.value)}
-                style={{ width: 220 }}
+                style={{ width: '100%', maxWidth: 220 }}
               />
               <Button type="default" loading={recheckLoading} onClick={handleRecheck}>
                 Recheck milestones
               </Button>
             </Space>
             <Table
+              scroll={{ x: 'max-content' }}
               dataSource={milestones}
               columns={milestoneColumns}
               rowKey="id"

@@ -239,7 +239,7 @@ const MonthlySales: React.FC = () => {
   const totalWeak = filtered.reduce((s, r) => s + r.weakSales, 0);
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="admin-page" style={{ padding: 24 }}>
       <Title level={2}>Doanh số theo tháng</Title>
 
       <Card style={{ marginBottom: 16 }}>
@@ -280,7 +280,7 @@ const MonthlySales: React.FC = () => {
             allowClear
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ width: 280 }}
+            style={{ width: '100%', maxWidth: 280 }}
           />
         </Space>
         <div style={{ marginTop: 12 }}>

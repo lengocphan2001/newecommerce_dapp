@@ -270,7 +270,7 @@ const AffiliatePage: React.FC = () => {
           placeholder="Search by email, name, username, or user ID"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 300 }}
+          style={{ width: '100%', maxWidth: 300 }}
           prefix={<SearchOutlined />}
           allowClear
         />

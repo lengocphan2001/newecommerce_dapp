@@ -711,7 +711,7 @@ const Users: React.FC = () => {
           </Button>
           <Select
             defaultValue={record.status || 'ACTIVE'}
-            style={{ width: 120 }}
+            style={{ width: '100%', maxWidth: 120 }}
             onChange={(value) => handleUpdateStatus(record.id, value)}
           >
             <Select.Option value="ACTIVE">Active</Select.Option>
@@ -734,7 +734,7 @@ const Users: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16 }}>
         <Title level={2}>Users Management</Title>
         <Space>
           <Input.Search
@@ -742,7 +742,7 @@ const Users: React.FC = () => {
             onSearch={onSearch}
             onChange={(e) => setSearchText(e.target.value)}
             value={searchText}
-            style={{ width: 300 }}
+            style={{ width: '100%', maxWidth: 300 }}
             allowClear
           />
           <Upload
@@ -827,6 +827,7 @@ const Users: React.FC = () => {
         message="Generate Login Credentials sẽ tạo lại username + mật khẩu cho TẤT CẢ user và gửi email đồng loạt tới các địa chỉ email hợp lệ."
       />
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={filteredUsers}
         loading={loading}
@@ -1008,7 +1009,7 @@ const Users: React.FC = () => {
                         <Text type="secondary">
                           Commission PAID hiển thị sau khi trừ 12%, loại trừ payout USDT on-chain; cộng matrix ròng và trừ số đã rút được duyệt.
                         </Text>
-                        <Descriptions size="small" bordered column={1}>
+                        <Descriptions size="small" bordered column={{ xs: 1, sm: 1, md: 1 }}>
                           <Descriptions.Item label="Commission PAID (net, đã trừ 12%)">
                             <span style={{ color: '#389e0d', fontWeight: 600 }}>
                               ${toNum(editWalletReconciliation?.paidCommissionToWithdrawWallet).toFixed(8)} USDT
@@ -1133,7 +1134,7 @@ const Users: React.FC = () => {
         {userDetail && (
           <Tabs defaultActiveKey="basic">
             <TabPane tab="Basic Info" key="basic">
-              <Descriptions bordered column={2}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                 <Descriptions.Item label="ID">{userDetail.user.id}</Descriptions.Item>
                 <Descriptions.Item label="Email">{userDetail.user.email}</Descriptions.Item>
                 <Descriptions.Item label="Full Name">{userDetail.user.fullName}</Descriptions.Item>
@@ -1175,7 +1176,7 @@ const Users: React.FC = () => {
               <Divider />
 
               <Title level={5}>Financial Information</Title>
-              <Descriptions bordered column={2}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                 <Descriptions.Item label="Ví tiêu dùng (Deposit Wallet)">
                   <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.reconsumptionWalletBalance ?? 0} USDT</span>
                 </Descriptions.Item>
@@ -1213,7 +1214,7 @@ const Users: React.FC = () => {
                       step={0.01}
                       value={fakeCommissionValue}
                       onChange={(v) => setFakeCommissionValue(v ?? 0)}
-                      style={{ width: 140 }}
+                      style={{ width: '100%', maxWidth: 140 }}
                     />
                     <Button type="primary" size="small" loading={savingFakeCommission} onClick={handleSaveFakeCommission}>
                       Save
@@ -1314,7 +1315,7 @@ const Users: React.FC = () => {
               <Divider />
 
               <Title level={5}>Referral Information</Title>
-              <Descriptions bordered column={2}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                 <Descriptions.Item label="Referral User (Username)">
                   {userDetail.user.referralUser || 'N/A'}
                 </Descriptions.Item>
@@ -1337,6 +1338,7 @@ const Users: React.FC = () => {
 
             <TabPane tab="Addresses" key="addresses">
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.addresses || []}
                 rowKey={(row: any) => row.id || row.userId}
                 pagination={false}
@@ -1360,7 +1362,7 @@ const Users: React.FC = () => {
 
             <TabPane tab="Commissions" key="commissions">
               <Card title="Commission Statistics" style={{ marginBottom: 16 }}>
-                <Descriptions bordered column={2}>
+                <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                   <Descriptions.Item label="Direct Commission">
                     ${userDetail.commissionStats?.direct || '0.00'}
                   </Descriptions.Item>
@@ -1379,6 +1381,7 @@ const Users: React.FC = () => {
                 </Descriptions>
               </Card>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.commissions || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1409,7 +1412,7 @@ const Users: React.FC = () => {
             </TabPane>
 
             <TabPane tab="Orders" key="orders">
-              <Descriptions bordered column={1} style={{ marginBottom: 16 }}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 1 }} style={{ marginBottom: 16 }}>
                 <Descriptions.Item label="Total Purchase">
                   {(() => {
                     const amount = userDetail.user?.totalPurchaseAmount ?? 0;
@@ -1427,6 +1430,7 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
               </Descriptions>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.orders || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1457,6 +1461,7 @@ const Users: React.FC = () => {
             <TabPane tab="Referral Levels" key="referrals">
               <Title level={5}>F1 Members (Direct) ({userDetail.f1?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.f1PurchaseDetails || userDetail.f1 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1489,6 +1494,7 @@ const Users: React.FC = () => {
                 expandable={{
                   expandedRowRender: (record: any) => (
                     <Table
+                      scroll={{ x: 'max-content' }}
                       dataSource={record.purchases || []}
                       rowKey={(row: any) => row.orderId}
                       pagination={false}
@@ -1546,6 +1552,7 @@ const Users: React.FC = () => {
 
               <Title level={5}>F2 Members ({userDetail.f2?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.f2 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1566,6 +1573,7 @@ const Users: React.FC = () => {
 
               <Title level={5}>F3 Members ({userDetail.f3?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.f3 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1597,7 +1605,7 @@ const Users: React.FC = () => {
 
                 return (
                   <Card title="Tree Statistics" style={{ marginBottom: 16 }}>
-                    <Descriptions bordered column={2}>
+                    <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                       <Descriptions.Item label="Left Branch Count">
                         {userDetail.treeStats?.left?.count || 0}
                       </Descriptions.Item>
@@ -1641,6 +1649,7 @@ const Users: React.FC = () => {
 
               <Title level={5}>Left Branch Members ({userDetail.treeStats?.left?.members?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.treeStats?.left?.members || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1660,6 +1669,7 @@ const Users: React.FC = () => {
 
               <Title level={5}>Right Branch Members ({userDetail.treeStats?.right?.members?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.treeStats?.right?.members || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}

@@ -471,7 +471,7 @@ const CommissionPayout: React.FC = () => {
 
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div className="admin-page" style={{ padding: '24px' }}>
       <PageHeader
         title="Commission Payout"
         actions={
@@ -489,7 +489,7 @@ const CommissionPayout: React.FC = () => {
       />
 
       {/* Stats Cards */}
-      <Row gutter={16} style={{ marginBottom: '24px' }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
@@ -685,7 +685,7 @@ const CommissionPayout: React.FC = () => {
         width={800}
       >
         {selectedCommission && (
-          <Descriptions bordered column={2}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
             <Descriptions.Item label="ID" span={2}>
               <span style={{ fontFamily: 'monospace' }}>{selectedCommission.id}</span>
             </Descriptions.Item>
@@ -755,7 +755,7 @@ const CommissionPayout: React.FC = () => {
         width={800}
       >
         {selectedAuditLog && (
-          <Descriptions bordered column={1}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 1 }}>
             <Descriptions.Item label="Action">
               <Tag color="blue">{selectedAuditLog.action}</Tag>
             </Descriptions.Item>

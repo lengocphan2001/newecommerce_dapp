@@ -61,6 +61,7 @@ const AuditLogPage: React.FC = () => {
     <div>
       <h1 style={{ marginBottom: 24 }}>Audit Log</h1>
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={logs}
         loading={loading}

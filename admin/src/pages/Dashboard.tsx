@@ -302,6 +302,7 @@ const Dashboard: React.FC = () => {
         <Col xs={24} lg={24}>
           <Card title="Recent Orders">
             <Table
+              scroll={{ x: 'max-content' }}
               columns={columns}
               dataSource={recentOrders}
               loading={loading}

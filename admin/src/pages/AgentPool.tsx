@@ -699,7 +699,7 @@ const AgentPool: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="admin-page" style={{ padding: 24 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
         <Col>
           <Title level={2} style={{ margin: 0 }}>
@@ -713,8 +713,8 @@ const AgentPool: React.FC = () => {
       </Row>
 
       {/* Summary Stat Cards */}
-      <Row gutter={16} style={{ marginBottom: 20 }}>
-        <Col span={8}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
               title="Tổng Số Bể Đại Lý"
@@ -724,7 +724,7 @@ const AgentPool: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
               title="Bể Đang Hoạt Động"
@@ -734,7 +734,7 @@ const AgentPool: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
               title="Tổng % Các Bể Active"
@@ -780,6 +780,7 @@ const AgentPool: React.FC = () => {
                   </Row>
 
                   <Table
+                    scroll={{ x: 'max-content' }}
                     columns={poolColumns}
                     dataSource={pools}
                     rowKey="id"
@@ -799,11 +800,11 @@ const AgentPool: React.FC = () => {
               children: (
                 <div>
                   <Row justify="space-between" style={{ marginBottom: 16 }}>
-                    <Col span={16}>
+                    <Col xs={24} md={16}>
                       <Space wrap>
                         <Select
                           placeholder="Chọn Bể Đại Lý"
-                          style={{ width: 220 }}
+                          style={{ width: '100%', maxWidth: 220 }}
                           value={selectedPoolId}
                           onChange={(val) => setSelectedPoolId(val)}
                           allowClear
@@ -817,7 +818,7 @@ const AgentPool: React.FC = () => {
 
                         <Input.Search
                           placeholder="Tìm Username / Email / ID"
-                          style={{ width: 260 }}
+                          style={{ width: '100%', maxWidth: 260 }}
                           onSearch={(val) => {
                             setSearchMember(val);
                             fetchMembers();
@@ -831,7 +832,7 @@ const AgentPool: React.FC = () => {
                         </Button>
                       </Space>
                     </Col>
-                    <Col span={8} style={{ textAlign: 'right' }}>
+                    <Col xs={24} sm={12} md={8} style={{ textAlign: 'right' }}>
                       <Space>
                         <Popconfirm
                           title="Đồng bộ thành viên theo cấp bậc?"
@@ -857,6 +858,7 @@ const AgentPool: React.FC = () => {
                   </Row>
 
                   <Table
+                    scroll={{ x: 'max-content' }}
                     columns={memberColumns}
                     dataSource={members}
                     rowKey="id"
@@ -880,7 +882,7 @@ const AgentPool: React.FC = () => {
                       <Space>
                         <Select
                           placeholder="Lọc Theo Bể"
-                          style={{ width: 220 }}
+                          style={{ width: '100%', maxWidth: 220 }}
                           value={historyPoolId}
                           onChange={(val) => setHistoryPoolId(val)}
                           allowClear
@@ -899,6 +901,7 @@ const AgentPool: React.FC = () => {
                   </Row>
 
                   <Table
+                    scroll={{ x: 'max-content' }}
                     columns={historyColumns}
                     dataSource={histories}
                     rowKey="id"
@@ -967,8 +970,8 @@ const AgentPool: React.FC = () => {
                   </Row>
 
                   {backfillData && (
-                    <Row gutter={16} style={{ marginBottom: 16 }}>
-                      <Col span={8}>
+                    <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                      <Col xs={24} sm={12} md={8}>
                         <Card size="small">
                           <Statistic
                             title="Đơn Thiếu Bể"
@@ -978,7 +981,7 @@ const AgentPool: React.FC = () => {
                           />
                         </Card>
                       </Col>
-                      <Col span={8}>
+                      <Col xs={24} sm={12} md={8}>
                         <Card size="small">
                           <Statistic
                             title="Lượt Bể Bị Hụt"
@@ -988,7 +991,7 @@ const AgentPool: React.FC = () => {
                           />
                         </Card>
                       </Col>
-                      <Col span={8}>
+                      <Col xs={24} sm={12} md={8}>
                         <Card size="small">
                           <Statistic
                             title="Tổng Tiền Cần Bù"
@@ -1042,6 +1045,7 @@ const AgentPool: React.FC = () => {
 
                   {backfillData ? (
                     <Table
+                      scroll={{ x: 'max-content' }}
                       columns={backfillColumns}
                       dataSource={backfillData.orders || []}
                       rowKey="orderId"
@@ -1253,7 +1257,7 @@ const AgentPool: React.FC = () => {
           description="Tiền sẽ được cộng thẳng vào ví rút của từng thành viên trong bể và ghi vào lịch sử chia thưởng. Hãy sao lưu database trước khi chạy."
         />
 
-        <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+        <Descriptions bordered size="small" column={{ xs: 1, sm: 1, md: 2 }} style={{ marginBottom: 16 }}>
           <Descriptions.Item label="Số đơn sẽ bù">
             <Text strong>{selectedBackfillOrderIds.length} đơn</Text>
           </Descriptions.Item>
@@ -1283,6 +1287,7 @@ const AgentPool: React.FC = () => {
         </Descriptions>
 
         <Table
+          scroll={{ x: 'max-content' }}
           size="small"
           columns={backfillSummaryColumns}
           dataSource={backfillSummaryByPool}
@@ -1314,7 +1319,7 @@ const AgentPool: React.FC = () => {
         }
         width={720}
       >
-        <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
+        <Descriptions bordered size="small" column={{ xs: 1, sm: 1, md: 2 }} style={{ marginBottom: 16 }}>
           <Descriptions.Item label="Đã bù">
             <Text type="success" strong>{backfillResult?.doneCount || 0} đơn</Text>
           </Descriptions.Item>
@@ -1340,6 +1345,7 @@ const AgentPool: React.FC = () => {
         </Descriptions>
 
         <Table
+          scroll={{ x: 'max-content' }}
           size="small"
           dataSource={(backfillResult?.results || []).filter((r: any) => r.status !== 'done')}
           rowKey="orderId"

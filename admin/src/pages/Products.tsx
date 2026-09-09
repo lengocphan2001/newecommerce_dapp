@@ -50,6 +50,8 @@ const SortableRow: React.FC<RowProps> = ({ children, ...props }) => {
     transform: CSS.Transform.toString(transform),
     transition,
     cursor: 'move',
+    // Touch devices scroll the page instead of starting a drag without this.
+    touchAction: 'none',
     ...(isDragging ? { position: 'relative', zIndex: 9999, background: '#fafafa' } : {}),
   };
 
@@ -659,7 +661,7 @@ const Products: React.FC = () => {
                 allowClear
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                style={{ width: 250 }}
+                style={{ width: '100%', maxWidth: 250 }}
               />
               <Upload
                 accept=".csv,text/csv"
@@ -966,12 +968,12 @@ const Products: React.FC = () => {
                         {(fields, { add, remove }) => (
                           <>
                             {fields.map(({ key, name, ...restField }) => (
-                              <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                              <Space key={key} wrap style={{ display: 'flex', marginBottom: 8 }} align="baseline">
                                 <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: 'Nhập tên thuộc tính' }]}>
                                   <Input placeholder="VD: Màu sắc" />
                                 </Form.Item>
                                 <Form.Item {...restField} name={[name, 'values']} rules={[{ required: true, message: 'Nhập giá trị' }]}>
-                                  <Select mode="tags" style={{ width: 200 }} placeholder="VD: Đỏ, Xanh" tokenSeparators={[',']} open={false} />
+                                  <Select mode="tags" style={{ width: '100%', maxWidth: 200 }} placeholder="VD: Đỏ, Xanh" tokenSeparators={[',']} open={false} />
                                 </Form.Item>
                                 <MinusCircleOutlined onClick={() => remove(name)} />
                               </Space>
@@ -995,10 +997,10 @@ const Products: React.FC = () => {
                                   <InputNumber min={2} placeholder="3" style={{ width: 80 }} />
                                 </Form.Item>
                                 <Form.Item {...restField} name={[name, 'price']} label="Giá combo" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
-                                  <InputNumber min={0} step={0.01} precision={4} placeholder="25" style={{ width: 130 }} />
+                                  <InputNumber min={0} step={0.01} precision={4} placeholder="25" style={{ width: '100%', maxWidth: 130 }} />
                                 </Form.Item>
                                 <Form.Item {...restField} name={[name, 'label']} label="Nhãn (tùy chọn)" style={{ marginBottom: 0 }}>
-                                  <Input placeholder="Mua 3 giảm còn $25" style={{ width: 220 }} />
+                                  <Input placeholder="Mua 3 giảm còn $25" style={{ width: '100%', maxWidth: 220 }} />
                                 </Form.Item>
                                 <MinusCircleOutlined onClick={() => remove(name)} style={{ color: 'red' }} />
                               </Space>

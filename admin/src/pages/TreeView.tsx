@@ -353,7 +353,7 @@ const TreeView: React.FC = () => {
   }, [nodes.length]);
 
   return (
-    <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
+    <div className="admin-page" style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
       <Card
         title={
           <Space>
@@ -397,7 +397,7 @@ const TreeView: React.FC = () => {
             <Select
               showSearch
               placeholder="Select root user by Name, Email or ID"
-              style={{ width: 400 }}
+              style={{ width: '100%', maxWidth: 400 }}
               value={rootUserId}
               onChange={setRootUserId}
               filterOption={(input, option) => {
@@ -419,7 +419,7 @@ const TreeView: React.FC = () => {
               }))}
             />
             <Select
-              style={{ width: 150 }}
+              style={{ width: '100%', maxWidth: 150 }}
               value={maxDepth}
               onChange={setMaxDepth}
               options={[
@@ -456,6 +456,7 @@ const TreeView: React.FC = () => {
           <ReactFlowProvider>
             <div
               ref={reactFlowContainerRef}
+              className="admin-flow-canvas"
               style={{
                 width: '100%',
                 height: '75vh',

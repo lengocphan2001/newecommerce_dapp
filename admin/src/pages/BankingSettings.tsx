@@ -187,7 +187,7 @@ const BankingSettings: React.FC = () => {
 
     return (
         <div style={{ maxWidth: 600 }}>
-            <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
                 <BankOutlined style={{ fontSize: 24 }} />
                 <Title level={3} style={{ margin: 0 }}>Banking Payment Settings</Title>
             </div>
@@ -260,7 +260,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="1 USDT = X VND. Dùng cho checkout CK và quy đổi khi duyệt nạp tiền. Để trống = lấy giá live (CoinGecko) nếu app hỗ trợ."
                     >
                         <InputNumber
-                            style={{ width: 200 }}
+                            style={{ width: '100%', maxWidth: 200 }}
                             min={0}
                             step={100}
                             placeholder="VD: 25000"
@@ -274,7 +274,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="Tách biệt với tỷ giá nạp/checkout. Dùng để hiển thị quy đổi VND trong modal rút tiền ví. Để trống = không hiện ước tính VND khi rút."
                     >
                         <InputNumber
-                            style={{ width: 200 }}
+                            style={{ width: '100%', maxWidth: 200 }}
                             min={0}
                             step={100}
                             placeholder="VD: 24800 (khác tỷ giá nạp nếu cần)"
@@ -315,7 +315,7 @@ const BankingSettings: React.FC = () => {
                             <Button icon={<UploadOutlined />}>Upload USDT QR Image</Button>
                         </Upload>
                         {usdtQrPreview && (
-                            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}>
                                 <Image
                                     src={usdtQrPreview}
                                     width={160}
@@ -345,7 +345,7 @@ const BankingSettings: React.FC = () => {
                             <Button icon={<UploadOutlined />}>Upload QR Image</Button>
                         </Upload>
                         {qrPreview && (
-                            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}>
                                 <Image
                                     src={qrPreview}
                                     width={160}
@@ -382,7 +382,7 @@ const BankingSettings: React.FC = () => {
                 </Form>
             </Card>
 
-            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
                 <SettingOutlined style={{ fontSize: 24 }} />
                 <Title level={3} style={{ margin: 0 }}>Payout Settings</Title>
             </div>
@@ -401,7 +401,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="Users must accumulate at least this amount in pending commissions before automatic payout is triggered."
                     >
                         <InputNumber
-                            style={{ width: 200 }}
+                            style={{ width: '100%', maxWidth: 200 }}
                             min={0}
                             step={10}
                             precision={2}
@@ -416,7 +416,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="When a user's F2 buys, this percentage of order value is paid to the upline user (default 5%)."
                     >
                         <InputNumber
-                            style={{ width: 220 }}
+                            style={{ width: '100%', maxWidth: 220 }}
                             min={0}
                             max={100}
                             step={0.5}
@@ -431,7 +431,7 @@ const BankingSettings: React.FC = () => {
                         rules={[{ required: true, message: 'Please enter deposit wallet percent' }]}
                     >
                         <InputNumber
-                            style={{ width: 220 }}
+                            style={{ width: '100%', maxWidth: 220 }}
                             min={0}
                             max={100}
                             step={1}
@@ -447,7 +447,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="Total of Deposit % and Withdraw % must be <= 100. The remainder is platform fee."
                     >
                         <InputNumber
-                            style={{ width: 220 }}
+                            style={{ width: '100%', maxWidth: 220 }}
                             min={0}
                             max={100}
                             step={1}

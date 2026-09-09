@@ -82,6 +82,7 @@ const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
       <div
         style={{
           display: 'flex',
+          flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 24,
@@ -93,7 +94,7 @@ const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {extra}
           {showDaysFilter && (
-            <Select value={days} style={{ width: 140 }} onChange={onDaysChange}>
+            <Select value={days} style={{ width: '100%', maxWidth: 140 }} onChange={onDaysChange}>
               <Option value={7}>Last 7 Days</Option>
               <Option value={14}>Last 14 Days</Option>
               <Option value={30}>Last 30 Days</Option>
@@ -150,7 +151,7 @@ const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} lg={12}>
           <Card title="Revenue Trend" loading={loading}>
-            <div style={{ height: 300 }}>
+            <div className="admin-chart" style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueData}>
                   <defs>
@@ -180,7 +181,7 @@ const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
         </Col>
         <Col xs={24} lg={12}>
           <Card title="Order Trend" loading={loading}>
-            <div style={{ height: 300 }}>
+            <div className="admin-chart" style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={orderData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -199,7 +200,7 @@ const AnalyticsDashboardView: React.FC<AnalyticsDashboardViewProps> = ({
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
           <Card title="User Growth" loading={loading}>
-            <div style={{ height: 300 }}>
+            <div className="admin-chart" style={{ height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={userData}>
                   <CartesianGrid strokeDasharray="3 3" />
