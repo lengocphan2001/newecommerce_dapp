@@ -16,7 +16,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { AdminService } from './admin.service';
+import { AdminService, UserExportMetrics } from './admin.service';
 import {
   UpdateUserStatusDto,
   UpdateFakeCommissionDto,
@@ -85,9 +85,39 @@ export class AdminController {
       'Password Changed At',
       'Created At',
       'Updated At',
+      'Manual Rank',
+      'Synced Agent Rank',
+      'Reconsumption Wallet Balance',
+      'PV Wallet Balance',
+      'Custom Max Commission',
+      'Direct Commission',
+      'Group Commission',
+      'Management Commission',
+      'Total Commission Paid',
+      'Pending Commission',
+      'Paid Commission To Withdraw Wallet',
+      'Matrix Pool Net Amount',
+      'Approved Withdrawn Amount',
+      'Expected Withdraw Wallet Balance',
+      'Personal Sales This Month',
+      'Left Branch Sales This Month',
+      'Right Branch Sales This Month',
+      'Weak Branch Sales This Month',
+      'Weak Branch Accumulated Volume',
+      'Branch Difference',
+      'Left Branch Members',
+      'Right Branch Members',
+      'Total Downline Members',
+      'F1 Count',
+      'F2 Count',
+      'F3 Count',
     ];
 
-    const toRow = (user: any) => [
+    /** Số tiền trong CSV: luôn 4 chữ số thập phân để Excel không làm tròn. */
+    const money = (val: number | string | null | undefined): string =>
+      (Number(val) || 0).toFixed(4);
+
+    const toRow = (user: any, metrics?: UserExportMetrics) => [
       escapeCsv(user.id),
       escapeCsv(user.username),
       escapeCsv(user.email),
@@ -118,7 +148,39 @@ export class AdminController {
       escapeCsv(user.passwordChangedAt),
       escapeCsv(user.createdAt),
       escapeCsv(user.updatedAt),
+      escapeCsv(user.manualRank || 'NONE'),
+      escapeCsv(user.agentRank || ''),
+      money(user.reconsumptionWalletBalance),
+      money(user.pvWalletBalance),
+      user.customMaxCommission === null || user.customMaxCommission === undefined
+        ? ''
+        : money(user.customMaxCommission),
+      money(metrics?.commissionDirect),
+      money(metrics?.commissionGroup),
+      money(metrics?.commissionManagement),
+      money(metrics?.commissionTotalPaid),
+      money(metrics?.commissionPending),
+      money(metrics?.paidCommissionToWithdrawWallet),
+      money(metrics?.matrixPoolNetAmount),
+      money(metrics?.approvedWithdrawnAmount),
+      money(metrics?.expectedWithdrawWalletBalance),
+      money(metrics?.personalSalesThisMonth),
+      money(metrics?.leftSalesThisMonth),
+      money(metrics?.rightSalesThisMonth),
+      money(metrics?.weakSalesThisMonth),
+      money(metrics?.weakBranchAccumulatedVolume),
+      money(metrics?.branchDifference),
+      metrics?.binaryLeftCount ?? 0,
+      metrics?.binaryRightCount ?? 0,
+      metrics?.binaryTotalCount ?? 0,
+      metrics?.f1Count ?? 0,
+      metrics?.f2Count ?? 0,
+      metrics?.f3Count ?? 0,
     ];
+
+    // Doanh số, hoa hồng và tuyến dưới được tính một lần cho tất cả user trước
+    // khi ghi dòng đầu tiên: tính theo từng user sẽ thành N+1 truy vấn đệ quy.
+    const metricsByUser = await this.adminService.buildUserExportMetrics();
 
     res.header('Content-Type', 'text/csv');
     res.header('Content-Disposition', 'attachment; filename="users.csv"');
@@ -129,7 +191,7 @@ export class AdminController {
       const batch = await this.adminService.exportUsers(skip, BATCH_SIZE);
       if (batch.length === 0) break;
       for (const user of batch) {
-        res.write('\n' + toRow(user).join(','));
+        res.write('\n' + toRow(user, metricsByUser.get(user.id)).join(','));
       }
       if (batch.length < BATCH_SIZE) break;
     }

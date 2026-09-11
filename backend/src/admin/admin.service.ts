@@ -41,6 +41,11 @@ import {
   buildChildrenMap,
   computeSubtreeAggregates,
 } from '../common/utils/referral-tree';
+import {
+  SALES_ORDER_STATUSES,
+  WEAK_BRANCH_ACCUMULATION_START,
+  weakBranchAccumulationStart,
+} from '../common/constants/branch-volume';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
@@ -54,6 +59,34 @@ function roundWithdrawBalance(n: number): number {
 }
 
 const COMMISSION_PAYOUT_FEE_PERCENT = 12;
+
+/**
+ * Số liệu bổ sung cho mỗi user khi xuất CSV — cùng những con số mà trang chi
+ * tiết user hiển thị, nhưng tính hàng loạt cho toàn bộ bảng users.
+ */
+export interface UserExportMetrics {
+  binaryLeftCount: number;
+  binaryRightCount: number;
+  binaryTotalCount: number;
+  f1Count: number;
+  f2Count: number;
+  f3Count: number;
+  personalSalesThisMonth: number;
+  leftSalesThisMonth: number;
+  rightSalesThisMonth: number;
+  weakSalesThisMonth: number;
+  weakBranchAccumulatedVolume: number;
+  branchDifference: number;
+  commissionDirect: number;
+  commissionGroup: number;
+  commissionManagement: number;
+  commissionTotalPaid: number;
+  commissionPending: number;
+  paidCommissionToWithdrawWallet: number;
+  matrixPoolNetAmount: number;
+  approvedWithdrawnAmount: number;
+  expectedWithdrawWalletBalance: number;
+}
 
 @Injectable()
 export class AdminService {
@@ -154,6 +187,291 @@ export class AdminService {
       skip,
       take,
     });
+  }
+
+  /**
+   * Số liệu doanh số / hoa hồng / tuyến dưới của **mọi** user, tính một lần cho
+   * cả file CSV. Trang chi tiết user tính từng người bằng truy vấn đệ quy; làm
+   * vậy cho hàng nghìn user sẽ không bao giờ chạy xong, nên ở đây mọi thứ được
+   * tổng hợp trong bộ nhớ từ vài truy vấn gộp.
+   */
+  async buildUserExportMetrics(): Promise<Map<string, UserExportMetrics>> {
+    const users = await this.userRepository.find({
+      select: [
+        'id',
+        'parentId',
+        'position',
+        'referralUserId',
+        'createdAt',
+        'leftBranchTotal',
+        'rightBranchTotal',
+      ],
+    });
+    const userIds = users.map((u) => u.id);
+
+    const metrics = new Map<string, UserExportMetrics>();
+    for (const user of users) {
+      metrics.set(user.id, {
+        binaryLeftCount: 0,
+        binaryRightCount: 0,
+        binaryTotalCount: 0,
+        f1Count: 0,
+        f2Count: 0,
+        f3Count: 0,
+        personalSalesThisMonth: 0,
+        leftSalesThisMonth: 0,
+        rightSalesThisMonth: 0,
+        weakSalesThisMonth: 0,
+        weakBranchAccumulatedVolume: 0,
+        branchDifference: Math.abs(
+          Number(user.leftBranchTotal || 0) - Number(user.rightBranchTotal || 0),
+        ),
+        commissionDirect: 0,
+        commissionGroup: 0,
+        commissionManagement: 0,
+        commissionTotalPaid: 0,
+        commissionPending: 0,
+        paidCommissionToWithdrawWallet: 0,
+        matrixPoolNetAmount: 0,
+        approvedWithdrawnAmount: 0,
+        expectedWithdrawWalletBalance: 0,
+      });
+    }
+    if (userIds.length === 0) return metrics;
+
+    const binaryChildren = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.parentId,
+    );
+    const referralChildren = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.referralUserId,
+    );
+    const positionMap = new Map(users.map((u) => [u.id, u.position]));
+
+    // Số thành viên mỗi nhánh: subtreeCount tính cả chính node, nên lấy trực
+    // tiếp ở node con trái / con phải.
+    const { subtreeCount } = computeSubtreeAggregates(
+      userIds,
+      binaryChildren,
+      () => 0,
+    );
+    for (const user of users) {
+      const row = metrics.get(user.id)!;
+      for (const childId of binaryChildren.get(user.id) || []) {
+        const side = positionMap.get(childId);
+        if (side === 'left')
+          row.binaryLeftCount += subtreeCount.get(childId) || 0;
+        else if (side === 'right')
+          row.binaryRightCount += subtreeCount.get(childId) || 0;
+      }
+      row.binaryTotalCount = row.binaryLeftCount + row.binaryRightCount;
+
+      const f1 = referralChildren.get(user.id) || [];
+      row.f1Count = f1.length;
+      for (const f1Id of f1) {
+        const f2 = referralChildren.get(f1Id) || [];
+        row.f2Count += f2.length;
+        for (const f2Id of f2) {
+          row.f3Count += (referralChildren.get(f2Id) || []).length;
+        }
+      }
+    }
+
+    await this.fillExportSalesMetrics(
+      users,
+      binaryChildren,
+      positionMap,
+      metrics,
+    );
+    await this.fillExportCommissionMetrics(userIds, metrics);
+    await this.fillExportWalletMetrics(metrics);
+
+    return metrics;
+  }
+
+  /**
+   * Doanh số cá nhân / nhánh của tháng hiện tại và doanh số nhánh yếu tích lũy.
+   * Đơn hàng của cả khoảng thời gian được nạp một lần rồi gộp theo từng tháng,
+   * giống công thức của `UserService.getBranchMonthlyVolume`.
+   */
+  private async fillExportSalesMetrics(
+    users: User[],
+    binaryChildren: Map<string, string[]>,
+    positionMap: Map<string, 'left' | 'right'>,
+    metrics: Map<string, UserExportMetrics>,
+  ): Promise<void> {
+    const userIds = users.map((u) => u.id);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const { year: rangeYear, month: rangeMonth } =
+      WEAK_BRANCH_ACCUMULATION_START;
+    const rangeStart = new Date(rangeYear, rangeMonth - 1, 1, 0, 0, 0, 0);
+    const rangeEnd = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+    if (rangeStart >= rangeEnd) return;
+
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .select(['o.id', 'o.userId', 'o.items', 'o.createdAt'])
+      .where('o.status IN (:...statuses)', { statuses: SALES_ORDER_STATUSES })
+      .andWhere('o.createdAt >= :rangeStart', { rangeStart })
+      .andWhere('o.createdAt < :rangeEnd', { rangeEnd })
+      .andWhere('o.userId IS NOT NULL')
+      .getMany();
+
+    // Doanh số cá nhân theo từng tháng, khoá là year * 12 + (month - 1).
+    const personalByMonth = new Map<number, Map<string, number>>();
+    for (const order of orders) {
+      if (!order.userId) continue;
+      const created = new Date(order.createdAt);
+      const key = created.getFullYear() * 12 + created.getMonth();
+      const items = Array.isArray(order.items) ? order.items : [];
+      let value = 0;
+      for (const item of items) {
+        value += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+      }
+      let monthMap = personalByMonth.get(key);
+      if (!monthMap) {
+        monthMap = new Map<string, number>();
+        personalByMonth.set(key, monthMap);
+      }
+      monthMap.set(order.userId, (monthMap.get(order.userId) || 0) + value);
+    }
+
+    const startKeyOf = new Map<string, number>();
+    for (const user of users) {
+      const start = weakBranchAccumulationStart(user.createdAt);
+      startKeyOf.set(user.id, start.year * 12 + (start.month - 1));
+    }
+
+    const firstKey = rangeYear * 12 + (rangeMonth - 1);
+    const lastKey = currentYear * 12 + (currentMonth - 1);
+    for (let key = firstKey; key <= lastKey; key++) {
+      const personal = personalByMonth.get(key) || new Map<string, number>();
+      const isCurrentMonth = key === lastKey;
+      // Tháng không có đơn nào chỉ cần xử lý khi là tháng hiện tại, để các cột
+      // doanh số tháng này vẫn được ghi giá trị 0.
+      if (personal.size === 0 && !isCurrentMonth) continue;
+
+      const { subtreeValue } = computeSubtreeAggregates(
+        userIds,
+        binaryChildren,
+        (id) => personal.get(id) || 0,
+      );
+
+      for (const user of users) {
+        const row = metrics.get(user.id)!;
+        let leftSales = 0;
+        let rightSales = 0;
+        for (const childId of binaryChildren.get(user.id) || []) {
+          const side = positionMap.get(childId);
+          if (side === 'left') leftSales += subtreeValue.get(childId) || 0;
+          else if (side === 'right')
+            rightSales += subtreeValue.get(childId) || 0;
+        }
+
+        if (key >= (startKeyOf.get(user.id) ?? firstKey)) {
+          row.weakBranchAccumulatedVolume += Math.min(leftSales, rightSales);
+        }
+        if (isCurrentMonth) {
+          row.personalSalesThisMonth = personal.get(user.id) || 0;
+          row.leftSalesThisMonth = leftSales;
+          row.rightSalesThisMonth = rightSales;
+          row.weakSalesThisMonth = Math.min(leftSales, rightSales);
+        }
+      }
+    }
+  }
+
+  /** Hoa hồng theo loại, giống thẻ "Commission Statistics" ở trang chi tiết. */
+  private async fillExportCommissionMetrics(
+    userIds: string[],
+    metrics: Map<string, UserExportMetrics>,
+  ): Promise<void> {
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const stats = await this.commissionService.getStatsForUserIds(chunk);
+      for (const [userId, stat] of stats) {
+        const row = metrics.get(userId);
+        if (!row) continue;
+        row.commissionDirect = stat.commissions.direct;
+        row.commissionGroup = stat.commissions.group;
+        row.commissionManagement = stat.commissions.management;
+        row.commissionTotalPaid = stat.totalCommission;
+        row.commissionPending = stat.pendingCommission;
+      }
+    }
+  }
+
+  /**
+   * Đối soát ví rút tiền: hoa hồng đã trả (đã trừ phí) + matrix ròng - số đã
+   * được duyệt rút. Cùng công thức với `walletReconciliation` ở trang chi tiết.
+   */
+  private async fillExportWalletMetrics(
+    metrics: Map<string, UserExportMetrics>,
+  ): Promise<void> {
+    const num = (v: string | number | null | undefined): number =>
+      v === null || v === undefined ? 0 : Number(v) || 0;
+
+    const [paidRows, matrixRows, withdrawRows] = await Promise.all([
+      this.commissionRepository
+        .createQueryBuilder('c')
+        .select('c.userId', 'userId')
+        .addSelect('COALESCE(SUM(c.amount),0)', 'total')
+        .where('c.status = :paid', { paid: CommissionStatus.PAID })
+        .andWhere('c.payoutTxHash IS NULL')
+        .groupBy('c.userId')
+        .getRawMany<{ userId: string; total: string }>(),
+      this.matrixRewardLedgerRepository
+        .createQueryBuilder('m')
+        .select('m.beneficiaryUserId', 'userId')
+        .addSelect('COALESCE(SUM(m.amount),0)', 'total')
+        .groupBy('m.beneficiaryUserId')
+        .getRawMany<{ userId: string; total: string }>(),
+      this.walletWithdrawRequestRepository
+        .createQueryBuilder('w')
+        .select('w.userId', 'userId')
+        .addSelect(
+          'COALESCE(SUM(COALESCE(w.actualAmount, w.amount)),0)',
+          'total',
+        )
+        .where('w.status = :approved', {
+          approved: WalletWithdrawStatus.APPROVED,
+        })
+        .groupBy('w.userId')
+        .getRawMany<{ userId: string; total: string }>(),
+    ]);
+
+    for (const row of paidRows) {
+      const target = metrics.get(row.userId);
+      if (!target) continue;
+      const gross = roundWithdrawBalance(num(row.total));
+      target.paidCommissionToWithdrawWallet = roundWithdrawBalance(
+        gross * (1 - COMMISSION_PAYOUT_FEE_PERCENT / 100),
+      );
+    }
+    for (const row of matrixRows) {
+      const target = metrics.get(row.userId);
+      if (!target) continue;
+      target.matrixPoolNetAmount = roundWithdrawBalance(num(row.total));
+    }
+    for (const row of withdrawRows) {
+      const target = metrics.get(row.userId);
+      if (!target) continue;
+      target.approvedWithdrawnAmount = roundWithdrawBalance(num(row.total));
+    }
+    for (const target of metrics.values()) {
+      target.expectedWithdrawWalletBalance = roundWithdrawBalance(
+        target.paidCommissionToWithdrawWallet +
+          target.matrixPoolNetAmount -
+          target.approvedWithdrawnAmount,
+      );
+    }
   }
 
   private escapeCsv(val: string | number | null | undefined): string {

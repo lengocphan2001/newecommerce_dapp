@@ -19,6 +19,7 @@ import { Kyc } from '../kyc/entities/kyc.entity';
 import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PackagesService } from '../packages/packages.service';
+import { weakBranchAccumulationStart } from '../common/constants/branch-volume';
 
 @Injectable()
 export class UserService {
@@ -464,21 +465,12 @@ export class UserService {
     });
     if (!user) return 0;
 
-    const start = new Date(user.createdAt || new Date());
     const now = new Date();
 
-    // Mốc bắt đầu tích lũy tối thiểu là tháng hiện tại (Tháng 8/2026) theo quy định mới
-    let startYear = 2026;
-    let startMonth = 8; // Tháng 8
-
-    // Nếu user đăng ký sau tháng 8/2026, ta tính từ tháng đăng ký của user
-    const userRegYear = start.getFullYear();
-    const userRegMonth = start.getMonth() + 1;
-
-    if (userRegYear > startYear || (userRegYear === startYear && userRegMonth > startMonth)) {
-      startYear = userRegYear;
-      startMonth = userRegMonth;
-    }
+    // Mốc bắt đầu tích lũy dùng chung với bản tính hàng loạt trong AdminService.
+    const { year: startYear, month: startMonth } = weakBranchAccumulationStart(
+      user.createdAt,
+    );
 
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;

@@ -1148,11 +1148,6 @@ const Users: React.FC = () => {
                   {userDetail.user.walletAddress || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Chain ID">{userDetail.user.chainId || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Package Type">
-                  <Tag color={userDetail.user.packageType === 'NPP' ? 'blue' : userDetail.user.packageType === 'CTV' ? 'green' : 'default'}>
-                    {userDetail.user.packageType}
-                  </Tag>
-                </Descriptions.Item>
                 <Descriptions.Item label="Status">
                   <Tag color={userDetail.user.status === 'ACTIVE' ? 'green' : 'red'}>
                     {userDetail.user.status}
