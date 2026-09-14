@@ -16,13 +16,20 @@ import { PaySalaryDto } from './dto/pay-salary.dto';
 export class AdminSalaryController {
   constructor(private readonly salaryService: SalaryService) {}
 
-  /** Agents (C1 and above) of a closed month, with the salary already paid. */
+  /**
+   * Users whose reward sales (weak branch sales) for the month are in the
+   * tier [minSales, maxSales), with the salary already paid for that month.
+   */
   @Get('eligible')
-  getEligible(@Query('month') month: string) {
-    return this.salaryService.getEligibleUsers(month);
+  getEligible(
+    @Query('month') month: string,
+    @Query('minSales') minSales?: string,
+    @Query('maxSales') maxSales?: string,
+  ) {
+    return this.salaryService.getEligibleUsers(month, minSales, maxSales);
   }
 
-  /** Credit salaries to one or more agents' withdraw wallets. */
+  /** Pay salaries to one or more users of the same tier. */
   @Post('pay')
   pay(
     @Body() dto: PaySalaryDto,

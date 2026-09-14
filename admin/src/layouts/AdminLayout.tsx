@@ -249,7 +249,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       key: '/monthly-salary',
       icon: <DollarOutlined />,
-      label: 'Lương tháng đại lý',
+      label: 'Lương tháng',
       permission: null,
       adminOnly: true,
     },

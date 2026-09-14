@@ -19,7 +19,12 @@ import {
   Typography,
   notification,
 } from 'antd';
-import { DollarOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  DollarOutlined,
+  FilterOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
 import PageHeader from '../components/PageHeader';
@@ -31,10 +36,10 @@ interface EligibleRow {
   username: string;
   fullName: string;
   email: string;
-  rank: string;
   personalSales: number;
-  groupSales: number;
-  isProcessed: boolean;
+  leftSales: number;
+  rightSales: number;
+  rewardSales: number;
   paidAmount: number;
   paidCount: number;
   lastPaidAt: string | null;
@@ -47,7 +52,9 @@ interface PaymentRow {
   fullName: string;
   email: string;
   month: string;
-  rank: string;
+  rewardSales: number;
+  tierMin: number;
+  tierMax: number | null;
   amount: number;
   withdrawAmount: number;
   reconsumptionAmount: number;
@@ -63,7 +70,10 @@ interface WalletDistribution {
   taxPercent: number;
 }
 
-const RANKS = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9'];
+interface Tier {
+  min: number | null;
+  max: number | null;
+}
 
 /**
  * Mirrors the backend: salary for month M is paid from day 10 of month M+1.
@@ -95,6 +105,12 @@ const money = (v: number) =>
     maximumFractionDigits: 4,
   });
 
+const tierText = (min: number | null, max: number | null) => {
+  if (!min && max === null) return 'Tất cả';
+  if (max === null) return `≥ ${money(min || 0)}`;
+  return `${money(min || 0)} – dưới ${money(max)}`;
+};
+
 const formatDateTime = (v?: string | null) =>
   v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '—';
 
@@ -109,19 +125,21 @@ const MonthlySalary: React.FC = () => {
   const [month, setMonth] = useState<Dayjs>(latestPayableMonth());
   const [activeTab, setActiveTab] = useState('eligible');
 
-  // Eligible agents
+  // Tier filter: `draftTier` is what the inputs show, `tier` what was loaded.
+  const [draftTier, setDraftTier] = useState<Tier>({ min: null, max: null });
+  const [tier, setTier] = useState<Tier>({ min: null, max: null });
+
+  // Eligible users
   const [loading, setLoading] = useState(false);
-  const [closed, setClosed] = useState(true);
+  const [rows, setRows] = useState<EligibleRow[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [payableFrom, setPayableFrom] = useState<Dayjs>(
     latestPayableMonth().add(1, 'month').date(SALARY_PAY_DAY).startOf('day'),
   );
   const [payable, setPayable] = useState(true);
   const [distribution, setDistribution] =
     useState<WalletDistribution>(DEFAULT_DISTRIBUTION);
-  const [rows, setRows] = useState<EligibleRow[]>([]);
-  const [search, setSearch] = useState('');
-  const [rankFilter, setRankFilter] = useState<string[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Pay modal
   const [payTargets, setPayTargets] = useState<EligibleRow[] | null>(null);
@@ -145,18 +163,27 @@ const MonthlySalary: React.FC = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const monthStr = month.format('YYYY-MM');
+  const tierReady = (tier.min || 0) > 0;
 
-  const fetchEligible = async () => {
+  const fetchEligible = async (targetTier: Tier = tier) => {
+    if (targetTier.min !== null && targetTier.max !== null && targetTier.max <= targetTier.min) {
+      notification.warning({ message: 'Mốc "đến" phải lớn hơn mốc "từ"' });
+      return;
+    }
     try {
       setLoading(true);
       const res = await api.get('/admin/salary/eligible', {
-        params: { month: monthStr },
+        params: {
+          month: monthStr,
+          ...(targetTier.min !== null ? { minSales: targetTier.min } : {}),
+          ...(targetTier.max !== null ? { maxSales: targetTier.max } : {}),
+        },
       });
       setRows(res.data?.rows || []);
-      setClosed(!!res.data?.closed);
       setPayable(!!res.data?.payable);
       if (res.data?.payableFrom) setPayableFrom(dayjs(res.data.payableFrom));
       if (res.data?.distribution) setDistribution(res.data.distribution);
+      setTier(targetTier);
       setSelectedIds([]);
     } catch (e: any) {
       notification.error({ message: 'Lỗi tải danh sách', description: errorMessage(e) });
@@ -192,7 +219,7 @@ const MonthlySalary: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchEligible();
+    fetchEligible(tier);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthStr]);
 
@@ -205,19 +232,19 @@ const MonthlySalary: React.FC = () => {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
+    if (!q) return rows;
     return rows.filter(
       (r) =>
-        (rankFilter.length === 0 || rankFilter.includes(r.rank)) &&
-        (!q ||
-          r.username.toLowerCase().includes(q) ||
-          r.fullName.toLowerCase().includes(q) ||
-          r.email.toLowerCase().includes(q) ||
-          r.userId.toLowerCase().includes(q)),
+        r.username.toLowerCase().includes(q) ||
+        r.fullName.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.userId.toLowerCase().includes(q),
     );
-  }, [rows, search, rankFilter]);
+  }, [rows, search]);
 
   const paidUsers = rows.filter((r) => r.paidCount > 0).length;
   const paidTotal = rows.reduce((s, r) => s + r.paidAmount, 0);
+  const canPay = payable && tierReady;
 
   const openPay = (targets: EligibleRow[]) => {
     if (targets.length === 0) return;
@@ -232,11 +259,13 @@ const MonthlySalary: React.FC = () => {
       setPaying(true);
       const res = await api.post('/admin/salary/pay', {
         month: monthStr,
+        minSales: tier.min,
+        ...(tier.max !== null ? { maxSales: tier.max } : {}),
         note: values.note,
         items: payTargets.map((t) => ({ userId: t.userId, amount: values.amount })),
       });
       notification.success({
-        message: 'Đã cộng lương',
+        message: 'Đã trả lương',
         description: `${res.data?.count ?? payTargets.length} user, tổng ${money(
           res.data?.totalAmount ?? 0,
         )} USDT: ví rút ${money(res.data?.totalWithdrawAmount ?? 0)}, ví tiêu dùng ${money(
@@ -244,10 +273,10 @@ const MonthlySalary: React.FC = () => {
         )}, thuế ${money(res.data?.totalTaxAmount ?? 0)}.`,
       });
       setPayTargets(null);
-      fetchEligible();
+      fetchEligible(tier);
       if (activeTab === 'history') fetchHistory();
     } catch (e: any) {
-      notification.error({ message: 'Cộng lương thất bại', description: errorMessage(e) });
+      notification.error({ message: 'Trả lương thất bại', description: errorMessage(e) });
     } finally {
       setPaying(false);
     }
@@ -259,7 +288,7 @@ const MonthlySalary: React.FC = () => {
       dataIndex: 'username',
       key: 'username',
       fixed: 'left' as const,
-      width: 150,
+      width: 160,
       render: (v: string, r: EligibleRow) => (
         <div>
           <div style={{ fontWeight: 600 }}>{v || '—'}</div>
@@ -271,31 +300,43 @@ const MonthlySalary: React.FC = () => {
     },
     { title: 'Email', dataIndex: 'email', key: 'email', width: 200, ellipsis: true },
     {
-      title: 'Cấp bậc',
-      dataIndex: 'rank',
-      key: 'rank',
-      width: 90,
-      sorter: (a: EligibleRow, b: EligibleRow) =>
-        RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank),
-      render: (v: string) => <Tag color="blue">{v}</Tag>,
-    },
-    {
       title: 'DS cá nhân',
       dataIndex: 'personalSales',
       key: 'personalSales',
-      width: 130,
+      width: 120,
       align: 'right' as const,
       sorter: (a: EligibleRow, b: EligibleRow) => a.personalSales - b.personalSales,
       render: (v: number) => money(v),
     },
     {
-      title: 'DS nhóm',
-      dataIndex: 'groupSales',
-      key: 'groupSales',
-      width: 130,
+      title: 'Nhánh trái',
+      dataIndex: 'leftSales',
+      key: 'leftSales',
+      width: 120,
       align: 'right' as const,
-      sorter: (a: EligibleRow, b: EligibleRow) => a.groupSales - b.groupSales,
       render: (v: number) => money(v),
+    },
+    {
+      title: 'Nhánh phải',
+      dataIndex: 'rightSales',
+      key: 'rightSales',
+      width: 120,
+      align: 'right' as const,
+      render: (v: number) => money(v),
+    },
+    {
+      title: 'DS tính thưởng',
+      dataIndex: 'rewardSales',
+      key: 'rewardSales',
+      width: 140,
+      align: 'right' as const,
+      defaultSortOrder: 'descend' as const,
+      sorter: (a: EligibleRow, b: EligibleRow) => a.rewardSales - b.rewardSales,
+      render: (v: number) => (
+        <Text strong style={{ color: '#fa8c16' }}>
+          {money(v)}
+        </Text>
+      ),
     },
     {
       title: 'Đã trả tháng này (gộp, USDT)',
@@ -323,17 +364,11 @@ const MonthlySalary: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'action',
-      width: 120,
+      width: 110,
       fixed: 'right' as const,
       render: (_: any, r: EligibleRow) => (
-        <Button
-          size="small"
-          type="primary"
-          ghost
-          disabled={!payable}
-          onClick={() => openPay([r])}
-        >
-          Cộng lương
+        <Button size="small" type="primary" ghost disabled={!canPay} onClick={() => openPay([r])}>
+          Trả lương
         </Button>
       ),
     },
@@ -351,7 +386,7 @@ const MonthlySalary: React.FC = () => {
       title: 'Username',
       dataIndex: 'username',
       key: 'username',
-      width: 150,
+      width: 160,
       render: (v: string, r: PaymentRow) => (
         <div>
           <div style={{ fontWeight: 600 }}>{v || '—'}</div>
@@ -369,11 +404,18 @@ const MonthlySalary: React.FC = () => {
       render: (v: string) => dayjs(`${v}-01`).format('MM/YYYY'),
     },
     {
-      title: 'Cấp bậc',
-      dataIndex: 'rank',
-      key: 'rank',
-      width: 90,
-      render: (v: string) => <Tag color="blue">{v}</Tag>,
+      title: 'DS tính thưởng',
+      dataIndex: 'rewardSales',
+      key: 'rewardSales',
+      width: 130,
+      align: 'right' as const,
+      render: (v: number) => money(v),
+    },
+    {
+      title: 'Mốc',
+      key: 'tier',
+      width: 170,
+      render: (_: any, r: PaymentRow) => <Tag color="orange">{tierText(r.tierMin, r.tierMax)}</Tag>,
     },
     {
       title: 'Lương gộp (USDT)',
@@ -419,10 +461,10 @@ const MonthlySalary: React.FC = () => {
         title={
           <>
             <DollarOutlined style={{ marginRight: 10, color: '#10B981' }} />
-            Lương tháng đại lý
+            Lương tháng
           </>
         }
-        description={`Ngày ${SALARY_PAY_DAY} hàng tháng trả lương cho user đạt cấp đại lý C1 trở lên, dựa trên kết quả chốt doanh số tháng trước. Lương chia ${distribution.withdrawPercent}% ví rút, ${distribution.reconsumptionPercent}% ví tiêu dùng, ${distribution.taxPercent}% thuế (trừ luôn) và hiển thị trong lịch sử hoạt động ví của user.`}
+        description={`Ngày ${SALARY_PAY_DAY} hàng tháng trả lương cho user có doanh số tính thưởng (doanh số nhánh yếu) của tháng trước đạt mốc. Lọc theo từng mốc rồi trả mức lương của mốc đó. Lương trả giống bể đồng chia đại lý: ${distribution.withdrawPercent}% ví rút, ${distribution.reconsumptionPercent}% ví tiêu dùng, ${distribution.taxPercent}% thuế (trừ luôn).`}
         actions={
           <>
             <DatePicker
@@ -434,7 +476,7 @@ const MonthlySalary: React.FC = () => {
             />
             <Button
               icon={<ReloadOutlined />}
-              onClick={() => (activeTab === 'history' ? fetchHistory() : fetchEligible())}
+              onClick={() => (activeTab === 'history' ? fetchHistory() : fetchEligible(tier))}
               loading={loading || historyLoading}
             >
               Tải lại
@@ -442,16 +484,6 @@ const MonthlySalary: React.FC = () => {
           </>
         }
       />
-
-      {!loading && !closed && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={`Tháng ${month.format('MM/YYYY')} chưa chốt doanh số`}
-          description="Vào Monthly Rewards → Tính toán & Chốt số để chốt tháng này trước, sau đó quay lại trả lương."
-        />
-      )}
 
       {!loading && !payable && (
         <Alert
@@ -468,12 +500,12 @@ const MonthlySalary: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={8}>
           <Card>
-            <Statistic title="User đạt chuẩn (C1+)" value={rows.length} />
+            <Statistic title={`User đạt mốc ${tierText(tier.min, tier.max)}`} value={rows.length} />
           </Card>
         </Col>
         <Col xs={24} sm={8}>
           <Card>
-            <Statistic title="Đã nhận lương" value={paidUsers} suffix={`/ ${rows.length}`} />
+            <Statistic title="Đã nhận lương tháng này" value={paidUsers} suffix={`/ ${rows.length}`} />
           </Card>
         </Col>
         <Col xs={24} sm={8}>
@@ -495,44 +527,73 @@ const MonthlySalary: React.FC = () => {
           items={[
             {
               key: 'eligible',
-              label: 'Danh sách đạt chuẩn',
+              label: 'Danh sách đạt mốc',
               children: (
                 <>
-                  <Space wrap style={{ marginBottom: 16 }}>
+                  <Space wrap align="end" style={{ marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 4 }}>DS tính thưởng từ (≥)</div>
+                      <InputNumber
+                        min={0}
+                        step={100}
+                        placeholder="VD: 1000"
+                        value={draftTier.min}
+                        onChange={(v) => setDraftTier((t) => ({ ...t, min: v ?? null }))}
+                        style={{ width: 160 }}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, marginBottom: 4 }}>đến dưới (&lt;, bỏ trống = không giới hạn)</div>
+                      <InputNumber
+                        min={0}
+                        step={100}
+                        placeholder="VD: 5000"
+                        value={draftTier.max}
+                        onChange={(v) => setDraftTier((t) => ({ ...t, max: v ?? null }))}
+                        style={{ width: 160 }}
+                      />
+                    </div>
+                    <Button
+                      type="primary"
+                      icon={<FilterOutlined />}
+                      onClick={() => fetchEligible(draftTier)}
+                      loading={loading}
+                    >
+                      Lọc theo mốc
+                    </Button>
                     <Input
                       placeholder="Tìm username / tên / email..."
                       prefix={<SearchOutlined />}
                       allowClear
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      style={{ width: 260, maxWidth: '100%' }}
-                    />
-                    <Select
-                      mode="multiple"
-                      allowClear
-                      placeholder="Lọc cấp bậc"
-                      value={rankFilter}
-                      onChange={setRankFilter}
-                      options={RANKS.map((r) => ({ label: r, value: r }))}
-                      style={{ minWidth: 180, maxWidth: '100%' }}
+                      style={{ width: 240, maxWidth: '100%' }}
                     />
                     <Button
                       type="primary"
                       icon={<DollarOutlined />}
-                      disabled={!payable || selectedIds.length === 0}
+                      disabled={!canPay || selectedIds.length === 0}
                       onClick={() =>
                         openPay(rows.filter((r) => selectedIds.includes(r.userId)))
                       }
                     >
-                      Cộng lương cho {selectedIds.length} user đã chọn
+                      Trả lương cho {selectedIds.length} user đã chọn
                     </Button>
                   </Space>
+                  {!tierReady && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: 12 }}
+                      message="Nhập mốc doanh số tính thưởng rồi bấm “Lọc theo mốc” để trả lương. Mỗi lần trả áp dụng cho một mốc."
+                    />
+                  )}
                   <Table
                     rowKey="userId"
                     dataSource={filteredRows}
                     columns={eligibleColumns}
                     loading={loading}
-                    scroll={{ x: 1100 }}
+                    scroll={{ x: 1200 }}
                     size="middle"
                     pagination={{
                       pageSize: 50,
@@ -586,7 +647,7 @@ const MonthlySalary: React.FC = () => {
                     dataSource={history}
                     columns={historyColumns}
                     loading={historyLoading}
-                    scroll={{ x: 1400 }}
+                    scroll={{ x: 1650 }}
                     size="middle"
                     pagination={{
                       current: historyPage,
@@ -609,11 +670,11 @@ const MonthlySalary: React.FC = () => {
       </Card>
 
       <Modal
-        title={`Cộng lương tháng ${month.format('MM/YYYY')}`}
+        title={`Trả lương tháng ${month.format('MM/YYYY')}`}
         open={!!payTargets}
         onCancel={() => !paying && setPayTargets(null)}
         onOk={submitPay}
-        okText="Xác nhận cộng lương"
+        okText="Xác nhận trả lương"
         cancelText="Hủy"
         confirmLoading={paying}
         destroyOnClose
@@ -621,14 +682,18 @@ const MonthlySalary: React.FC = () => {
         {payTargets && (
           <>
             <div style={{ marginBottom: 12 }}>
+              <div>
+                Mốc doanh số tính thưởng:{' '}
+                <Tag color="orange">{tierText(tier.min, tier.max)}</Tag>
+              </div>
               {payTargets.length === 1 ? (
                 <Text>
-                  User: <Text strong>{payTargets[0].username}</Text>{' '}
-                  <Tag color="blue">{payTargets[0].rank}</Tag>
+                  User: <Text strong>{payTargets[0].username}</Text> (DS tính thưởng{' '}
+                  {money(payTargets[0].rewardSales)})
                 </Text>
               ) : (
                 <Text>
-                  Cộng cùng số tiền cho <Text strong>{payTargets.length}</Text> user đã chọn.
+                  Trả cùng mức lương cho <Text strong>{payTargets.length}</Text> user đã chọn.
                 </Text>
               )}
             </div>
@@ -660,7 +725,7 @@ const MonthlySalary: React.FC = () => {
                 <InputNumber style={{ width: '100%' }} min={0} step={10} placeholder="VD: 100" />
               </Form.Item>
               <Form.Item name="note" label="Ghi chú">
-                <Input.TextArea rows={2} maxLength={500} placeholder="VD: Lương tháng C1" />
+                <Input.TextArea rows={2} maxLength={500} placeholder="VD: Lương mốc 1.000 – 5.000" />
               </Form.Item>
             </Form>
             {Number(amount) > 0 &&

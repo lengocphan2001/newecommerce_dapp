@@ -1,19 +1,15 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { SalaryPayment } from './entities/salary-payment.entity';
-import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 import { User } from '../user/entities/user.entity';
-import { MONTHLY_RANK_ORDER } from '../common/constants/ranks';
 import { runWithDeadlockRetry } from '../common/utils';
 import { AgentPoolService } from '../agent-pool/agent-pool.service';
+import { AdminService } from '../admin/admin.service';
 import { PaySalaryDto } from './dto/pay-salary.dto';
 
-/** Lowest rank that earns a monthly salary. */
-export const SALARY_MIN_RANK = 'C1';
-
 /**
- * Salaries are paid on this day of the month, for the previous month's closed
+ * Salaries are paid on this day of the month, for the previous month's
  * results: the salary for 2026-08 can be paid from 2026-09-10 onwards.
  */
 export const SALARY_PAY_DAY = 10;
@@ -25,18 +21,37 @@ function roundAmount(n: number): number {
   return Math.round(n * 1e8) / 1e8;
 }
 
-function isSalaryRank(rank: string | null | undefined): boolean {
-  return (
-    MONTHLY_RANK_ORDER.indexOf(rank || 'C0') >=
-    MONTHLY_RANK_ORDER.indexOf(SALARY_MIN_RANK)
-  );
-}
-
 /** First moment (server local time) the salary for `month` can be paid. */
 export function salaryPayableFrom(month: string): Date {
   const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
   // monthNumber is 1-based, so as a JS month index it already means "next month".
   return new Date(year, monthNumber, SALARY_PAY_DAY, 0, 0, 0, 0);
+}
+
+/**
+ * Whether reward sales fall in a salary tier: at least `minSales` and, when
+ * the tier is bounded, below `maxSales`. The upper bound is exclusive so
+ * adjacent tiers (e.g. 1000-5000 and 5000-10000) never overlap.
+ */
+export function inSalaryTier(
+  rewardSales: number,
+  minSales: number,
+  maxSales?: number | null,
+): boolean {
+  return (
+    rewardSales > 0 &&
+    rewardSales >= minSales &&
+    (maxSales === null || maxSales === undefined || rewardSales < maxSales)
+  );
+}
+
+function parseOptionalSales(raw: unknown, name: string): number | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new BadRequestException(`${name} must be a non-negative number`);
+  }
+  return n;
 }
 
 @Injectable()
@@ -46,10 +61,9 @@ export class SalaryService {
   constructor(
     @InjectRepository(SalaryPayment)
     private readonly salaryPaymentRepo: Repository<SalaryPayment>,
-    @InjectRepository(UserMonthlyStats)
-    private readonly monthlyStatsRepo: Repository<UserMonthlyStats>,
     private readonly dataSource: DataSource,
     private readonly agentPoolService: AgentPoolService,
+    private readonly adminService: AdminService,
   ) {}
 
   private assertMonth(month: string | undefined): string {
@@ -59,25 +73,41 @@ export class SalaryService {
     return month;
   }
 
+  private assertTier(minSales: number, maxSales: number | null) {
+    if (maxSales !== null && maxSales <= minSales) {
+      throw new BadRequestException('maxSales must be greater than minSales');
+    }
+  }
+
   /**
-   * Agents who qualify for a salary in a closed month, with what has already
-   * been paid to them for that month.
-   *
-   * Qualification is read from `user_monthly_stats`, i.e. the result of the
-   * monthly closing, so a month that has not been closed has no one to pay.
+   * Reward sales ("doanh số tính thưởng") of every user for a month: the weak
+   * binary branch sales, as shown on the admin monthly sales page.
    */
-  async getEligibleUsers(monthRaw: string) {
+  private async getRewardSales(month: string) {
+    const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
+    return this.adminService.getMonthlyBranchSales(year, monthNumber);
+  }
+
+  /**
+   * Users whose reward sales for the month fall in the requested tier, with
+   * what has already been paid to them for that month.
+   */
+  async getEligibleUsers(
+    monthRaw: string,
+    minSalesRaw?: unknown,
+    maxSalesRaw?: unknown,
+  ) {
     const month = this.assertMonth(monthRaw);
+    const minSales = parseOptionalSales(minSalesRaw, 'minSales') ?? 0;
+    const maxSales = parseOptionalSales(maxSalesRaw, 'maxSales');
+    this.assertTier(minSales, maxSales);
     const payableFrom = salaryPayableFrom(month);
 
-    const stats = await this.monthlyStatsRepo.find({
-      where: { month },
-      relations: ['user'],
-    });
+    const sales = (await this.getRewardSales(month)).filter((r) =>
+      inSalaryTier(r.weakSales, minSales, maxSales),
+    );
 
-    const eligible = stats.filter((s) => isSalaryRank(s.calculatedRank));
-
-    const paidRows = eligible.length
+    const paidRows = sales.length
       ? await this.salaryPaymentRepo
           .createQueryBuilder('p')
           .select('p.userId', 'userId')
@@ -86,7 +116,7 @@ export class SalaryService {
           .addSelect('MAX(p.createdAt)', 'lastPaidAt')
           .where('p.month = :month', { month })
           .andWhere('p.userId IN (:...userIds)', {
-            userIds: eligible.map((s) => s.userId),
+            userIds: sales.map((r) => r.userId),
           })
           .groupBy('p.userId')
           .getRawMany<{
@@ -98,33 +128,29 @@ export class SalaryService {
       : [];
     const paidMap = new Map(paidRows.map((r) => [r.userId, r]));
 
-    const rows = eligible
-      .map((s) => {
-        const paid = paidMap.get(s.userId);
+    const rows = sales
+      .map((r) => {
+        const paid = paidMap.get(r.userId);
         return {
-          userId: s.userId,
-          username: s.user?.username || '',
-          fullName: s.user?.fullName || '',
-          email: s.user?.email || '',
-          rank: s.calculatedRank,
-          personalSales: Number(s.personalSales) || 0,
-          groupSales: Number(s.groupSales) || 0,
-          isProcessed: s.isProcessed,
+          userId: r.userId,
+          username: r.username,
+          fullName: r.fullName,
+          email: r.email,
+          personalSales: r.personalSales,
+          leftSales: r.leftSales,
+          rightSales: r.rightSales,
+          rewardSales: r.weakSales,
           paidAmount: paid ? parseFloat(paid.paidAmount) || 0 : 0,
           paidCount: paid ? parseInt(paid.paidCount, 10) || 0 : 0,
           lastPaidAt: paid?.lastPaidAt ?? null,
         };
       })
-      .sort(
-        (a, b) =>
-          MONTHLY_RANK_ORDER.indexOf(b.rank) -
-            MONTHLY_RANK_ORDER.indexOf(a.rank) || b.groupSales - a.groupSales,
-      );
+      .sort((a, b) => b.rewardSales - a.rewardSales);
 
     return {
       month,
-      closed: stats.length > 0,
-      minRank: SALARY_MIN_RANK,
+      minSales,
+      maxSales,
       payDay: SALARY_PAY_DAY,
       payableFrom,
       payable: Date.now() >= payableFrom.getTime(),
@@ -134,14 +160,22 @@ export class SalaryService {
   }
 
   /**
-   * Pay a salary to each listed agent and record one `salary_payments` row per
-   * user. Paid the same way as an agent pool reward: the gross amount is split
-   * with the shared wallet distribution from `system_config` (default 70%
-   * withdraw wallet / 20% reconsumption wallet / 10% tax deducted), using the
-   * same rounding. All or nothing: if any user does not qualify, nobody is paid.
+   * Pay a salary to each listed user and record one `salary_payments` row per
+   * user. Every user must have reward sales for the month inside the tier
+   * (recomputed here, not trusted from the client), or nobody is paid.
+   *
+   * Paid the same way as an agent pool reward: the gross amount is split with
+   * the shared wallet distribution from `system_config` (default 70% withdraw
+   * wallet / 20% reconsumption wallet / 10% tax deducted), same rounding.
    */
   async paySalaries(dto: PaySalaryDto, paidBy: string) {
     const month = this.assertMonth(dto.month);
+    const minSales = Number(dto.minSales);
+    const maxSales =
+      dto.maxSales === undefined || dto.maxSales === null
+        ? null
+        : Number(dto.maxSales);
+    this.assertTier(minSales, maxSales);
     const note = (dto.note || '').trim().slice(0, 500) || null;
 
     const payableFrom = salaryPayableFrom(month);
@@ -171,22 +205,27 @@ export class SalaryService {
       };
     });
 
-    const stats = await this.monthlyStatsRepo.find({
-      where: { month, userId: In(items.map((i) => i.userId)) },
-      relations: ['user'],
-    });
-    const statsMap = new Map(stats.map((s) => [s.userId, s]));
+    const salesMap = new Map(
+      (await this.getRewardSales(month)).map((r) => [r.userId, r]),
+    );
 
     const notEligible = items.filter(
-      (i) => !isSalaryRank(statsMap.get(i.userId)?.calculatedRank),
+      (i) =>
+        !inSalaryTier(
+          salesMap.get(i.userId)?.weakSales ?? 0,
+          minSales,
+          maxSales,
+        ),
     );
     if (notEligible.length > 0) {
+      const tierText =
+        maxSales === null ? `≥ ${minSales}` : `${minSales} – dưới ${maxSales}`;
       const names = notEligible
         .slice(0, 10)
-        .map((i) => statsMap.get(i.userId)?.user?.username || i.userId)
+        .map((i) => salesMap.get(i.userId)?.username || i.userId)
         .join(', ');
       throw new BadRequestException(
-        `${notEligible.length} user không đạt ${SALARY_MIN_RANK} trở lên trong tháng ${month} (hoặc tháng chưa chốt): ${names}`,
+        `${notEligible.length} user không đạt mốc doanh số tính thưởng ${tierText} trong tháng ${month}: ${names}`,
       );
     }
 
@@ -218,7 +257,9 @@ export class SalaryService {
               manager.create(SalaryPayment, {
                 userId: item.userId,
                 month,
-                rank: statsMap.get(item.userId)!.calculatedRank,
+                rewardSales: salesMap.get(item.userId)!.weakSales,
+                tierMin: minSales,
+                tierMax: maxSales,
                 amount: item.amount,
                 withdrawAmount: item.withdrawAmount,
                 reconsumptionAmount: item.reconsumptionAmount,
@@ -246,7 +287,7 @@ export class SalaryService {
     const totalTaxAmount = sum((i) => i.taxAmount);
 
     this.logger.log(
-      `[ADMIN] salary month=${month} users=${items.length} total=${totalAmount} withdraw=${totalWithdrawAmount} reconsumption=${totalReconsumptionAmount} tax=${totalTaxAmount} USDT by=${paidBy}. Split: withdraw ${distribution.withdrawPercent}%, reconsumption ${distribution.reconsumptionPercent}%, tax ${distribution.taxPercent}%.`,
+      `[ADMIN] salary month=${month} tier=${minSales}-${maxSales ?? '∞'} users=${items.length} total=${totalAmount} withdraw=${totalWithdrawAmount} reconsumption=${totalReconsumptionAmount} tax=${totalTaxAmount} USDT by=${paidBy}. Split: withdraw ${distribution.withdrawPercent}%, reconsumption ${distribution.reconsumptionPercent}%, tax ${distribution.taxPercent}%.`,
     );
 
     return {
@@ -319,7 +360,9 @@ export class SalaryService {
         fullName: p.user?.fullName || '',
         email: p.user?.email || '',
         month: p.month,
-        rank: p.rank,
+        rewardSales: p.rewardSales,
+        tierMin: p.tierMin,
+        tierMax: p.tierMax,
         amount: p.amount,
         withdrawAmount: p.withdrawAmount,
         reconsumptionAmount: p.reconsumptionAmount,

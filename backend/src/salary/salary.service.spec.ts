@@ -2,7 +2,7 @@ import {
   AgentPoolService,
   WalletDistribution,
 } from '../agent-pool/agent-pool.service';
-import { salaryPayableFrom } from './salary.service';
+import { inSalaryTier, salaryPayableFrom } from './salary.service';
 
 describe('salaryPayableFrom', () => {
   it('opens on the 10th of the following month', () => {
@@ -18,6 +18,24 @@ describe('salaryPayableFrom', () => {
     expect([d.getFullYear(), d.getMonth() + 1, d.getDate()]).toEqual([
       2027, 1, 10,
     ]);
+  });
+});
+
+describe('inSalaryTier', () => {
+  it('includes the lower bound and excludes the upper bound', () => {
+    expect(inSalaryTier(1000, 1000, 5000)).toBe(true);
+    expect(inSalaryTier(4999.99, 1000, 5000)).toBe(true);
+    expect(inSalaryTier(5000, 1000, 5000)).toBe(false);
+    expect(inSalaryTier(999.99, 1000, 5000)).toBe(false);
+  });
+
+  it('has no upper bound when maxSales is missing', () => {
+    expect(inSalaryTier(1_000_000, 5000, null)).toBe(true);
+    expect(inSalaryTier(1_000_000, 5000)).toBe(true);
+  });
+
+  it('never matches users without reward sales', () => {
+    expect(inSalaryTier(0, 0, null)).toBe(false);
   });
 });
 

@@ -729,7 +729,6 @@ export class AuthService {
         fromUserId: null,
         fromUser: null,
         salaryMonth: s.month,
-        salaryRank: s.rank,
         withdrawAmount: s.withdrawAmount,
         reconsumptionAmount: s.reconsumptionAmount,
         taxAmount: s.taxAmount,
@@ -783,7 +782,6 @@ export class AuthService {
         taxAmount:
           c.taxAmount === undefined ? null : formatDecimal(c.taxAmount),
         salaryMonth: c.salaryMonth ?? null,
-        salaryRank: c.salaryRank ?? null,
       };
     });
 

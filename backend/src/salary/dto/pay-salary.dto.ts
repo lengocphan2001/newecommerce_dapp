@@ -28,6 +28,18 @@ export class PaySalaryDto {
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'month must be YYYY-MM' })
   month: string;
 
+  /** Salary tier lower bound (inclusive) on the month's reward sales, USD. */
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.00000001, { message: 'minSales must be greater than 0' })
+  minSales: number;
+
+  /** Salary tier upper bound (exclusive), omitted for an open-ended tier. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  maxSales?: number;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(1000)

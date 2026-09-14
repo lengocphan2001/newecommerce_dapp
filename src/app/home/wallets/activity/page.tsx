@@ -262,11 +262,7 @@ export default function ActivityPage() {
           ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-        const salaryRankInfo =
-          isSalary && activity.salaryRank ? `${t('rank')}: ${activity.salaryRank}` : '';
-        const description = isSalary
-          ? [datetimeStr, salaryRankInfo].filter(Boolean).join(' • ')
-          : isPoolReward
+        const description = isPoolReward
           ? datetimeStr
           : (datetimeStr
             ? `${datetimeStr} • ${fromMemberInfo}`
