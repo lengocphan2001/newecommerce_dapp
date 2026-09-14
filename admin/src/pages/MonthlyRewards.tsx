@@ -19,7 +19,7 @@ import {
   Empty,
   Breadcrumb,
 } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../services/api';
 import PageHeader from '../components/PageHeader';
@@ -28,6 +28,7 @@ import StatusTag, {
   MONTHLY_PROCESSED_TAGS,
 } from '../components/StatusTag';
 import { shortIdColumn } from '../utils/tableColumns';
+import { downloadExcel, MONEY_FORMAT, PERCENT_FORMAT } from '../utils/excel';
 
 const { Text } = Typography;
 
@@ -441,6 +442,154 @@ const MonthlyRewards: React.FC = () => {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+
+  const rankText = (rank?: string) =>
+    !rank || rank === 'C0' ? 'Chưa xếp hạng' : rank === 'DAILY' ? 'Đại lý' : rank;
+
+  const runExport = async (work: () => Promise<void>) => {
+    try {
+      setExporting(true);
+      await work();
+      message.success('Đã xuất file Excel');
+    } catch (e: any) {
+      message.error(`Xuất Excel thất bại${e?.message ? `: ${e.message}` : ''}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  /** Bảng doanh số & thưởng của tháng đang chọn (tab Tính toán & Chốt số). */
+  const exportMonthlyStats = () => {
+    if (!monthlyDate) return;
+    const monthStr = monthlyDate.format('YYYY-MM');
+    const rows = monthlyStatsData;
+    const sum = (pick: (r: any) => any) =>
+      rows.reduce((s: number, r: any) => s + (Number(pick(r)) || 0), 0);
+    const totalReward = (r: any) =>
+      (Number(r.groupRewardAmount) || 0) + (Number(r.globalShareAmount) || 0);
+
+    return runExport(() =>
+      downloadExcel<any>({
+        fileName: `monthly-rewards-${monthStr}`,
+        sheetName: `Thuong thang ${monthStr}`,
+        titleLines: [
+          `Monthly Rewards tháng ${monthStr}`,
+          `Tổng doanh số toàn quốc: ${money(totalNationalSales)} USD • ${rows.length} thành viên • Xuất lúc ${dayjs().format('DD/MM/YYYY HH:mm')}`,
+        ],
+        columns: [
+          { header: 'STT', width: 6, value: (_r, i) => i + 1 },
+          { header: 'User ID', width: 38, value: (r) => r.userId },
+          { header: 'Username', width: 18, value: (r) => r.user?.username },
+          { header: 'Họ tên', width: 24, value: (r) => r.user?.fullName },
+          { header: 'Email', width: 28, value: (r) => r.user?.email },
+          { header: 'Cấp bậc tháng', width: 15, value: (r) => rankText(r.calculatedRank) },
+          {
+            header: 'Doanh số cá nhân (USD)',
+            width: 22,
+            numFmt: MONEY_FORMAT,
+            value: (r) => Number(r.personalSales) || 0,
+          },
+          {
+            header: 'Doanh số nhóm (USD)',
+            width: 22,
+            numFmt: MONEY_FORMAT,
+            value: (r) => Number(r.groupSales) || 0,
+          },
+          {
+            header: 'Tỷ lệ thưởng nhóm',
+            width: 18,
+            numFmt: PERCENT_FORMAT,
+            value: (r) => Number(r.groupRewardRate) || 0,
+          },
+          {
+            header: 'Thưởng nhóm T3 (USD)',
+            width: 22,
+            numFmt: MONEY_FORMAT,
+            value: (r) => Number(r.groupRewardAmount) || 0,
+          },
+          {
+            header: 'Đồng chia T4 (USD)',
+            width: 20,
+            numFmt: MONEY_FORMAT,
+            value: (r) => Number(r.globalShareAmount) || 0,
+          },
+          { header: 'Tổng thưởng (USD)', width: 20, numFmt: MONEY_FORMAT, value: totalReward },
+          {
+            header: 'Trạng thái',
+            width: 18,
+            value: (r) => MONTHLY_PROCESSED_TAGS[String(!!r.isProcessed)]?.label,
+          },
+        ],
+        rows,
+        totals: [
+          'Tổng',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          sum((r) => r.personalSales),
+          sum((r) => r.groupSales),
+          undefined,
+          sum((r) => r.groupRewardAmount),
+          sum((r) => r.globalShareAmount),
+          sum(totalReward),
+          undefined,
+        ],
+      }),
+    );
+  };
+
+  /** Lịch sử chốt ví (hoa hồng Tầng 3 / Tầng 4) đang hiển thị. */
+  const exportPayoutHistory = () =>
+    runExport(() =>
+      downloadExcel<any>({
+        fileName: `monthly-rewards-payout-history-${dayjs().format('YYYYMMDD-HHmm')}`,
+        sheetName: 'Lich su chot vi',
+        titleLines: [
+          'Lịch sử chốt ví thưởng tháng (Tầng 3 & Tầng 4)',
+          `${payoutHistory.length} giao dịch • Xuất lúc ${dayjs().format('DD/MM/YYYY HH:mm')}`,
+        ],
+        columns: [
+          { header: 'STT', width: 6, value: (_r, i) => i + 1 },
+          { header: 'ID giao dịch', width: 38, value: (r) => r.id },
+          { header: 'User ID', width: 38, value: (r) => r.userId },
+          { header: 'Username', width: 18, value: (r) => r.user?.username },
+          { header: 'Họ tên', width: 24, value: (r) => r.user?.fullName },
+          {
+            header: 'Loại hoa hồng',
+            width: 18,
+            value: (r) => (r.type === 'group_monthly' ? 'Thưởng nhóm T3' : 'Đồng chia T4'),
+          },
+          {
+            header: 'Số tiền (USD)',
+            width: 16,
+            numFmt: MONEY_FORMAT,
+            value: (r) => Number(r.amount) || 0,
+          },
+          { header: 'Ghi chú chốt', width: 60, value: (r) => r.notes },
+          { header: 'Trạng thái', width: 12, value: (r) => String(r.status || '').toUpperCase() },
+          {
+            header: 'Ngày chốt',
+            width: 18,
+            numFmt: 'dd/mm/yyyy hh:mm',
+            value: (r) => (r.createdAt ? dayjs(r.createdAt).toDate() : null),
+          },
+        ],
+        rows: payoutHistory,
+        totals: [
+          'Tổng',
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          payoutHistory.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0),
+        ],
+      }),
+    );
+
   useEffect(() => {
     if (activeTab === 'calculate') {
       fetchMonthlyStats();
@@ -468,6 +617,14 @@ const MonthlyRewards: React.FC = () => {
               />
               <Button icon={<ReloadOutlined />} onClick={fetchMonthlyStats} loading={monthlyLoading}>
                 Làm mới
+              </Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={exportMonthlyStats}
+                loading={exporting}
+                disabled={monthlyLoading || monthlyStatsData.length === 0}
+              >
+                Xuất Excel
               </Button>
             </Space>
             <Space>
@@ -585,6 +742,14 @@ const MonthlyRewards: React.FC = () => {
 
         <Tabs.TabPane tab="Lịch sử chốt ví" key="history">
           <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end' , gap: 12 }}>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={exportPayoutHistory}
+              loading={exporting}
+              disabled={historyLoading || payoutHistory.length === 0}
+            >
+              Xuất Excel
+            </Button>
             <Button icon={<ReloadOutlined />} onClick={fetchPayoutHistory} loading={historyLoading}>
               Làm mới lịch sử
             </Button>
