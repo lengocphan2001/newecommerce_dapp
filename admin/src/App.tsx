@@ -37,6 +37,7 @@ import BlockchainSettings from './pages/BlockchainSettings';
 import HeapReward from './pages/HeapReward';
 import MonthlySales from './pages/MonthlySales';
 import AgentPool from './pages/AgentPool';
+import MonthlySalary from './pages/MonthlySalary';
 import ProductTypes from './pages/ProductTypes';
 import './App.css';
 
@@ -439,6 +440,18 @@ function App() {
                   <AdminOnlyRoute>
                     <AdminLayout>
                       <AgentPool />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monthly-salary"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <MonthlySalary />
                     </AdminLayout>
                   </AdminOnlyRoute>
                 </PrivateRoute>

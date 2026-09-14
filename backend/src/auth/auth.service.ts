@@ -34,6 +34,7 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
 import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
 import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
+import { SalaryPayment } from '../salary/entities/salary-payment.entity';
 
 @Injectable()
 export class AuthService {
@@ -62,6 +63,8 @@ export class AuthService {
     private heapRewardHistoryRepo: Repository<HeapRewardHistory>,
     @InjectRepository(AgentPoolHistory)
     private agentPoolHistoryRepo: Repository<AgentPoolHistory>,
+    @InjectRepository(SalaryPayment)
+    private salaryPaymentRepo: Repository<SalaryPayment>,
     private dataSource: DataSource,
   ) {}
 
@@ -684,6 +687,12 @@ export class AuthService {
       relations: ['pool'],
     });
 
+    const salaryPayments = await this.salaryPaymentRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 24,
+    });
+
     const recentActivityRaw = [
       ...recentCommissions,
       ...heapRewards.map((h: any) => ({
@@ -709,6 +718,21 @@ export class AuthService {
         withdrawAmount: h.withdrawAmount,
         reconsumptionAmount: h.reconsumptionAmount,
         taxAmount: h.taxAmount,
+      })),
+      // Lương tháng: trả giống bể đồng chia đại lý — amount là lương gộp, kèm phần chia ví / thuế.
+      ...salaryPayments.map((s) => ({
+        id: s.id,
+        type: 'SALARY',
+        amount: s.amount,
+        status: 'COMPLETED',
+        createdAt: s.createdAt,
+        fromUserId: null,
+        fromUser: null,
+        salaryMonth: s.month,
+        salaryRank: s.rank,
+        withdrawAmount: s.withdrawAmount,
+        reconsumptionAmount: s.reconsumptionAmount,
+        taxAmount: s.taxAmount,
       })),
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
@@ -758,6 +782,8 @@ export class AuthService {
             : formatDecimal(c.reconsumptionAmount),
         taxAmount:
           c.taxAmount === undefined ? null : formatDecimal(c.taxAmount),
+        salaryMonth: c.salaryMonth ?? null,
+        salaryRank: c.salaryRank ?? null,
       };
     });
 

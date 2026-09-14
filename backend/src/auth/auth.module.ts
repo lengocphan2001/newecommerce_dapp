@@ -14,6 +14,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
 import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
+import { SalaryPayment } from '../salary/entities/salary-payment.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.enti
       PasswordResetToken,
       HeapRewardHistory,
       AgentPoolHistory,
+      SalaryPayment,
     ]),
     PassportModule,
     JwtModule.registerAsync({

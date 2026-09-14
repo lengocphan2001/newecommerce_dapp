@@ -232,6 +232,7 @@ const dict: Dict = {
   heapRewardCommission: "Chia sẻ lợi nhuận đơn hàng",
   heapRewardFromPool: "Chia sẻ lợi nhuận đơn hàng",
   agentPoolCommission: "Đồng hưởng lãnh đạo",
+  monthlySalary: "Lương tháng",
   groupCommission: "Hoa hồng nhóm",
   managementCommission: "Hoa hồng quản lý",
   milestoneReward: "Thưởng cột mốc",

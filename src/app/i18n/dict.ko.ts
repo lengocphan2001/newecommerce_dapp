@@ -232,6 +232,7 @@ const dict: Dict = {
   heapRewardCommission: "주문 수익 배분",
   heapRewardFromPool: "주문 수익 배분",
   agentPoolCommission: "리더십 공동 배분",
+  monthlySalary: "월급",
   groupCommission: "그룹 커미션",
   managementCommission: "관리 커미션",
   milestoneReward: "마일스톤 보상",

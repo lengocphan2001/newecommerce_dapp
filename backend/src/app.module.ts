@@ -62,6 +62,8 @@ import { AgentPoolModule } from './agent-pool/agent-pool.module';
 import { AgentPool } from './agent-pool/entities/agent-pool.entity';
 import { AgentPoolMember } from './agent-pool/entities/agent-pool-member.entity';
 import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entity';
+import { SalaryModule } from './salary/salary.module';
+import { SalaryPayment } from './salary/entities/salary-payment.entity';
 
 @Module({
   imports: [
@@ -128,6 +130,7 @@ import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entit
           AgentPool,
           AgentPoolMember,
           AgentPoolHistory,
+          SalaryPayment,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
@@ -158,6 +161,7 @@ import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entit
     MatrixRewardModule,
     HeapRewardModule,
     AgentPoolModule,
+    SalaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

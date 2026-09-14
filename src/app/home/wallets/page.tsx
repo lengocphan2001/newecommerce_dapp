@@ -509,6 +509,12 @@ export default function WalletsPage() {
     }
   };
 
+  // " 08/2026" from a salary's "2026-08" month
+  const formatSalaryMonth = (month?: string | null) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(month || '');
+    return match ? ` ${match[2]}/${match[1]}` : '';
+  };
+
   // Recent transactions - combine commissions and orders
   const allTransactions: Transaction[] = [
     // Commissions
@@ -521,6 +527,7 @@ export default function WalletsPage() {
           activityType === "INDIRECT" ||
           activityType === "HEAP_REWARD" ||
           activityType === "AGENT_POOL" ||
+          activityType === "SALARY" ||
           (activityType === "PRODUCT" && notes.startsWith("Product direct"))
         );
       })
@@ -537,6 +544,8 @@ export default function WalletsPage() {
             ? t("heapRewardCommission")
             : activityType === 'AGENT_POOL'
               ? `${t("agentPoolCommission")}${activity.poolCode ? ` ${activity.poolCode}` : ''}`
+              : activityType === 'SALARY'
+                ? `${t("monthlySalary")}${formatSalaryMonth(activity.salaryMonth)}`
               : activityType === 'GROUP'
                 ? t("groupCommission")
                 : t("managementCommission");
@@ -549,9 +558,12 @@ export default function WalletsPage() {
           status: activity.status === 'PENDING' ? t("pending") : t("completed"),
           date: formatDateSafe(activity.createdAt),
           createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
-          icon: 'call_received',
+          icon: activityType === 'SALARY' ? 'payments' : 'call_received',
           iconColor: 'text-[#13ec5b]',
-          skipWalletSplitDisplay: activityType === 'HEAP_REWARD' || activityType === 'AGENT_POOL',
+          skipWalletSplitDisplay:
+            activityType === 'HEAP_REWARD' ||
+            activityType === 'AGENT_POOL' ||
+            activityType === 'SALARY',
         };
       }) || []),
     // Orders

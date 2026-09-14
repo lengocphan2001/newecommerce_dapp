@@ -232,6 +232,7 @@ const dict: Dict = {
   heapRewardCommission: "Order Profit Sharing",
   heapRewardFromPool: "Order Profit Sharing",
   agentPoolCommission: "Leadership Co-Sharing",
+  monthlySalary: "Monthly Salary",
   groupCommission: "Group Commission",
   managementCommission: "Management Commission",
   milestoneReward: "Milestone Reward",

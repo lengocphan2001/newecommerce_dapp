@@ -53,6 +53,7 @@ import { UserMonthlyStats } from '../src/affiliate/entities/user-monthly-stats.e
 import { AgentPool } from '../src/agent-pool/entities/agent-pool.entity';
 import { AgentPoolMember } from '../src/agent-pool/entities/agent-pool-member.entity';
 import { AgentPoolHistory } from '../src/agent-pool/entities/agent-pool-history.entity';
+import { SalaryPayment } from '../src/salary/entities/salary-payment.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -157,6 +158,7 @@ async function initializeDatabase() {
       AgentPool,
       AgentPoolMember,
       AgentPoolHistory,
+      SalaryPayment,
     ],
     synchronize: false, // Enable synchronize to create tables
     logging: true,

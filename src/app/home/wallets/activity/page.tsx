@@ -122,6 +122,12 @@ export default function ActivityPage() {
     }
   };
 
+  // " 08/2026" from a salary's "2026-08" month
+  const formatSalaryMonth = (month?: string | null) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(month || '');
+    return match ? ` ${match[2]}/${match[1]}` : '';
+  };
+
   useEffect(() => {
     fetchActivityData();
   }, []);
@@ -214,7 +220,9 @@ export default function ActivityPage() {
         const notes = String(activity?.notes || '');
         const isHeapReward = activityType === 'HEAP_REWARD';
         const isAgentPool = activityType === 'AGENT_POOL';
-        const isPoolReward = isHeapReward || isAgentPool;
+        const isSalary = activityType === 'SALARY';
+        // Salary is paid like an agent pool reward, so it is shown the same way (gross).
+        const isPoolReward = isHeapReward || isAgentPool || isSalary;
         const isDirectOrProductDirect =
           activityType === 'DIRECT' ||
           activityType === 'INDIRECT' ||
@@ -227,6 +235,8 @@ export default function ActivityPage() {
           ? t('heapRewardCommission')
           : isAgentPool
             ? `${t('agentPoolCommission')}${activity.poolCode ? ` ${activity.poolCode}` : ''}`
+          : isSalary
+            ? `${t('monthlySalary')}${formatSalaryMonth(activity.salaryMonth)}`
           : activityType === 'INDIRECT'
             ? t('indirectCommission')
           : t('directCommission');
@@ -252,7 +262,11 @@ export default function ActivityPage() {
           ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-        const description = isPoolReward
+        const salaryRankInfo =
+          isSalary && activity.salaryRank ? `${t('rank')}: ${activity.salaryRank}` : '';
+        const description = isSalary
+          ? [datetimeStr, salaryRankInfo].filter(Boolean).join(' • ')
+          : isPoolReward
           ? datetimeStr
           : (datetimeStr
             ? `${datetimeStr} • ${fromMemberInfo}`
@@ -273,7 +287,7 @@ export default function ActivityPage() {
           amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
           status: ``,
           statusColor: 'text-primary',
-          icon: isPoolReward ? 'savings' : 'card_membership',
+          icon: isSalary ? 'payments' : isPoolReward ? 'savings' : 'card_membership',
           iconColor: isPoolReward ? 'text-emerald-600' : 'text-amber-500',
           iconBgColor: isPoolReward ? 'bg-emerald-500/10' : 'bg-amber-500/10',
           date: activityDate,

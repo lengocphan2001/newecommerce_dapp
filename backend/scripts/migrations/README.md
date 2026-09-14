@@ -83,3 +83,18 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-user-agen
 After running both migrations, call `POST /admin/agent-pool/members/sync-all` once: it fills
 `users.agentRank` for everybody and enrols users who already qualified before the feature
 existed. Until it runs, an F1 with an empty `agentRank` is counted at its base rank only.
+
+## Create `salary_payments` table
+
+Agents ranked C1 or above are paid a monthly salary from the "Lương tháng đại lý" admin
+page. The salary for a month is based on that month's closed results (Monthly Rewards,
+which writes `user_monthly_stats`) and can be paid from the 10th of the following month.
+Each payment is paid like an agent pool reward: it is split with the same wallet
+distribution from `system_config` (default 70% `users.withdrawWalletBalance`, 20%
+`users.reconsumptionWalletBalance`, 10% tax credited nowhere). It is recorded
+as one `salary_payments` row, which the user sees in the wallet's recent activity and on
+`/home/wallets/activity`.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-salary-payments.sql
+```

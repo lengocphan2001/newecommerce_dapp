@@ -246,6 +246,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: null,
       adminOnly: true,
     },
+    {
+      key: '/monthly-salary',
+      icon: <DollarOutlined />,
+      label: 'Lương tháng đại lý',
+      permission: null,
+      adminOnly: true,
+    },
   ];
 
   // Filter menu items based on permissions
