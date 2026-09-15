@@ -28,7 +28,7 @@ import StatusTag, {
   MONTHLY_PROCESSED_TAGS,
 } from '../components/StatusTag';
 import { shortIdColumn } from '../utils/tableColumns';
-import { downloadExcel, MONEY_FORMAT, PERCENT_FORMAT } from '../utils/excel';
+import { downloadExcel, MONEY_FORMAT } from '../utils/excel';
 
 const { Text } = Typography;
 
@@ -313,30 +313,6 @@ const MonthlyRewards: React.FC = () => {
           />
         </Card>
 
-        <Card size="small" title="Thưởng nhóm (Tầng 3)" style={{ marginBottom: 12 }}>
-          <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
-            <Descriptions.Item label="Doanh số nhóm">{money(detail.groupReward.groupSales)}</Descriptions.Item>
-            <Descriptions.Item label="Mốc đạt được">{detail.groupReward.tierLabel}</Descriptions.Item>
-            <Descriptions.Item label="Tỷ lệ theo tháng này">
-              {percent(detail.groupReward.rateThisMonth)}
-            </Descriptions.Item>
-            <Descriptions.Item label={`Tỷ lệ tháng ${detail.groupReward.prevMonth}`}>
-              {percent(detail.groupReward.prevMonthRate)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Tỷ lệ áp dụng">
-              <strong>{percent(detail.groupReward.appliedRate)}</strong>
-              {detail.groupReward.keptFromPrevMonth && (
-                <Tag color="orange" style={{ marginLeft: 8 }}>
-                  Giữ theo tháng trước (không tụt hạng)
-                </Tag>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Tiền thưởng nhóm">
-              <strong style={{ color: '#52c41a' }}>{money(detail.groupReward.amount)}</strong>
-            </Descriptions.Item>
-          </Descriptions>
-        </Card>
-
         <Card size="small" title="Đồng chia toàn quốc (Tầng 4)">
           <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Cấp bậc">
@@ -466,8 +442,6 @@ const MonthlyRewards: React.FC = () => {
     const rows = monthlyStatsData;
     const sum = (pick: (r: any) => any) =>
       rows.reduce((s: number, r: any) => s + (Number(pick(r)) || 0), 0);
-    const totalReward = (r: any) =>
-      (Number(r.groupRewardAmount) || 0) + (Number(r.globalShareAmount) || 0);
 
     return runExport(() =>
       downloadExcel<any>({
@@ -497,24 +471,11 @@ const MonthlyRewards: React.FC = () => {
             value: (r) => Number(r.groupSales) || 0,
           },
           {
-            header: 'Tỷ lệ thưởng nhóm',
-            width: 18,
-            numFmt: PERCENT_FORMAT,
-            value: (r) => Number(r.groupRewardRate) || 0,
-          },
-          {
-            header: 'Thưởng nhóm T3 (USD)',
-            width: 22,
-            numFmt: MONEY_FORMAT,
-            value: (r) => Number(r.groupRewardAmount) || 0,
-          },
-          {
             header: 'Đồng chia T4 (USD)',
             width: 20,
             numFmt: MONEY_FORMAT,
             value: (r) => Number(r.globalShareAmount) || 0,
           },
-          { header: 'Tổng thưởng (USD)', width: 20, numFmt: MONEY_FORMAT, value: totalReward },
           {
             header: 'Trạng thái',
             width: 18,
@@ -531,10 +492,7 @@ const MonthlyRewards: React.FC = () => {
           undefined,
           sum((r) => r.personalSales),
           sum((r) => r.groupSales),
-          undefined,
-          sum((r) => r.groupRewardAmount),
           sum((r) => r.globalShareAmount),
-          sum(totalReward),
           undefined,
         ],
       }),
@@ -690,18 +648,6 @@ const MonthlyRewards: React.FC = () => {
                 dataIndex: 'groupSales',
                 key: 'groupSales',
                 render: (val: number) => money(val),
-              },
-              {
-                title: 'Thưởng nhóm (Tầng 3)',
-                dataIndex: 'groupRewardAmount',
-                key: 'groupRewardAmount',
-                render: (val: number, record: any) => (
-                  <span>
-                    {money(val)}
-                    {Number(record.groupRewardRate) > 0 &&
-                      ` (${(record.groupRewardRate * 100).toFixed(1)}%)`}
-                  </span>
-                ),
               },
               {
                 title: 'Đồng chia (Tầng 4)',

@@ -29,7 +29,6 @@ import { computeRanksMap } from '../common/utils/rank-calculator';
 import {
   DAILY_RANK_MIN_PURCHASE,
   GLOBAL_SHARE_RATES,
-  GROUP_REWARD_TIERS,
   MONTHLY_RANK_ORDER,
   MONTHLY_RANK_PROMOTION_ORDER,
   MONTHLY_RANK_RULES,
@@ -44,7 +43,6 @@ export interface MonthlySnapshot {
   month: string;
   startDate: Date;
   endDate: Date;
-  prevMonthStr: string;
   users: User[];
   f1Map: Map<string, string[]>;
   /** Doanh số của cả nhánh, tính cả chính người đó. */
@@ -54,11 +52,8 @@ export interface MonthlySnapshot {
   personalSalesMap: Map<string, number>;
   groupSalesMap: Map<string, number>;
   ranksMap: Map<string, string>;
-  groupRewardRateMap: Map<string, number>;
-  groupRewardAmountMap: Map<string, number>;
   globalShareMap: Map<string, number>;
   usersByRank: Map<string, string[]>;
-  prevRatesMap: Map<string, number>;
   totalNationalSales: number;
 }
 
@@ -2159,36 +2154,10 @@ export class CommissionService {
       ),
     );
 
-    // Get previous month string
-    const prevMonthDate = new Date(y, m - 2, 1);
-    const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    // Thưởng nhóm Tầng 3 không còn: phần thưởng theo mốc doanh số giờ là
+    // lương tháng (SalaryService), tính trên doanh số tính thưởng.
 
-    // Get previous month rates map to apply "Không tụt hạng"
-    const prevStats = await this.userMonthlyStatsRepository.find({
-      where: { month: prevMonthStr },
-    });
-    const prevRatesMap = new Map(prevStats.map((s) => [s.userId, Number(s.groupRewardRate) || 0]));
-
-    // 6. Calculate Group Rewards (Tầng 3)
-    const userGroupRewardRateMap = new Map<string, number>();
-    const userGroupRewardAmountMap = new Map<string, number>();
-
-    for (const u of users) {
-      const gSales = userGroupSalesMap.get(u.id) || 0;
-      let currentMonthRate = 0;
-
-      const tier = GROUP_REWARD_TIERS.find((t) => gSales >= t.min);
-      currentMonthRate = tier ? tier.rate : 0;
-
-      // Apply "Không tụt hạng"
-      const prevRate = prevRatesMap.get(u.id) || 0;
-      const appliedRate = Math.max(currentMonthRate, prevRate);
-
-      userGroupRewardRateMap.set(u.id, appliedRate);
-      userGroupRewardAmountMap.set(u.id, gSales * appliedRate);
-    }
-
-    // 7. Calculate Global Share Rewards (Tầng 4)
+    // 6. Calculate Global Share Rewards (Tầng 4)
     // C1: 4%, C2: 2%, C3: 1%, C4-C9: 0.5% each
     const globalRates = GLOBAL_SHARE_RATES;
 
@@ -2221,7 +2190,6 @@ export class CommissionService {
       month,
       startDate,
       endDate,
-      prevMonthStr,
       users,
       f1Map,
       subtreeSalesMap,
@@ -2229,18 +2197,17 @@ export class CommissionService {
       personalSalesMap: userPersonalSalesMap,
       groupSalesMap: userGroupSalesMap,
       ranksMap,
-      groupRewardRateMap: userGroupRewardRateMap,
-      groupRewardAmountMap: userGroupRewardAmountMap,
       globalShareMap: userGlobalShareMap,
       usersByRank,
-      prevRatesMap,
       totalNationalSales,
     };
   }
 
   /**
    * Chốt doanh số tháng: ghi UserMonthlyStats, và khi performPayout = true thì
-   * tạo commission Tầng 3 / Tầng 4 và cộng vào ví người dùng.
+   * tạo commission Tầng 4 (đồng chia toàn quốc) và cộng vào ví người dùng.
+   * Thưởng nhóm Tầng 3 không còn tạo; groupRewardRate / groupRewardAmount của
+   * các tháng đã chốt trước đó được giữ nguyên.
    */
   async calculateMonthlyRewards(
     month: string,
@@ -2260,8 +2227,6 @@ export class CommissionService {
       personalSalesMap: userPersonalSalesMap,
       groupSalesMap: userGroupSalesMap,
       ranksMap,
-      groupRewardRateMap: userGroupRewardRateMap,
-      groupRewardAmountMap: userGroupRewardAmountMap,
       globalShareMap: userGlobalShareMap,
     } = snapshot;
 
@@ -2276,11 +2241,9 @@ export class CommissionService {
         const pSales = userPersonalSalesMap.get(u.id) || 0;
         const gSales = userGroupSalesMap.get(u.id) || 0;
         const r = ranksMap.get(u.id) || 'C0';
-        const rate = userGroupRewardRateMap.get(u.id) || 0;
-        const gReward = userGroupRewardAmountMap.get(u.id) || 0;
         const gShare = userGlobalShareMap.get(u.id) || 0;
 
-        if (pSales === 0 && gSales === 0 && r === 'C0' && gReward === 0 && gShare === 0) {
+        if (pSales === 0 && gSales === 0 && r === 'C0' && gShare === 0) {
           continue;
         }
 
@@ -2298,31 +2261,12 @@ export class CommissionService {
         stats.personalSales = pSales;
         stats.groupSales = gSales;
         stats.calculatedRank = r;
-        stats.groupRewardRate = rate;
-        stats.groupRewardAmount = gReward;
         stats.globalShareAmount = gShare;
 
         if (performPayout && !stats.isProcessed) {
           stats.isProcessed = true;
 
-          // 1. Payout Group Reward (Tầng 3)
-          if (gReward > 0) {
-            const commGroup = manager.create(Commission, {
-              userId: u.id,
-              amount: gReward,
-              type: CommissionType.GROUP_MONTHLY,
-              status: CommissionStatus.PENDING,
-              notes: `Thưởng nhóm đại lý tháng ${month} (Doanh số nhóm: $${gSales.toLocaleString()}, Tỷ lệ: ${(rate * 100).toFixed(1)}%)`,
-              orderAmount: gSales,
-              orderId: null,
-            });
-            await manager.save(commGroup);
-            await manager.increment(User, { id: u.id }, 'totalCommissionReceived', gReward);
-            payoutCount++;
-            totalPayoutAmount += gReward;
-          }
-
-          // 2. Payout Global Share Reward (Tầng 4)
+          // Payout Global Share Reward (Tầng 4)
           if (gShare > 0) {
             const commShare = manager.create(Commission, {
               userId: u.id,
@@ -2350,8 +2294,6 @@ export class CommissionService {
           personalSales: pSales,
           groupSales: gSales,
           calculatedRank: r,
-          groupRewardRate: rate,
-          groupRewardAmount: gReward,
           globalShareAmount: gShare,
           isProcessed: stats.isProcessed,
         });
@@ -2429,7 +2371,7 @@ export class CommissionService {
 
   /**
    * Chi tiết doanh số / cấp bậc tháng của một thành viên: F1 nào thỏa điều kiện
-   * cấp bậc, doanh số từng nhánh, cách ra tỷ lệ thưởng nhóm và tiền đồng chia.
+   * cấp bậc, doanh số từng nhánh và tiền đồng chia.
    */
   async getMonthlyUserDetail(month: string, userId: string) {
     const snapshot = await this.getMonthlySnapshot(month);
@@ -2507,11 +2449,6 @@ export class CommissionService {
       })
       .sort((a, b) => b.branchSales - a.branchSales);
 
-    const appliedRate = snapshot.groupRewardRateMap.get(userId) || 0;
-    const tier = GROUP_REWARD_TIERS.find((t) => groupSales >= t.min);
-    const rateThisMonth = tier ? tier.rate : 0;
-    const prevMonthRate = snapshot.prevRatesMap.get(userId) || 0;
-
     const poolRate = GLOBAL_SHARE_RATES[rank] || 0;
     const qualifiedSameRank = snapshot.usersByRank.get(rank) || [];
 
@@ -2546,16 +2483,6 @@ export class CommissionService {
       groupSales,
       totalMemberCount: (snapshot.subtreeCountMap.get(userId) || 1) - 1,
       f1List,
-      groupReward: {
-        groupSales,
-        tierLabel: tier ? tier.label : 'Chưa đạt mốc tối thiểu ($400)',
-        rateThisMonth,
-        prevMonth: snapshot.prevMonthStr,
-        prevMonthRate,
-        appliedRate,
-        keptFromPrevMonth: appliedRate > rateThisMonth,
-        amount: snapshot.groupRewardAmountMap.get(userId) || 0,
-      },
       globalShare: {
         rank,
         rankLabel: rankLabel(rank),
@@ -2650,13 +2577,6 @@ export class CommissionService {
         },
         {},
       ),
-      groupReward: {
-        tierLabel: detail.groupReward.tierLabel,
-        appliedRate: detail.groupReward.appliedRate,
-        rateThisMonth: detail.groupReward.rateThisMonth,
-        keptFromPrevMonth: detail.groupReward.keptFromPrevMonth,
-        amount: detail.groupReward.amount,
-      },
       globalShare: {
         poolRate: detail.globalShare.poolRate,
         qualifiedCount: detail.globalShare.qualifiedCount,

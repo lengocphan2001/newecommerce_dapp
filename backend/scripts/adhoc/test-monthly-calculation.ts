@@ -55,8 +55,8 @@ async function run() {
   console.log(`Total Payout Amount: $${result.totalPayoutAmount.toLocaleString()} USD`);
   console.log('--- USER STATS LIST ---');
   for (const stat of result.usersStats) {
-    if (stat.calculatedRank !== 'C0' || stat.groupSales > 0 || stat.groupRewardAmount > 0 || stat.globalShareAmount > 0) {
-      console.log(`User: ${stat.username || stat.email} | Rank: ${stat.calculatedRank} | Group Sales: $${stat.groupSales.toLocaleString()} | Group Reward: $${stat.groupRewardAmount.toLocaleString()} | Global Share: $${stat.globalShareAmount.toLocaleString()}`);
+    if (stat.calculatedRank !== 'C0' || stat.groupSales > 0 || stat.globalShareAmount > 0) {
+      console.log(`User: ${stat.username || stat.email} | Rank: ${stat.calculatedRank} | Group Sales: $${stat.groupSales.toLocaleString()} | Global Share: $${stat.globalShareAmount.toLocaleString()}`);
     }
   }
 

@@ -75,14 +75,6 @@ export const MONTHLY_RANK_PROMOTION_ORDER = [
 /** Upper bound on promotion passes, in case the referral tree is malformed. */
 export const MONTHLY_RANK_PROMOTION_LOOP_LIMIT = 50;
 
-/** Group sales thresholds and their group reward rate (Tầng 3), highest first. */
-export const GROUP_REWARD_TIERS = [
-  { min: 40000, rate: 0.1, label: 'Mốc 4: > $40,000' },
-  { min: 20000, rate: 0.08, label: 'Mốc 3: $20,000 - $40,000' },
-  { min: 4000, rate: 0.06, label: 'Mốc 2: $4,000 - $20,000' },
-  { min: 400, rate: 0.04, label: 'Mốc 1: $400 - $4,000' },
-];
-
 /** National pool share per rank (Tầng 4). */
 export const GLOBAL_SHARE_RATES: Record<string, number> = {
   C1: 0.04,
