@@ -87,9 +87,12 @@ existed. Until it runs, an F1 with an empty `agentRank` is counted at its base r
 ## Create `salary_payments` table
 
 Users are paid a monthly salary from the "Lương tháng" admin page when their reward
-sales ("doanh số tính thưởng", the weak binary branch sales) for the month fall in the salary
-tier the admin filters on (from X inclusive to Y exclusive; each tier can get a different
-salary). The salary for a month can be paid from the 10th of the following month.
+sales ("doanh số tính thưởng", the weak binary branch sales) for the month reach a salary
+tier: 10M–100M VND 4%, 100M–500M 6%, 500M–1B 8%, from 1B 10% (lower bound inclusive,
+upper bound exclusive). Sales are converted to VND with the USDT/VND rate from Banking
+Settings, and the salary is the month's reward sales times the tier rate, computed on the
+server. The salary for a month can be paid from the 10th of the following month, once per
+user.
 Each payment is paid like an agent pool reward: it is split with the same wallet
 distribution from `system_config` (default 70% `users.withdrawWalletBalance`, 20%
 `users.reconsumptionWalletBalance`, 10% tax credited nowhere). It is recorded
@@ -100,5 +103,7 @@ as one `salary_payments` row, which the user sees in the wallet's recent activit
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-salary-payments.sql
 ```
 
-If `salary_payments` was already created by the first version (it had a `rank` column),
-run the commented `ALTER TABLE` at the end of `create-salary-payments.sql`, or `npm run db:init`.
+If `salary_payments` already exists from an earlier version, follow the commented upgrade
+steps at the end of `create-salary-payments.sql`: check for users paid more than once in a
+month (the new unique key on `(month, userId)` can't be added while they exist), then add
+`tierCode`, `rate`, `vndRate` and the unique key.

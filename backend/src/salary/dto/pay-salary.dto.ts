@@ -1,51 +1,32 @@
-import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsNotEmpty,
-  IsNumber,
+  IsBoolean,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
-  Min,
-  ValidateNested,
 } from 'class-validator';
 
-export class SalaryPaymentItemDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
-
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.00000001, { message: 'amount must be greater than 0' })
-  amount: number;
-}
-
+/**
+ * Pay the month's salary to `userIds`, or to every qualifying user not paid yet
+ * when `all` is true. The amount is computed on the server from reward sales.
+ */
 export class PaySalaryDto {
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'month must be YYYY-MM' })
   month: string;
 
-  /** Salary tier lower bound (inclusive) on the month's reward sales, USD. */
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.00000001, { message: 'minSales must be greater than 0' })
-  minSales: number;
-
-  /** Salary tier upper bound (exclusive), omitted for an open-ended tier. */
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  maxSales?: number;
-
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(1000)
-  @ValidateNested({ each: true })
-  @Type(() => SalaryPaymentItemDto)
-  items: SalaryPaymentItemDto[];
+  @IsString({ each: true })
+  userIds?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  all?: boolean;
 
   @IsOptional()
   @IsString()

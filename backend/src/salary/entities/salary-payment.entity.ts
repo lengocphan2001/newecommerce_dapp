@@ -16,16 +16,14 @@ const decimalTransformer = {
 };
 
 /**
- * One monthly salary paid by an admin to a user whose reward sales (weak
- * binary branch sales) for the month reached the salary tier the admin
- * filtered on.
+ * One monthly salary paid to a user whose reward sales (weak binary branch
+ * sales) for the month reached a salary tier. The amount is the month's reward
+ * sales times the tier rate, computed on the server.
  *
- * The admin can pay the same user more than once for a month (e.g. a top-up),
- * so there is no unique key on (userId, month): every row is one payment and
- * the user's wallet history lists them individually.
+ * A user is paid at most once per month, enforced by the unique key.
  */
 @Entity('salary_payments')
-@Index(['month', 'userId'])
+@Index('UQ_salary_payments_month_userId', ['month', 'userId'], { unique: true })
 export class SalaryPayment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -52,7 +50,7 @@ export class SalaryPayment {
   })
   rewardSales: number;
 
-  /** Lower bound (inclusive) of the salary tier the admin paid, USD. */
+  /** Lower bound (inclusive) of the salary tier, USD at `vndRate`. */
   @Column({
     type: 'decimal',
     precision: 36,
@@ -62,7 +60,7 @@ export class SalaryPayment {
   })
   tierMin: number;
 
-  /** Upper bound (exclusive) of the salary tier, null when open-ended. */
+  /** Upper bound (exclusive) of the salary tier, USD, null when open-ended. */
   @Column({
     type: 'decimal',
     precision: 36,
@@ -71,6 +69,30 @@ export class SalaryPayment {
     transformer: decimalTransformer,
   })
   tierMax: number | null;
+
+  /** Salary tier code (T1..T4); null for payments made before automatic tiers. */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  tierCode: string | null;
+
+  /** Tier rate applied to `rewardSales`, e.g. 0.04; null for older payments. */
+  @Column({
+    type: 'decimal',
+    precision: 6,
+    scale: 4,
+    nullable: true,
+    transformer: decimalTransformer,
+  })
+  rate: number | null;
+
+  /** USDT/VND rate used to pick the tier; null for older payments. */
+  @Column({
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    nullable: true,
+    transformer: decimalTransformer,
+  })
+  vndRate: number | null;
 
   /** Gross salary in USDT, before the wallet split and tax. */
   @Column({

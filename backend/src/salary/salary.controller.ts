@@ -17,19 +17,15 @@ export class AdminSalaryController {
   constructor(private readonly salaryService: SalaryService) {}
 
   /**
-   * Users whose reward sales (weak branch sales) for the month are in the
-   * tier [minSales, maxSales), with the salary already paid for that month.
+   * Users whose reward sales (weak branch sales) for the month reach a salary
+   * tier, with their computed salary and whether it has been paid.
    */
   @Get('eligible')
-  getEligible(
-    @Query('month') month: string,
-    @Query('minSales') minSales?: string,
-    @Query('maxSales') maxSales?: string,
-  ) {
-    return this.salaryService.getEligibleUsers(month, minSales, maxSales);
+  getEligible(@Query('month') month: string) {
+    return this.salaryService.getEligibleUsers(month);
   }
 
-  /** Pay salaries to one or more users of the same tier. */
+  /** Pay the computed salary to the listed users, or to all unpaid ones. */
   @Post('pay')
   pay(
     @Body() dto: PaySalaryDto,

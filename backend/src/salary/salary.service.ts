@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { SalaryPayment } from './entities/salary-payment.entity';
 import { User } from '../user/entities/user.entity';
+import { BankingConfig } from '../admin/entities/banking-config.entity';
 import { runWithDeadlockRetry } from '../common/utils';
 import { AgentPoolService } from '../agent-pool/agent-pool.service';
 import { AdminService } from '../admin/admin.service';
 import { PaySalaryDto } from './dto/pay-salary.dto';
+import { SALARY_TIERS, computeSalary } from './salary-tiers';
 
 /**
  * Salaries are paid on this day of the month, for the previous month's
@@ -28,30 +30,11 @@ export function salaryPayableFrom(month: string): Date {
   return new Date(year, monthNumber, SALARY_PAY_DAY, 0, 0, 0, 0);
 }
 
-/**
- * Whether reward sales fall in a salary tier: at least `minSales` and, when
- * the tier is bounded, below `maxSales`. The upper bound is exclusive so
- * adjacent tiers (e.g. 1000-5000 and 5000-10000) never overlap.
- */
-export function inSalaryTier(
-  rewardSales: number,
-  minSales: number,
-  maxSales?: number | null,
-): boolean {
-  return (
-    rewardSales > 0 &&
-    rewardSales >= minSales &&
-    (maxSales === null || maxSales === undefined || rewardSales < maxSales)
+/** True for MySQL's duplicate key error (errno 1062), wrapped or not. */
+function isDuplicateKeyError(error: any): boolean {
+  return [error, error?.driverError, error?.originalError].some(
+    (e) => !!e && (Number(e.errno) === 1062 || e.code === 'ER_DUP_ENTRY'),
   );
-}
-
-function parseOptionalSales(raw: unknown, name: string): number | null {
-  if (raw === undefined || raw === null || raw === '') return null;
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) {
-    throw new BadRequestException(`${name} must be a non-negative number`);
-  }
-  return n;
 }
 
 @Injectable()
@@ -61,6 +44,8 @@ export class SalaryService {
   constructor(
     @InjectRepository(SalaryPayment)
     private readonly salaryPaymentRepo: Repository<SalaryPayment>,
+    @InjectRepository(BankingConfig)
+    private readonly bankingConfigRepo: Repository<BankingConfig>,
     private readonly dataSource: DataSource,
     private readonly agentPoolService: AgentPoolService,
     private readonly adminService: AdminService,
@@ -73,64 +58,64 @@ export class SalaryService {
     return month;
   }
 
-  private assertTier(minSales: number, maxSales: number | null) {
-    if (maxSales !== null && maxSales <= minSales) {
-      throw new BadRequestException('maxSales must be greater than minSales');
-    }
+  /** USDT/VND rate from Banking Settings, or null when it is not configured. */
+  private async getVndRate(): Promise<number | null> {
+    const config = await this.bankingConfigRepo.findOne({ where: { id: 1 } });
+    const rate = Number(config?.usdtPriceVnd);
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
   }
 
   /**
-   * Reward sales ("doanh số tính thưởng") of every user for a month: the weak
-   * binary branch sales, as shown on the admin monthly sales page.
+   * Users whose reward sales ("doanh số tính thưởng", the weak binary branch
+   * sales of the month, as on the admin monthly sales page) reach a salary
+   * tier, with the tier and the computed gross salary.
    */
-  private async getRewardSales(month: string) {
+  private async getQualifyingUsers(month: string, vndRate: number) {
     const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
-    return this.adminService.getMonthlyBranchSales(year, monthNumber);
+    const sales = await this.adminService.getMonthlyBranchSales(
+      year,
+      monthNumber,
+    );
+    return sales.flatMap((r) => {
+      const { tier, rewardSalesVnd, amount } = computeSalary(
+        r.weakSales,
+        vndRate,
+      );
+      return tier ? [{ ...r, rewardSales: r.weakSales, rewardSalesVnd, tier, amount }] : [];
+    });
+  }
+
+  private async getPaymentsByUser(month: string, userIds: string[]) {
+    if (userIds.length === 0) return new Map<string, SalaryPayment>();
+    const payments = await this.salaryPaymentRepo.find({
+      where: { month, userId: In(userIds) },
+    });
+    return new Map(payments.map((p) => [p.userId, p]));
   }
 
   /**
-   * Users whose reward sales for the month fall in the requested tier, with
-   * what has already been paid to them for that month.
+   * Every user qualifying for a salary for the month, with the computed salary
+   * and its wallet split, whether it has been paid, and a summary per tier.
    */
-  async getEligibleUsers(
-    monthRaw: string,
-    minSalesRaw?: unknown,
-    maxSalesRaw?: unknown,
-  ) {
+  async getEligibleUsers(monthRaw: string) {
     const month = this.assertMonth(monthRaw);
-    const minSales = parseOptionalSales(minSalesRaw, 'minSales') ?? 0;
-    const maxSales = parseOptionalSales(maxSalesRaw, 'maxSales');
-    this.assertTier(minSales, maxSales);
     const payableFrom = salaryPayableFrom(month);
+    const [vndRate, distribution] = await Promise.all([
+      this.getVndRate(),
+      this.agentPoolService.getWalletDistribution(),
+    ]);
 
-    const sales = (await this.getRewardSales(month)).filter((r) =>
-      inSalaryTier(r.weakSales, minSales, maxSales),
+    const qualifying = vndRate
+      ? await this.getQualifyingUsers(month, vndRate)
+      : [];
+    const payments = await this.getPaymentsByUser(
+      month,
+      qualifying.map((r) => r.userId),
     );
 
-    const paidRows = sales.length
-      ? await this.salaryPaymentRepo
-          .createQueryBuilder('p')
-          .select('p.userId', 'userId')
-          .addSelect('COALESCE(SUM(p.amount), 0)', 'paidAmount')
-          .addSelect('COUNT(*)', 'paidCount')
-          .addSelect('MAX(p.createdAt)', 'lastPaidAt')
-          .where('p.month = :month', { month })
-          .andWhere('p.userId IN (:...userIds)', {
-            userIds: sales.map((r) => r.userId),
-          })
-          .groupBy('p.userId')
-          .getRawMany<{
-            userId: string;
-            paidAmount: string;
-            paidCount: string;
-            lastPaidAt: Date | string | null;
-          }>()
-      : [];
-    const paidMap = new Map(paidRows.map((r) => [r.userId, r]));
-
-    const rows = sales
+    const rows = qualifying
       .map((r) => {
-        const paid = paidMap.get(r.userId);
+        const payment = payments.get(r.userId);
         return {
           userId: r.userId,
           username: r.username,
@@ -139,30 +124,53 @@ export class SalaryService {
           personalSales: r.personalSales,
           leftSales: r.leftSales,
           rightSales: r.rightSales,
-          rewardSales: r.weakSales,
-          paidAmount: paid ? parseFloat(paid.paidAmount) || 0 : 0,
-          paidCount: paid ? parseInt(paid.paidCount, 10) || 0 : 0,
-          lastPaidAt: paid?.lastPaidAt ?? null,
+          rewardSales: r.rewardSales,
+          rewardSalesVnd: r.rewardSalesVnd,
+          tierCode: r.tier.code,
+          tierLabel: r.tier.label,
+          rate: r.tier.rate,
+          salaryAmount: r.amount,
+          ...AgentPoolService.splitRewardUsd(r.amount, distribution),
+          paid: !!payment,
+          paidAmount: payment?.amount ?? 0,
+          paidAt: payment?.createdAt ?? null,
+          paidBy: payment?.paidBy ?? null,
         };
       })
       .sort((a, b) => b.rewardSales - a.rewardSales);
 
+    const tiers = SALARY_TIERS.map((t) => {
+      const tierRows = rows.filter((r) => r.tierCode === t.code);
+      return {
+        ...t,
+        minUsd: vndRate ? roundAmount(t.minVnd / vndRate) : null,
+        maxUsd:
+          vndRate && t.maxVnd !== null ? roundAmount(t.maxVnd / vndRate) : null,
+        userCount: tierRows.length,
+        paidCount: tierRows.filter((r) => r.paid).length,
+        totalSalary: roundAmount(
+          tierRows.reduce((s, r) => s + r.salaryAmount, 0),
+        ),
+      };
+    });
+
     return {
       month,
-      minSales,
-      maxSales,
       payDay: SALARY_PAY_DAY,
       payableFrom,
       payable: Date.now() >= payableFrom.getTime(),
-      distribution: await this.agentPoolService.getWalletDistribution(),
+      vndRate,
+      distribution,
+      tiers,
       rows,
     };
   }
 
   /**
-   * Pay a salary to each listed user and record one `salary_payments` row per
-   * user. Every user must have reward sales for the month inside the tier
-   * (recomputed here, not trusted from the client), or nobody is paid.
+   * Pay the computed salary to the listed users, or to every qualifying user
+   * not paid yet when `dto.all` is set, and record one `salary_payments` row
+   * per user. Tiers and amounts are recomputed here; if any listed user does
+   * not qualify or has already been paid for the month, nobody is paid.
    *
    * Paid the same way as an agent pool reward: the gross amount is split with
    * the shared wallet distribution from `system_config` (default 70% withdraw
@@ -170,13 +178,11 @@ export class SalaryService {
    */
   async paySalaries(dto: PaySalaryDto, paidBy: string) {
     const month = this.assertMonth(dto.month);
-    const minSales = Number(dto.minSales);
-    const maxSales =
-      dto.maxSales === undefined || dto.maxSales === null
-        ? null
-        : Number(dto.maxSales);
-    this.assertTier(minSales, maxSales);
     const note = (dto.note || '').trim().slice(0, 500) || null;
+    const userIds = dto.userIds ?? [];
+    if (!dto.all && userIds.length === 0) {
+      throw new BadRequestException('Chọn user cần trả lương');
+    }
 
     const payableFrom = salaryPayableFrom(month);
     if (Date.now() < payableFrom.getTime()) {
@@ -186,98 +192,132 @@ export class SalaryService {
       );
     }
 
+    const vndRate = await this.getVndRate();
+    if (!vndRate) {
+      throw new BadRequestException(
+        'Chưa cấu hình tỉ giá USDT/VND tại Banking Settings',
+      );
+    }
     const distribution = await this.agentPoolService.getWalletDistribution();
 
-    const seen = new Set<string>();
-    const items = dto.items.map((item) => {
-      const amount = roundAmount(Number(item.amount));
-      if (amount <= 0) {
-        throw new BadRequestException(`Invalid amount for user ${item.userId}`);
-      }
-      if (seen.has(item.userId)) {
-        throw new BadRequestException(`User ${item.userId} is listed twice`);
-      }
-      seen.add(item.userId);
-      return {
-        userId: item.userId,
-        amount,
-        ...AgentPoolService.splitRewardUsd(amount, distribution),
-      };
-    });
-
-    const salesMap = new Map(
-      (await this.getRewardSales(month)).map((r) => [r.userId, r]),
+    const qualifying = new Map(
+      (await this.getQualifyingUsers(month, vndRate)).map((r) => [r.userId, r]),
     );
+    const payments = await this.getPaymentsByUser(month, [
+      ...qualifying.keys(),
+    ]);
 
-    const notEligible = items.filter(
-      (i) =>
-        !inSalaryTier(
-          salesMap.get(i.userId)?.weakSales ?? 0,
-          minSales,
-          maxSales,
-        ),
-    );
-    if (notEligible.length > 0) {
-      const tierText =
-        maxSales === null ? `≥ ${minSales}` : `${minSales} – dưới ${maxSales}`;
-      const names = notEligible
-        .slice(0, 10)
-        .map((i) => salesMap.get(i.userId)?.username || i.userId)
-        .join(', ');
-      throw new BadRequestException(
-        `${notEligible.length} user không đạt mốc doanh số tính thưởng ${tierText} trong tháng ${month}: ${names}`,
-      );
+    const nameOf = (userId: string) =>
+      qualifying.get(userId)?.username || userId;
+    const listNames = (ids: string[]) =>
+      ids.slice(0, 10).map(nameOf).join(', ');
+
+    let targets: string[];
+    if (dto.all) {
+      targets = [...qualifying.keys()].filter((id) => !payments.has(id));
+      if (targets.length === 0) {
+        throw new BadRequestException(
+          `Không còn user nào chưa nhận lương tháng ${month}`,
+        );
+      }
+    } else {
+      const unique = new Set(userIds);
+      if (unique.size !== userIds.length) {
+        throw new BadRequestException('Có user bị chọn hai lần');
+      }
+      const notQualified = userIds.filter((id) => !qualifying.has(id));
+      if (notQualified.length > 0) {
+        throw new BadRequestException(
+          `${notQualified.length} user không đạt mốc doanh số tính thưởng tháng ${month}: ${listNames(notQualified)}`,
+        );
+      }
+      const alreadyPaid = userIds.filter((id) => payments.has(id));
+      if (alreadyPaid.length > 0) {
+        throw new BadRequestException(
+          `${alreadyPaid.length} user đã nhận lương tháng ${month}: ${listNames(alreadyPaid)}`,
+        );
+      }
+      targets = userIds;
     }
 
     // Stable lock order across concurrent payouts touching the same users.
-    items.sort((a, b) => a.userId.localeCompare(b.userId));
+    const items = targets
+      .map((userId) => {
+        const q = qualifying.get(userId)!;
+        return {
+          userId,
+          q,
+          amount: q.amount,
+          ...AgentPoolService.splitRewardUsd(q.amount, distribution),
+        };
+      })
+      .sort((a, b) => a.userId.localeCompare(b.userId));
 
-    const saved = await runWithDeadlockRetry(
-      () =>
-        this.dataSource.transaction(async (manager) => {
-          const payments: SalaryPayment[] = [];
-          for (const item of items) {
-            if (item.withdrawAmount > 0) {
-              await manager.increment(
-                User,
-                { id: item.userId },
-                'withdrawWalletBalance',
-                item.withdrawAmount,
+    let saved: SalaryPayment[];
+    try {
+      saved = await runWithDeadlockRetry(
+        () =>
+          this.dataSource.transaction(async (manager) => {
+            const rows: SalaryPayment[] = [];
+            for (const item of items) {
+              if (item.withdrawAmount > 0) {
+                await manager.increment(
+                  User,
+                  { id: item.userId },
+                  'withdrawWalletBalance',
+                  item.withdrawAmount,
+                );
+              }
+              if (item.reconsumptionAmount > 0) {
+                await manager.increment(
+                  User,
+                  { id: item.userId },
+                  'reconsumptionWalletBalance',
+                  item.reconsumptionAmount,
+                );
+              }
+              const { tier } = item.q;
+              rows.push(
+                manager.create(SalaryPayment, {
+                  userId: item.userId,
+                  month,
+                  rewardSales: item.q.rewardSales,
+                  tierMin: roundAmount(tier.minVnd / vndRate),
+                  tierMax:
+                    tier.maxVnd === null
+                      ? null
+                      : roundAmount(tier.maxVnd / vndRate),
+                  tierCode: tier.code,
+                  rate: tier.rate,
+                  vndRate,
+                  amount: item.amount,
+                  withdrawAmount: item.withdrawAmount,
+                  reconsumptionAmount: item.reconsumptionAmount,
+                  taxAmount: item.taxAmount,
+                  note,
+                  paidBy,
+                }),
               );
             }
-            if (item.reconsumptionAmount > 0) {
-              await manager.increment(
-                User,
-                { id: item.userId },
-                'reconsumptionWalletBalance',
-                item.reconsumptionAmount,
-              );
-            }
-            payments.push(
-              manager.create(SalaryPayment, {
-                userId: item.userId,
-                month,
-                rewardSales: salesMap.get(item.userId)!.weakSales,
-                tierMin: minSales,
-                tierMax: maxSales,
-                amount: item.amount,
-                withdrawAmount: item.withdrawAmount,
-                reconsumptionAmount: item.reconsumptionAmount,
-                taxAmount: item.taxAmount,
-                note,
-                paidBy,
-              }),
-            );
-          }
-          return manager.save(payments);
-        }),
-      {
-        onRetry: (attempt, error: unknown) =>
-          this.logger.warn(
-            `Salary ${month}: lock conflict (attempt ${attempt}), retrying — ${error instanceof Error ? error.message : String(error)}`,
-          ),
-      },
-    );
+            return manager.save(rows);
+          }),
+        {
+          onRetry: (attempt, error: unknown) =>
+            this.logger.warn(
+              `Salary ${month}: lock conflict (attempt ${attempt}), retrying — ${error instanceof Error ? error.message : String(error)}`,
+            ),
+        },
+      );
+    } catch (error) {
+      // Another request paid one of these users in the meantime; the whole
+      // transaction was rolled back, so nobody in this request was paid.
+      if (isDuplicateKeyError(error)) {
+        throw new BadRequestException(
+          `Có user vừa được trả lương tháng ${month} bởi thao tác khác. Không ai trong lần này được trả, hãy tải lại danh sách.`,
+        );
+      }
+      throw error;
+    }
 
     const sum = (pick: (i: (typeof items)[number]) => number) =>
       roundAmount(items.reduce((total, i) => total + pick(i), 0));
@@ -287,7 +327,7 @@ export class SalaryService {
     const totalTaxAmount = sum((i) => i.taxAmount);
 
     this.logger.log(
-      `[ADMIN] salary month=${month} tier=${minSales}-${maxSales ?? '∞'} users=${items.length} total=${totalAmount} withdraw=${totalWithdrawAmount} reconsumption=${totalReconsumptionAmount} tax=${totalTaxAmount} USDT by=${paidBy}. Split: withdraw ${distribution.withdrawPercent}%, reconsumption ${distribution.reconsumptionPercent}%, tax ${distribution.taxPercent}%.`,
+      `[ADMIN] salary month=${month} users=${items.length} total=${totalAmount} withdraw=${totalWithdrawAmount} reconsumption=${totalReconsumptionAmount} tax=${totalTaxAmount} USDT vndRate=${vndRate} by=${paidBy}. Split: withdraw ${distribution.withdrawPercent}%, reconsumption ${distribution.reconsumptionPercent}%, tax ${distribution.taxPercent}%.`,
     );
 
     return {
@@ -352,6 +392,8 @@ export class SalaryService {
       .take(limit)
       .getManyAndCount();
 
+    const tierLabels = new Map(SALARY_TIERS.map((t) => [t.code, t.label]));
+
     return {
       items: items.map((p) => ({
         id: p.id,
@@ -363,6 +405,10 @@ export class SalaryService {
         rewardSales: p.rewardSales,
         tierMin: p.tierMin,
         tierMax: p.tierMax,
+        tierCode: p.tierCode,
+        tierLabel: p.tierCode ? tierLabels.get(p.tierCode) || p.tierCode : null,
+        rate: p.rate,
+        vndRate: p.vndRate,
         amount: p.amount,
         withdrawAmount: p.withdrawAmount,
         reconsumptionAmount: p.reconsumptionAmount,
