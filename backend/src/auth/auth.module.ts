@@ -15,6 +15,7 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
 import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
 import { SalaryPayment } from '../salary/entities/salary-payment.entity';
+import { RankSalaryPayment } from '../salary/entities/rank-salary-payment.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SalaryPayment } from '../salary/entities/salary-payment.entity';
       HeapRewardHistory,
       AgentPoolHistory,
       SalaryPayment,
+      RankSalaryPayment,
     ]),
     PassportModule,
     JwtModule.registerAsync({

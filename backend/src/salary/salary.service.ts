@@ -18,7 +18,7 @@ export const SALARY_PAY_DAY = 10;
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-function roundAmount(n: number): number {
+export function roundAmount(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 1e8) / 1e8;
 }
@@ -31,7 +31,7 @@ export function salaryPayableFrom(month: string): Date {
 }
 
 /** True for MySQL's duplicate key error (errno 1062), wrapped or not. */
-function isDuplicateKeyError(error: any): boolean {
+export function isDuplicateKeyError(error: any): boolean {
   return [error, error?.driverError, error?.originalError].some(
     (e) => !!e && (Number(e.errno) === 1062 || e.code === 'ER_DUP_ENTRY'),
   );

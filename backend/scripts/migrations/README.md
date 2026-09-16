@@ -107,3 +107,19 @@ If `salary_payments` already exists from an earlier version, follow the commente
 steps at the end of `create-salary-payments.sql`: check for users paid more than once in a
 month (the new unique key on `(month, userId)` can't be added while they exist), then add
 `tierCode`, `rate`, `vndRate` and the unique key.
+
+## Create `rank_salary_payments` table
+
+The "Lương tháng" admin page also pays a rank salary to C1 and C2 agents (tab "Lương cấp
+bậc C1/C2"), out of two pools built from the month's reward sales:
+
+- Pool C1: 4% of the combined reward sales of all C1 and C2 agents, shared equally among
+  them (a C2 agent also sits in the C1 pool).
+- Pool C2: 2% of the combined reward sales of the C2 agents, shared equally among them.
+
+It follows the same schedule (from the 10th of the following month, once per agent) and
+wallet split as the tier salary, and shows as "Lương tháng" in the user's wallet activity.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-rank-salary-payments.sql
+```

@@ -35,6 +35,7 @@ import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.e
 import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
 import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 import { SalaryPayment } from '../salary/entities/salary-payment.entity';
+import { RankSalaryPayment } from '../salary/entities/rank-salary-payment.entity';
 
 @Injectable()
 export class AuthService {
@@ -65,6 +66,8 @@ export class AuthService {
     private agentPoolHistoryRepo: Repository<AgentPoolHistory>,
     @InjectRepository(SalaryPayment)
     private salaryPaymentRepo: Repository<SalaryPayment>,
+    @InjectRepository(RankSalaryPayment)
+    private rankSalaryPaymentRepo: Repository<RankSalaryPayment>,
     private dataSource: DataSource,
   ) {}
 
@@ -693,6 +696,12 @@ export class AuthService {
       take: 24,
     });
 
+    const rankSalaryPayments = await this.rankSalaryPaymentRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 24,
+    });
+
     const recentActivityRaw = [
       ...recentCommissions,
       ...heapRewards.map((h: any) => ({
@@ -720,7 +729,8 @@ export class AuthService {
         taxAmount: h.taxAmount,
       })),
       // Lương tháng: trả giống bể đồng chia đại lý — amount là lương gộp, kèm phần chia ví / thuế.
-      ...salaryPayments.map((s) => ({
+      // Lương cấp bậc C1/C2 (bể C1 4%, bể C2 2%) hiển thị cùng loại lương tháng.
+      ...[...salaryPayments, ...rankSalaryPayments].map((s) => ({
         id: s.id,
         type: 'SALARY',
         amount: s.amount,

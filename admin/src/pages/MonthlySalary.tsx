@@ -21,6 +21,7 @@ import { DollarOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icon
 import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
 import PageHeader from '../components/PageHeader';
+import RankSalaryTab from './RankSalaryTab';
 
 const { Text } = Typography;
 
@@ -140,6 +141,8 @@ type PayRequest = { mode: 'selected' | 'all'; rows: EligibleRow[] };
 const MonthlySalary: React.FC = () => {
   const [month, setMonth] = useState<Dayjs>(latestPayableMonth());
   const [activeTab, setActiveTab] = useState('eligible');
+  const [rankReloadKey, setRankReloadKey] = useState(0);
+  const isRankTab = activeTab === 'rank';
 
   // Qualifying users
   const [loading, setLoading] = useState(false);
@@ -544,8 +547,14 @@ const MonthlySalary: React.FC = () => {
             />
             <Button
               icon={<ReloadOutlined />}
-              onClick={() => (activeTab === 'history' ? fetchHistory() : fetchEligible())}
-              loading={loading || historyLoading}
+              onClick={() =>
+                isRankTab
+                  ? setRankReloadKey((k) => k + 1)
+                  : activeTab === 'history'
+                    ? fetchHistory()
+                    : fetchEligible()
+              }
+              loading={!isRankTab && (loading || historyLoading)}
             >
               Tải lại
             </Button>
@@ -553,7 +562,7 @@ const MonthlySalary: React.FC = () => {
         }
       />
 
-      {!loading && !rateReady && (
+      {!isRankTab && !loading && !rateReady && (
         <Alert
           type="error"
           showIcon
@@ -563,7 +572,7 @@ const MonthlySalary: React.FC = () => {
         />
       )}
 
-      {!loading && !payable && (
+      {!isRankTab && !loading && !payable && (
         <Alert
           type="info"
           showIcon
@@ -575,66 +584,70 @@ const MonthlySalary: React.FC = () => {
         />
       )}
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {tiers.map((t) => (
-          <Col xs={24} sm={12} lg={6} key={t.code}>
-            <Card
-              size="small"
-              hoverable
-              onClick={() => setTierFilter(tierFilter === t.code ? 'all' : t.code)}
-              style={tierFilter === t.code ? { borderColor: '#10B981' } : undefined}
-            >
-              <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                <Space size={4} wrap>
-                  {tierTag(t.code, t.label)}
-                  <Text strong>{percent(t.rate)}</Text>
-                </Space>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t.minUsd === null
-                    ? 'Chưa có tỷ giá'
-                    : t.maxUsd === null
-                      ? `≥ ${money(t.minUsd)} USD`
-                      : `${money(t.minUsd)} – dưới ${money(t.maxUsd)} USD`}
-                </Text>
-                <Text>
-                  {t.userCount} user • đã trả {t.paidCount}
-                </Text>
-                <Text>
-                  Tổng lương: <Text strong>{money(t.totalSalary)}</Text> USDT
-                </Text>
-              </Space>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      {!isRankTab && (
+        <>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            {tiers.map((t) => (
+              <Col xs={24} sm={12} lg={6} key={t.code}>
+                <Card
+                  size="small"
+                  hoverable
+                  onClick={() => setTierFilter(tierFilter === t.code ? 'all' : t.code)}
+                  style={tierFilter === t.code ? { borderColor: '#10B981' } : undefined}
+                >
+                  <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                    <Space size={4} wrap>
+                      {tierTag(t.code, t.label)}
+                      <Text strong>{percent(t.rate)}</Text>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {t.minUsd === null
+                        ? 'Chưa có tỷ giá'
+                        : t.maxUsd === null
+                          ? `≥ ${money(t.minUsd)} USD`
+                          : `${money(t.minUsd)} – dưới ${money(t.maxUsd)} USD`}
+                    </Text>
+                    <Text>
+                      {t.userCount} user • đã trả {t.paidCount}
+                    </Text>
+                    <Text>
+                      Tổng lương: <Text strong>{money(t.totalSalary)}</Text> USDT
+                    </Text>
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="User đạt mốc"
-              value={rows.length}
-              suffix={vndRate ? <Text type="secondary" style={{ fontSize: 13 }}>tỷ giá {vndRate.toLocaleString('vi-VN')}</Text> : null}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic title="Đã nhận lương tháng này" value={paidRows.length} suffix={`/ ${rows.length}`} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="Lương gộp đã trả / còn phải trả (USDT)"
-              value={`${money(sumBy(paidRows, (r) => r.paidAmount))} / ${money(
-                sumBy(unpaidRows, (r) => r.salaryAmount),
-              )}`}
-              valueStyle={{ color: '#10B981', fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-      </Row>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic
+                  title="User đạt mốc"
+                  value={rows.length}
+                  suffix={vndRate ? <Text type="secondary" style={{ fontSize: 13 }}>tỷ giá {vndRate.toLocaleString('vi-VN')}</Text> : null}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic title="Đã nhận lương tháng này" value={paidRows.length} suffix={`/ ${rows.length}`} />
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic
+                  title="Lương gộp đã trả / còn phải trả (USDT)"
+                  value={`${money(sumBy(paidRows, (r) => r.paidAmount))} / ${money(
+                    sumBy(unpaidRows, (r) => r.salaryAmount),
+                  )}`}
+                  valueStyle={{ color: '#10B981', fontSize: 20 }}
+                />
+              </Card>
+            </Col>
+          </Row>
+        </>
+      )}
 
       <Card>
         <Tabs
@@ -718,6 +731,11 @@ const MonthlySalary: React.FC = () => {
                   />
                 </>
               ),
+            },
+            {
+              key: 'rank',
+              label: 'Lương cấp bậc C1/C2',
+              children: <RankSalaryTab month={month} reloadKey={rankReloadKey} />,
             },
             {
               key: 'history',
