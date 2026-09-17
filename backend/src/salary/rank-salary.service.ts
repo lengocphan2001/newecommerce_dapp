@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { RankSalaryPayment } from './entities/rank-salary-payment.entity';
 import { User } from '../user/entities/user.entity';
+import { Order, OrderStatus } from '../order/entities/order.entity';
 import { runWithDeadlockRetry } from '../common/utils';
 import { buildChildrenMap } from '../common/utils/referral-tree';
 import { computeRanksMap } from '../common/utils/rank-calculator';
@@ -34,6 +35,8 @@ export class RankSalaryService {
     private readonly paymentRepo: Repository<RankSalaryPayment>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Order)
+    private readonly orderRepo: Repository<Order>,
     private readonly dataSource: DataSource,
     private readonly agentPoolService: AgentPoolService,
     private readonly adminService: AdminService,
@@ -50,21 +53,62 @@ export class RankSalaryService {
    * C1 / C2 agents with their reward sales for the month, and the pools and
    * shares computed from them.
    *
-   * The agent rank does not depend on a month (lifetime purchases and F1
-   * ranks, as in the monthly closing), so it is the rank computed now.
+   * Only agents who were already C1 / C2 at the end of the month are paid: a
+   * promotion in a later month does not count for this month. The rank has no
+   * history, so it is recomputed as it stood then: users who signed up after
+   * the month are left out of the tree, and each lifetime purchase total is
+   * rewound by the approved orders placed after the month. A manual rank is
+   * taken as is.
    */
   private async computeMonth(month: string) {
-    const users = await this.userRepo.find({
-      select: [
-        'id',
-        'username',
-        'fullName',
-        'email',
-        'referralUserId',
-        'manualRank',
-        'totalPurchaseAmount',
-      ],
-    });
+    const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
+    // Same local-time month bounds as AdminService.getMonthlyBranchSales.
+    const monthEnd = new Date(year, monthNumber, 1, 0, 0, 0, 0);
+
+    const [users, laterOrders] = await Promise.all([
+      this.userRepo.find({
+        select: [
+          'id',
+          'username',
+          'fullName',
+          'email',
+          'referralUserId',
+          'manualRank',
+          'totalPurchaseAmount',
+        ],
+        where: { createdAt: LessThan(monthEnd) },
+      }),
+      this.orderRepo
+        .createQueryBuilder('o')
+        .select('o.userId', 'userId')
+        .addSelect('SUM(o.totalAmount)', 'amount')
+        .where('o.status IN (:...statuses)', {
+          statuses: [
+            OrderStatus.CONFIRMED,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+          ],
+        })
+        .andWhere('o.createdAt >= :monthEnd', { monthEnd })
+        .andWhere('o.userId IS NOT NULL')
+        .groupBy('o.userId')
+        .getRawMany<{ userId: string; amount: string | number | null }>(),
+    ]);
+
+    const laterPurchases = new Map(
+      laterOrders.map((r) => [r.userId, Number(r.amount) || 0]),
+    );
+    for (const u of users) {
+      const later = laterPurchases.get(u.id);
+      if (later) {
+        u.totalPurchaseAmount = Math.max(
+          0,
+          (Number(u.totalPurchaseAmount) || 0) - later,
+        );
+      }
+    }
+
     const ranksMap = computeRanksMap(
       users,
       buildChildrenMap(
@@ -83,7 +127,6 @@ export class RankSalaryService {
     );
     if (ranked.length === 0) return computeRankSalaries([]);
 
-    const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
     const sales = new Map(
       (await this.adminService.getMonthlyBranchSales(year, monthNumber)).map(
         (r) => [r.userId, r.weakSales],
@@ -187,7 +230,7 @@ export class RankSalaryService {
   /**
    * Pay the rank salary to the listed agents, or to every unpaid C1 / C2 agent
    * with a non-zero salary when `dto.all` is set. Pools and shares are
-   * recomputed here from all current members; if any listed agent is not C1 /
+   * recomputed here from everyone who was C1 / C2 at the end of the month; if any listed agent is not C1 /
    * C2, has nothing to receive, or was already paid for the month, nobody is
    * paid.
    */
