@@ -863,6 +863,38 @@ export class AgentPoolService {
     return result;
   }
 
+  /**
+   * Cấp bậc của mọi người tính theo thời gian vào bể: cấp cao nhất trong số
+   * các bể C1..C9 mà họ đã có dòng thành viên trước mốc `at`.
+   *
+   * Dùng cho các khoản chi theo tháng đã đóng (lương cấp bậc): cấp bậc không
+   * có bảng lịch sử, nhưng `agent_pool_members.createdAt` ghi lại đúng lúc một
+   * người vào bể, kể cả khi admin thêm tay. Hệ thống không tụt hạng, nên dòng
+   * đang tắt (`isActive = false`) vẫn được tính: đã vào bể trước mốc là đã đạt
+   * cấp đó tại mốc.
+   */
+  async getRanksByPoolJoin(at: Date): Promise<Map<string, string>> {
+    const rows = await this.memberRepo
+      .createQueryBuilder('m')
+      .innerJoin(AgentPool, 'p', 'p.id = m.poolId')
+      .select('m.userId', 'userId')
+      .addSelect('UPPER(TRIM(p.code))', 'poolCode')
+      .where('m.createdAt < :at', { at })
+      .andWhere('UPPER(TRIM(p.code)) IN (:...codes)', {
+        codes: AgentPoolService.SYNCED_POOL_CODES,
+      })
+      .getRawMany<{ userId: string; poolCode: string }>();
+
+    const ranks = new Map<string, string>();
+    for (const row of rows) {
+      const current = ranks.get(row.userId);
+      if (!current || isRankAtLeast(row.poolCode, current)) {
+        ranks.set(row.userId, row.poolCode);
+      }
+    }
+    return ranks;
+  }
+
   private static emptySyncResult(): AgentPoolSyncResult {
     return {
       scannedUserCount: 0,

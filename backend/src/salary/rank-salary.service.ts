@@ -1,12 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, LessThan, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { RankSalaryPayment } from './entities/rank-salary-payment.entity';
 import { User } from '../user/entities/user.entity';
-import { Order, OrderStatus } from '../order/entities/order.entity';
 import { runWithDeadlockRetry } from '../common/utils';
-import { buildChildrenMap } from '../common/utils/referral-tree';
-import { computeRanksMap } from '../common/utils/rank-calculator';
 import { AgentPoolService } from '../agent-pool/agent-pool.service';
 import { AdminService } from '../admin/admin.service';
 import { PaySalaryDto } from './dto/pay-salary.dto';
@@ -35,8 +32,6 @@ export class RankSalaryService {
     private readonly paymentRepo: Repository<RankSalaryPayment>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    @InjectRepository(Order)
-    private readonly orderRepo: Repository<Order>,
     private readonly dataSource: DataSource,
     private readonly agentPoolService: AgentPoolService,
     private readonly adminService: AdminService,
@@ -54,87 +49,35 @@ export class RankSalaryService {
    * shares computed from them.
    *
    * Only agents who were already C1 / C2 at the end of the month are paid: a
-   * promotion in a later month does not count for this month. The rank has no
-   * history, so it is recomputed as it stood then: users who signed up after
-   * the month are left out of the tree, and each lifetime purchase total is
-   * rewound by the approved orders placed after the month. A manual rank is
-   * taken as is.
+   * promotion in a later month does not count for this month. The agent rank
+   * itself has no history, so the rank here is the one the agent pools record:
+   * the highest pool of C1..C9 they had joined before the month ended
+   * (`agent_pool_members.createdAt`), which also covers the agents an admin
+   * added to a pool by hand. There is no demotion, so a membership row that has
+   * since been switched off still counts for this month.
    */
   private async computeMonth(month: string) {
     const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
     // Same local-time month bounds as AdminService.getMonthlyBranchSales.
     const monthEnd = new Date(year, monthNumber, 1, 0, 0, 0, 0);
 
-    const [users, laterOrders] = await Promise.all([
+    const ranksMap = await this.agentPoolService.getRanksByPoolJoin(monthEnd);
+    const rankedIds = [...ranksMap.entries()]
+      .filter(([, rank]) => RANK_SALARY_RANKS.includes(rank))
+      .map(([userId]) => userId);
+    if (rankedIds.length === 0) return computeRankSalaries([]);
+
+    const [users, branchSales] = await Promise.all([
       this.userRepo.find({
-        select: [
-          'id',
-          'username',
-          'fullName',
-          'email',
-          'referralUserId',
-          'manualRank',
-          'totalPurchaseAmount',
-        ],
-        where: { createdAt: LessThan(monthEnd) },
+        select: ['id', 'username', 'fullName', 'email'],
+        where: { id: In(rankedIds) },
       }),
-      this.orderRepo
-        .createQueryBuilder('o')
-        .select('o.userId', 'userId')
-        .addSelect('SUM(o.totalAmount)', 'amount')
-        .where('o.status IN (:...statuses)', {
-          statuses: [
-            OrderStatus.CONFIRMED,
-            OrderStatus.PROCESSING,
-            OrderStatus.SHIPPED,
-            OrderStatus.DELIVERED,
-          ],
-        })
-        .andWhere('o.createdAt >= :monthEnd', { monthEnd })
-        .andWhere('o.userId IS NOT NULL')
-        .groupBy('o.userId')
-        .getRawMany<{ userId: string; amount: string | number | null }>(),
+      this.adminService.getMonthlyBranchSales(year, monthNumber),
     ]);
-
-    const laterPurchases = new Map(
-      laterOrders.map((r) => [r.userId, Number(r.amount) || 0]),
-    );
-    for (const u of users) {
-      const later = laterPurchases.get(u.id);
-      if (later) {
-        u.totalPurchaseAmount = Math.max(
-          0,
-          (Number(u.totalPurchaseAmount) || 0) - later,
-        );
-      }
-    }
-
-    const ranksMap = computeRanksMap(
-      users,
-      buildChildrenMap(
-        users,
-        (u) => u.id,
-        (u) => u.referralUserId,
-      ),
-      (limit) =>
-        this.logger.warn(
-          `Lương cấp bậc ${month}: xếp hạng chưa hội tụ sau ${limit} lượt, dừng sớm`,
-        ),
-    );
-
-    const ranked = users.filter((u) =>
-      RANK_SALARY_RANKS.includes(ranksMap.get(u.id) || 'C0'),
-    );
-    if (ranked.length === 0) return computeRankSalaries([]);
-
-    const sales = new Map(
-      (await this.adminService.getMonthlyBranchSales(year, monthNumber)).map(
-        (r) => [r.userId, r.weakSales],
-      ),
-    );
+    const sales = new Map(branchSales.map((r) => [r.userId, r.weakSales]));
 
     return computeRankSalaries(
-      ranked.map((u) => ({
+      users.map((u) => ({
         userId: u.id,
         username: u.username || '',
         fullName: u.fullName || '',
@@ -230,9 +173,9 @@ export class RankSalaryService {
   /**
    * Pay the rank salary to the listed agents, or to every unpaid C1 / C2 agent
    * with a non-zero salary when `dto.all` is set. Pools and shares are
-   * recomputed here from everyone who was C1 / C2 at the end of the month; if any listed agent is not C1 /
-   * C2, has nothing to receive, or was already paid for the month, nobody is
-   * paid.
+   * recomputed here from everyone who had joined the C1 / C2 pool before the
+   * month ended; if any listed agent is not C1 / C2, has nothing to receive, or
+   * was already paid for the month, nobody is paid.
    */
   async paySalaries(dto: PaySalaryDto, paidBy: string) {
     const month = this.assertMonth(dto.month);
