@@ -6,6 +6,8 @@ export interface ExcelColumn<T> {
   /** Excel number format, e.g. MONEY_FORMAT. */
   numFmt?: string;
   value: (row: T, index: number) => ExcelCellValue;
+  /** Turns the cell into a clickable link, e.g. an image URL. */
+  link?: (row: T, index: number) => string | undefined | null;
 }
 
 export interface ExcelExportOptions<T> {
@@ -61,7 +63,15 @@ export async function downloadExcel<T>({
   const headerRowNumber = headerRow.number;
 
   rows.forEach((r, i) => {
-    sheet.addRow(columns.map((c) => normalize(c.value(r, i))));
+    const row = sheet.addRow(columns.map((c) => normalize(c.value(r, i))));
+    columns.forEach((c, colIndex) => {
+      if (!c.link) return;
+      const hyperlink = c.link(r, i);
+      if (!hyperlink) return;
+      const cell = row.getCell(colIndex + 1);
+      cell.value = { text: String(cell.value ?? hyperlink), hyperlink };
+      cell.font = { color: { argb: 'FF1D4ED8' }, underline: true };
+    });
   });
 
   if (totals) {
