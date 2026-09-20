@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { RankSalaryPayment } from './entities/rank-salary-payment.entity';
 import { User } from '../user/entities/user.entity';
+import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 import { runWithDeadlockRetry } from '../common/utils';
 import { AgentPoolService } from '../agent-pool/agent-pool.service';
 import { AdminService } from '../admin/admin.service';
@@ -32,6 +33,8 @@ export class RankSalaryService {
     private readonly paymentRepo: Repository<RankSalaryPayment>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserMonthlyStats)
+    private readonly monthlyStatsRepo: Repository<UserMonthlyStats>,
     private readonly dataSource: DataSource,
     private readonly agentPoolService: AgentPoolService,
     private readonly adminService: AdminService,
@@ -48,20 +51,24 @@ export class RankSalaryService {
    * C1 / C2 agents with their reward sales for the month, and the pools and
    * shares computed from them.
    *
-   * Only agents who were already C1 / C2 at the end of the month are paid: a
-   * promotion in a later month does not count for this month. The agent rank
-   * itself has no history, so the rank here is the one the agent pools record:
-   * the highest pool of C1..C9 they had joined before the month ended
-   * (`agent_pool_members.createdAt`), which also covers the agents an admin
-   * added to a pool by hand. There is no demotion, so a membership row that has
-   * since been switched off still counts for this month.
+   * Only agents who were C1 / C2 in that month are paid: a promotion in a later
+   * month does not count for this month. The rank of a month is the one the
+   * monthly closing stored for it (`user_monthly_stats.calculatedRank`), which
+   * already lets a manual rank win over the one computed from sales.
+   *
+   * A month that was never closed has no stats row at all; the rank then falls
+   * back to what the agent pools record: the highest pool of C1..C9 the agent
+   * had joined before the month ended (`agent_pool_members.createdAt`). Adding
+   * an agent to a pool by hand is dated when the admin did it, not when the
+   * agent reached the rank, so the stored month rank is the better source
+   * whenever it exists.
    */
   private async computeMonth(month: string) {
     const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
     // Same local-time month bounds as AdminService.getMonthlyBranchSales.
     const monthEnd = new Date(year, monthNumber, 1, 0, 0, 0, 0);
 
-    const ranksMap = await this.agentPoolService.getRanksByPoolJoin(monthEnd);
+    const ranksMap = await this.getMonthRanks(month, monthEnd);
     const rankedIds = [...ranksMap.entries()]
       .filter(([, rank]) => RANK_SALARY_RANKS.includes(rank))
       .map(([userId]) => userId);
@@ -86,6 +93,27 @@ export class RankSalaryService {
         rewardSales: sales.get(u.id) || 0,
       })),
     );
+  }
+
+  /** Rank of every agent in the month, from the closing stats or the pools. */
+  private async getMonthRanks(
+    month: string,
+    monthEnd: Date,
+  ): Promise<Map<string, string>> {
+    const stats = await this.monthlyStatsRepo.find({
+      select: ['userId', 'calculatedRank'],
+      where: { month },
+    });
+    if (stats.length > 0) {
+      return new Map(
+        stats.map((s) => [s.userId, (s.calculatedRank || 'C0').toUpperCase()]),
+      );
+    }
+
+    this.logger.warn(
+      `Lương cấp bậc ${month}: chưa chốt tháng, lấy cấp bậc theo thời gian vào bể đại lý`,
+    );
+    return this.agentPoolService.getRanksByPoolJoin(monthEnd);
   }
 
   private async getPaymentsByUser(month: string, userIds: string[]) {
@@ -173,8 +201,8 @@ export class RankSalaryService {
   /**
    * Pay the rank salary to the listed agents, or to every unpaid C1 / C2 agent
    * with a non-zero salary when `dto.all` is set. Pools and shares are
-   * recomputed here from everyone who had joined the C1 / C2 pool before the
-   * month ended; if any listed agent is not C1 / C2, has nothing to receive, or
+   * recomputed here from everyone who was C1 / C2 in that month; if any listed
+   * agent is not C1 / C2, has nothing to receive, or
    * was already paid for the month, nobody is paid.
    */
   async paySalaries(dto: PaySalaryDto, paidBy: string) {

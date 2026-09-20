@@ -317,7 +317,7 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
         showIcon
         style={{ marginBottom: 12 }}
         message="Lương cấp bậc C1/C2 tháng này"
-        description="Bể C1 = 4% tổng doanh số tính thưởng của các user C1 + C2, chia đều cho C1 + C2 (C2 cũng nằm trong bể C1). Bể C2 = 2% tổng doanh số tính thưởng của các user C2, chia đều cho C2. Chỉ tính user đã vào bể C1/C2 trước khi hết tháng này (theo thời gian vào bể, gồm cả người được admin thêm tay; ai vào bể sau tháng không được tính); số tiền được server tính lại khi trả, mỗi user nhận 1 lần/tháng."
+        description="Bể C1 = 4% tổng doanh số tính thưởng của các user C1 + C2, chia đều cho C1 + C2 (C2 cũng nằm trong bể C1). Bể C2 = 2% tổng doanh số tính thưởng của các user C2, chia đều cho C2. Chỉ tính user có cấp bậc C1/C2 của chính tháng này theo số liệu chốt tháng (đã gồm cả cấp bậc admin set tay); tháng chưa chốt thì lấy theo thời gian vào bể đại lý; số tiền được server tính lại khi trả, mỗi user nhận 1 lần/tháng."
       />
 
       {!loading && !payable && payableFrom && (
