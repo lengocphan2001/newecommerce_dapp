@@ -7,6 +7,7 @@ import LanguageSelect from "@/app/components/LanguageSelect";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { formatAmount } from "@/app/utils/format";
 
 interface Category {
   id: string;
@@ -45,6 +46,8 @@ interface Product {
   commissionPercentTV?: number;
   /** Bật hoa hồng theo sản phẩm (khi true hiển thị Direct NPP). */
   useProductCommission?: boolean;
+  /** Tỷ lệ % giá trị sản phẩm tính hoa hồng (ví dụ: 85, 90, 95). Mặc định 95%. */
+  commissionBasePercent?: number;
   /** Direct % khi buyer là NPP (dùng khi useProductCommission). */
   commissionPercentNPP?: number;
   /** Cấu hình hoa hồng theo gói (NPP.directCommissionRate 0–1). */
@@ -67,7 +70,9 @@ export default function HomePage() {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [selectedCountry, setSelectedCountry] = useState<'VIETNAM' | 'USA' | null>('VIETNAM');
-  const [selectedProductType, setSelectedProductType] = useState<'STRATEGIC' | 'COMMON' | null>(null);
+  // Mặc định chỉ tải sản phẩm chiến lược khi vào trang.
+  const [selectedProductType, setSelectedProductType] = useState<string | null>('STRATEGIC');
+  const [productTypeConfigs, setProductTypeConfigs] = useState<{ code: string; name: string; nameEn: string }[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [sliders, setSliders] = useState<Slider[]>([]);
@@ -109,9 +114,16 @@ export default function HomePage() {
     fetchProducts();
   }, [selectedCountry, selectedCategoryId, selectedProductType]);
 
-  // Load categories, sliders, featured song song (cache 10 minutos para categories/sliders). Se ha removido loadReferralInfo para evitar una consulta redundante y costosa en el backend.
+  // Load categories, sliders, featured + product type configs
   useEffect(() => {
     loadWalletInfo();
+    api.getProductTypeConfigs().then(configs => {
+      if (configs.length > 0) setProductTypeConfigs(configs);
+      else setProductTypeConfigs([
+        { code: 'STRATEGIC', name: 'Chiến lược', nameEn: 'Strategic' },
+        { code: 'COMMON',    name: 'Tiêu dùng',  nameEn: 'Common'    },
+      ]);
+    });
     Promise.allSettled([
       fetchCategories(),
       fetchSliders(),
@@ -164,7 +176,7 @@ export default function HomePage() {
 
   const loadReferralInfo = async () => {
     try {
-      const info = await api.getReferralInfo();
+      const info = await api.getReferralInfo(true);
       setReferralInfo(info);
       if (info.walletAddress) {
         setWalletAddress(info.walletAddress);
@@ -202,12 +214,44 @@ export default function HomePage() {
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
+
+  const formatPrice = (price: number) => formatAmount(price, 2, 4);
 
   const handleProductClick = (productId: string) => {
     router.push(`/home/products/detail?id=${productId}`);
@@ -279,16 +323,8 @@ export default function HomePage() {
 
       {/* Page title + featured products strip (same row) */}
       <div className="px-4 py-3 bg-white border-b border-gray-100 flex flex-row items-center gap-3 min-h-[3rem]">
-        <h1
-          className="text-lg font-bold tracking-tight truncate flex-shrink-0"
-          style={{
-            background: "linear-gradient(90deg, #10b981 0%, #059669 50%, #047857 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          {t("homeTitle")}
+        <h1 className="text-lg font-black tracking-tight truncate flex-shrink-0 text-slate-800">
+          {t("homeTitle")} - Nơi mua sắm tạo nên giá trị
         </h1>
         {featuredProducts.length > 0 && (
           <div className="flex gap-6 overflow-x-auto flex-1 min-w-0 justify-center scrollbar-hide">
@@ -399,36 +435,21 @@ export default function HomePage() {
             </div>
           </div>
         )}
-        {/* Sticky Filter Row */}
+        {/* Sticky Filter Row — product types từ admin */}
         <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-2">
-          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 flex-1">
-            <button
-              onClick={() => setSelectedProductType(null)}
-              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === null
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-600"
-                }`}
-            >
-              {lang === 'vi' ? 'Tất cả' : 'All'}
-            </button>
-            <button
-              onClick={() => setSelectedProductType("STRATEGIC")}
-              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === "STRATEGIC"
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-600"
-                }`}
-            >
-              {lang === 'vi' ? 'Chiến lược' : 'Strategic'}
-            </button>
-            <button
-              onClick={() => setSelectedProductType("COMMON")}
-              className={`flex-1 flex items-center justify-center py-2 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === "COMMON"
-                ? "bg-white text-primary shadow-sm"
-                : "text-slate-500 hover:text-slate-600"
-                }`}
-            >
-              {lang === 'vi' ? 'Tiêu dùng' : 'Common'}
-            </button>
+          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 flex-1 overflow-x-auto scrollbar-hide">
+            {productTypeConfigs.map(pt => (
+              <button
+                key={pt.code}
+                onClick={() => setSelectedProductType(pt.code)}
+                className={`shrink-0 flex items-center justify-center py-2 px-3 rounded-xl text-[12px] font-bold transition-all ${selectedProductType === pt.code
+                  ? "bg-white text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-600"
+                  }`}
+              >
+                {lang === 'vi' ? pt.name : pt.nameEn}
+              </button>
+            ))}
           </div>
           <button
             type="button"
@@ -500,55 +521,21 @@ export default function HomePage() {
 
                 <div>
                   <p className="text-sm font-bold text-slate-700 mb-3">{lang === 'vi' ? 'Loại sản phẩm' : 'Product Type'}</p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setSelectedProductType(selectedProductType === "STRATEGIC" ? null : "STRATEGIC")}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedProductType === "STRATEGIC"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                        }`}
-                    >
-                      <span className="material-symbols-outlined text-xl">star</span>
-                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Chiến lược' : 'Strategic'}</span>
-                    </button>
-                    <button
-                      onClick={() => setSelectedProductType(selectedProductType === "COMMON" ? null : "COMMON")}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${selectedProductType === "COMMON"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                        }`}
-                    >
-                      <span className="material-symbols-outlined text-xl">category</span>
-                      <span className="font-semibold text-sm">{lang === 'vi' ? 'Tiêu dùng' : 'Common'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {categories.length > 0 && (
-                  <div>
-                    <p className="text-sm font-bold text-slate-700 mb-3">Categories</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {productTypeConfigs.map(pt => (
                       <button
-                        onClick={() => setSelectedCategoryId(null)}
-                        className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedCategoryId === null ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        key={pt.code}
+                        onClick={() => setSelectedProductType(pt.code)}
+                        className={`shrink-0 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedProductType === pt.code
+                          ? "border-primary bg-primary text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                           }`}
                       >
-                        {t("all")}
+                        {lang === 'vi' ? pt.name : pt.nameEn}
                       </button>
-                      {categories.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => setSelectedCategoryId(cat.id)}
-                          className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${selectedCategoryId === cat.id ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
-                            }`}
-                        >
-                          {cat.imageUrl && <img src={cat.imageUrl} alt="" className="w-5 h-5 rounded-full object-cover" />}
-                          {cat.name}
-                        </button>
-                      ))}
-                    </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
               <div className="p-4 border-t border-slate-200">
                 <button
@@ -570,16 +557,16 @@ export default function HomePage() {
             <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>
           </div>
           {loading ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 animate-pulse"
+                  className="bg-white rounded-xl overflow-hidden border border-gray-100 p-3 space-y-3 shadow-sm"
                 >
-                  <div className="relative aspect-square w-full bg-gray-50"></div>
-                  <div className="p-3 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="relative aspect-square w-full skeleton-shimmer rounded-lg"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 skeleton-shimmer rounded w-3/4"></div>
+                    <div className="h-4 skeleton-shimmer rounded w-1/2"></div>
                   </div>
                 </div>
               ))}
@@ -589,12 +576,12 @@ export default function HomePage() {
               <p className="text-gray-500">{t("noProducts")}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => handleProductClick(product.id)}
-                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 hover:border-primary/30 transition-all hover:shadow-lg"
+                  className="group premium-card overflow-hidden cursor-pointer"
                 >
                   <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
                     {product.thumbnailUrl ? (
@@ -651,19 +638,19 @@ export default function HomePage() {
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1.5 mb-0.5">
                               <span className="text-xs text-gray-400 line-through">
-                                {formatPrice(product.price)}
+                                {formatVnd(product.price * usdtToVnd)}
                               </span>
                               <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
                                 -{product.salePercentage}%
                               </span>
                             </div>
                             <p className="text-lg font-bold text-red-600 leading-none">
-                              {formatPrice(product.price * (1 - product.salePercentage / 100))} <span className="text-[10px] font-normal text-red-600">PV</span>
+                              {formatVnd(product.price * (1 - product.salePercentage / 100) * usdtToVnd)}
                             </p>
                           </div>
                         ) : (
                           <p className="text-lg font-bold text-primary-dark">
-                            {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">PV</span>
+                            {formatVnd(product.price * usdtToVnd)}
                           </p>
                         )}
                       </div>
@@ -671,9 +658,9 @@ export default function HomePage() {
                         onClick={(e) => handleAddToCart(e, product)}
                         disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
                         className={`flex items-center justify-center h-9 w-9 rounded-full transition-all ${product.stock > 0
-                          ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-emerald-500/30 active:scale-90"
+                          ? "bg-primary text-white hover:bg-primary-dark shadow-md shadow-blue-500/30 active:scale-90"
                           : "bg-gray-100 text-gray-600 hover:bg-primary hover:text-white"
-                          } ${addToCartAnimating === product.id ? 'ring-4 ring-emerald-300 animate-pulse' : ''}`}
+                          } ${addToCartAnimating === product.id ? 'ring-4 ring-blue-300 animate-pulse' : ''}`}
                       >
                         <span className={`material-symbols-outlined text-[20px] transition-transform ${addToCartAnimating === product.id ? 'scale-125' : ''}`}>
                           {addToCartAnimating === product.id ? 'check' : 'add'}

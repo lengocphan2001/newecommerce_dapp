@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -56,6 +57,9 @@ export class OrderController {
       'Product IDs',
       'Shipping Address',
       'Transaction Hash',
+      'Shipping Fee',
+      'VAT Rate',
+      'VAT Amount',
       'Created At',
       'Updated At',
     ];
@@ -97,6 +101,9 @@ export class OrderController {
         escapeCsv(productIdsString),
         escapeCsv(order.shippingAddress ?? ''),
         escapeCsv(order.transactionHash ?? ''),
+        escapeCsv(order.shippingFee ?? 0),
+        escapeCsv(order.vatRate ?? 8),
+        escapeCsv(order.vatAmount ?? 0),
         escapeCsv(order.createdAt),
         escapeCsv(order.updatedAt),
       ];
@@ -175,5 +182,18 @@ export class OrderController {
     }
     const userId = req.user.userId || req.user.sub;
     return this.orderService.confirmPayment(id, transactionHash, userId);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  async deleteOrderAndRollback(
+    @Param('id') id: string,
+    @Request() req: any,
+  ) {
+    if (!req.user.isAdmin) {
+      throw new Error('Unauthorized: Only admin can delete and rollback orders');
+    }
+    await this.orderService.deleteOrderAndRollback(id);
+    return { success: true, message: 'Đơn hàng và các hoa hồng/doanh số liên quan đã được xóa và thu hồi thành công.' };
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Space } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Space, Drawer, Button } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useResponsive } from '../hooks/useResponsive';
 
 const { Header, Sider, Content } = Layout;
 
@@ -35,6 +36,8 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { isCompact, isMobile } = useResponsive();
   const navigate = useNavigate();
   const location = useLocation();
   const { hasPermission, user } = useAuth();
@@ -145,6 +148,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: 'commissions.view',
     },
     {
+      key: '/monthly-rewards',
+      icon: <GiftOutlined />,
+      label: 'Monthly Rewards',
+      permission: 'commissions.view',
+    },
+    {
       key: '/commission-payout',
       icon: <ThunderboltOutlined />,
       label: 'Commission Payout',
@@ -213,7 +222,35 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       key: '/banking-settings',
       icon: <BankOutlined />,
       label: 'Banking Settings',
-      permission: null, // accessible to all admins
+      permission: null,
+      adminOnly: true,
+    },
+    {
+      key: '/monthly-sales',
+      icon: <BarChartOutlined />,
+      label: 'Doanh số tháng',
+      permission: null,
+      adminOnly: true,
+    },
+    {
+      key: '/product-types',
+      icon: <AppstoreOutlined />,
+      label: 'Phân loại SP',
+      permission: null,
+      adminOnly: true,
+    },
+    {
+      key: '/agent-pool',
+      icon: <SafetyCertificateOutlined />,
+      label: 'Bể Đồng Chia Đại Lý',
+      permission: null,
+      adminOnly: true,
+    },
+    {
+      key: '/monthly-salary',
+      icon: <DollarOutlined />,
+      label: 'Lương tháng',
+      permission: null,
       adminOnly: true,
     },
   ];
@@ -245,54 +282,91 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     },
   ];
 
+  const menu = (
+    <Menu
+      theme="dark"
+      mode="inline"
+      selectedKeys={location.pathname ? [location.pathname] : []}
+      items={menuItems}
+      onClick={({ key }) => {
+        navigate(key);
+        setDrawerOpen(false);
+      }}
+    />
+  );
+
+  const brand = (collapsedBrand: boolean) => (
+    <div
+      style={{
+        height: 64,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontSize: collapsedBrand ? 16 : 20,
+        fontWeight: 'bold',
+      }}
+    >
+      {collapsedBrand ? 'AP' : 'Admin Panel'}
+    </div>
+  );
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
-        <div
-          style={{
-            height: 64,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontSize: collapsed ? 16 : 20,
-            fontWeight: 'bold',
-          }}
+      {/* Below lg the sidebar becomes an overlay drawer so the content keeps
+          the full viewport width on phones and portrait tablets. */}
+      {isCompact ? (
+        <Drawer
+          placement="left"
+          closable={false}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          width={250}
+          styles={{ body: { padding: 0, background: '#001529' } }}
         >
-          {collapsed ? 'AP' : 'Admin Panel'}
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={location.pathname ? [location.pathname] : []}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-        />
-      </Sider>
+          {brand(false)}
+          {menu}
+        </Drawer>
+      ) : (
+        <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
+          {brand(collapsed)}
+          {menu}
+        </Sider>
+      )}
       <Layout>
         <Header
           style={{
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             background: '#fff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
-          <div
-            style={{ fontSize: 18, cursor: 'pointer' }}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          </div>
+          <Button
+            type="text"
+            aria-label="Toggle navigation"
+            style={{ fontSize: 18 }}
+            onClick={() =>
+              isCompact ? setDrawerOpen(true) : setCollapsed(!collapsed)
+            }
+            icon={
+              isCompact || collapsed ? (
+                <MenuUnfoldOutlined />
+              ) : (
+                <MenuFoldOutlined />
+              )
+            }
+          />
           <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
             <Space style={{ cursor: 'pointer' }}>
               <Avatar icon={<UserOutlined />} />
-              <span>{user?.fullName || 'Admin'}</span>
+              {!isMobile && <span>{user?.fullName || 'Admin'}</span>}
             </Space>
           </Dropdown>
         </Header>
         <Content
+          className="admin-content"
           style={{
             margin: '24px 16px',
             padding: 24,

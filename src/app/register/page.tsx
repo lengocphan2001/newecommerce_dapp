@@ -45,7 +45,8 @@ function RegisterForm() {
     const leg = urlParams.get("leg");
     setFormData((prev) => ({
       ...prev,
-      ...(refCode ? { referralUser: refCode, leg: (leg === "left" || leg === "right") ? leg : prev.leg } : {}),
+      ...(refCode ? { referralUser: refCode } : {}),
+      leg: (leg === "left" || leg === "right") ? leg : prev.leg,
       username: prev.username || generateUsername(),
     }));
 
@@ -95,6 +96,10 @@ function RegisterForm() {
     }
     if (!isFirstUser && !formData.referralUser?.trim()) {
       setError("Vui lòng nhập mã giới thiệu");
+      return;
+    }
+    if (!isFirstUser && !formData.leg) {
+      setError(t("pleaseSelectTeam"));
       return;
     }
     setIsLoading(true);
@@ -256,6 +261,28 @@ function RegisterForm() {
               placeholder={isFirstUser ? t("enterReferralCode") + " (Tùy chọn)" : t("enterReferralCode")}
             />
           </div>
+
+          {/* Team Selection */}
+          {!isFirstUser && (
+            <div>
+              <label htmlFor="leg" className="mb-1 block text-sm font-medium text-zinc-700">
+                {t("selectSide")} <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="leg"
+                value={formData.leg}
+                onChange={(e) => setFormData({ ...formData, leg: e.target.value })}
+                className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                required
+              >
+                <option value="" disabled hidden>
+                  -- {t("pleaseSelectTeam")} --
+                </option>
+                <option value="left">{t("agentA")}</option>
+                <option value="right">{t("agentB")}</option>
+              </select>
+            </div>
+          )}
 
 
           {/* Error Message */}

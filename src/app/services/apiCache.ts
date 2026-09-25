@@ -5,6 +5,7 @@
 const CACHE_TTL_MS = {
   /** Referral info: 90s so balance/commission updates within ~1.5 min */
   referralInfo: 90 * 1000,
+  referralInfo_compact: 90 * 1000,
   /** Banking config: 5 min (admin rarely changes) */
   bankingConfig: 5 * 60 * 1000,
   /** Categories: 10 min */
@@ -33,6 +34,11 @@ const store = new Map<CacheKey, Entry<unknown>>();
 /** Keyed cache for products: key = "country_categoryId" (e.g. "VIETNAM_all", "USA_xyz") */
 const productsStore = new Map<string, Entry<unknown>>();
 const PRODUCTS_TTL_MS = 10 * 60 * 1000;
+
+/** Keyed cache for the binary tree: key = "<rootUserId>_<maxDepth>". Short TTL because
+ *  the tree changes whenever a new member joins the downline. */
+const treeStore = new Map<string, Entry<unknown>>();
+const TREE_TTL_MS = 30 * 1000;
 
 function get<T>(key: CacheKey): T | null {
   const entry = store.get(key) as Entry<T> | undefined;
@@ -68,12 +74,35 @@ function setProductsKeyed(key: string, data: unknown): void {
   });
 }
 
+function getTreeKeyed(key: string): unknown | null {
+  const entry = treeStore.get(key) as Entry<unknown> | undefined;
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    treeStore.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setTreeKeyed(key: string, data: unknown): void {
+  treeStore.set(key, {
+    data,
+    expiresAt: Date.now() + TREE_TTL_MS,
+  });
+}
+
 /** Clear one key (e.g. after logout so next login gets fresh referralInfo). */
 export function invalidateCache(key?: CacheKey): void {
-  if (key) store.delete(key);
-  else {
+  if (key) {
+    store.delete(key);
+    if (key === 'referralInfo') {
+      store.delete('referralInfo_compact');
+      treeStore.clear();
+    }
+  } else {
     store.clear();
     productsStore.clear();
+    treeStore.clear();
   }
 }
 
@@ -85,4 +114,7 @@ export const apiCache = {
   /** Keyed cache for products list (key = "country_categoryId") */
   getProducts: getProductsKeyed,
   setProducts: setProductsKeyed,
+  /** Keyed cache for the binary tree (key = "<rootUserId>_<maxDepth>") */
+  getTree: getTreeKeyed,
+  setTree: setTreeKeyed,
 };

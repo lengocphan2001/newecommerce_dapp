@@ -7,6 +7,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { MANUAL_RANK_VALUES } from '../common/constants/ranks';
 import { Repository, In } from 'typeorm';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -17,6 +19,10 @@ import { Order, OrderStatus } from '../order/entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { BankingConfig } from './entities/banking-config.entity';
 import { SystemConfig } from './entities/system-config.entity';
+import {
+  DEFAULT_RECONSUMPTION_WALLET_PERCENT,
+  DEFAULT_WITHDRAW_WALLET_PERCENT,
+} from '../common/constants/wallet-distribution';
 import {
   Commission,
   CommissionStatus,
@@ -31,12 +37,21 @@ import {
   FAKE_ANALYTICS_DASHBOARD_KEY,
   getDefaultFakeAnalyticsDashboardPayload,
 } from './fake-analytics-defaults';
+import {
+  buildChildrenMap,
+  computeSubtreeAggregates,
+} from '../common/utils/referral-tree';
+import {
+  SALES_ORDER_STATUSES,
+  WEAK_BRANCH_ACCUMULATION_START,
+  weakBranchAccumulationStart,
+} from '../common/constants/branch-volume';
 import { UserService } from '../user/user.service';
 import { CommissionService } from '../affiliate/commission.service';
-import { AffiliateService } from '../affiliate/affiliate.service';
 import { CommissionPayoutService } from '../affiliate/commission-payout.service';
 import { Web3Service } from '../blockchain/web3.service';
 import { MailService } from '../mail/mail.service';
+import { AgentPoolService } from '../agent-pool/agent-pool.service';
 
 function roundWithdrawBalance(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -45,13 +60,44 @@ function roundWithdrawBalance(n: number): number {
 
 const COMMISSION_PAYOUT_FEE_PERCENT = 12;
 
+/**
+ * Số liệu bổ sung cho mỗi user khi xuất CSV — cùng những con số mà trang chi
+ * tiết user hiển thị, nhưng tính hàng loạt cho toàn bộ bảng users.
+ */
+export interface UserExportMetrics {
+  binaryLeftCount: number;
+  binaryRightCount: number;
+  binaryTotalCount: number;
+  f1Count: number;
+  f2Count: number;
+  f3Count: number;
+  personalSalesThisMonth: number;
+  leftSalesThisMonth: number;
+  rightSalesThisMonth: number;
+  weakSalesThisMonth: number;
+  weakBranchAccumulatedVolume: number;
+  branchDifference: number;
+  commissionDirect: number;
+  commissionGroup: number;
+  commissionManagement: number;
+  commissionTotalPaid: number;
+  commissionPending: number;
+  paidCommissionToWithdrawWallet: number;
+  matrixPoolNetAmount: number;
+  approvedWithdrawnAmount: number;
+  expectedWithdrawWalletBalance: number;
+}
+
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
   private readonly backendEnvPath = path.resolve(process.cwd(), '.env');
   private readonly defaultMinPayoutThreshold = 50;
-  private readonly defaultCommissionDepositWalletPercent = 12;
-  private readonly defaultCommissionWithdrawWalletPercent = 80;
+  private readonly defaultIndirectCommissionRateF2 = 5;
+  private readonly defaultCommissionDepositWalletPercent =
+    DEFAULT_RECONSUMPTION_WALLET_PERCENT;
+  private readonly defaultCommissionWithdrawWalletPercent =
+    DEFAULT_WITHDRAW_WALLET_PERCENT;
 
   constructor(
     @InjectRepository(User)
@@ -75,12 +121,12 @@ export class AdminService {
     private userService: UserService,
     @Inject(forwardRef(() => CommissionService))
     private commissionService: CommissionService,
-    @Inject(forwardRef(() => AffiliateService))
-    private affiliateService: AffiliateService,
     @Inject(forwardRef(() => CommissionPayoutService))
     private commissionPayoutService: CommissionPayoutService,
     private web3Service: Web3Service,
     private mailService: MailService,
+    @Inject(forwardRef(() => AgentPoolService))
+    private agentPoolService: AgentPoolService,
   ) {}
 
   async getDashboard() {
@@ -134,17 +180,298 @@ export class AdminService {
     };
   }
 
-  async getUsers(query: any) {
-    // TODO: Implement get users logic
-    return { message: 'Get users' };
+  /** Lấy một lô user cho việc xuất CSV. Phân lô để không nạp cả bảng vào RAM. */
+  async exportUsers(skip = 0, take = 500) {
+    return this.userRepository.find({
+      order: { createdAt: 'DESC', id: 'DESC' },
+      skip,
+      take,
+    });
   }
 
-  async exportUsers() {
+  /**
+   * Số liệu doanh số / hoa hồng / tuyến dưới của **mọi** user, tính một lần cho
+   * cả file CSV. Trang chi tiết user tính từng người bằng truy vấn đệ quy; làm
+   * vậy cho hàng nghìn user sẽ không bao giờ chạy xong, nên ở đây mọi thứ được
+   * tổng hợp trong bộ nhớ từ vài truy vấn gộp.
+   */
+  async buildUserExportMetrics(): Promise<Map<string, UserExportMetrics>> {
     const users = await this.userRepository.find({
-      order: { createdAt: 'DESC' },
+      select: [
+        'id',
+        'parentId',
+        'position',
+        'referralUserId',
+        'createdAt',
+        'leftBranchTotal',
+        'rightBranchTotal',
+      ],
     });
+    const userIds = users.map((u) => u.id);
 
-    return users;
+    const metrics = new Map<string, UserExportMetrics>();
+    for (const user of users) {
+      metrics.set(user.id, {
+        binaryLeftCount: 0,
+        binaryRightCount: 0,
+        binaryTotalCount: 0,
+        f1Count: 0,
+        f2Count: 0,
+        f3Count: 0,
+        personalSalesThisMonth: 0,
+        leftSalesThisMonth: 0,
+        rightSalesThisMonth: 0,
+        weakSalesThisMonth: 0,
+        weakBranchAccumulatedVolume: 0,
+        branchDifference: Math.abs(
+          Number(user.leftBranchTotal || 0) - Number(user.rightBranchTotal || 0),
+        ),
+        commissionDirect: 0,
+        commissionGroup: 0,
+        commissionManagement: 0,
+        commissionTotalPaid: 0,
+        commissionPending: 0,
+        paidCommissionToWithdrawWallet: 0,
+        matrixPoolNetAmount: 0,
+        approvedWithdrawnAmount: 0,
+        expectedWithdrawWalletBalance: 0,
+      });
+    }
+    if (userIds.length === 0) return metrics;
+
+    const binaryChildren = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.parentId,
+    );
+    const referralChildren = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.referralUserId,
+    );
+    const positionMap = new Map(users.map((u) => [u.id, u.position]));
+
+    // Số thành viên mỗi nhánh: subtreeCount tính cả chính node, nên lấy trực
+    // tiếp ở node con trái / con phải.
+    const { subtreeCount } = computeSubtreeAggregates(
+      userIds,
+      binaryChildren,
+      () => 0,
+    );
+    for (const user of users) {
+      const row = metrics.get(user.id)!;
+      for (const childId of binaryChildren.get(user.id) || []) {
+        const side = positionMap.get(childId);
+        if (side === 'left')
+          row.binaryLeftCount += subtreeCount.get(childId) || 0;
+        else if (side === 'right')
+          row.binaryRightCount += subtreeCount.get(childId) || 0;
+      }
+      row.binaryTotalCount = row.binaryLeftCount + row.binaryRightCount;
+
+      const f1 = referralChildren.get(user.id) || [];
+      row.f1Count = f1.length;
+      for (const f1Id of f1) {
+        const f2 = referralChildren.get(f1Id) || [];
+        row.f2Count += f2.length;
+        for (const f2Id of f2) {
+          row.f3Count += (referralChildren.get(f2Id) || []).length;
+        }
+      }
+    }
+
+    await this.fillExportSalesMetrics(
+      users,
+      binaryChildren,
+      positionMap,
+      metrics,
+    );
+    await this.fillExportCommissionMetrics(userIds, metrics);
+    await this.fillExportWalletMetrics(metrics);
+
+    return metrics;
+  }
+
+  /**
+   * Doanh số cá nhân / nhánh của tháng hiện tại và doanh số nhánh yếu tích lũy.
+   * Đơn hàng của cả khoảng thời gian được nạp một lần rồi gộp theo từng tháng,
+   * giống công thức của `UserService.getBranchMonthlyVolume`.
+   */
+  private async fillExportSalesMetrics(
+    users: User[],
+    binaryChildren: Map<string, string[]>,
+    positionMap: Map<string, 'left' | 'right'>,
+    metrics: Map<string, UserExportMetrics>,
+  ): Promise<void> {
+    const userIds = users.map((u) => u.id);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    const { year: rangeYear, month: rangeMonth } =
+      WEAK_BRANCH_ACCUMULATION_START;
+    const rangeStart = new Date(rangeYear, rangeMonth - 1, 1, 0, 0, 0, 0);
+    const rangeEnd = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+    if (rangeStart >= rangeEnd) return;
+
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .select(['o.id', 'o.userId', 'o.items', 'o.createdAt'])
+      .where('o.status IN (:...statuses)', { statuses: SALES_ORDER_STATUSES })
+      .andWhere('o.createdAt >= :rangeStart', { rangeStart })
+      .andWhere('o.createdAt < :rangeEnd', { rangeEnd })
+      .andWhere('o.userId IS NOT NULL')
+      .getMany();
+
+    // Doanh số cá nhân theo từng tháng, khoá là year * 12 + (month - 1).
+    const personalByMonth = new Map<number, Map<string, number>>();
+    for (const order of orders) {
+      if (!order.userId) continue;
+      const created = new Date(order.createdAt);
+      const key = created.getFullYear() * 12 + created.getMonth();
+      const items = Array.isArray(order.items) ? order.items : [];
+      let value = 0;
+      for (const item of items) {
+        value += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+      }
+      let monthMap = personalByMonth.get(key);
+      if (!monthMap) {
+        monthMap = new Map<string, number>();
+        personalByMonth.set(key, monthMap);
+      }
+      monthMap.set(order.userId, (monthMap.get(order.userId) || 0) + value);
+    }
+
+    const startKeyOf = new Map<string, number>();
+    for (const user of users) {
+      const start = weakBranchAccumulationStart(user.createdAt);
+      startKeyOf.set(user.id, start.year * 12 + (start.month - 1));
+    }
+
+    const firstKey = rangeYear * 12 + (rangeMonth - 1);
+    const lastKey = currentYear * 12 + (currentMonth - 1);
+    for (let key = firstKey; key <= lastKey; key++) {
+      const personal = personalByMonth.get(key) || new Map<string, number>();
+      const isCurrentMonth = key === lastKey;
+      // Tháng không có đơn nào chỉ cần xử lý khi là tháng hiện tại, để các cột
+      // doanh số tháng này vẫn được ghi giá trị 0.
+      if (personal.size === 0 && !isCurrentMonth) continue;
+
+      const { subtreeValue } = computeSubtreeAggregates(
+        userIds,
+        binaryChildren,
+        (id) => personal.get(id) || 0,
+      );
+
+      for (const user of users) {
+        const row = metrics.get(user.id)!;
+        let leftSales = 0;
+        let rightSales = 0;
+        for (const childId of binaryChildren.get(user.id) || []) {
+          const side = positionMap.get(childId);
+          if (side === 'left') leftSales += subtreeValue.get(childId) || 0;
+          else if (side === 'right')
+            rightSales += subtreeValue.get(childId) || 0;
+        }
+
+        if (key >= (startKeyOf.get(user.id) ?? firstKey)) {
+          row.weakBranchAccumulatedVolume += Math.min(leftSales, rightSales);
+        }
+        if (isCurrentMonth) {
+          row.personalSalesThisMonth = personal.get(user.id) || 0;
+          row.leftSalesThisMonth = leftSales;
+          row.rightSalesThisMonth = rightSales;
+          row.weakSalesThisMonth = Math.min(leftSales, rightSales);
+        }
+      }
+    }
+  }
+
+  /** Hoa hồng theo loại, giống thẻ "Commission Statistics" ở trang chi tiết. */
+  private async fillExportCommissionMetrics(
+    userIds: string[],
+    metrics: Map<string, UserExportMetrics>,
+  ): Promise<void> {
+    const CHUNK_SIZE = 500;
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const stats = await this.commissionService.getStatsForUserIds(chunk);
+      for (const [userId, stat] of stats) {
+        const row = metrics.get(userId);
+        if (!row) continue;
+        row.commissionDirect = stat.commissions.direct;
+        row.commissionGroup = stat.commissions.group;
+        row.commissionManagement = stat.commissions.management;
+        row.commissionTotalPaid = stat.totalCommission;
+        row.commissionPending = stat.pendingCommission;
+      }
+    }
+  }
+
+  /**
+   * Đối soát ví rút tiền: hoa hồng đã trả (đã trừ phí) + matrix ròng - số đã
+   * được duyệt rút. Cùng công thức với `walletReconciliation` ở trang chi tiết.
+   */
+  private async fillExportWalletMetrics(
+    metrics: Map<string, UserExportMetrics>,
+  ): Promise<void> {
+    const num = (v: string | number | null | undefined): number =>
+      v === null || v === undefined ? 0 : Number(v) || 0;
+
+    const [paidRows, matrixRows, withdrawRows] = await Promise.all([
+      this.commissionRepository
+        .createQueryBuilder('c')
+        .select('c.userId', 'userId')
+        .addSelect('COALESCE(SUM(c.amount),0)', 'total')
+        .where('c.status = :paid', { paid: CommissionStatus.PAID })
+        .andWhere('c.payoutTxHash IS NULL')
+        .groupBy('c.userId')
+        .getRawMany<{ userId: string; total: string }>(),
+      this.matrixRewardLedgerRepository
+        .createQueryBuilder('m')
+        .select('m.beneficiaryUserId', 'userId')
+        .addSelect('COALESCE(SUM(m.amount),0)', 'total')
+        .groupBy('m.beneficiaryUserId')
+        .getRawMany<{ userId: string; total: string }>(),
+      this.walletWithdrawRequestRepository
+        .createQueryBuilder('w')
+        .select('w.userId', 'userId')
+        .addSelect(
+          'COALESCE(SUM(COALESCE(w.actualAmount, w.amount)),0)',
+          'total',
+        )
+        .where('w.status = :approved', {
+          approved: WalletWithdrawStatus.APPROVED,
+        })
+        .groupBy('w.userId')
+        .getRawMany<{ userId: string; total: string }>(),
+    ]);
+
+    for (const row of paidRows) {
+      const target = metrics.get(row.userId);
+      if (!target) continue;
+      const gross = roundWithdrawBalance(num(row.total));
+      target.paidCommissionToWithdrawWallet = roundWithdrawBalance(
+        gross * (1 - COMMISSION_PAYOUT_FEE_PERCENT / 100),
+      );
+    }
+    for (const row of matrixRows) {
+      const target = metrics.get(row.userId);
+      if (!target) continue;
+      target.matrixPoolNetAmount = roundWithdrawBalance(num(row.total));
+    }
+    for (const row of withdrawRows) {
+      const target = metrics.get(row.userId);
+      if (!target) continue;
+      target.approvedWithdrawnAmount = roundWithdrawBalance(num(row.total));
+    }
+    for (const target of metrics.values()) {
+      target.expectedWithdrawWalletBalance = roundWithdrawBalance(
+        target.paidCommissionToWithdrawWallet +
+          target.matrixPoolNetAmount -
+          target.approvedWithdrawnAmount,
+      );
+    }
   }
 
   private escapeCsv(val: string | number | null | undefined): string {
@@ -387,14 +714,18 @@ export class AdminService {
     };
   }
 
-  async getOrders(query: any) {
-    // TODO: Implement get orders logic
-    return { message: 'Get orders' };
-  }
+  async updateUserStatus(id: string, statusDto: UpdateUserStatusDto) {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'status'],
+    });
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
 
-  async updateUserStatus(id: string, statusDto: any) {
-    // TODO: Implement update user status logic
-    return { message: `Update user status ${id}` };
+    await this.userRepository.update({ id }, { status: statusDto.status });
+
+    return { id, status: statusDto.status };
   }
 
   async updateUserFakeReceivedCommission(
@@ -406,6 +737,36 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
     await this.userRepository.update(userId, { fakeReceivedCommission });
+    return this.getUserDetail(userId);
+  }
+
+  async updateUserManualRank(userId: string, rank: string) {
+    const upperRank = (rank || '').toUpperCase().trim();
+    if (!MANUAL_RANK_VALUES.includes(upperRank)) {
+      throw new BadRequestException(
+        `Cấp bậc không hợp lệ. Cho phép: ${MANUAL_RANK_VALUES.join(', ')}`,
+      );
+    }
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.userRepository.update(userId, { manualRank: upperRank });
+
+    // Cấp gán tay quyết định cấp bậc thật, nên bể đại lý của người này và của
+    // tuyến trên phải cập nhật theo. Lỗi đồng bộ không được làm hỏng việc gán
+    // cấp: admin vẫn có nút đồng bộ lại trong màn hình bể đại lý.
+    try {
+      await this.agentPoolService.syncMembershipsUpChain(userId);
+    } catch (error) {
+      this.logger.error(
+        `Không đồng bộ được bể đại lý sau khi đổi cấp thủ công của ${userId}`,
+        error as Error,
+      );
+    }
+
     return this.getUserDetail(userId);
   }
 
@@ -596,10 +957,11 @@ export class AdminService {
             order: { createdAt: 'DESC' },
           })
         : [];
+    const f1IdSet = new Set(f1Ids);
     const commissionsByF1Order = new Map<string, any[]>();
     for (const c of allCommissions || []) {
       if (!c?.fromUserId || !c?.orderId) continue;
-      if (!f1Ids.includes(c.fromUserId)) continue;
+      if (!f1IdSet.has(c.fromUserId)) continue;
       const key = `${c.fromUserId}:${c.orderId}`;
       if (!commissionsByF1Order.has(key)) commissionsByF1Order.set(key, []);
       commissionsByF1Order.get(key)!.push(c);
@@ -719,6 +1081,7 @@ export class AdminService {
         isAdmin: user.isAdmin,
         walletBalance: formatDecimal(user.walletBalance ?? 0),
         withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
+        reconsumptionWalletBalance: formatDecimal(user.reconsumptionWalletBalance ?? 0),
         totalPurchaseAmount: formatDecimal(user.totalPurchaseAmount),
         totalCommissionReceived: formatDecimal(user.totalCommissionReceived),
         fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
@@ -765,111 +1128,12 @@ export class AdminService {
   }
 
   /**
-   * Get full binary tree structure recursively
+   * Get full binary tree structure recursively.
+   * Logic dựng cây nằm ở UserService để màn hình cây của admin và của người dùng
+   * dùng chung một nguồn.
    */
   async getFullTree(userId: string, maxDepth: number = 5): Promise<any> {
-    const rootUser = await this.userRepository.findOne({
-      where: { id: userId },
-      select: [
-        'id',
-        'username',
-        'fullName',
-        'email',
-        'packageType',
-        'avatar',
-        'leftBranchTotal',
-        'rightBranchTotal',
-        'totalPurchaseAmount',
-        'createdAt',
-      ],
-    });
-
-    if (!rootUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (maxDepth <= 0) {
-      return {
-        id: rootUser.id,
-        username: rootUser.username,
-        fullName: rootUser.fullName,
-        email: rootUser.email,
-        packageType: rootUser.packageType,
-        avatar: rootUser.avatar,
-        leftBranchTotal: parseFloat(String(rootUser.leftBranchTotal || 0)),
-        rightBranchTotal: parseFloat(String(rootUser.rightBranchTotal || 0)),
-        totalPurchaseAmount: parseFloat(String(rootUser.totalPurchaseAmount || 0)),
-        createdAt: rootUser.createdAt,
-        children: [],
-      };
-    }
-
-    const allNodes = new Map<string, any>();
-    allNodes.set(rootUser.id, rootUser);
-
-    let parentIds: string[] = [rootUser.id];
-    let depth = 0;
-    while (depth < maxDepth && parentIds.length > 0) {
-      const levelChildren = await this.userRepository.find({
-        where: { parentId: In(parentIds) },
-        select: [
-          'id',
-          'parentId',
-          'position',
-          'username',
-          'fullName',
-          'email',
-          'packageType',
-          'avatar',
-          'leftBranchTotal',
-          'rightBranchTotal',
-          'totalPurchaseAmount',
-          'createdAt',
-        ],
-        order: { createdAt: 'ASC' },
-      });
-
-      if (levelChildren.length === 0) {
-        break;
-      }
-
-      for (const child of levelChildren) {
-        if (!allNodes.has(child.id)) {
-          allNodes.set(child.id, child);
-        }
-      }
-      parentIds = levelChildren.map((child) => child.id);
-      depth += 1;
-    }
-
-    const toTreeNode = (node: any): any => ({
-      id: node.id,
-      username: node.username,
-      fullName: node.fullName,
-      email: node.email,
-      packageType: node.packageType,
-      avatar: node.avatar,
-      leftBranchTotal: parseFloat(String(node.leftBranchTotal || 0)),
-      rightBranchTotal: parseFloat(String(node.rightBranchTotal || 0)),
-      totalPurchaseAmount: parseFloat(String(node.totalPurchaseAmount || 0)),
-      createdAt: node.createdAt,
-      children: [],
-    });
-
-    const treeNodes = new Map<string, any>();
-    for (const node of allNodes.values()) {
-      treeNodes.set(node.id, toTreeNode(node));
-    }
-
-    for (const node of allNodes.values()) {
-      if (!node.parentId) continue;
-      const parent = treeNodes.get(node.parentId);
-      const child = treeNodes.get(node.id);
-      if (!parent || !child) continue;
-      parent.children.push({ ...child, position: node.position });
-    }
-
-    return treeNodes.get(rootUser.id);
+    return this.userService.buildBinaryTree(userId, maxDepth);
   }
 
   /**
@@ -920,13 +1184,17 @@ export class AdminService {
    */
   async getSystemConfig(): Promise<{
     minPayoutThreshold: number;
+    indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
   }> {
-    const [thresholdRow, depositPercentRow, withdrawPercentRow] =
+    const [thresholdRow, indirectRateRow, depositPercentRow, withdrawPercentRow] =
       await Promise.all([
         this.systemConfigRepository.findOne({
           where: { key: 'minPayoutThreshold' },
+        }),
+        this.systemConfigRepository.findOne({
+          where: { key: 'indirectCommissionRateF2' },
         }),
         this.systemConfigRepository.findOne({
           where: { key: 'commissionDepositWalletPercent' },
@@ -939,6 +1207,9 @@ export class AdminService {
       minPayoutThreshold: thresholdRow
         ? parseFloat(thresholdRow.value)
         : this.defaultMinPayoutThreshold,
+      indirectCommissionRateF2: indirectRateRow
+        ? parseFloat(indirectRateRow.value)
+        : this.defaultIndirectCommissionRateF2,
       commissionDepositWalletPercent: depositPercentRow
         ? parseFloat(depositPercentRow.value)
         : this.defaultCommissionDepositWalletPercent,
@@ -953,13 +1224,23 @@ export class AdminService {
    */
   async updateSystemConfig(dto: {
     minPayoutThreshold?: number;
+    indirectCommissionRateF2?: number;
     commissionDepositWalletPercent?: number;
     commissionWithdrawWalletPercent?: number;
   }): Promise<{
     minPayoutThreshold: number;
+    indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
   }> {
+    if (dto.indirectCommissionRateF2 !== undefined) {
+      const value = Number(dto.indirectCommissionRateF2);
+      if (!Number.isFinite(value) || value < 0 || value > 100) {
+        throw new BadRequestException(
+          'indirectCommissionRateF2 must be between 0 and 100',
+        );
+      }
+    }
     if (dto.commissionDepositWalletPercent !== undefined) {
       const value = Number(dto.commissionDepositWalletPercent);
       if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -1002,6 +1283,20 @@ export class AdminService {
         });
       } else {
         row.value = String(dto.minPayoutThreshold);
+      }
+      await this.systemConfigRepository.save(row);
+    }
+    if (dto.indirectCommissionRateF2 !== undefined) {
+      let row = await this.systemConfigRepository.findOne({
+        where: { key: 'indirectCommissionRateF2' },
+      });
+      if (!row) {
+        row = this.systemConfigRepository.create({
+          key: 'indirectCommissionRateF2',
+          value: String(dto.indirectCommissionRateF2),
+        });
+      } else {
+        row.value = String(dto.indirectCommissionRateF2);
       }
       await this.systemConfigRepository.save(row);
     }
@@ -1345,5 +1640,680 @@ export class AdminService {
       lines.push(nextLine);
     }
     return lines.join('\n');
+  }
+
+  /**
+   * Trả về doanh số của từng user trong tháng/năm chỉ định (tổng giá trị đơn đã xác nhận).
+   */
+  async getMonthlySales(year: number, month: number): Promise<{
+    userId: string;
+    username: string;
+    fullName: string;
+    email: string;
+    packageType: string;
+    totalSales: number;
+  }[]> {
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end   = new Date(year, month, 1, 0, 0, 0, 0);
+
+    const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
+
+    const rows = await this.orderRepository
+      .createQueryBuilder('o')
+      .select('o.userId', 'userId')
+      .addSelect('COALESCE(SUM(o.totalAmount), 0)', 'totalSales')
+      .where('o.status IN (:...statuses)', { statuses: validStatuses })
+      .andWhere('o.createdAt >= :start', { start })
+      .andWhere('o.createdAt < :end', { end })
+      .andWhere('o.userId IS NOT NULL')
+      .groupBy('o.userId')
+      .getRawMany<{ userId: string; totalSales: string }>();
+
+    if (rows.length === 0) return [];
+
+    const userIds = rows.map(r => r.userId);
+    const users = await this.userRepository.find({
+      where: { id: In(userIds) },
+      select: ['id', 'username', 'fullName', 'email', 'packageType'],
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    return rows.map(r => {
+      const u = userMap.get(r.userId);
+      return {
+        userId: r.userId,
+        username: u?.username || '',
+        fullName: u?.fullName || '',
+        email: u?.email || '',
+        packageType: u?.packageType || 'NONE',
+        totalSales: parseFloat(r.totalSales) || 0,
+      };
+    }).sort((a, b) => b.totalSales - a.totalSales);
+  }
+
+  /**
+   * Monthly sales per user broken down by binary-tree branch.
+   *
+   * `UserService.getBranchMonthlyVolume()` answers the same question for one
+   * user, but it runs a recursive CTE plus two order queries per call, so
+   * calling it for every user does not scale. This walks the whole binary tree
+   * once instead: two queries, then O(users + orders) in memory.
+   *
+   * Sales value matches getBranchMonthlyVolume: the sum of item price times
+   * quantity (shipping excluded), over orders in confirmed, processing,
+   * shipped or delivered state. A user's branch totals cover the descendants
+   * of that side only, never the user's own orders.
+   */
+  async getMonthlyBranchSales(
+    year: number,
+    month: number,
+    includeAll = false,
+  ): Promise<
+    {
+      userId: string;
+      username: string;
+      fullName: string;
+      email: string;
+      packageType: string;
+      personalSales: number;
+      leftSales: number;
+      rightSales: number;
+      strongSales: number;
+      weakSales: number;
+      strongSide: 'left' | 'right' | null;
+      leftMemberCount: number;
+      rightMemberCount: number;
+    }[]
+  > {
+    const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const end = new Date(year, month, 1, 0, 0, 0, 0);
+
+    const [users, orders] = await Promise.all([
+      this.userRepository.find({
+        select: [
+          'id',
+          'username',
+          'fullName',
+          'email',
+          'packageType',
+          'parentId',
+          'position',
+        ],
+      }),
+      this.orderRepository
+        .createQueryBuilder('o')
+        .select(['o.id', 'o.userId', 'o.items'])
+        .where('o.status IN (:...statuses)', {
+          statuses: [
+            OrderStatus.CONFIRMED,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+          ],
+        })
+        .andWhere('o.createdAt >= :start', { start })
+        .andWhere('o.createdAt < :end', { end })
+        .andWhere('o.userId IS NOT NULL')
+        .getMany(),
+    ]);
+
+    const personalSalesMap = new Map<string, number>();
+    for (const order of orders) {
+      if (!order.userId) continue;
+      const items = Array.isArray(order.items) ? order.items : [];
+      let value = 0;
+      for (const item of items) {
+        value += (Number(item.price) || 0) * (Number(item.quantity) || 0);
+      }
+      personalSalesMap.set(
+        order.userId,
+        (personalSalesMap.get(order.userId) || 0) + value,
+      );
+    }
+
+    const childrenMap = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.parentId,
+    );
+    const positionMap = new Map(users.map((u) => [u.id, u.position]));
+
+    const { subtreeValue, subtreeCount, cyclicNodeIds } =
+      computeSubtreeAggregates(
+        users.map((u) => u.id),
+        childrenMap,
+        (id) => personalSalesMap.get(id) || 0,
+      );
+
+    if (cyclicNodeIds.length > 0) {
+      this.logger.warn(
+        `Cây nhị phân có ${cyclicNodeIds.length} node nằm trong vòng lặp khi tính doanh số nhánh ${year}-${month}: ${cyclicNodeIds
+          .slice(0, 10)
+          .join(', ')}`,
+      );
+    }
+
+    const rows = users.map((u) => {
+      let leftSales = 0;
+      let rightSales = 0;
+      let leftMemberCount = 0;
+      let rightMemberCount = 0;
+
+      for (const childId of childrenMap.get(u.id) || []) {
+        const side = positionMap.get(childId);
+        if (side === 'left') {
+          leftSales += subtreeValue.get(childId) || 0;
+          leftMemberCount += subtreeCount.get(childId) || 0;
+        } else if (side === 'right') {
+          rightSales += subtreeValue.get(childId) || 0;
+          rightMemberCount += subtreeCount.get(childId) || 0;
+        }
+      }
+
+      let strongSide: 'left' | 'right' | null = null;
+      if (leftSales > rightSales) strongSide = 'left';
+      else if (rightSales > leftSales) strongSide = 'right';
+
+      return {
+        userId: u.id,
+        username: u.username || '',
+        fullName: u.fullName || '',
+        email: u.email || '',
+        packageType: u.packageType || 'NONE',
+        personalSales: personalSalesMap.get(u.id) || 0,
+        leftSales,
+        rightSales,
+        strongSales: Math.max(leftSales, rightSales),
+        weakSales: Math.min(leftSales, rightSales),
+        strongSide,
+        leftMemberCount,
+        rightMemberCount,
+      };
+    });
+
+    const visible = includeAll
+      ? rows
+      : rows.filter(
+          (r) => r.personalSales > 0 || r.leftSales > 0 || r.rightSales > 0,
+        );
+
+    return visible.sort(
+      (a, b) => b.weakSales - a.weakSales || b.strongSales - a.strongSales,
+    );
+  }
+
+  private static readonly PRODUCT_TYPE_CONFIGS_KEY = 'PRODUCT_TYPE_CONFIGS';
+  private static readonly DEFAULT_PRODUCT_TYPES = [
+    { code: 'STRATEGIC', name: 'Chiến lược', nameEn: 'Strategic' },
+    { code: 'COMMON',    name: 'Tiêu dùng',  nameEn: 'Common'    },
+  ];
+
+  async getProductTypeConfigs(): Promise<{ code: string; name: string; nameEn: string }[]> {
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: AdminService.PRODUCT_TYPE_CONFIGS_KEY },
+    });
+    if (!row?.value) return AdminService.DEFAULT_PRODUCT_TYPES;
+    try {
+      const parsed = JSON.parse(row.value);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch { /* fall through */ }
+    return AdminService.DEFAULT_PRODUCT_TYPES;
+  }
+
+  async saveProductTypeConfigs(
+    types: { code: string; name: string; nameEn?: string }[],
+  ): Promise<{ code: string; name: string; nameEn: string }[]> {
+    if (!Array.isArray(types) || types.length === 0)
+      throw new BadRequestException('Phải có ít nhất một loại sản phẩm');
+    const cleaned = types.map(t => ({
+      code: String(t.code).toUpperCase().replace(/\s+/g, '_').slice(0, 50),
+      name: String(t.name).slice(0, 100),
+      nameEn: String(t.nameEn || t.name).slice(0, 100),
+    }));
+    let row = await this.systemConfigRepository.findOne({
+      where: { key: AdminService.PRODUCT_TYPE_CONFIGS_KEY },
+    });
+    if (!row) row = this.systemConfigRepository.create({ key: AdminService.PRODUCT_TYPE_CONFIGS_KEY });
+    row.value = JSON.stringify(cleaned);
+    await this.systemConfigRepository.save(row);
+    return cleaned;
+  }
+
+  /** Reset withdrawWalletBalance = 0 cho tất cả user */
+  async resetAllWithdrawWalletBalances(performedBy: string): Promise<{ affected: number }> {
+    const result = await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ withdrawWalletBalance: 0 })
+      .where('withdrawWalletBalance != :zero', { zero: 0 })
+      .execute();
+
+    const affected = result.affected ?? 0;
+    this.logger.warn(
+      `[ADMIN] resetAllWithdrawWalletBalances: reset ${affected} users by=${performedBy}`,
+    );
+    return { affected };
+  }
+
+  // Minimal CSV parser for our own export format (commas + double quotes escaping).
+  private parseCsv(content: string): string[][] {
+    const rows: string[][] = [];
+    const text = content.replace(/^\uFEFF/, ''); // strip BOM if present
+
+    let row: string[] = [];
+    let field = '';
+    let inQuotes = false;
+
+    const pushField = () => {
+      row.push(field);
+      field = '';
+    };
+    const pushRow = () => {
+      if (row.length === 1 && row[0] === '' && rows.length > 0) return;
+      rows.push(row);
+      row = [];
+    };
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          const next = text[i + 1];
+          if (next === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += ch;
+        }
+        continue;
+      }
+
+      if (ch === '"') {
+        inQuotes = true;
+        continue;
+      }
+
+      if (ch === ',') {
+        pushField();
+        continue;
+      }
+
+      if (ch === '\n') {
+        pushField();
+        pushRow();
+        continue;
+      }
+
+      if (ch === '\r') {
+        continue;
+      }
+
+      field += ch;
+    }
+
+    pushField();
+    if (row.length) pushRow();
+    return rows;
+  }
+
+  async importUsersCsv(fileBuffer: Buffer): Promise<{ total: number; created: number; updated: number; failed: string[] }> {
+    const csvContent = fileBuffer.toString('utf8');
+    const rows = this.parseCsv(csvContent);
+    if (rows.length < 2) {
+      throw new BadRequestException('CSV file is empty or missing headers');
+    }
+
+    const headers = rows[0].map((h) => h.trim());
+    const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+
+    const iId = idx('ID');
+    const iUsername = idx('Username');
+    const iEmail = idx('Email');
+    const iFullName = idx('Full Name');
+    const iPhone = idx('Phone');
+    const iCountry = idx('Country');
+    const iAddress = idx('Address');
+    const iAvatar = idx('Avatar');
+    const iChainId = idx('Chain ID');
+    const iPackageType = idx('Package Type');
+    const iStatus = idx('Status');
+    const iIsAdmin = idx('Is Admin');
+    const iEmailVerified = idx('Email Verified');
+    const iWalletAddress = idx('Wallet Address');
+    const iWalletBalance = idx('Wallet Balance (Deposit)');
+    const iWithdrawWalletBalance = idx('Withdraw Wallet Balance');
+    const iReferralUser = idx('Referral User');
+    const iReferralUserId = idx('Referral User ID');
+    const iParentId = idx('Parent ID');
+    const iPosition = idx('Position');
+    const iTotalPurchaseAmount = idx('Total Purchase Amount');
+    const iTotalCommissionReceived = idx('Total Commission Received');
+    const iFakeReceivedCommission = idx('Fake Received Commission');
+    const iTotalReconsumptionAmount = idx('Total Reconsumption Amount');
+    const iLeftBranchTotal = idx('Left Branch Total');
+    const iRightBranchTotal = idx('Right Branch Total');
+    const iPasswordChangedAt = idx('Password Changed At');
+    const iCreatedAt = idx('Created At');
+    const iUpdatedAt = idx('Updated At');
+
+    if (iEmail === -1 || iFullName === -1) {
+      throw new BadRequestException('CSV must at least contain "Email" and "Full Name" headers.');
+    }
+
+    let created = 0;
+    let updated = 0;
+    const failed: string[] = [];
+
+    const defaultPassword = 'User@123456';
+    const defaultPasswordHash = await bcrypt.hash(defaultPassword, 10);
+
+    const parseNum = (v: string): number => {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    };
+    const parseBool = (v: string): boolean => {
+      const s = String(v).trim().toLowerCase();
+      return s === 'true' || s === '1' || s === 'yes';
+    };
+    const parseDate = (v: string): Date | null => {
+      if (!v || v.trim() === '') return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const relationUpdates: Array<{
+      id: string;
+      referralUserId?: string;
+      parentId?: string;
+      position?: 'left' | 'right';
+      referralUser?: string;
+    }> = [];
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (row.length < 2) continue;
+
+      const get = (i: number) => (i >= 0 && row[i] !== undefined ? row[i].trim() : '');
+
+      const email = get(iEmail);
+      const fullName = get(iFullName);
+      if (!email) {
+        failed.push(`Row ${r + 1}: Email is missing`);
+        continue;
+      }
+
+      try {
+        const id = get(iId) || undefined;
+        const username = get(iUsername) || undefined;
+
+        let user: User | null = null;
+        if (id) {
+          user = await this.userRepository.findOne({ where: { id } });
+        }
+        if (!user && email) {
+          user = await this.userRepository.findOne({ where: { email } });
+        }
+        if (!user && username) {
+          user = await this.userRepository.findOne({ where: { username } });
+        }
+
+        const isNew = !user;
+        let userEntity: User;
+        if (isNew) {
+          userEntity = this.userRepository.create();
+          if (id) userEntity.id = id;
+          userEntity.password = defaultPasswordHash;
+        } else {
+          userEntity = user!;
+        }
+
+        if (username) userEntity.username = username;
+        userEntity.email = email;
+        userEntity.fullName = fullName;
+        if (iPhone >= 0) userEntity.phone = (get(iPhone) || null) as any;
+        if (iCountry >= 0) userEntity.country = (get(iCountry) || null) as any;
+        if (iAddress >= 0) userEntity.address = (get(iAddress) || null) as any;
+        if (iAvatar >= 0) userEntity.avatar = (get(iAvatar) || null) as any;
+        if (iChainId >= 0) userEntity.chainId = (get(iChainId) || null) as any;
+        if (iPackageType >= 0) userEntity.packageType = get(iPackageType) || 'NONE';
+        if (iStatus >= 0) userEntity.status = get(iStatus) || 'ACTIVE';
+        if (iIsAdmin >= 0) userEntity.isAdmin = parseBool(get(iIsAdmin));
+        if (iEmailVerified >= 0) userEntity.emailVerified = parseBool(get(iEmailVerified));
+        if (iWalletAddress >= 0) userEntity.walletAddress = (get(iWalletAddress) || null) as any;
+        if (iWalletBalance >= 0) userEntity.walletBalance = parseNum(get(iWalletBalance));
+        if (iWithdrawWalletBalance >= 0) userEntity.withdrawWalletBalance = parseNum(get(iWithdrawWalletBalance));
+        if (iTotalPurchaseAmount >= 0) userEntity.totalPurchaseAmount = parseNum(get(iTotalPurchaseAmount));
+        if (iTotalCommissionReceived >= 0) userEntity.totalCommissionReceived = parseNum(get(iTotalCommissionReceived));
+        if (iFakeReceivedCommission >= 0) userEntity.fakeReceivedCommission = parseNum(get(iFakeReceivedCommission));
+        if (iTotalReconsumptionAmount >= 0) userEntity.totalReconsumptionAmount = parseNum(get(iTotalReconsumptionAmount));
+        if (iLeftBranchTotal >= 0) userEntity.leftBranchTotal = parseNum(get(iLeftBranchTotal));
+        if (iRightBranchTotal >= 0) userEntity.rightBranchTotal = parseNum(get(iRightBranchTotal));
+
+        const createdDate = iCreatedAt >= 0 ? parseDate(get(iCreatedAt)) : null;
+        if (createdDate) userEntity.createdAt = createdDate;
+
+        const updatedDate = iUpdatedAt >= 0 ? parseDate(get(iUpdatedAt)) : null;
+        if (updatedDate) userEntity.updatedAt = updatedDate;
+
+        const pwChangedDate = iPasswordChangedAt >= 0 ? parseDate(get(iPasswordChangedAt)) : null;
+        if (pwChangedDate) userEntity.passwordChangedAt = pwChangedDate;
+
+        const savedUser = await this.userRepository.save(userEntity);
+
+        if (isNew) created++; else updated++;
+
+        const refId = get(iReferralUserId);
+        const pId = get(iParentId);
+        const pos = get(iPosition) as 'left' | 'right';
+        const refUser = get(iReferralUser);
+
+        if (refId || pId || pos || refUser) {
+          relationUpdates.push({
+            id: savedUser.id,
+            referralUserId: refId || undefined,
+            parentId: pId || undefined,
+            position: (pos === 'left' || pos === 'right') ? pos : undefined,
+            referralUser: refUser || undefined,
+          });
+        }
+      } catch (err: any) {
+        failed.push(`Row ${r + 1} (${email}): ${err.message || err}`);
+      }
+    }
+
+    for (const rel of relationUpdates) {
+      try {
+        const patch: any = {};
+        if (rel.referralUserId) patch.referralUserId = rel.referralUserId;
+        if (rel.parentId) patch.parentId = rel.parentId;
+        if (rel.position) patch.position = rel.position;
+        if (rel.referralUser) patch.referralUser = rel.referralUser;
+
+        if (Object.keys(patch).length > 0) {
+          await this.userRepository.update(rel.id, patch);
+        }
+      } catch (err: any) {
+        failed.push(`Relation restore for user ID ${rel.id}: ${err.message || err}`);
+      }
+    }
+
+    return {
+      total: rows.length - 1,
+      created,
+      updated,
+      failed,
+    };
+  }
+
+  async importOrdersCsv(fileBuffer: Buffer): Promise<{ total: number; created: number; updated: number; failed: string[] }> {
+    const csvContent = fileBuffer.toString('utf8');
+    const rows = this.parseCsv(csvContent);
+    if (rows.length < 2) {
+      throw new BadRequestException('CSV file is empty or missing headers');
+    }
+
+    const headers = rows[0].map((h) => h.trim());
+    const idx = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+
+    const iId = idx('Order ID');
+    const iUserId = idx('User ID');
+    const iUsername = idx('Username');
+    const iFullName = idx('Full Name');
+    const iPhone = idx('Phone Number');
+    const iTotalAmount = idx('Total Amount');
+    const iStatus = idx('Status');
+    const iItems = idx('Items');
+    const iProductIds = idx('Product IDs');
+    const iShippingAddress = idx('Shipping Address');
+    const iTransactionHash = idx('Transaction Hash');
+    const iCreatedAt = idx('Created At');
+    const iUpdatedAt = idx('Updated At');
+
+    if (iId === -1 || iTotalAmount === -1) {
+      throw new BadRequestException('CSV must contain "Order ID" and "Total Amount" headers.');
+    }
+
+    let created = 0;
+    let updated = 0;
+    const failed: string[] = [];
+
+    const parseNum = (v: string): number => {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    };
+    const parseDate = (v: string): Date | null => {
+      if (!v || v.trim() === '') return null;
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const products = await this.productRepository.find();
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const productByName = new Map(products.map((p) => [p.name.toLowerCase().trim(), p]));
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (row.length < 2) continue;
+
+      const get = (i: number) => (i >= 0 && row[i] !== undefined ? row[i].trim() : '');
+
+      const orderId = get(iId);
+      if (!orderId) {
+        failed.push(`Row ${r + 1}: Order ID is missing`);
+        continue;
+      }
+
+      try {
+        let order = await this.orderRepository.findOne({ where: { id: orderId } });
+        const isNew = !order;
+        let orderEntity: Order;
+        if (isNew) {
+          orderEntity = this.orderRepository.create();
+          orderEntity.id = orderId;
+        } else {
+          orderEntity = order!;
+        }
+
+        const userId = get(iUserId) || null;
+        orderEntity.userId = userId;
+
+        orderEntity.totalAmount = parseNum(get(iTotalAmount));
+        if (iStatus >= 0) {
+          const s = get(iStatus).toLowerCase();
+          orderEntity.status = s as any;
+        }
+        if (iShippingAddress >= 0) orderEntity.shippingAddress = (get(iShippingAddress) || null) as any;
+        if (iPhone >= 0) orderEntity.shippingPhone = (get(iPhone) || null) as any;
+        if (iFullName >= 0) orderEntity.shippingName = (get(iFullName) || null) as any;
+        if (iTransactionHash >= 0) orderEntity.transactionHash = (get(iTransactionHash) || null) as any;
+
+        const createdDate = iCreatedAt >= 0 ? parseDate(get(iCreatedAt)) : null;
+        if (createdDate) orderEntity.createdAt = createdDate;
+
+        const updatedDate = iUpdatedAt >= 0 ? parseDate(get(iUpdatedAt)) : null;
+        if (updatedDate) orderEntity.updatedAt = updatedDate;
+
+        const itemsStr = iItems >= 0 ? get(iItems) : '';
+        const prodIdsStr = iProductIds >= 0 ? get(iProductIds) : '';
+
+        const orderItems: Array<{
+          productId: string;
+          productName: string;
+          quantity: number;
+          price: number;
+          properties?: { [key: string]: string };
+        }> = [];
+
+        if (itemsStr && prodIdsStr) {
+          const rawItems = itemsStr.split(',').map((x) => x.trim()).filter(Boolean);
+          const prodIds = prodIdsStr.split(',').map((x) => x.trim()).filter(Boolean);
+
+          for (let i = 0; i < rawItems.length; i++) {
+            const rawItem = rawItems[i];
+            const prodId = prodIds[i] || '';
+
+            let quantity = 1;
+            let pName = rawItem;
+            const match = rawItem.match(/^(.*?)\s*\(x(\d+)\)/);
+            if (match) {
+              pName = match[1].trim();
+              quantity = parseInt(match[2], 10) || 1;
+            }
+
+            let product = prodId ? productMap.get(prodId) : null;
+            if (!product) {
+              product = productByName.get(pName.toLowerCase());
+            }
+
+            const pPrice = product ? Number(product.price) : (orderEntity.totalAmount / rawItems.length) / quantity;
+
+            orderItems.push({
+              productId: prodId || (product ? product.id : 'unknown'),
+              productName: product ? product.name : pName,
+              quantity,
+              price: pPrice,
+            });
+          }
+        } else if (itemsStr) {
+          const rawItems = itemsStr.split(',').map((x) => x.trim()).filter(Boolean);
+          for (const rawItem of rawItems) {
+            let quantity = 1;
+            let pName = rawItem;
+            const match = rawItem.match(/^(.*?)\s*\(x(\d+)\)/);
+            if (match) {
+              pName = match[1].trim();
+              quantity = parseInt(match[2], 10) || 1;
+            }
+
+            const product = productByName.get(pName.toLowerCase());
+            const pPrice = product ? Number(product.price) : (orderEntity.totalAmount / rawItems.length) / quantity;
+
+            orderItems.push({
+              productId: product ? product.id : 'unknown',
+              productName: product ? product.name : pName,
+              quantity,
+              price: pPrice,
+            });
+          }
+        }
+
+        orderEntity.items = orderItems;
+
+        await this.orderRepository.save(orderEntity);
+        if (isNew) created++; else updated++;
+      } catch (err: any) {
+        failed.push(`Row ${r + 1} (Order ID: ${orderId}): ${err.message || err}`);
+      }
+    }
+
+    return {
+      total: rows.length - 1,
+      created,
+      updated,
+      failed,
+    };
   }
 }

@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Commission } from '../../affiliate/entities/commission.entity';
 import { User } from '../../user/entities/user.entity';
@@ -21,10 +22,13 @@ export enum OrderStatus {
 }
 
 @Entity('orders')
+@Index('IDX_orders_status_created_at', ['status', 'createdAt'])
+@Index('IDX_orders_created_at', ['createdAt'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ nullable: true })
   userId: string | null; // User đặt hàng (có thể null nếu là khách vãng lai mua hàng không đăng nhập)
 
@@ -63,6 +67,30 @@ export class Order {
   shippingFee?: number;
 
   @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  vatAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 8,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  vatRate: number;
+
+  @Column({
     type: 'enum',
     enum: OrderStatus,
     default: OrderStatus.PENDING,
@@ -89,6 +117,9 @@ export class Order {
   /** Payment method: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' */
   @Column({ nullable: true, default: 'wallet' })
   paymentMethod: string;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
 
   @CreateDateColumn()
   createdAt: Date;

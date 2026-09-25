@@ -139,7 +139,8 @@ export class WalletService {
     const qb = this.depositRequestRepo
       .createQueryBuilder('r')
       .where('r.userId = :userId', { userId })
-      .orderBy('r.createdAt', 'DESC');
+      .orderBy('r.createdAt', 'DESC')
+      .take(15);
     if (status) qb.andWhere('r.status = :status', { status });
     return qb.getMany();
   }
@@ -326,8 +327,18 @@ export class WalletService {
     if (!user) throw new NotFoundException('User not found');
 
     const amount = Number(dto.amount || 0);
-    if (!Number.isFinite(amount) || amount < 30) {
-      throw new BadRequestException('Số tiền rút tối thiểu là 30 USDT');
+    const banking = await this.bankingConfigRepo.findOne({
+      where: { isEnabled: true },
+    });
+    const rate =
+      banking?.usdtWithdrawPriceVnd != null &&
+      Number(banking.usdtWithdrawPriceVnd) > 0
+        ? Number(banking.usdtWithdrawPriceVnd)
+        : 24000;
+    const amountVnd = Math.round(amount * rate);
+
+    if (!Number.isFinite(amount) || amountVnd < 500000) {
+      throw new BadRequestException('Số tiền rút tối thiểu là 500.000 VND');
     }
     const currentBalance = Number(user.withdrawWalletBalance ?? 0);
     if (amount > currentBalance) {
@@ -370,17 +381,6 @@ export class WalletService {
       withdrawWalletBalance: currentBalance - amount,
     });
 
-    // Obtener la tasa de cambio actual desde la configuración para congelar el valor en VND del retiro en el momento de la transacción
-    const banking = await this.bankingConfigRepo.findOne({
-      where: { isEnabled: true },
-    });
-    const rate =
-      banking?.usdtWithdrawPriceVnd != null &&
-      Number(banking.usdtWithdrawPriceVnd) > 0
-        ? Number(banking.usdtWithdrawPriceVnd)
-        : 24000;
-    const amountVnd = Math.round(amount * rate);
-
     const request = this.withdrawRequestRepo.create({
       userId,
       amount,
@@ -417,7 +417,8 @@ export class WalletService {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .where('r.userId = :userId', { userId })
-      .orderBy('r.createdAt', 'DESC');
+      .orderBy('r.createdAt', 'DESC')
+      .take(15);
     if (status) qb.andWhere('r.status = :status', { status });
     return qb.getMany();
   }
@@ -426,12 +427,14 @@ export class WalletService {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'user')
+      .leftJoinAndSelect('user.kycRequests', 'kyc')
       .addSelect([
         'user.id',
         'user.username',
         'user.fullName',
         'user.email',
         'user.phone',
+        'user.packageType',
       ])
       .orderBy('r.createdAt', 'DESC');
     if (status) qb.andWhere('r.status = :status', { status });
@@ -450,7 +453,30 @@ export class WalletService {
         { keyword },
       );
     }
-    return qb.getMany();
+    const list = await qb.getMany();
+    return list.map((req) => {
+      const kycList = Array.isArray(req.user?.kycRequests) ? req.user.kycRequests : [];
+      const approvedKyc = kycList.find((k) => k.status === 'APPROVED');
+      const latestKyc = approvedKyc || kycList[0] || null;
+
+      return {
+        ...req,
+        kycInfo: latestKyc
+          ? {
+              id: latestKyc.id,
+              documentType: latestKyc.documentType,
+              documentNumber: latestKyc.documentNumber,
+              frontImage: latestKyc.frontImage,
+              backImage: latestKyc.backImage,
+              bankName: latestKyc.bankName,
+              bankAccountNumber: latestKyc.bankAccountNumber,
+              bankAccountHolder: latestKyc.bankAccountHolder,
+              status: latestKyc.status,
+              createdAt: latestKyc.createdAt,
+            }
+          : null,
+      };
+    });
   }
 
   async processWithdrawRequest(

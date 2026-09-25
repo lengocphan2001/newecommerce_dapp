@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input } from 'antd';
-import { ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { Table, Tag, Select, message, Space, Button, Modal, Descriptions, Input, Upload, notification } from 'antd';
+import { ReloadOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { orderService, Order } from '../services/orderService';
+import { adminService } from '../services/adminService';
+import api from '../services/api';
+import { formatDateTime } from '../utils/format';
 
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -10,6 +13,7 @@ const Orders: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -65,6 +69,42 @@ const Orders: React.FC = () => {
     }
   };
 
+  const handleImportCsv = async (file: File) => {
+    setImporting(true);
+    try {
+      const res = await adminService.importOrders(file);
+      const { total, created, updated, failed } = res.data;
+      Modal.info({
+        title: 'Kết quả Import Orders',
+        content: (
+          <div>
+            <p>Tổng số dòng xử lý: <strong>{total}</strong></p>
+            <p style={{ color: '#16a34a' }}>Tạo mới: <strong>{created}</strong></p>
+            <p style={{ color: '#1d4ed8' }}>Cập nhật: <strong>{updated}</strong></p>
+            {failed.length > 0 && (
+              <div>
+                <p style={{ color: '#ef4444', marginTop: 8 }}>Thất bại ({failed.length}):</p>
+                <div style={{ maxHeight: 200, overflowY: 'auto', background: '#f3f4f6', padding: 8, borderRadius: 4 }}>
+                  {failed.map((msg, i) => (
+                    <div key={i} style={{ fontSize: 12, color: '#ef4444' }}>{msg}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ),
+        okText: 'Đóng',
+      });
+      fetchOrders(getQueryParams());
+    } catch (error: any) {
+      console.error(error);
+      const msg = error?.response?.data?.message || error?.message || 'Failed to import CSV';
+      message.error(typeof msg === 'string' ? msg : 'Failed to import CSV');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleStatusChange = async (orderId: string, status: string) => {
     try {
       // Convert uppercase status to lowercase for backend
@@ -85,6 +125,53 @@ const Orders: React.FC = () => {
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Failed to approve order');
     }
+  };
+
+  const handleCompensateCommission = async (orderId: string) => {
+    try {
+      const res = await api.post(`/affiliate/admin/orders/${orderId}/compensate-commission`);
+      if (res.data.compensated) {
+        notification.success({
+          message: 'Bù hoa hồng thành công!',
+          description: res.data.message || 'Đã bù hoa hồng thành công cho đơn hàng này.',
+        });
+      } else {
+        notification.info({
+          message: 'Thông báo',
+          description: res.data.message || 'Không có hoa hồng nào cần bù hoặc không đủ điều kiện.',
+        });
+      }
+      fetchOrders(getQueryParams());
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Có lỗi xảy ra khi bù hoa hồng';
+      notification.error({
+        message: 'Lỗi khi bù hoa hồng',
+        description: msg,
+      });
+    }
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    Modal.confirm({
+      title: 'Xác nhận xóa đơn hàng nhầm lẫn?',
+      content: (
+        <div style={{ color: '#ef4444' }}>
+          <strong>CẢNH BÁO NGUY HIỂM:</strong> Hành động này sẽ xóa vĩnh viễn đơn hàng khỏi cơ sở dữ liệu và <strong>ĐẢO NGƯỢC/THU HỒI TOÀN BỘ HOA HỒNG, DOANH SỐ CÁ NHÂN, DOANH SỐ NHÁNH TUYẾN TRÊN VÀ MATRIX REWARDS</strong> phát sinh từ đơn hàng này. Việc này không thể hoàn tác!
+        </div>
+      ),
+      okText: 'Xóa vĩnh viễn & Thu hồi',
+      okType: 'danger',
+      cancelText: 'Hủy bỏ',
+      onOk: async () => {
+        try {
+          const res = await api.delete(`/orders/${orderId}`);
+          message.success(res.data.message || 'Xóa đơn hàng và thu hồi hoa hồng thành công.');
+          fetchOrders(getQueryParams());
+        } catch (error: any) {
+          message.error(error?.response?.data?.message || 'Xóa đơn hàng thất bại.');
+        }
+      }
+    });
   };
 
   const columns = [
@@ -184,7 +271,7 @@ const Orders: React.FC = () => {
             )}
             <Select
               value={statusUpper}
-              style={{ width: 120 }}
+              style={{ width: '100%', maxWidth: 120 }}
               onChange={(value) => handleStatusChange(record.id, value)}
             >
               <Select.Option value="PENDING">Pending</Select.Option>
@@ -203,23 +290,43 @@ const Orders: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => date ? new Date(date).toLocaleString() : '-',
+      render: (date: string) => formatDateTime(date),
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 150,
       render: (_: any, record: Order) => (
-        <Button
-          type="link"
-          size="small"
-          onClick={() => {
-            setSelectedOrder(record);
-            setModalVisible(true);
-          }}
-        >
-          Chi tiết
-        </Button>
+        <Space size="middle">
+          <Button
+            type="link"
+            size="small"
+            onClick={() => {
+              setSelectedOrder(record);
+              setModalVisible(true);
+            }}
+          >
+            Chi tiết
+          </Button>
+          {(record.status?.toLowerCase() === 'confirmed' || record.status?.toLowerCase() === 'delivered') && (
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => handleCompensateCommission(record.id)}
+            >
+              Bù hoa hồng
+            </Button>
+          )}
+          <Button
+            type="link"
+            size="small"
+            danger
+            onClick={() => handleDeleteOrder(record.id)}
+          >
+            Xóa & Thu hồi
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -239,9 +346,21 @@ const Orders: React.FC = () => {
           allowClear
           onChange={(e) => setSearchText(e.target.value)}
           onSearch={handleSearch}
-          style={{ width: 420 }}
+          style={{ width: '100%', maxWidth: 420 }}
         />
         <Button onClick={handleClearSearch} disabled={!searchText.trim()}>Xóa</Button>
+        <Upload
+          accept=".csv"
+          showUploadList={false}
+          beforeUpload={(file) => {
+            handleImportCsv(file);
+            return false;
+          }}
+        >
+          <Button icon={<UploadOutlined />} loading={importing}>
+            Import CSV
+          </Button>
+        </Upload>
         <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exporting}>
           Export Excel
         </Button>
@@ -262,7 +381,7 @@ const Orders: React.FC = () => {
         width={800}
       >
         {selectedOrder && (
-          <Descriptions bordered column={1}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 1 }}>
             <Descriptions.Item label="Order ID">{selectedOrder.id}</Descriptions.Item>
             <Descriptions.Item label="User ID">{selectedOrder.userId}</Descriptions.Item>
             <Descriptions.Item label="Status">
@@ -277,6 +396,22 @@ const Orders: React.FC = () => {
                 {selectedOrder.status?.toUpperCase()}
               </Tag>
             </Descriptions.Item>
+            {selectedOrder.shippingFee !== undefined && selectedOrder.shippingFee > 0 && (
+              <Descriptions.Item label="Shipping Fee">
+                ${selectedOrder.shippingFee?.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}
+              </Descriptions.Item>
+            )}
+            {selectedOrder.vatAmount !== undefined && selectedOrder.vatAmount > 0 && (
+              <Descriptions.Item label={`VAT (${selectedOrder.vatRate || 8}%)`}>
+                ${selectedOrder.vatAmount?.toLocaleString('en-US', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="Total Amount">
               ${selectedOrder.totalAmount?.toLocaleString('en-US', {
                 minimumFractionDigits: 2,
@@ -319,6 +454,7 @@ const Orders: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Items">
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={selectedOrder.items || []}
                 pagination={false}
                 size="small"
@@ -364,7 +500,7 @@ const Orders: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Created At">
               {selectedOrder.createdAt
-                ? new Date(selectedOrder.createdAt).toLocaleString()
+                ? formatDateTime(selectedOrder.createdAt)
                 : '-'}
             </Descriptions.Item>
           </Descriptions>

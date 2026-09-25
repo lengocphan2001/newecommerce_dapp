@@ -15,11 +15,7 @@ import {
   AuditLogEntityType,
 } from '../audit-log/entities/audit-log.entity';
 import { AdminService } from '../admin/admin.service';
-
-function roundMoney(num: number): number {
-  if (!Number.isFinite(num)) return 0;
-  return Math.round(num * 100) / 100;
-}
+import { roundMoney } from '../common/utils/number.util';
 
 const COMMISSION_FEE_PERCENT = 12;
 
@@ -27,7 +23,11 @@ const COMMISSION_FEE_PERCENT = 12;
  * Commission được trả ngay (không cần đạt ngưỡng): Direct từ package HOẶC Product direct (type=PRODUCT, notes bắt đầu "Product direct").
  */
 function isPayImmediately(commission: Commission): boolean {
-  if (commission.type === CommissionType.DIRECT) return true;
+  if (
+    commission.type === CommissionType.DIRECT ||
+    commission.type === CommissionType.INDIRECT
+  )
+    return true;
   if (
     commission.type === CommissionType.PRODUCT &&
     commission.notes?.startsWith('Product direct')
@@ -63,8 +63,8 @@ export class CommissionPayoutService {
     const query = this.commissionRepository
       .createQueryBuilder('commission')
       .leftJoinAndSelect('commission.user', 'user')
-      .where('commission.status = :status', {
-        status: CommissionStatus.PENDING,
+      .where('commission.status IN (:...statuses)', {
+        statuses: [CommissionStatus.PENDING, CommissionStatus.BLOCKED],
       })
       .orderBy('commission.createdAt', 'ASC')
       .limit(limit);
@@ -169,7 +169,7 @@ export class CommissionPayoutService {
         commissions = await this.commissionRepository.find({
           where: {
             id: In(specificCommissionIds),
-            status: CommissionStatus.PENDING,
+            status: In([CommissionStatus.PENDING, CommissionStatus.BLOCKED]),
           },
           relations: ['user'],
         });
@@ -178,7 +178,7 @@ export class CommissionPayoutService {
         commissions = await this.commissionRepository.find({
           where: {
             userId: In(userIds),
-            status: CommissionStatus.PENDING,
+            status: In([CommissionStatus.PENDING, CommissionStatus.BLOCKED]),
           },
           relations: ['user'],
         });
@@ -186,15 +186,15 @@ export class CommissionPayoutService {
 
       if (commissions.length === 0) {
         throw new Error(
-          'No pending commissions found for the provided recipients',
+          'No pending or blocked commissions found for the provided recipients',
         );
       }
 
-      const feePercent = COMMISSION_FEE_PERCENT; // 12%
-      const withdrawPercent = 75; // 75%
-      const depositPercent = 13; // 13%
+      const { depositPercent: reconsumptionPercent, withdrawPercent } =
+        await this.adminService.getCommissionWalletDistribution();
+      const taxPercent = 100 - withdrawPercent - reconsumptionPercent;
       this.logger.log(
-        `Internal payout distribution: withdraw=${withdrawPercent}%, deposit(ví nạp)=${depositPercent}%, fee=${feePercent}%`,
+        `Internal payout distribution: withdraw=${withdrawPercent}%, reconsumption(tiêu dùng)=${reconsumptionPercent}%, tax(thuế)=${taxPercent}%`,
       );
 
       const batchId =
@@ -214,12 +214,12 @@ export class CommissionPayoutService {
         commissionMap.get(commission.userId)!.push(commission);
       }
 
-      // Update each commission and credit withdraw wallet and deposit wallet (ví nạp)
+      // Update each commission and credit withdraw wallet and reconsumption wallet
       const recipientUserIds = dto.recipients.map((recipient) => recipient.userId);
       const recipientsUsers = recipientUserIds.length
         ? await queryRunner.manager.find(User, {
             where: { id: In(recipientUserIds) },
-            select: ['id', 'withdrawWalletBalance', 'walletBalance'],
+            select: ['id', 'withdrawWalletBalance', 'reconsumptionWalletBalance'],
           })
         : [];
       const usersById = new Map(recipientsUsers.map((user) => [user.id, user]));
@@ -234,14 +234,14 @@ export class CommissionPayoutService {
           0,
         );
         const withdrawAmount = roundMoney((gross * withdrawPercent) / 100);
-        const depositAmount = roundMoney((gross * depositPercent) / 100);
+        const reconsumptionAmount = roundMoney((gross * reconsumptionPercent) / 100);
         
         const currentWithdraw = Number(user.withdrawWalletBalance || 0);
-        const currentDeposit = Number(user.walletBalance || 0);
+        const currentReconsumption = Number(user.reconsumptionWalletBalance || 0);
         
         await queryRunner.manager.update(User, user.id, {
           withdrawWalletBalance: currentWithdraw + withdrawAmount,
-          walletBalance: currentDeposit + depositAmount,
+          reconsumptionWalletBalance: currentReconsumption + reconsumptionAmount,
         });
 
         for (const commission of userCommissions) {
@@ -252,7 +252,7 @@ export class CommissionPayoutService {
           commission.payoutDate = new Date();
           const parts = [
             commission.notes,
-            `Distributed: withdraw wallet (${withdrawPercent}%), deposit wallet (${depositPercent}%), fee (${feePercent}%)`,
+            `Distributed: withdraw wallet (${withdrawPercent}%), reconsumption wallet (${reconsumptionPercent}%), tax (${taxPercent}%)`,
           ]
             .filter(Boolean)
             .join('; ');
@@ -284,7 +284,8 @@ export class CommissionPayoutService {
             recipientCount: dto.recipients.length,
             distribution: {
               withdrawPercent,
-              feePercent,
+              reconsumptionPercent,
+              taxPercent,
             },
             totalAmount: dto.recipients.reduce(
               (sum, r) => sum + parseFloat(r.amount),
@@ -356,12 +357,12 @@ export class CommissionPayoutService {
     }
 
     const commissions = await this.commissionRepository.find({
-      where: { id: In(commissionIds), status: CommissionStatus.PENDING },
+      where: { id: In(commissionIds), status: In([CommissionStatus.PENDING, CommissionStatus.BLOCKED]) },
       relations: ['user'],
     });
 
     if (commissions.length === 0) {
-      throw new Error('No pending commissions found for the given IDs');
+      throw new Error('No pending or blocked commissions found for the given IDs');
     }
 
     const { recipients } = await this.preparePayoutBatch(commissions);

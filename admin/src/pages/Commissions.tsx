@@ -10,6 +10,8 @@ import {
   Modal,
   Descriptions,
   Typography,
+  DatePicker,
+  notification,
 } from 'antd';
 import {
   CheckOutlined,
@@ -20,7 +22,10 @@ import {
   StopOutlined,
   DownloadOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { commissionService, Commission } from '../services/commissionService';
+import api from '../services/api';
+import { formatDateTime, formatUsdt } from '../utils/format';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -44,6 +49,32 @@ const CommissionsPage: React.FC = () => {
   const [cancelTargetIds, setCancelTargetIds] = useState<string[]>([]);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [compensateModalOpen, setCompensateModalOpen] = useState(false);
+  const [compensateDate, setCompensateDate] = useState<dayjs.Dayjs | null>(dayjs().subtract(30, 'day'));
+  const [compensating, setCompensating] = useState(false);
+
+
+
+  const handleCompensate = async () => {
+    try {
+      setCompensating(true);
+      const res = await api.post('/affiliate/admin/commissions/compensate-missed-direct', {
+        fromDate: compensateDate ? compensateDate.format('YYYY-MM-DD') : undefined,
+      });
+      notification.success({
+        message: 'Bù hoa hồng thành công!',
+        description: `Đã bù hoa hồng cho ${res.data.compensatedCount} đơn hàng. Tổng tiền bù: $${res.data.totalCompensatedAmount.toLocaleString()} USD.`,
+        duration: 10,
+      });
+      setCompensateModalOpen(false);
+      fetchCommissions();
+    } catch (e: any) {
+      const msg = e.response?.data?.message || 'Có lỗi xảy ra khi bù hoa hồng';
+      message.error(msg);
+    } finally {
+      setCompensating(false);
+    }
+  };
 
   useEffect(() => {
     fetchCommissions();
@@ -132,48 +163,7 @@ const CommissionsPage: React.FC = () => {
     setFilteredCommissions(filtered);
   };
 
-  /** Format date safely; avoid "Invalid Date" when API returns unexpected value */
-  const formatDate = (value: string | Date | number | null | undefined): string => {
-    if (value == null || value === '') return '-';
-    const d = value instanceof Date ? value : new Date(value as string | number);
-    return isNaN(d.getTime()) ? '-' : d.toLocaleString();
-  };
-
-  const formatPrice = (amount: number | string) => {
-    // Handle null/undefined/zero
-    if (amount === 0 || amount === null || amount === undefined || amount === '0') {
-      return '0.00';
-    }
-    
-    // Convert to number first to handle floating-point precision issues
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    
-    // Handle NaN
-    if (isNaN(num)) {
-      return '0.00';
-    }
-    
-    // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
-    // This fixes floating-point precision issues like 0.020000000000000004
-    let amountStr = num.toFixed(8);
-    
-    // Remove trailing zeros but keep at least 2 decimal places
-    amountStr = amountStr.replace(/\.?0+$/, '');
-    if (!amountStr.includes('.')) {
-      amountStr += '.00';
-    } else {
-      const [integerPart, decimalPart] = amountStr.split('.');
-      if (decimalPart.length < 2) {
-        amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
-      }
-    }
-    
-    // Split into integer and decimal parts for formatting
-    const [integerPart, decimalPart] = amountStr.split('.');
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    
-    return `${formattedInteger}.${decimalPart}`;
-  };
+  const formatPrice = (amount: number | string) => formatUsdt(amount);
 
   const handleApprove = async (id: string, notes?: string) => {
     try {
@@ -205,12 +195,12 @@ const CommissionsPage: React.FC = () => {
   const handleApproveBatch = async () => {
     const pendingIds = selectedRowKeys.filter((key) => {
       const c = filteredCommissions.find((x) => x.id === key);
-      return c?.status === 'pending';
+      return c?.status === 'pending' || c?.status === 'blocked';
     }) as string[];
 
     if (pendingIds.length === 0) {
       message.warning(
-        'Chỉ commission đang pending mới được duyệt chi trả. Hãy chọn ít nhất một dòng pending.',
+        'Chỉ commission đang pending hoặc blocked mới được duyệt chi trả. Hãy chọn ít nhất một dòng pending/blocked.',
       );
       return;
     }
@@ -327,6 +317,7 @@ const CommissionsPage: React.FC = () => {
     }
     const typeConfig: Record<string, { color: string; text: string }> = {
       direct: { color: 'blue', text: 'Direct' },
+      indirect: { color: 'magenta', text: 'Indirect (F2)' },
       group: { color: 'purple', text: 'Group' },
       management: { color: 'cyan', text: 'Management' },
       product: { color: 'green', text: 'Product' },
@@ -440,7 +431,7 @@ const CommissionsPage: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string | Date | null | undefined) => formatDate(date),
+      render: (date: string | Date | null | undefined) => formatDateTime(date),
     },
     {
       title: 'Actions',
@@ -456,7 +447,7 @@ const CommissionsPage: React.FC = () => {
           >
             View
           </Button>
-          {record.status === 'pending' && (
+          {(record.status === 'pending' || record.status === 'blocked') && (
             <Button
               type="primary"
               size="small"
@@ -501,7 +492,7 @@ const CommissionsPage: React.FC = () => {
   const pendingCount = filteredCommissions.filter((c) => c.status === 'pending').length;
   const selectedApproveIds = selectedRowKeys.filter((key) => {
     const c = filteredCommissions.find((x) => x.id === key);
-    return c?.status === 'pending';
+    return c?.status === 'pending' || c?.status === 'blocked';
   }) as string[];
   const selectedCancelIds = selectedRowKeys.filter((key) => {
     const c = filteredCommissions.find((x) => x.id === key);
@@ -511,10 +502,18 @@ const CommissionsPage: React.FC = () => {
   const selectedCancelCount = selectedCancelIds.length;
 
   return (
-    <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="admin-page" style={{ padding: '24px' }}>
+      <div style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' , gap: 12 }}>
         <Title level={2}>Commissions Management</Title>
         <Space>
+          <Button 
+            type="primary" 
+            ghost 
+            icon={<ReloadOutlined />} 
+            onClick={() => setCompensateModalOpen(true)}
+          >
+            Compensate Missed Direct
+          </Button>
           <Button icon={<ReloadOutlined />} onClick={fetchCommissions}>
             Refresh
           </Button>
@@ -549,10 +548,10 @@ const CommissionsPage: React.FC = () => {
           allowClear
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 320 }}
+          style={{ width: '100%', maxWidth: 320 }}
         />
         <Select
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           value={selectedStatus}
           onChange={setSelectedStatus}
         >
@@ -564,16 +563,19 @@ const CommissionsPage: React.FC = () => {
         </Select>
 
         <Select
-          style={{ width: 150 }}
+          style={{ width: '100%', maxWidth: 150 }}
           value={selectedType}
           onChange={setSelectedType}
         >
           <Option value="all">All Types</Option>
           <Option value="direct">Direct</Option>
+          <Option value="indirect">Indirect (F2)</Option>
           <Option value="group">Group</Option>
           <Option value="management">Management</Option>
-          <Option value="product">Product</Option>
           <Option value="milestone">Milestone</Option>
+          <Option value="product">Product</Option>
+          <Option value="group_monthly">Group Monthly (Tầng 3)</Option>
+          <Option value="global_share_monthly">Global Share (Tầng 4)</Option>
         </Select>
 
         <div style={{ marginLeft: 'auto' }}>
@@ -619,7 +621,7 @@ const CommissionsPage: React.FC = () => {
                 Cancel
               </Button>
             ),
-          selectedCommission?.status === 'pending' && (
+          (selectedCommission?.status === 'pending' || selectedCommission?.status === 'blocked') && (
             <Button
               key="approve"
               type="primary"
@@ -638,7 +640,7 @@ const CommissionsPage: React.FC = () => {
       >
         {selectedCommission && (
           <div>
-            <Descriptions bordered column={2}>
+            <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
               <Descriptions.Item label="ID" span={2}>
                 <span style={{ fontFamily: 'monospace' }}>{selectedCommission.id}</span>
               </Descriptions.Item>
@@ -681,7 +683,7 @@ const CommissionsPage: React.FC = () => {
                 </Descriptions.Item>
               )}
               <Descriptions.Item label="Created At" span={2}>
-                {formatDate(selectedCommission.createdAt)}
+                {formatDateTime(selectedCommission.createdAt)}
               </Descriptions.Item>
               {selectedCommission.status === 'paid' && (selectedCommission.payoutTxHash || selectedCommission.payoutDate) && (
                 <>
@@ -701,7 +703,7 @@ const CommissionsPage: React.FC = () => {
                   )}
                   {selectedCommission.payoutDate && (
                     <Descriptions.Item label="Paid At" span={2}>
-                      {formatDate(selectedCommission.payoutDate)}
+                      {formatDateTime(selectedCommission.payoutDate)}
                     </Descriptions.Item>
                   )}
                 </>
@@ -712,7 +714,7 @@ const CommissionsPage: React.FC = () => {
                 </Descriptions.Item>
               )}
             </Descriptions>
-            {selectedCommission.status === 'pending' && (
+            {(selectedCommission.status === 'pending' || selectedCommission.status === 'blocked') && (
               <div style={{ marginTop: '16px' }}>
                 <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Approval Notes:</div>
                 <TextArea
@@ -755,6 +757,35 @@ const CommissionsPage: React.FC = () => {
           value={cancelReason}
           onChange={(e) => setCancelReason(e.target.value)}
           placeholder="Ví dụ: sai sót đơn hàng, điều chỉnh thủ công..."
+        />
+      </Modal>
+
+      <Modal
+        title="Bù hoa hồng trực tiếp bị thiếu"
+        open={compensateModalOpen}
+        onCancel={() => {
+          if (!compensating) {
+            setCompensateModalOpen(false);
+          }
+        }}
+        onOk={handleCompensate}
+        confirmLoading={compensating}
+        okText="Bắt đầu quét & bù"
+        cancelText="Đóng"
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 16, color: '#555' }}>
+          Hệ thống sẽ quét tất cả các đơn hàng đã được **CONFIRMED** từ ngày được chọn đến hiện tại. 
+          Nếu đơn hàng nào chưa được chia hoa hồng Direct (trực tiếp hoặc sản phẩm) cho F1, hệ thống sẽ tự động tính toán và bổ sung.
+        </p>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Quét từ ngày:</div>
+        <DatePicker
+          style={{ width: '100%' }}
+          value={compensateDate}
+          onChange={(date) => setCompensateDate(date)}
+          disabledDate={(current) => current && current > dayjs().endOf('day')}
+          format="YYYY-MM-DD"
+          allowClear={false}
         />
       </Modal>
     </div>

@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, MoreThanOrEqual, Between } from 'typeorm';
 import { User } from '../user/entities/user.entity';
 import { Order, OrderStatus } from '../order/entities/order.entity';
 import {
@@ -15,19 +15,60 @@ import {
   CommissionType,
   CommissionStatus,
 } from './entities/commission.entity';
+import { BranchVolumeLog } from './entities/branch-volume-log.entity';
+import { UserMonthlyStats } from './entities/user-monthly-stats.entity';
 import { PackagesService } from '../packages/packages.service';
 import { Package } from '../packages/entities/package.entity';
 import { Product } from '../product/entities/product.entity';
+import { SystemConfig } from '../admin/entities/system-config.entity';
+import {
+  buildChildrenMap,
+  computeSubtreeAggregates,
+} from '../common/utils/referral-tree';
+import { computeRanksMap } from '../common/utils/rank-calculator';
+import {
+  DAILY_RANK_MIN_PURCHASE,
+  GLOBAL_SHARE_RATES,
+  MONTHLY_RANK_ORDER,
+  MONTHLY_RANK_PROMOTION_ORDER,
+  MONTHLY_RANK_RULES,
+  rankLabel,
+} from '../common/constants/ranks';
 
 /** Số cấp hoa hồng quản lý: chỉ trả cho 3 parent gần nhất (F1, F2, F3) kể từ người nhận group trở lên. */
 const MANAGEMENT_MAX_LEVELS = 3;
 
+/** Kết quả tính toán doanh số/cấp bậc của cả hệ thống trong một tháng. */
+export interface MonthlySnapshot {
+  month: string;
+  startDate: Date;
+  endDate: Date;
+  users: User[];
+  f1Map: Map<string, string[]>;
+  /** Doanh số của cả nhánh, tính cả chính người đó. */
+  subtreeSalesMap: Map<string, number>;
+  /** Số người trong nhánh, tính cả chính người đó. */
+  subtreeCountMap: Map<string, number>;
+  personalSalesMap: Map<string, number>;
+  groupSalesMap: Map<string, number>;
+  ranksMap: Map<string, string>;
+  globalShareMap: Map<string, number>;
+  usersByRank: Map<string, string[]>;
+  totalNationalSales: number;
+}
+
 @Injectable()
 export class CommissionService {
   private readonly logger = new Logger(CommissionService.name);
+  private static readonly DEFAULT_INDIRECT_RATE_PERCENT = 5;
   private configCache: Map<string, Package> = new Map();
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastCacheUpdate: number = 0;
+  private monthlySnapshotCache: Map<
+    string,
+    { data: MonthlySnapshot; expiresAt: number }
+  > = new Map();
+  private static readonly MONTHLY_SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 
   constructor(
     @InjectRepository(User)
@@ -38,6 +79,12 @@ export class CommissionService {
     private commissionRepository: Repository<Commission>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    @InjectRepository(SystemConfig)
+    private systemConfigRepository: Repository<SystemConfig>,
+    @InjectRepository(BranchVolumeLog)
+    private branchVolumeLogRepository: Repository<BranchVolumeLog>,
+    @InjectRepository(UserMonthlyStats)
+    private userMonthlyStatsRepository: Repository<UserMonthlyStats>,
     private dataSource: DataSource,
     private packagesService: PackagesService,
   ) { }
@@ -112,11 +159,12 @@ export class CommissionService {
    */
   private getOrderValueForCommission(order: Order): number {
     const items = Array.isArray(order.items) ? order.items : [];
-    return items.reduce((sum, item) => {
+    const baseValue = items.reduce((sum, item) => {
       const price = Number(item.price) || 0;
       const quantity = Number(item.quantity) || 0;
       return sum + price * quantity;
     }, 0);
+    return baseValue;
   }
 
   /**
@@ -193,21 +241,14 @@ export class CommissionService {
       );
       await this.calculateProductCommission(order, buyer, productMap);
 
-      // BƯỚC 2: Hoa hồng nhóm theo gói — chỉ các dòng useProductCommission = false
+      // BƯỚC 1c: Hoa hồng gián tiếp F2 (mặc định 5%, admin có thể cấu hình)
       this.logger.log(
-        `Step 2: Calculating group commission for order ${orderId}`,
+        `Step 1c: Calculating indirect F2 commission for order ${orderId}`,
       );
-      await this.calculateGroupCommission(order, buyer, productMap);
+      await this.calculateIndirectCommission(order, buyer, productMap);
 
-      // BƯỚC 3: Tính hoa hồng quản lý nhóm (dựa trên volume hiện tại, chưa cộng đơn này)
-      this.logger.log(
-        `Step 3: Calculating management commission for order ${orderId}`,
-      );
-      await this.calculateManagementCommission(order, buyer);
-
-      // BƯỚC 4: Update volume cho TẤT CẢ ancestors
-      // Update sau khi đã tính commission để đơn hiện tại không làm thay đổi điều kiện managementMinSales
-      this.logger.log(`Step 4: Updating branch volumes for order ${orderId}`);
+      // BƯỚC 2: Update volume cho TẤT CẢ ancestors (giữ nguyên để phục vụ các logic cây khác)
+      this.logger.log(`Step 2: Updating branch volumes for order ${orderId}`);
       await this.updateBranchVolumes(order, buyer);
 
       this.logger.log(`Commission calculation completed for order ${orderId}`);
@@ -228,6 +269,106 @@ export class CommissionService {
       // Ném lại lỗi để caller biết commission thất bại và có thể rollback
       throw error;
     }
+  }
+
+  private async getIndirectCommissionRatePercent(): Promise<number> {
+    const row = await this.systemConfigRepository.findOne({
+      where: { key: 'indirectCommissionRateF2' },
+    });
+    const parsed = Number(row?.value);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      return CommissionService.DEFAULT_INDIRECT_RATE_PERCENT;
+    }
+    return parsed;
+  }
+
+  /**
+   * Hoa hồng gián tiếp:
+   * Buyer -> F1 (direct referrer) -> F2.
+   * Khi buyer mua hàng, F2 nhận % trên giá trị đơn (admin config, mặc định 5%).
+   */
+  private async calculateIndirectCommission(
+    order: Order,
+    buyer: User,
+    preloadedProductMap?: Map<string, Product>,
+  ): Promise<void> {
+    const freshBuyer = await this.userRepository.findOne({
+      where: { id: buyer.id },
+      select: ['id', 'referralUserId'],
+    });
+    if (!freshBuyer?.referralUserId) return;
+
+    const f1 = await this.userRepository.findOne({
+      where: { id: freshBuyer.referralUserId },
+      select: ['id', 'referralUserId'],
+    });
+    if (!f1?.referralUserId) return;
+
+    const f2 = await this.userRepository.findOne({ where: { id: f1.referralUserId } });
+    if (!f2) return;
+
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (items.length === 0) return;
+
+    const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
+    const globalRatePercent = await this.getIndirectCommissionRatePercent();
+
+    let totalIndirectCommissionAmount = 0;
+    let totalOrderAmount = 0;
+    let hasCustomRate = false;
+
+    for (const item of items) {
+      if (
+        !item?.productId ||
+        typeof item.quantity !== 'number' ||
+        typeof item.price !== 'number'
+      )
+        continue;
+
+      const product = productMap.get(item.productId);
+      if (!product) continue;
+
+      const basePct =
+        typeof product.commissionBasePercent === 'number' &&
+        Number.isFinite(product.commissionBasePercent)
+          ? product.commissionBasePercent
+          : 95;
+      const itemAmount = Number(item.price) * item.quantity * (basePct / 100);
+      totalOrderAmount += itemAmount;
+
+      let ratePercent = globalRatePercent;
+      if (product.useProductCommission === true) {
+        ratePercent = product.indirectCommissionRateF2 ?? 0;
+        hasCustomRate = true;
+      }
+
+      if (ratePercent > 0) {
+        totalIndirectCommissionAmount += itemAmount * (ratePercent / 100);
+      }
+    }
+
+    const commissionAmount = this.roundCommission(totalIndirectCommissionAmount);
+    if (commissionAmount <= 0) return;
+
+    const commission = this.commissionRepository.create({
+      userId: f2.id,
+      orderId: order.id,
+      fromUserId: buyer.id,
+      type: CommissionType.INDIRECT,
+      status: CommissionStatus.PENDING,
+      amount: commissionAmount,
+      orderAmount: totalOrderAmount,
+      notes: hasCustomRate
+        ? `Indirect F2 commission (custom product base & rates)`
+        : `Indirect F2 commission (global rate ${globalRatePercent}%)`,
+    });
+    await this.commissionRepository.save(commission);
+
+    await this.userRepository.increment(
+      { id: f2.id },
+      'totalCommissionReceived',
+      commissionAmount,
+    );
   }
 
   private async getOrderProductsMap(order: Order): Promise<Map<string, Product>> {
@@ -295,7 +436,12 @@ export class CommissionService {
       const product = productMap.get(item.productId);
       if (!product) continue;
       if (product.useProductCommission === true) continue;
-      packageOrderValue += Number(item.price) * item.quantity;
+      const basePct =
+        typeof product.commissionBasePercent === 'number' &&
+        Number.isFinite(product.commissionBasePercent)
+          ? product.commissionBasePercent
+          : 95;
+      packageOrderValue += Number(item.price) * item.quantity * (basePct / 100);
     }
 
     if (packageOrderValue <= 0) {
@@ -368,9 +514,14 @@ export class CommissionService {
   } | null {
     const code = (packageCode || '').toUpperCase();
     if (!code || code === 'NONE') return null;
-    const byPkg =
+    let byPkg =
       product.commissionConfigByPackage &&
       product.commissionConfigByPackage[code];
+    if (!byPkg && product.commissionConfigByPackage) {
+      if (code !== 'TV' && code !== 'CTV') {
+        byPkg = product.commissionConfigByPackage['DT'] || product.commissionConfigByPackage['NPP'];
+      }
+    }
     if (byPkg && typeof byPkg === 'object') {
       return {
         directCommissionRate: Number(byPkg.directCommissionRate ?? 0),
@@ -419,8 +570,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentTV) || 0;
     if (code === 'CTV') return Number(product.commissionPercentCTV) || 0;
-    if (code === 'NPP') return Number(product.commissionPercentNPP) || 0;
-    return 0;
+    return Number(product.commissionPercentNPP) || 0;
   }
 
   /** Group: % hoa hồng nhóm theo gói người mua. */
@@ -432,8 +582,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV') return Number(product.commissionPercentGroupTV) || 0;
     if (code === 'CTV') return Number(product.commissionPercentGroupCTV) || 0;
-    if (code === 'NPP') return Number(product.commissionPercentGroupNPP) || 0;
-    return 0;
+    return Number(product.commissionPercentGroupNPP) || 0;
   }
 
   /** Management: % hoa hồng quản lý (F1/F2/F3) khi nguồn là product group, theo gói người mua. */
@@ -445,11 +594,7 @@ export class CommissionService {
     const code = (buyerPackageType || '').toUpperCase();
     if (code === 'TV')
       return Number(product.commissionPercentManagementTV) || 0;
-    if (code === 'CTV')
-      return Number(product.commissionPercentManagementCTV) || 0;
-    if (code === 'NPP')
-      return Number(product.commissionPercentManagementNPP) || 0;
-    return 0;
+    return Number(product.commissionPercentManagementNPP) || 0;
   }
 
   /**
@@ -485,10 +630,8 @@ export class CommissionService {
       return;
     }
 
-    const ancestors = await this.getAncestors(buyer);
     const items = Array.isArray(order.items) ? order.items : [];
     const productMap = preloadedProductMap ?? (await this.getOrderProductsMap(order));
-    const productGroupAmountByAncestorId = new Map<string, number>();
 
     // Mỗi dòng đơn (sản phẩm) tính hoa hồng riêng — config từ tab "Hoa hồng sản phẩm" khi useProductCommission = true
     for (const item of items) {
@@ -516,7 +659,12 @@ export class CommissionService {
       const directRate = referrerProductConfig
         ? referrerProductConfig.directCommissionRate
         : this.getProductCommissionPercent(product, buyerPkg) / 100;
-      const itemAmount = Number(item.price) * item.quantity;
+      const basePct =
+        typeof product.commissionBasePercent === 'number' &&
+        Number.isFinite(product.commissionBasePercent)
+          ? product.commissionBasePercent
+          : 95;
+      const itemAmount = Number(item.price) * item.quantity * (basePct / 100);
       const productNote = (product.name || '').slice(0, 60);
 
       // --- Product DIRECT: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
@@ -561,110 +709,8 @@ export class CommissionService {
         }
       }
 
-      // --- Product GROUP: chỉ dùng config sản phẩm (reconsumption từ product, không dùng Package)
-      // Se realiza un mapeo local de las comisiones de grupo ganadas por ancestro para este producto específico.
-      const itemGroupAmountByAncestorId = new Map<string, number>();
-
-      for (const ancestor of ancestors) {
-        if (!ancestor.packageType || ancestor.packageType === 'NONE') continue;
-        const ancestorProductConfig = this.getProductCommissionConfigForPackage(
-          product,
-          ancestor.packageType,
-        );
-        const groupRate = ancestorProductConfig
-          ? ancestorProductConfig.groupCommissionRate
-          : this.getProductCommissionPercentGroup(product, buyerPkg) / 100;
-        if (groupRate <= 0) continue;
-
-        const rawGroup = itemAmount * groupRate;
-        const groupCommissionAmount = this.roundCommission(rawGroup);
-        if (groupCommissionAmount <= 0) continue;
-
-        const hasBothBranches = this.hasBothBranchesFromUser(ancestor);
-        if (!hasBothBranches) continue;
-
-        // Min branch sales chỉ áp dụng cho hoa hồng quản lý (management), không áp dụng cho hoa hồng cân nhánh (product group).
-
-        const buyerSide = await this.getBuyerSide(buyer, ancestor);
-        const weakSide = this.getWeakSideFromUser(ancestor);
-
-        if (
-          Number(ancestor.leftBranchTotal) === 0 &&
-          Number(ancestor.rightBranchTotal) === 0
-        )
-          continue;
-        if (weakSide !== null && buyerSide !== weakSide) continue;
-
-        const ancestorCanReceive =
-          await this.checkReconsumptionWithProductConfig(
-            ancestor,
-            ancestorProductConfig,
-          );
-        const groupStatus = ancestorCanReceive ? CommissionStatus.PENDING : CommissionStatus.BLOCKED;
-
-        this.logger.log(
-          `[PRODUCT COMMISSION] Group: Ancestor ${ancestor.id}, product ${product.name}, rate ${groupRate} of ${itemAmount} = ${groupCommissionAmount}, status=${groupStatus}`,
-        );
-
-        const groupCommission = this.commissionRepository.create({
-          userId: ancestor.id,
-          orderId: order.id,
-          fromUserId: buyer.id,
-          type: CommissionType.PRODUCT,
-          status: groupStatus,
-          amount: groupCommissionAmount,
-          orderAmount: itemAmount,
-          side: buyerSide,
-          notes:
-            ancestorCanReceive
-              ? `Product group: ${productNote}`
-              : 'Reconsumption required - keep pending, do not approve',
-        });
-        await this.commissionRepository.save(groupCommission);
-
-        itemGroupAmountByAncestorId.set(ancestor.id, groupCommissionAmount);
-
-        const prev = productGroupAmountByAncestorId.get(ancestor.id) ?? 0;
-        productGroupAmountByAncestorId.set(
-          ancestor.id,
-          prev + groupCommissionAmount,
-        );
-
-        if (ancestorCanReceive && ancestorProductConfig) {
-          await this.updateUserCommissionAndCheckThresholdWithProductConfig(
-            ancestor,
-            groupCommissionAmount,
-            ancestorProductConfig,
-          );
-        }
-      }
-
-      // Se calcula y distribuye la comisión de administración por cada producto de forma individual usando su propia configuración.
-      const itemEarner = ancestors.find((a) =>
-        itemGroupAmountByAncestorId.has(a.id),
-      );
-      if (itemEarner) {
-        const itemGroupAmount = itemGroupAmountByAncestorId.get(itemEarner.id) ?? 0;
-        if (itemGroupAmount > 0) {
-          const syntheticSource = this.commissionRepository.create({
-            userId: itemEarner.id,
-            orderId: order.id,
-            fromUserId: buyer.id,
-            type: CommissionType.PRODUCT,
-            status: CommissionStatus.PENDING,
-            amount: itemGroupAmount,
-            orderAmount: itemGroupAmount,
-            notes: `Product group: ${productNote} (aggregated for management)`,
-          });
-          await this.payManagementFromProductGroupEarner(
-            order,
-            itemEarner,
-            syntheticSource,
-            product,
-            buyerPkg,
-          );
-        }
-      }
+      // Đã loại bỏ product group/management theo yêu cầu tối giản:
+      // chỉ giữ lại hoa hồng direct.
     }
   }
 
@@ -704,6 +750,23 @@ export class CommissionService {
         })
         .where('id = :id', { id: ancestor.id })
         .execute();
+
+      // Lưu lại lịch sử cập nhật doanh số nhánh
+      try {
+        await this.branchVolumeLogRepository.save({
+          userId: ancestor.id,
+          orderId: order.id,
+          amount: orderValue,
+          side: buyerSide,
+        });
+        this.logger.log(
+          `Logged branch volume change for user ${ancestor.id}: +${orderValue} on ${buyerSide}`,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Failed to log branch volume change for user ${ancestor.id}: ${err.message}`,
+        );
+      }
     }
   }
 
@@ -728,7 +791,12 @@ export class CommissionService {
       const product = productMap.get(item.productId);
       if (!product) continue;
       if (product.useProductCommission === true) continue;
-      packageOrderValue += Number(item.price) * item.quantity;
+      const basePct =
+        typeof product.commissionBasePercent === 'number' &&
+        Number.isFinite(product.commissionBasePercent)
+          ? product.commissionBasePercent
+          : 95;
+      packageOrderValue += Number(item.price) * item.quantity * (basePct / 100);
     }
 
     if (packageOrderValue <= 0) {
@@ -1155,6 +1223,7 @@ export class CommissionService {
       const effectiveThreshold = this.packagesService.getEffectiveThreshold(
         Number(updatedUser.totalPurchaseAmount),
         config,
+        updatedUser.customMaxCommission,
       );
       // Note: không tự set `packageType = NONE` nữa. Việc "đạt max hoa hồng"
       // sẽ chỉ ảnh hưởng luồng tái tiêu dùng (commission có thể vẫn Pending),
@@ -1177,6 +1246,7 @@ export class CommissionService {
     const effectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       config,
+      user.customMaxCommission,
     );
     if (Number(user.totalCommissionReceived) < effectiveThreshold) {
       return true;
@@ -1188,7 +1258,17 @@ export class CommissionService {
   private getEffectiveThresholdFromProductConfig(
     totalPurchaseAmount: number,
     config: { reconsumptionThreshold: number; reconsumptionRequired: number },
+    customMaxCommission?: number | null,
   ): number {
+    if (customMaxCommission !== undefined && customMaxCommission !== null) {
+      const val = Number(customMaxCommission);
+      if (val === -1) {
+        return 999999999;
+      }
+      if (val > 0) {
+        return val;
+      }
+    }
     const threshold = Number(config.reconsumptionThreshold) || 0;
     const required = Number(config.reconsumptionRequired) || 1;
     const total = Number(totalPurchaseAmount) || 0;
@@ -1217,6 +1297,7 @@ export class CommissionService {
     const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
       Number(user.totalPurchaseAmount),
       productConfig,
+      user.customMaxCommission,
     );
     if (Number(user.totalCommissionReceived) < effectiveThreshold) return true;
     return false;
@@ -1253,6 +1334,7 @@ export class CommissionService {
       const effectiveThreshold = this.getEffectiveThresholdFromProductConfig(
         Number(updatedUser.totalPurchaseAmount),
         productConfig,
+        updatedUser.customMaxCommission,
       );
       // Không set `packageType = NONE` để giữ nguyên trạng thái user.
       void effectiveThreshold;
@@ -1395,7 +1477,7 @@ export class CommissionService {
         'pendingCommission',
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect','product') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
         'direct',
       )
       .addSelect(
@@ -1447,7 +1529,7 @@ export class CommissionService {
         'pendingCommission',
       )
       .addSelect(
-        "COALESCE(SUM(CASE WHEN c.type = 'direct' AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
+        "COALESCE(SUM(CASE WHEN c.type IN ('direct','indirect','product') AND c.status = :paid THEN c.amount ELSE 0 END), 0)",
         'direct',
       )
       .addSelect(
@@ -1474,6 +1556,16 @@ export class CommissionService {
     const num = (v: string | null | undefined): number =>
       v === null || v === undefined ? 0 : parseFloat(String(v)) || 0;
 
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'manualRank'],
+    });
+
+    const latestStats = await this.userMonthlyStatsRepository.findOne({
+      where: { userId },
+      order: { month: 'DESC' },
+    });
+
     return {
       totalCommission: this.roundCommission(num(raw?.totalCommission)),
       pendingCommission: this.roundCommission(num(raw?.pendingCommission)),
@@ -1482,6 +1574,23 @@ export class CommissionService {
         group: this.roundCommission(num(raw?.group)),
         management: this.roundCommission(num(raw?.management)),
       },
+      monthlyStats: latestStats ? {
+        month: latestStats.month,
+        calculatedRank: user && user.manualRank && user.manualRank !== 'NONE' ? user.manualRank : latestStats.calculatedRank,
+        groupSales: Number(latestStats.groupSales) || 0,
+        personalSales: Number(latestStats.personalSales) || 0,
+        groupRewardAmount: Number(latestStats.groupRewardAmount) || 0,
+        globalShareAmount: Number(latestStats.globalShareAmount) || 0,
+        isProcessed: latestStats.isProcessed,
+      } : (user && user.manualRank && user.manualRank !== 'NONE' ? {
+        month: 'current',
+        calculatedRank: user.manualRank,
+        groupSales: 0,
+        personalSales: 0,
+        groupRewardAmount: 0,
+        globalShareAmount: 0,
+        isProcessed: false,
+      } : null),
     };
   }
 
@@ -1598,8 +1707,8 @@ export class CommissionService {
       throw new Error('Commission not found');
     }
 
-    if (commission.status !== CommissionStatus.PENDING) {
-      throw new Error('Commission status is not PENDING');
+    if (commission.status !== CommissionStatus.PENDING && commission.status !== CommissionStatus.BLOCKED) {
+      throw new Error('Commission status is not PENDING or BLOCKED');
     }
 
     commission.status = CommissionStatus.PAID;
@@ -1753,5 +1862,743 @@ export class CommissionService {
     }
 
     return commission;
+  }
+
+  async compensateMissedDirectCommissions(fromDateStr?: string): Promise<{ success: boolean; compensatedCount: number; totalCompensatedAmount: number }> {
+    this.logger.log(`Starting compensation of missed direct commissions from date: ${fromDateStr || 'last 30 days'}`);
+    const fromDate = fromDateStr ? new Date(fromDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const orders = await this.orderRepository.find({
+      where: {
+        status: OrderStatus.CONFIRMED,
+        createdAt: MoreThanOrEqual(fromDate),
+      },
+    });
+
+    let compensatedCount = 0;
+    let totalCompensatedAmount = 0;
+
+    for (const order of orders) {
+      if (!order.userId) continue;
+
+      const buyer = await this.userRepository.findOne({
+        where: { id: order.userId },
+        select: ['id', 'referralUserId', 'packageType'],
+      });
+      if (!buyer || !buyer.referralUserId) continue;
+
+      // Check if a direct or product commission already exists for this order
+      const existingDirect = await this.commissionRepository.findOne({
+        where: {
+          orderId: order.id,
+          type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+        },
+      });
+
+      if (existingDirect) {
+        continue;
+      }
+
+      // Check if this order has items
+      const items = Array.isArray(order.items) ? order.items : [];
+      if (items.length === 0) continue;
+
+      // Load products map
+      const productMap = await this.getOrderProductsMap(order);
+
+      // Determine if we need to call calculateDirectCommission or calculateProductCommission
+      let hasPackageDirect = false;
+      let hasProductDirect = false;
+
+      for (const item of items) {
+        if (!item?.productId) continue;
+        const product = productMap.get(item.productId);
+        if (!product) continue;
+        if (product.useProductCommission === true) {
+          hasProductDirect = true;
+        } else {
+          hasPackageDirect = true;
+        }
+      }
+
+      const prevCount = await this.commissionRepository.count({
+        where: {
+          orderId: order.id,
+          type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+        },
+      });
+
+      if (hasPackageDirect) {
+        await this.calculateDirectCommission(order, buyer, productMap);
+      }
+      if (hasProductDirect) {
+        await this.calculateProductCommission(order, buyer, productMap);
+      }
+
+      const newCommissions = await this.commissionRepository.find({
+        where: {
+          orderId: order.id,
+          type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+        },
+      });
+
+      if (newCommissions.length > prevCount) {
+        compensatedCount++;
+        for (const comm of newCommissions) {
+          totalCompensatedAmount += Number(comm.amount) || 0;
+        }
+      }
+    }
+
+    this.logger.log(`Compensated ${compensatedCount} orders. Total compensated amount: ${totalCompensatedAmount} USD`);
+    return {
+      success: true,
+      compensatedCount,
+      totalCompensatedAmount,
+    };
+  }
+
+  async compensateSingleOrderCommission(orderId: string): Promise<{ success: boolean; compensated: boolean; amount: number; message: string }> {
+    this.logger.log(`Compensating missed direct commissions for order: ${orderId}`);
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Không tìm thấy đơn hàng: ${orderId}`);
+    }
+
+    if (order.status !== OrderStatus.CONFIRMED && order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException(`Đơn hàng phải ở trạng thái CONFIRMED hoặc DELIVERED.`);
+    }
+
+    if (!order.userId) {
+      throw new BadRequestException('Đơn hàng không có userId (guest order).');
+    }
+
+    const buyer = await this.userRepository.findOne({
+      where: { id: order.userId },
+      select: ['id', 'referralUserId', 'packageType'],
+    });
+
+    if (!buyer || !buyer.referralUserId) {
+      return {
+        success: true,
+        compensated: false,
+        amount: 0,
+        message: 'Đơn hàng không có người giới thiệu (F1).',
+      };
+    }
+
+    // Check if a direct or product commission already exists for this order
+    const existingDirect = await this.commissionRepository.findOne({
+      where: {
+        orderId: order.id,
+        type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+      },
+    });
+
+    if (existingDirect) {
+      return {
+        success: true,
+        compensated: false,
+        amount: 0,
+        message: 'Đơn hàng này đã được nhận hoa hồng trực tiếp trước đó.',
+      };
+    }
+
+    // Check items
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (items.length === 0) {
+      throw new BadRequestException('Đơn hàng không có sản phẩm.');
+    }
+
+    // Load products map
+    const productMap = await this.getOrderProductsMap(order);
+
+    let hasPackageDirect = false;
+    let hasProductDirect = false;
+
+    for (const item of items) {
+      if (!item?.productId) continue;
+      const product = productMap.get(item.productId);
+      if (!product) continue;
+      if (product.useProductCommission === true) {
+        hasProductDirect = true;
+      } else {
+        hasPackageDirect = true;
+      }
+    }
+
+    const prevCount = await this.commissionRepository.count({
+      where: {
+        orderId: order.id,
+        type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+      },
+    });
+
+    if (hasPackageDirect) {
+      await this.calculateDirectCommission(order, buyer, productMap);
+    }
+    if (hasProductDirect) {
+      await this.calculateProductCommission(order, buyer, productMap);
+    }
+
+    const newCommissions = await this.commissionRepository.find({
+      where: {
+        orderId: order.id,
+        type: In([CommissionType.DIRECT, CommissionType.PRODUCT]),
+      },
+    });
+
+    if (newCommissions.length > prevCount) {
+      let compensatedAmount = 0;
+      for (const comm of newCommissions) {
+        compensatedAmount += Number(comm.amount) || 0;
+      }
+      return {
+        success: true,
+        compensated: true,
+        amount: compensatedAmount,
+        message: `Bù hoa hồng thành công! Đã chuyển $${compensatedAmount.toLocaleString()} USD hoa hồng trực tiếp cho người giới thiệu.`,
+      };
+    }
+
+    return {
+      success: true,
+      compensated: false,
+      amount: 0,
+      message: 'Không tìm thấy cấu hình hoa hồng hợp lệ hoặc người giới thiệu chưa đủ điều kiện nhận.',
+    };
+  }
+
+  /**
+   * Tính toàn bộ doanh số cá nhân, doanh số nhóm, cấp bậc và các khoản thưởng
+   * của một tháng mà không ghi gì xuống DB. Dùng chung cho việc chốt số và cho
+   * màn hình xem chi tiết từng thành viên, để hai nơi không bao giờ lệch nhau.
+   */
+  private async buildMonthlySnapshot(month: string): Promise<MonthlySnapshot> {
+    // 1. Parse month range
+    const [yearStr, monthStr] = month.split('-');
+    const y = parseInt(yearStr);
+    const m = parseInt(monthStr);
+    const startDate = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const endDate = new Date(y, m, 0, 23, 59, 59, 999);
+
+    // 2. Fetch all users
+    const users = await this.userRepository.find({
+      select: ['id', 'username', 'email', 'referralUserId', 'totalPurchaseAmount', 'manualRank'],
+    });
+
+    // 3. Fetch all orders in the month
+    const orders = await this.orderRepository.find({
+      where: {
+        status: In([OrderStatus.CONFIRMED, OrderStatus.DELIVERED]),
+        createdAt: Between(startDate, endDate),
+      },
+    });
+
+    // Calc total national sales
+    let totalNationalSales = 0;
+    const userPersonalSalesMap = new Map<string, number>();
+
+    for (const order of orders) {
+      const amt = Number(order.totalAmount) || 0;
+      totalNationalSales += amt;
+      if (order.userId) {
+        userPersonalSalesMap.set(
+          order.userId,
+          (userPersonalSalesMap.get(order.userId) || 0) + amt,
+        );
+      }
+    }
+
+    // 4. Build referral tree children map to find F1s
+    const f1Map = buildChildrenMap(
+      users,
+      (u) => u.id,
+      (u) => u.referralUserId,
+    );
+
+    // Tổng doanh số từng nhánh trong một lượt duyệt thay vì duyệt lại cây cho
+    // mỗi user.
+    const { subtreeValue: subtreeSalesMap, subtreeCount: subtreeCountMap, cyclicNodeIds } =
+      computeSubtreeAggregates(
+        users.map((u) => u.id),
+        f1Map,
+        (id) => userPersonalSalesMap.get(id) || 0,
+      );
+
+    if (cyclicNodeIds.length > 0) {
+      this.logger.warn(
+        `Cây giới thiệu có ${cyclicNodeIds.length} node nằm trong vòng lặp khi tính tháng ${month}: ${cyclicNodeIds
+          .slice(0, 10)
+          .join(', ')}`,
+      );
+    }
+
+    // Doanh số nhóm = tổng các nhánh F1, không tính doanh số cá nhân.
+    const userGroupSalesMap = new Map<string, number>();
+    for (const u of users) {
+      let gSales = 0;
+      for (const f1Id of f1Map.get(u.id) || []) {
+        gSales += subtreeSalesMap.get(f1Id) || 0;
+      }
+      userGroupSalesMap.set(u.id, gSales);
+    }
+
+    // 5. Determine Ranks bottom-up
+    const ranksMap = computeRanksMap(users, f1Map, (limit) =>
+      this.logger.warn(
+        `Xếp hạng tháng ${month} chưa hội tụ sau ${limit} lượt, dừng sớm`,
+      ),
+    );
+
+    // Thưởng nhóm Tầng 3 không còn: phần thưởng theo mốc doanh số giờ là
+    // lương tháng (SalaryService), tính trên doanh số tính thưởng.
+
+    // 6. Calculate Global Share Rewards (Tầng 4)
+    // C1: 4%, C2: 2%, C3: 1%, C4-C9: 0.5% each
+    const globalRates = GLOBAL_SHARE_RATES;
+
+    const usersByRank = new Map<string, string[]>();
+    for (const u of users) {
+      const r = ranksMap.get(u.id) || 'C0';
+      if (r !== 'C0' && r !== 'DAILY') {
+        const list = usersByRank.get(r) || [];
+        list.push(u.id);
+        usersByRank.set(r, list);
+      }
+    }
+
+    const userGlobalShareMap = new Map<string, number>();
+
+    for (const r of Object.keys(globalRates)) {
+      const rate = globalRates[r];
+      const qualifiedUserIds = usersByRank.get(r) || [];
+      const poolAmount = totalNationalSales * rate;
+
+      if (qualifiedUserIds.length > 0) {
+        const shareAmount = poolAmount / qualifiedUserIds.length;
+        for (const userId of qualifiedUserIds) {
+          userGlobalShareMap.set(userId, shareAmount);
+        }
+      }
+    }
+
+    return {
+      month,
+      startDate,
+      endDate,
+      users,
+      f1Map,
+      subtreeSalesMap,
+      subtreeCountMap,
+      personalSalesMap: userPersonalSalesMap,
+      groupSalesMap: userGroupSalesMap,
+      ranksMap,
+      globalShareMap: userGlobalShareMap,
+      usersByRank,
+      totalNationalSales,
+    };
+  }
+
+  /**
+   * Chốt doanh số tháng: ghi UserMonthlyStats, và khi performPayout = true thì
+   * tạo commission Tầng 4 (đồng chia toàn quốc) và cộng vào ví người dùng.
+   * Thưởng nhóm Tầng 3 không còn tạo; groupRewardRate / groupRewardAmount của
+   * các tháng đã chốt trước đó được giữ nguyên.
+   */
+  async calculateMonthlyRewards(
+    month: string,
+    performPayout: boolean = false,
+  ): Promise<{
+    success: boolean;
+    totalNationalSales: number;
+    statsCount: number;
+    payoutCount: number;
+    totalPayoutAmount: number;
+    usersStats: any[];
+  }> {
+    const snapshot = await this.buildMonthlySnapshot(month);
+    const {
+      users,
+      totalNationalSales,
+      personalSalesMap: userPersonalSalesMap,
+      groupSalesMap: userGroupSalesMap,
+      ranksMap,
+      globalShareMap: userGlobalShareMap,
+    } = snapshot;
+
+    // 8. Save or update UserMonthlyStats in DB and execute payouts if performPayout is true
+    let statsCount = 0;
+    let payoutCount = 0;
+    let totalPayoutAmount = 0;
+    const usersStatsResult: any[] = [];
+
+    await this.dataSource.transaction(async (manager) => {
+      for (const u of users) {
+        const pSales = userPersonalSalesMap.get(u.id) || 0;
+        const gSales = userGroupSalesMap.get(u.id) || 0;
+        const r = ranksMap.get(u.id) || 'C0';
+        const gShare = userGlobalShareMap.get(u.id) || 0;
+
+        if (pSales === 0 && gSales === 0 && r === 'C0' && gShare === 0) {
+          continue;
+        }
+
+        let stats = await manager.findOne(UserMonthlyStats, {
+          where: { userId: u.id, month },
+        });
+
+        if (!stats) {
+          stats = manager.create(UserMonthlyStats, {
+            userId: u.id,
+            month,
+          });
+        }
+
+        stats.personalSales = pSales;
+        stats.groupSales = gSales;
+        stats.calculatedRank = r;
+        stats.globalShareAmount = gShare;
+
+        if (performPayout && !stats.isProcessed) {
+          stats.isProcessed = true;
+
+          // Payout Global Share Reward (Tầng 4)
+          if (gShare > 0) {
+            const commShare = manager.create(Commission, {
+              userId: u.id,
+              amount: gShare,
+              type: CommissionType.GLOBAL_SHARE_MONTHLY,
+              status: CommissionStatus.PENDING,
+              notes: `Đồng chia toàn quốc cấp bậc ${r} tháng ${month} (Tổng DS toàn quốc: $${totalNationalSales.toLocaleString()})`,
+              orderAmount: totalNationalSales,
+              orderId: null,
+            });
+            await manager.save(commShare);
+            await manager.increment(User, { id: u.id }, 'totalCommissionReceived', gShare);
+            payoutCount++;
+            totalPayoutAmount += gShare;
+          }
+        }
+
+        await manager.save(stats);
+        statsCount++;
+
+        usersStatsResult.push({
+          userId: u.id,
+          username: u.username,
+          email: u.email,
+          personalSales: pSales,
+          groupSales: gSales,
+          calculatedRank: r,
+          globalShareAmount: gShare,
+          isProcessed: stats.isProcessed,
+        });
+      }
+    });
+
+    // Dữ liệu tháng vừa đổi (và tỷ lệ tháng sau phụ thuộc tháng này), bỏ cache.
+    this.monthlySnapshotCache.clear();
+
+    return {
+      success: true,
+      totalNationalSales,
+      statsCount,
+      payoutCount,
+      totalPayoutAmount,
+      usersStats: usersStatsResult,
+    };
+  }
+
+  /** Snapshot có cache ngắn hạn, dùng cho các màn hình chỉ đọc. */
+  private async getMonthlySnapshot(month: string): Promise<MonthlySnapshot> {
+    const cached = this.monthlySnapshotCache.get(month);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data;
+    }
+    const data = await this.buildMonthlySnapshot(month);
+    this.monthlySnapshotCache.set(month, {
+      data,
+      expiresAt: Date.now() + CommissionService.MONTHLY_SNAPSHOT_TTL_MS,
+    });
+    return data;
+  }
+
+  /**
+   * Đối chiếu danh sách F1 với điều kiện của một cấp bậc, trả về số lượng đạt
+   * và danh sách F1 nào được tính. Trả null nếu cấp đó không có điều kiện F1
+   * (C0, Đại lý).
+   */
+  private evaluateRankRequirements(
+    targetRank: string,
+    f1Ids: string[],
+    ranksMap: Map<string, string>,
+  ) {
+    const rules = MONTHLY_RANK_RULES[targetRank];
+    if (!rules) return null;
+
+    const qualifiedF1Ids = new Set<string>();
+    const requirements = rules.map((rule) => {
+      const matchedF1Ids = f1Ids.filter(
+        (id) =>
+          MONTHLY_RANK_ORDER.indexOf(ranksMap.get(id) || 'C0') >=
+          MONTHLY_RANK_ORDER.indexOf(rule.rank),
+      );
+      matchedF1Ids.forEach((id) => qualifiedF1Ids.add(id));
+      return {
+        requiredRank: rule.rank,
+        requiredRankLabel: rankLabel(rule.rank),
+        requiredCount: rule.count,
+        actualCount: matchedF1Ids.length,
+        satisfied: matchedF1Ids.length >= rule.count,
+        matchedF1Ids,
+      };
+    });
+
+    return {
+      rank: targetRank,
+      ruleText: rules
+        .map((r) => `${r.count} F1 đạt ${rankLabel(r.rank)} trở lên`)
+        .join(' và '),
+      requirements,
+      satisfied: requirements.every((r) => r.satisfied),
+      qualifiedF1Ids: Array.from(qualifiedF1Ids),
+    };
+  }
+
+  /**
+   * Chi tiết doanh số / cấp bậc tháng của một thành viên: F1 nào thỏa điều kiện
+   * cấp bậc, doanh số từng nhánh và tiền đồng chia.
+   */
+  async getMonthlyUserDetail(month: string, userId: string) {
+    const snapshot = await this.getMonthlySnapshot(month);
+
+    const user = snapshot.users.find((u) => u.id === userId);
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy thành viên');
+    }
+
+    const usersById = new Map(snapshot.users.map((u) => [u.id, u]));
+    const rank = snapshot.ranksMap.get(userId) || 'C0';
+    const f1Ids = snapshot.f1Map.get(userId) || [];
+    const personalSales = snapshot.personalSalesMap.get(userId) || 0;
+    const groupSales = snapshot.groupSalesMap.get(userId) || 0;
+
+    const currentQualification = this.evaluateRankRequirements(
+      rank,
+      f1Ids,
+      snapshot.ranksMap,
+    );
+    const nextRank =
+      MONTHLY_RANK_PROMOTION_ORDER.find(
+        (r) =>
+          MONTHLY_RANK_ORDER.indexOf(r) > MONTHLY_RANK_ORDER.indexOf(rank),
+      ) || null;
+    const nextQualification = nextRank
+      ? this.evaluateRankRequirements(nextRank, f1Ids, snapshot.ranksMap)
+      : null;
+
+    // Kiểm tra bất biến: sau khi vòng xét thăng cấp hội tụ, không ai còn đủ
+    // điều kiện lên cao hơn cấp đang giữ. Nếu cờ này bật thì vòng lặp đã chạm
+    // MONTHLY_RANK_PROMOTION_LOOP_LIMIT hoặc dữ liệu cây bất thường.
+    let eligibleRank = rank;
+    for (const r of MONTHLY_RANK_PROMOTION_ORDER) {
+      const q = this.evaluateRankRequirements(r, f1Ids, snapshot.ranksMap);
+      if (
+        q?.satisfied &&
+        MONTHLY_RANK_ORDER.indexOf(r) > MONTHLY_RANK_ORDER.indexOf(eligibleRank)
+      ) {
+        eligibleRank = r;
+      }
+    }
+    const rankLagging =
+      MONTHLY_RANK_ORDER.indexOf(eligibleRank) > MONTHLY_RANK_ORDER.indexOf(rank);
+
+    const currentQualifiedIds = new Set(
+      currentQualification?.qualifiedF1Ids || [],
+    );
+    const nextQualifiedIds = new Set(nextQualification?.qualifiedF1Ids || []);
+
+    const f1List = f1Ids
+      .map((id) => {
+        const f1 = usersById.get(id);
+        const f1PersonalSales = snapshot.personalSalesMap.get(id) || 0;
+        const branchSales = snapshot.subtreeSalesMap.get(id) || 0;
+        const f1Rank = snapshot.ranksMap.get(id) || 'C0';
+        return {
+          userId: id,
+          username: f1?.username || null,
+          email: f1?.email || null,
+          rank: f1Rank,
+          rankLabel: rankLabel(f1Rank),
+          manualRank: f1?.manualRank || null,
+          isDaiLy:
+            Number(f1?.totalPurchaseAmount || 0) >= DAILY_RANK_MIN_PURCHASE,
+          totalPurchaseAmount: Number(f1?.totalPurchaseAmount || 0),
+          personalSales: f1PersonalSales,
+          branchSales,
+          branchMemberCount: snapshot.subtreeCountMap.get(id) || 1,
+          f1Count: (snapshot.f1Map.get(id) || []).length,
+          countsTowardCurrentRank: currentQualifiedIds.has(id),
+          countsTowardNextRank: nextQualifiedIds.has(id),
+          sharePercent: groupSales > 0 ? branchSales / groupSales : 0,
+        };
+      })
+      .sort((a, b) => b.branchSales - a.branchSales);
+
+    const poolRate = GLOBAL_SHARE_RATES[rank] || 0;
+    const qualifiedSameRank = snapshot.usersByRank.get(rank) || [];
+
+    const storedStats = await this.userMonthlyStatsRepository.findOne({
+      where: { userId, month },
+    });
+
+    return {
+      month,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        manualRank: user.manualRank || null,
+        totalPurchaseAmount: Number(user.totalPurchaseAmount || 0),
+      },
+      rank,
+      rankLabel: rankLabel(rank),
+      eligibleRank,
+      eligibleRankLabel: rankLabel(eligibleRank),
+      rankLagging,
+      isManualRank: !!user.manualRank && user.manualRank !== 'NONE',
+      daiLyCondition: {
+        required: DAILY_RANK_MIN_PURCHASE,
+        actual: Number(user.totalPurchaseAmount || 0),
+        satisfied:
+          Number(user.totalPurchaseAmount || 0) >= DAILY_RANK_MIN_PURCHASE,
+      },
+      currentQualification,
+      nextQualification,
+      personalSales,
+      groupSales,
+      totalMemberCount: (snapshot.subtreeCountMap.get(userId) || 1) - 1,
+      f1List,
+      globalShare: {
+        rank,
+        rankLabel: rankLabel(rank),
+        poolRate,
+        totalNationalSales: snapshot.totalNationalSales,
+        poolAmount: snapshot.totalNationalSales * poolRate,
+        qualifiedCount: qualifiedSameRank.length,
+        amount: snapshot.globalShareMap.get(userId) || 0,
+      },
+      stored: storedStats
+        ? {
+            isProcessed: storedStats.isProcessed,
+            personalSales: Number(storedStats.personalSales),
+            groupSales: Number(storedStats.groupSales),
+            calculatedRank: storedStats.calculatedRank,
+            groupRewardRate: Number(storedStats.groupRewardRate),
+            groupRewardAmount: Number(storedStats.groupRewardAmount),
+            globalShareAmount: Number(storedStats.globalShareAmount),
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Tiến trình cấp bậc của chính người dùng, dùng cho màn hình profile.
+   * Rút gọn từ getMonthlyUserDetail: chỉ giữ phần người dùng cần thấy và
+   * không trả email/ID của tuyến dưới.
+   */
+  async getMyRankProgress(userId: string, month?: string) {
+    const targetMonth = month || this.getCurrentMonthString();
+    const detail = await this.getMonthlyUserDetail(targetMonth, userId);
+
+    const isRanked =
+      detail.rank !== 'C0' && detail.rank !== 'DAILY' && !!detail.rank;
+
+    // Lộ trình đầy đủ để màn hình vẽ được các bậc phía trước, kèm tỷ lệ đồng
+    // chia quốc gia của từng bậc.
+    const ladder = MONTHLY_RANK_PROMOTION_ORDER.map((rank) => {
+      const rules = MONTHLY_RANK_RULES[rank] || [];
+      return {
+        rank,
+        rankLabel: rankLabel(rank),
+        globalShareRate: GLOBAL_SHARE_RATES[rank] || 0,
+        ruleText: rules
+          .map((r) => `${r.count} F1 đạt ${rankLabel(r.rank)} trở lên`)
+          .join(' và '),
+        achieved:
+          MONTHLY_RANK_ORDER.indexOf(detail.rank) >=
+          MONTHLY_RANK_ORDER.indexOf(rank),
+        isCurrent: detail.rank === rank,
+      };
+    });
+
+    const stripIds = (qualification: any) =>
+      qualification
+        ? {
+            rank: qualification.rank,
+            rankLabel: rankLabel(qualification.rank),
+            ruleText: qualification.ruleText,
+            satisfied: qualification.satisfied,
+            requirements: qualification.requirements.map((r: any) => ({
+              requiredRank: r.requiredRank,
+              requiredRankLabel: r.requiredRankLabel,
+              requiredCount: r.requiredCount,
+              actualCount: r.actualCount,
+              satisfied: r.satisfied,
+            })),
+          }
+        : null;
+
+    const nextQualification = stripIds(detail.nextQualification);
+
+    return {
+      month: detail.month,
+      rank: detail.rank,
+      rankLabel: detail.rankLabel,
+      isRanked,
+      isManualRank: detail.isManualRank,
+      daiLyCondition: detail.daiLyCondition,
+      currentQualification: stripIds(detail.currentQualification),
+      nextRank: nextQualification?.rank || null,
+      nextRankLabel: nextQualification?.rankLabel || null,
+      nextQualification,
+      personalSales: detail.personalSales,
+      groupSales: detail.groupSales,
+      totalMemberCount: detail.totalMemberCount,
+      f1Count: detail.f1List.length,
+      f1RankCounts: detail.f1List.reduce(
+        (acc: Record<string, number>, f1: any) => {
+          acc[f1.rank] = (acc[f1.rank] || 0) + 1;
+          return acc;
+        },
+        {},
+      ),
+      globalShare: {
+        poolRate: detail.globalShare.poolRate,
+        qualifiedCount: detail.globalShare.qualifiedCount,
+        poolAmount: detail.globalShare.poolAmount,
+        amount: detail.globalShare.amount,
+      },
+      ladder,
+      isProcessed: detail.stored?.isProcessed ?? false,
+    };
+  }
+
+  /** Tháng hiện tại theo định dạng YYYY-MM. */
+  private getCurrentMonthString(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  async getMonthlyStats(month: string) {
+    return this.userMonthlyStatsRepository.find({
+      where: { month },
+      relations: ['user'],
+      order: { groupSales: 'DESC' },
+    });
   }
 }

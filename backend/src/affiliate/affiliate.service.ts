@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommissionService } from './commission.service';
@@ -31,20 +31,10 @@ export class AffiliateService {
     };
   }
 
-  async getStats(userId: string) {
-    return this.commissionService.getStats(userId);
-  }
-
   async getCommissions(userId: string, query: any) {
     const type = query.type as CommissionType | undefined;
     const status = query.status as CommissionStatus | undefined;
     return this.commissionService.getCommissions(userId, { type, status });
-  }
-
-  async withdraw(withdrawDto: any) {
-    // TODO: Implement affiliate withdraw logic
-    // Có thể tích hợp với wallet service để rút tiền
-    return { message: 'Affiliate withdraw - to be implemented' };
   }
 
   /**
@@ -165,15 +155,56 @@ export class AffiliateService {
   /**
    * Lấy chi tiết commission (chỉ admin)
    */
-  async getCommissionDetail(commissionId: string) {
-    return this.commissionService.getCommissionDetail(commissionId);
-  }
+  async validateDownline(sponsorId: string, targetUsername: string): Promise<any> {
+    if (!targetUsername?.trim()) {
+      throw new BadRequestException('Username is required');
+    }
 
-  async cancelCommission(commissionId: string, reason?: string) {
-    return this.commissionService.cancelCommission(commissionId, reason);
-  }
+    const targetUser = await this.userRepository.findOne({
+      where: { username: targetUsername.trim() },
+      select: ['id', 'username', 'fullName', 'referralUserId'],
+    });
 
-  async cancelCommissions(commissionIds: string[], reason?: string) {
-    return this.commissionService.cancelCommissions(commissionIds, reason);
+    if (!targetUser) {
+      throw new NotFoundException('Username not found');
+    }
+
+    if (targetUser.id === sponsorId) {
+      throw new BadRequestException('Cannot purchase for yourself');
+    }
+
+    // Check if targetUser is a downline of sponsorId
+    let currentId = targetUser.id;
+    const visited = new Set<string>();
+    let isDownline = false;
+
+    while (currentId) {
+      if (currentId === sponsorId) {
+        isDownline = true;
+        break;
+      }
+      if (visited.has(currentId)) break; // Prevent infinite loop
+      visited.add(currentId);
+
+      const u = await this.userRepository.findOne({
+        where: { id: currentId },
+        select: ['id', 'referralUserId'],
+      });
+      if (!u || !u.referralUserId) break;
+      currentId = u.referralUserId;
+    }
+
+    if (!isDownline) {
+      throw new BadRequestException('User is not in your downline organization');
+    }
+
+    return {
+      valid: true,
+      user: {
+        id: targetUser.id,
+        username: targetUser.username,
+        fullName: targetUser.fullName,
+      },
+    };
   }
 }

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Input, message, Select } from 'antd';
+import { Table, Tag, Button, Space, Modal, Input, message, Select, Image, Card, Descriptions, Alert } from 'antd';
 import {
   CheckOutlined,
   CloseOutlined,
   ReloadOutlined,
   DownloadOutlined,
   SearchOutlined,
+  IdcardOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import {
   walletWithdrawRequestService,
@@ -261,6 +263,39 @@ const WalletWithdrawRequests: React.FC = () => {
           : `${r.bankName || ''} / ${r.bankAccountName || ''} / ${r.bankAccountNumber || ''}`,
     },
     {
+      title: 'Xác thực CCCD',
+      key: 'kyc',
+      width: 170,
+      render: (_: any, r: WalletWithdrawRequest) => {
+        const kyc = r.kycInfo;
+        if (!kyc) {
+          return <Tag color="default">Chưa làm KYC</Tag>;
+        }
+        const colorMap: Record<string, string> = {
+          APPROVED: 'green',
+          PENDING: 'orange',
+          REJECTED: 'red',
+        };
+        const labelMap: Record<string, string> = {
+          APPROVED: 'Đã KYC',
+          PENDING: 'KYC chờ duyệt',
+          REJECTED: 'KYC bị từ chối',
+        };
+        return (
+          <Space direction="vertical" size={2}>
+            <Tag color={colorMap[kyc.status || ''] || 'blue'}>
+              {labelMap[kyc.status || ''] || kyc.status}
+            </Tag>
+            {kyc.documentNumber && (
+              <span style={{ fontSize: 11, color: '#555' }}>
+                {kyc.documentType || 'CCCD'}: <strong>{kyc.documentNumber}</strong>
+              </span>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
@@ -289,30 +324,38 @@ const WalletWithdrawRequests: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 160,
-      render: (_: any, record: WalletWithdrawRequest) =>
-        record.status === 'PENDING' ? (
-          <Space>
-            <Button
-              type="primary"
-              size="small"
-              icon={<CheckOutlined />}
-              onClick={() => handleProcess(record, 'APPROVED')}
-            >
-              Duyệt
-            </Button>
-            <Button
-              danger
-              size="small"
-              icon={<CloseOutlined />}
-              onClick={() => handleProcess(record, 'REJECTED')}
-            >
-              Từ chối
-            </Button>
-          </Space>
-        ) : (
-          <span className="text-gray-400">Đã xử lý</span>
-        ),
+      width: 220,
+      render: (_: any, record: WalletWithdrawRequest) => (
+        <Space wrap>
+          <Button
+            size="small"
+            icon={<IdcardOutlined />}
+            onClick={() => handleProcess(record, record.status === 'PENDING' ? 'APPROVED' : 'APPROVED')}
+          >
+            Xem CCCD
+          </Button>
+          {record.status === 'PENDING' && (
+            <>
+              <Button
+                type="primary"
+                size="small"
+                icon={<CheckOutlined />}
+                onClick={() => handleProcess(record, 'APPROVED')}
+              >
+                Duyệt
+              </Button>
+              <Button
+                danger
+                size="small"
+                icon={<CloseOutlined />}
+                onClick={() => handleProcess(record, 'REJECTED')}
+              >
+                Từ chối
+              </Button>
+            </>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -327,7 +370,7 @@ const WalletWithdrawRequests: React.FC = () => {
             onPressEnter={handleSearch}
             placeholder="Tìm theo user/email/sđt/wallet/id..."
             allowClear
-            style={{ width: 320 }}
+            style={{ width: '100%', maxWidth: 320 }}
             suffix={<SearchOutlined />}
           />
           <Button onClick={handleSearch} icon={<SearchOutlined />}>
@@ -378,66 +421,145 @@ const WalletWithdrawRequests: React.FC = () => {
         cancelButtonProps={{ disabled: !!processingId }}
       >
         {selectedRequest && (
-          <div className="space-y-3">
-            <p>
-              <strong>User:</strong> {selectedRequest.user?.username || selectedRequest.userId}
-            </p>
-            <p>
-              <strong>Số tiền yêu cầu:</strong> ${Number(selectedRequest.amount || 0).toFixed(2)}
-            </p>
-            <p>
-              <strong>Thực nhận:</strong>{' '}
-              <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
-                ${Number(selectedRequest.amount || 0).toFixed(2)}
-              </span>
-            </p>
-            {selectedRequest.method === 'BANKING' && withdrawVndAmount > 0 && (
+          <div className="space-y-4">
+            {/* Card thông tin đối soát người dùng & CCCD */}
+            <Card
+              title={
+                <span className="flex items-center gap-2 text-slate-800">
+                  <IdcardOutlined className="text-blue-600" /> Thông tin Xác thực Người dùng & CCCD
+                </span>
+              }
+              size="small"
+              className="bg-slate-50 border-slate-200"
+            >
+              <Descriptions size="small" column={{ xs: 1, sm: 1, md: 2 }} bordered className="bg-white">
+                <Descriptions.Item label="Họ và tên">{selectedRequest.user?.fullName || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Username">{selectedRequest.user?.username || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Số điện thoại">{selectedRequest.user?.phone || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Email">{selectedRequest.user?.email || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Gói tài khoản">{selectedRequest.user?.packageType || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Trạng thái KYC">
+                  {selectedRequest.kycInfo ? (
+                    <Tag color={selectedRequest.kycInfo.status === 'APPROVED' ? 'green' : selectedRequest.kycInfo.status === 'PENDING' ? 'orange' : 'red'}>
+                      {selectedRequest.kycInfo.status === 'APPROVED' ? 'Đã xác thực' : selectedRequest.kycInfo.status === 'PENDING' ? 'KYC chờ duyệt' : 'KYC bị từ chối'}
+                    </Tag>
+                  ) : (
+                    <Tag color="default">Chưa làm KYC</Tag>
+                  )}
+                </Descriptions.Item>
+                {selectedRequest.kycInfo?.documentNumber && (
+                  <Descriptions.Item label="Số CCCD / Hộ chiếu" span={2}>
+                    <strong className="text-blue-700">{selectedRequest.kycInfo.documentType || 'CCCD'}:</strong> {selectedRequest.kycInfo.documentNumber}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+
+              {/* Khung hiển thị ảnh CCCD Mặt trước & Mặt sau */}
+              {selectedRequest.kycInfo?.frontImage || selectedRequest.kycInfo?.backImage ? (
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }} className="text-slate-700">
+                    Ảnh Căn cước công dân đối soát (Bấm vào ảnh để phóng to/xoay):
+                  </p>
+                  <Image.PreviewGroup>
+                    <Space size={16} wrap>
+                      {selectedRequest.kycInfo.frontImage && (
+                        <div>
+                          <p style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Mặt trước CCCD:</p>
+                          <Image
+                            width={190}
+                            height={120}
+                            src={selectedRequest.kycInfo.frontImage}
+                            style={{ objectFit: 'cover', borderRadius: 8, border: '1px solid #d9d9d9', background: '#fff' }}
+                          />
+                        </div>
+                      )}
+                      {selectedRequest.kycInfo.backImage && (
+                        <div>
+                          <p style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>Mặt sau CCCD:</p>
+                          <Image
+                            width={190}
+                            height={120}
+                            src={selectedRequest.kycInfo.backImage}
+                            style={{ objectFit: 'cover', borderRadius: 8, border: '1px solid #d9d9d9', background: '#fff' }}
+                          />
+                        </div>
+                      )}
+                    </Space>
+                  </Image.PreviewGroup>
+                </div>
+              ) : (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                  message="Cảnh báo KYC"
+                  description="Người dùng này chưa tải lên ảnh Căn cước công dân (CCCD). Vui lòng cân nhắc trước khi phê duyệt."
+                />
+              )}
+            </Card>
+
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-white">
+              <p className="font-semibold text-slate-800 border-b pb-1">Chi tiết yêu cầu rút tiền:</p>
               <p>
-                <strong>Số tiền VND nhận:</strong>{' '}
-                <span style={{ fontWeight: 'bold', color: '#389e0d' }}>
-                  {withdrawVndAmount.toLocaleString('vi-VN')} VND
+                <strong>User:</strong> {selectedRequest.user?.username || selectedRequest.userId}
+              </p>
+              <p>
+                <strong>Số tiền yêu cầu:</strong> ${Number(selectedRequest.amount || 0).toFixed(2)}
+              </p>
+              <p>
+                <strong>Thực nhận:</strong>{' '}
+                <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
+                  ${Number(selectedRequest.amount || 0).toFixed(2)}
                 </span>
               </p>
-            )}
-            {selectedRequest.method === 'BANKING' && withdrawVndAmount <= 0 && (
+              {selectedRequest.method === 'BANKING' && withdrawVndAmount > 0 && (
+                <p>
+                  <strong>Số tiền VND nhận:</strong>{' '}
+                  <span style={{ fontWeight: 'bold', color: '#389e0d' }}>
+                    {withdrawVndAmount.toLocaleString('vi-VN')} VND
+                  </span>
+                </p>
+              )}
+              {selectedRequest.method === 'BANKING' && withdrawVndAmount <= 0 && (
+                <p>
+                  <strong>Số tiền VND nhận:</strong>{' '}
+                  <span style={{ color: '#999' }}>Chưa cấu hình tỷ giá USDT/VND trong Banking Settings</span>
+                </p>
+              )}
               <p>
-                <strong>Số tiền VND nhận:</strong>{' '}
-                <span style={{ color: '#999' }}>Chưa cấu hình tỷ giá USDT/VND trong Banking Settings</span>
+                <strong>Phương thức:</strong> {selectedRequest.method}
               </p>
-            )}
-            <p>
-              <strong>Phương thức:</strong> {selectedRequest.method}
-            </p>
-            <p>
-              <strong>Thông tin nhận:</strong>{' '}
-              {selectedRequest.method === 'USDT'
-                ? selectedRequest.usdtWalletAddress
-                : `${selectedRequest.bankName || ''} / ${selectedRequest.bankAccountName || ''} / ${selectedRequest.bankAccountNumber || ''}`}
-            </p>
-            {selectedRequest.method === 'BANKING' && selectedRequest.bankQrImageUrl && (
-              <div>
-                <strong>QR thanh toán:</strong>
-                <div style={{ marginTop: 8 }}>
-                  <img
-                    src={selectedRequest.bankQrImageUrl}
-                    alt="Bank QR"
-                    style={{
-                      width: 220,
-                      height: 220,
-                      objectFit: 'contain',
-                      border: '1px solid #f0f0f0',
-                      borderRadius: 8,
-                      background: '#fff',
-                    }}
-                  />
+              <p>
+                <strong>Thông tin nhận:</strong>{' '}
+                {selectedRequest.method === 'USDT'
+                  ? selectedRequest.usdtWalletAddress
+                  : `${selectedRequest.bankName || ''} / ${selectedRequest.bankAccountName || ''} / ${selectedRequest.bankAccountNumber || ''}`}
+              </p>
+              {selectedRequest.method === 'BANKING' && selectedRequest.bankQrImageUrl && (
+                <div>
+                  <strong>QR thanh toán:</strong>
+                  <div style={{ marginTop: 8 }}>
+                    <img
+                      src={selectedRequest.bankQrImageUrl}
+                      alt="Bank QR"
+                      style={{
+                        width: 220,
+                        height: 220,
+                        objectFit: 'contain',
+                        border: '1px solid #f0f0f0',
+                        borderRadius: 8,
+                        background: '#fff',
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
-            {selectedRequest.note && (
-              <p>
-                <strong>Ghi chú user:</strong> {selectedRequest.note}
-              </p>
-            )}
+              )}
+              {selectedRequest.note && (
+                <p>
+                  <strong>Ghi chú user:</strong> {selectedRequest.note}
+                </p>
+              )}
+            </div>
             {pendingAction === 'APPROVED' &&
               selectedRequest.method === 'BANKING' && (
                 <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50">

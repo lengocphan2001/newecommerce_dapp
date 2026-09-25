@@ -21,6 +21,7 @@ import { Category } from '../src/category/entities/category.entity';
 import { Slider } from '../src/slider/entities/slider.entity';
 import { Order } from '../src/order/entities/order.entity';
 import { Commission } from '../src/affiliate/entities/commission.entity';
+import { BranchVolumeLog } from '../src/affiliate/entities/branch-volume-log.entity';
 import { AuditLog } from '../src/audit-log/entities/audit-log.entity';
 import { MilestoneRewardConfig } from '../src/admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from '../src/admin/entities/user-milestone.entity';
@@ -48,8 +49,12 @@ import { MatrixRewardOrderProcessed } from '../src/matrix-reward/entities/matrix
 import { PasswordResetToken } from '../src/auth/entities/password-reset-token.entity';
 import { HeapRewardPlacement } from '../src/heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from '../src/heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductPlacement } from '../src/heap-reward/entities/promising-product-placement.entity';
-import { PromisingProductHistory } from '../src/heap-reward/entities/promising-product-history.entity';
+import { UserMonthlyStats } from '../src/affiliate/entities/user-monthly-stats.entity';
+import { AgentPool } from '../src/agent-pool/entities/agent-pool.entity';
+import { AgentPoolMember } from '../src/agent-pool/entities/agent-pool-member.entity';
+import { AgentPoolHistory } from '../src/agent-pool/entities/agent-pool-history.entity';
+import { SalaryPayment } from '../src/salary/entities/salary-payment.entity';
+import { RankSalaryPayment } from '../src/salary/entities/rank-salary-payment.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -124,6 +129,7 @@ async function initializeDatabase() {
       Product,
       Order,
       Commission,
+      BranchVolumeLog,
       AuditLog,
       MilestoneRewardConfig,
       UserMilestone,
@@ -149,10 +155,14 @@ async function initializeDatabase() {
       PasswordResetToken,
       HeapRewardPlacement,
       HeapRewardHistory,
-      PromisingProductPlacement,
-      PromisingProductHistory,
+      UserMonthlyStats,
+      AgentPool,
+      AgentPoolMember,
+      AgentPoolHistory,
+      SalaryPayment,
+      RankSalaryPayment,
     ],
-    synchronize: true, // Enable synchronize to create tables
+    synchronize: false, // Enable synchronize to create tables
     logging: true,
   });
 
@@ -205,8 +215,9 @@ async function initializeDatabase() {
     const systemConfigRepo = dataSource.getRepository(SystemConfig);
     const defaults: Array<{ key: string; value: string }> = [
       { key: 'minPayoutThreshold', value: '50' },
-      { key: 'commissionDepositWalletPercent', value: '12' },
-      { key: 'commissionWithdrawWalletPercent', value: '80' },
+      { key: 'indirectCommissionRateF2', value: '5' },
+      { key: 'commissionDepositWalletPercent', value: '20' },
+      { key: 'commissionWithdrawWalletPercent', value: '70' },
       { key: 'matrixRewardEnabled', value: 'true' },
       { key: 'matrixRewardMinOrderUsd', value: '100' },
       { key: 'matrixRewardMaxOrderUsd', value: '0' },

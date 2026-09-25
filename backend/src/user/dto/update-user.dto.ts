@@ -48,6 +48,10 @@ export class UpdateUserDto {
 
   @IsString()
   @IsOptional()
+  taxId?: string;
+
+  @IsString()
+  @IsOptional()
   chainId?: string;
 
   @IsString()
@@ -163,4 +167,14 @@ export class UpdateUserDto {
   @Min(0)
   @IsOptional()
   reconsumptionWalletBalance?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  customMaxCommission?: number | null;
+
+  @IsString()
+  @IsOptional()
+  manualRank?: string;
 }

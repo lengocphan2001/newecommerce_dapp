@@ -7,9 +7,11 @@ import { User } from './entities/user.entity';
 import { Address } from './entities/address.entity';
 import { Order } from '../order/entities/order.entity';
 import { Commission } from '../affiliate/entities/commission.entity';
+import { BranchVolumeLog } from '../affiliate/entities/branch-volume-log.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
 import { AuditLog } from '../audit-log/entities/audit-log.entity';
 import { Kyc } from '../kyc/entities/kyc.entity';
+import { PackagesModule } from '../packages/packages.module';
 
 @Module({
   imports: [
@@ -18,10 +20,12 @@ import { Kyc } from '../kyc/entities/kyc.entity';
       Address,
       Order,
       Commission,
+      BranchVolumeLog,
       UserMilestone,
       AuditLog,
       Kyc,
     ]),
+    PackagesModule,
   ],
   controllers: [UserController, MeController],
   providers: [UserService],

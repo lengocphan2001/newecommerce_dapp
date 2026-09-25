@@ -70,6 +70,7 @@ export class ProductController {
       'Management F2 (%)',
       'Management F3 (%)',
       'Management Min Sales ($)',
+      'Indirect Commission F2 (%)',
       'Reconsumption Threshold ($)',
       'Reconsumption Required ($)',
       'Commission Config By Package (JSON)',
@@ -106,6 +107,7 @@ export class ProductController {
       product.managementRateF2 ?? '',
       product.managementRateF3 ?? '',
       product.managementMinSales ?? '',
+      product.indirectCommissionRateF2 ?? '',
       product.reconsumptionThreshold ?? '',
       product.reconsumptionRequired ?? '',
       product.commissionConfigByPackage
@@ -160,6 +162,15 @@ export class ProductController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async create(@Body() createProductDto: CreateProductDto) {
     return this.productService.create(createProductDto);
+  }
+
+  @Put('reorder')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async reorder(@Body() body: { ids: string[] }) {
+    if (!body || !Array.isArray(body.ids)) {
+      throw new BadRequestException('ids must be an array of product ids');
+    }
+    return this.productService.reorder(body.ids);
   }
 
   @Put(':id/push')

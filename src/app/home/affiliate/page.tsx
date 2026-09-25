@@ -8,9 +8,10 @@ import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
 import { QRCodeSVG } from "qrcode.react";
+import { formatAmount, formatVnd, usdToVnd } from "@/app/utils/format";
 
 export default function AffiliatePage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [referralInfo, setReferralInfo] = useState<{
     referralCode: string;
@@ -20,10 +21,11 @@ export default function AffiliatePage() {
     username: string;
     fullName: string;
     treeStats: {
-      left: { count: number; members: any[]; volume?: number };
-      right: { count: number; members: any[]; volume?: number };
+      left: { count: number; members: any[]; volume?: number; monthlyVolume?: number };
+      right: { count: number; members: any[]; volume?: number; monthlyVolume?: number };
       total: number;
       newTodayCount?: number;
+      weakBranchTotalVolume?: number;
     };
     accumulatedPurchases?: string;
     bonusCommission?: string;
@@ -44,6 +46,15 @@ export default function AffiliatePage() {
       fromUsername?: string;
     }>;
     maxCommission?: string;
+    monthlyStats?: {
+      month: string;
+      calculatedRank: string;
+      groupSales: string;
+      personalSales: string;
+      groupRewardAmount: string;
+      globalShareAmount: string;
+      isProcessed: boolean;
+    } | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,6 +73,7 @@ export default function AffiliatePage() {
     packageType: string;
     createdAt: string;
     directReferralCount: number;
+    binaryTeam?: 'left' | 'right' | null;
   }>>([]);
   const [f1Loading, setF1Loading] = useState(false);
 
@@ -161,24 +173,134 @@ export default function AffiliatePage() {
     }
   };
 
-  const formatPrice = (price: string | number) => {
-    const num = typeof price === "string" ? parseFloat(price) : price;
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(num);
+  const formatPrice = (price: string | number) => formatAmount(price, 2, 4);
+
+  const formatVolume = (volume: string | number) => formatAmount(volume, 4, 4);
+
+  const formatPriceVND = (volume: string | number) =>
+    formatVnd(usdToVnd(volume));
+
+  const formatDateSimple = (dateString: string | null | undefined): string => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '-';
+      return date.toLocaleDateString();
+    } catch {
+      return '-';
+    }
   };
 
-  const formatVolume = (volume: string | number) => {
-    const num = typeof volume === "string" ? parseFloat(volume) : volume;
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4,
-    }).format(num);
+  const getRank = (packageType?: string, accumulatedPurchases?: string | number) => {
+    const total = Number(accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return "Đại lý";
+    }
+    const type = String(packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') return "Đối Tác";
+    if (type === 'CTV') return "CTV";
+    if (type === 'TV') return "Thành Viên";
+    return type || "NONE";
   };
 
-  const getRank = (packageType?: string) => {
-    return packageType || "NONE";
+  const getRankBadgeInfo = () => {
+    if (!referralInfo) return { label: 'Customer', class: 'bg-gray-100 text-gray-600 border-gray-200', icon: 'person' };
+    
+    const monthlyRank = referralInfo.monthlyStats?.calculatedRank;
+    const hasMonthlyRank = monthlyRank && monthlyRank !== 'DAILY' && monthlyRank !== 'C0';
+    
+    if (hasMonthlyRank) {
+      let badgeClass = '';
+      let icon = 'military_tech';
+      
+      switch (monthlyRank) {
+        case 'C1':
+          badgeClass = 'bg-gradient-to-r from-amber-600 to-amber-700 text-white border-amber-500 font-bold shadow-sm';
+          icon = 'workspace_premium';
+          break;
+        case 'C2':
+          badgeClass = 'bg-gradient-to-r from-slate-400 to-slate-500 text-white border-slate-300 font-bold shadow-sm';
+          icon = 'workspace_premium';
+          break;
+        case 'C3':
+          badgeClass = 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white border-yellow-300 font-bold shadow-md';
+          icon = 'workspace_premium';
+          break;
+        case 'C4':
+          badgeClass = 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-cyan-300 font-bold shadow-md';
+          icon = 'grade';
+          break;
+        case 'C5':
+          badgeClass = 'bg-gradient-to-r from-rose-500 to-red-600 text-white border-rose-400 font-bold shadow-md';
+          icon = 'favorite';
+          break;
+        case 'C6':
+          badgeClass = 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-400 font-bold shadow-md';
+          icon = 'diamond';
+          break;
+        case 'C7':
+          badgeClass = 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-emerald-300 font-bold shadow-md animate-pulse';
+          icon = 'stars';
+          break;
+        case 'C8':
+          badgeClass = 'bg-gradient-to-r from-fuchsia-600 via-purple-600 to-violet-600 text-white border-fuchsia-400 font-bold shadow-lg animate-pulse';
+          icon = 'emoji_events';
+          break;
+        case 'C9':
+          badgeClass = 'bg-gradient-to-r from-yellow-500 via-orange-500 to-red-600 text-white border-yellow-300 font-extrabold shadow-lg animate-pulse';
+          icon = 'crown';
+          break;
+        default:
+          badgeClass = 'bg-gradient-to-r from-gray-500 to-slate-600 text-white border-gray-400 font-bold';
+          icon = 'military_tech';
+      }
+      
+      return {
+        label: monthlyRank,
+        class: badgeClass,
+        icon
+      };
+    }
+    
+    const total = Number(referralInfo.accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return {
+        label: lang === "vi" ? "Đại lý" : "Agency",
+        class: 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white border-teal-300 font-bold shadow-sm',
+        icon: 'stars'
+      };
+    }
+    
+    const type = String(referralInfo.packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') {
+      return {
+        label: lang === "vi" ? "Đối Tác" : "Đối Tác",
+        class: 'bg-blue-50 text-blue-700 border-blue-200 font-medium',
+        icon: 'badge'
+      };
+    }
+    
+    if (type === 'CTV') {
+      return {
+        label: lang === "vi" ? "CTV" : "CTV",
+        class: 'bg-purple-50 text-purple-700 border-purple-200 font-medium',
+        icon: 'storefront'
+      };
+    }
+    
+    if (type === 'TV') {
+      return {
+        label: lang === "vi" ? "Thành Viên" : "Member",
+        class: 'bg-gray-50 text-gray-500 border-gray-200',
+        icon: 'person'
+      };
+    }
+    
+    return {
+      label: type || "NONE",
+      class: 'bg-gray-50 text-gray-500 border-gray-200',
+      icon: 'person'
+    };
   };
 
   const getNextRank = (packageType?: string) => {
@@ -267,6 +389,29 @@ export default function AffiliatePage() {
       ? referralInfo.treeStats.right.volume
       : parseFloat(referralInfo.treeStats.right.volume || "0") || 0;
 
+  // Doanh số nhánh tháng hiện tại (CONFIRMED)
+  const leftMonthlyVolume =
+    typeof referralInfo.treeStats.left.monthlyVolume === "number"
+      ? referralInfo.treeStats.left.monthlyVolume
+      : parseFloat(String(referralInfo.treeStats.left.monthlyVolume ?? "0")) || 0;
+  const rightMonthlyVolume =
+    typeof referralInfo.treeStats.right.monthlyVolume === "number"
+      ? referralInfo.treeStats.right.monthlyVolume
+      : parseFloat(String(referralInfo.treeStats.right.monthlyVolume ?? "0")) || 0;
+
+  // Doanh số nhánh yếu trong tháng hiện tại (không phải tất cả các tháng)
+  const weakBranchMonthlyVolume = Math.min(leftMonthlyVolume, rightMonthlyVolume);
+
+  // Doanh số nhánh yếu tích lũy (cộng dồn doanh số tính thưởng của các tháng từ khi tạo tài khoản)
+  const weakBranchTotalVolume = referralInfo.treeStats?.weakBranchTotalVolume !== undefined
+    ? (typeof referralInfo.treeStats.weakBranchTotalVolume === "number"
+        ? referralInfo.treeStats.weakBranchTotalVolume
+        : parseFloat(String(referralInfo.treeStats.weakBranchTotalVolume)) || 0)
+    : 0;
+
+  // Doanh số chênh lệch (Target Sales Volume) = Nhánh lớn - Nhánh nhỏ
+  const targetVolume = Math.abs(leftVolume - rightVolume);
+
   const maxCommission = getMaxCommission();
   const receivedCommission =
     (typeof referralInfo.bonusCommission === "string"
@@ -275,6 +420,15 @@ export default function AffiliatePage() {
     (typeof referralInfo.fakeReceivedCommission === "string"
       ? parseFloat(referralInfo.fakeReceivedCommission || "0")
       : Number(referralInfo.fakeReceivedCommission) || 0);
+
+  const teams = [
+    { name: "A", monthlyVolume: leftMonthlyVolume, totalVolume: leftVolume, color: "bg-blue-500" },
+    { name: "B", monthlyVolume: rightMonthlyVolume, totalVolume: rightVolume, color: "bg-purple-500" },
+    { name: "C", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+    { name: "D", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+    { name: "E", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+    { name: "F", monthlyVolume: 0, totalVolume: 0, color: "bg-gray-400" },
+  ];
 
   return (
     <div className="flex flex-col bg-background-gray antialiased">
@@ -294,7 +448,7 @@ export default function AffiliatePage() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                 </span>
                 <span className="text-xs font-semibold text-primary-dark">
-                  Shopii
+                  Shoplife
                 </span>
               </div>
               <button className="flex items-center justify-center rounded-full h-10 w-10 bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm">
@@ -313,177 +467,53 @@ export default function AffiliatePage() {
             paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))",
           }}
         >
-          {/* Profile & Earnings Section */}
-          <div className="px-4 py-4 space-y-4">
-            {/* Compact Profile Header */}
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
-              <div className="relative">
-                <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-14 ring-2 ring-primary ring-offset-2 ring-offset-white bg-gradient-to-br from-primary/20 to-white">
-                  <div className="h-full w-full rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary text-2xl">
-                      person
-                    </span>
-                  </div>
-                </div>
-                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
-                  <span
-                    className="material-symbols-outlined text-[18px] text-primary"
-                    title="Verified"
-                  >
-                    verified
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col justify-center flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-lg font-bold leading-tight text-text-dark">
-                    {shortAddress(referralInfo.walletAddress)}
-                  </p>
-                  <span className="text-xs font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                    {t("rank")} : {getRank(referralInfo.packageType)}
-                  </span>
-                </div>
-                <p className="text-primary-dark text-sm font-medium">
-                  Hoa hồng tháng này:{" "}
-                  {formatPrice(referralInfo.currentMonthCommission || "0")} PV
-                </p>
-              </div>
-            </div>
-
+          {/* Main Grid for desktop/tablet */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 py-4">
             
-          </div>
-
-          {/* Pending Payout Progress Widget */}
-          {(() => {
-            const pending = parseFloat(referralInfo.pendingRewards || '0');
-            const threshold = referralInfo.minPayoutThreshold ?? 50;
-            const progress = threshold > 0 ? Math.min(100, (pending / threshold) * 100) : 0;
-            const remaining = Math.max(0, threshold - pending);
-            const isReady = pending >= threshold;
-            return (
-              <div className="px-4 pb-2">
-                <div className={`rounded-xl p-4 border shadow-sm ${isReady
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-amber-50 border-amber-200'
-                  }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`material-symbols-outlined text-xl ${isReady ? 'text-green-600' : 'text-amber-500'
-                        }`}>
-                        {isReady ? 'payments' : 'hourglass_top'}
-                      </span>
-                      <span className={`text-sm font-bold ${isReady ? 'text-green-800' : 'text-amber-800'
-                        }`}>
-                        {isReady ? t("affiliatePayoutReady") : t("affiliatePendingPayout")}
+            {/* Left Column: Profile & Stats */}
+            <div className="space-y-4">
+              {/* Compact Profile Header */}
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
+                <div className="relative">
+                  <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-14 w-14 ring-2 ring-primary ring-offset-2 ring-offset-white bg-gradient-to-br from-primary/20 to-white">
+                    <div className="h-full w-full rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary text-2xl">
+                        person
                       </span>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isReady
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-amber-100 text-amber-700'
-                      }`}>
-                      {formatPrice(pending)} PV / {formatPrice(threshold)} PV
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
+                    <span
+                      className="material-symbols-outlined text-[18px] text-primary"
+                      title="Verified"
+                    >
+                      verified
                     </span>
                   </div>
-
-                  {/* Progress bar */}
-                  <div className="w-full bg-white rounded-full h-2.5 mb-2 border border-amber-100">
-                    <div
-                      className={`h-2.5 rounded-full transition-all duration-500 ${isReady ? 'bg-green-500' : 'bg-amber-400'
-                        }`}
-                      style={{ width: `${progress}%` }}
-                    />
+                </div>
+                <div className="flex flex-col justify-center flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-bold leading-tight text-text-dark">
+                      {shortAddress(referralInfo.walletAddress)}
+                    </p>
+                    {(() => {
+                      const badge = getRankBadgeInfo();
+                      return (
+                        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border shadow-sm transition-all duration-300 ${badge.class}`}>
+                          <span className="material-symbols-outlined text-[14px] font-bold">{badge.icon}</span>
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
                   </div>
-
-                  <p className={`text-xs ${isReady ? 'text-green-700' : 'text-amber-700'
-                    }`}>
-                    {isReady
-                      ? t("affiliatePayoutReadyMessage").replace("{{amount}}", `${formatPrice(pending)} PV`)
-                      : t("affiliatePayoutPendingMessage")
-                          .replace("{{remaining}}", `${formatPrice(remaining)} PV`)
-                          .replace("{{threshold}}", `${formatPrice(threshold)} PV`)
-                    }
+                  <p className="text-primary-dark text-sm font-medium">
+                    Hoa hồng tháng này:{" "}
+                    {formatPrice(referralInfo.currentMonthCommission || "0")} PV
                   </p>
                 </div>
               </div>
-            );
-          })()}
 
-          {/* Maximum Commission & Branch Totals */}
-          <div className="px-4 py-2">
-            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-3">
-              <h4 className="text-sm font-bold text-text-dark mb-3">
-                {t("commission")} & {t("networkStructure")}
-              </h4>
-              <div className="space-y-3">
-                {/* Total Commission Can Receive */}
-                {referralInfo.packageType !== "NONE" && (
-                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="material-symbols-outlined text-primary text-xl">
-                        account_balance_wallet
-                      </span>
-                      <span className="text-sm font-medium text-gray-700">
-                        {t("totalCommissionCanReceive")}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">
-                          {t("received")}
-                        </span>
-                        <span className="text-lg font-bold text-primary-dark">
-                          {formatVolume(receivedCommission)} PV
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600" title={t("maxCommissionTooltip") || "Tăng khi bạn mua thêm (theo giá gói)"}>
-                          {t("maximum")}
-                        </span>
-                        <span className="text-lg font-bold text-primary-dark">
-                          {formatVolume(maxCommission)} PV
-                        </span>
-                      </div>
-                    {maxCommission > 0 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {t("maxCommissionTooltip") || "Ngưỡng tăng khi mua thêm hàng (theo giá gói)."}
-                      </p>
-                    )}
-                    </div>
-                  </div>
-                )}
-                {/* Branch Totals */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-teal-50 rounded-lg border border-teal-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-teal-800">
-                        {t("affiliateLeftBranchLabel")}
-                      </span>
-                    </div>
-                    <p className="text-base font-bold text-text-dark">
-                      {formatVolume(leftVolume)} PV
-                    </p>
-                  </div>
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-green-800">
-                        {t("affiliateRightBranchLabel")}
-                      </span>
-                    </div>
-                    <p className="text-base font-bold text-text-dark">
-                      {formatVolume(rightVolume)} PV
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        
-
-          {/* Quick Stats Grid */}
-          <div className="px-4 py-2">
-            <div className="grid grid-cols-1 gap-3">
-              
+              {/* Quick Stats Card */}
               <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="material-symbols-outlined text-primary-dark text-xl">
@@ -504,6 +534,149 @@ export default function AffiliatePage() {
                 </p>
               </div>
             </div>
+
+            {/* Right Column: Binary Volume Cards */}
+            <div className="space-y-4">
+              {/* Maximum Commission & Branch Totals */}
+              <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <h4 className="text-sm font-bold text-text-dark mb-3">
+                  {t("commission")} & {t("networkStructure")}
+                </h4>
+                <div className="space-y-3">
+                  {/* Total Commission Can Receive */}
+                  {referralInfo.packageType !== "NONE" && (
+                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 space-y-3">
+                      <div className="flex items-center gap-2 border-b border-primary/10 pb-2">
+                        <span className="material-symbols-outlined text-primary text-xl">
+                          account_balance_wallet
+                        </span>
+                        <span className="text-sm font-bold text-gray-800">
+                          {lang === "vi" ? "Thông tin hoa hồng" : "Commission Info"}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 font-medium">
+                            {lang === "vi" ? "Đã nhận" : "Received"}
+                          </span>
+                          <span className="font-bold text-slate-800">
+                            {formatPriceVND(receivedCommission)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 font-medium">
+                            {lang === "vi" ? "Có thể nhận" : "Can receive"}
+                          </span>
+                          <span className="font-bold text-primary-dark">
+                            {formatPriceVND(maxCommission)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Nhánh yếu tháng hiện tại */}
+                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
+                      <span className="text-sm font-bold text-amber-800">
+                        {lang === "vi" ? "Doanh số tính thưởng" : "Doanh số tính thưởng"}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-700">
+                      {formatPriceVND(weakBranchMonthlyVolume)}
+                    </p>
+                  </div>
+
+                  {/* Doanh số nhánh yếu (Tích lũy) */}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
+                      <span className="text-sm font-bold text-blue-800">
+                        {lang === "vi" ? "Doanh số tích lũy" : "Bonus Calculation Volume"}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {formatPriceVND(weakBranchTotalVolume)}
+                    </p>
+                  </div>
+
+                  {/* Doanh số cần đạt */}
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
+                      <span className="text-sm font-bold text-purple-800">
+                        {lang === "vi" ? "Doanh số chênh lệch" : "Adjustment Volume"}
+                      </span>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-700">
+                      {formatPriceVND(targetVolume)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Doanh số Đội nhóm */}
+          <div className="px-4 py-2">
+            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-bold text-text-dark mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">groups</span>
+                {t("teamSalesTitle")}
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                {teams.map((team) => (
+                  <div key={team.name} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex flex-col justify-between">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`h-6 w-6 rounded-full ${team.color} flex items-center justify-center text-white text-[10px] font-bold`}>
+                        {team.name}
+                      </div>
+                      <span className="text-xs font-bold text-gray-700">
+                        {lang === 'vi' ? `Đại lý ${team.name}` : lang === 'ko' ? `대리점 ${team.name}` : `Agency ${team.name}`}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-gray-500">
+                        {t("monthlySales")}:
+                      </div>
+                      <div className="text-xs font-bold text-gray-800">
+                        {formatPrice(team.monthlyVolume)} PV
+                      </div>
+                      <div className="text-[9px] text-gray-400">
+                        {formatPriceVND(team.monthlyVolume)}
+                      </div>
+                      
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        {t("accumulatedSales")}:
+                      </div>
+                      <div className="text-xs font-bold text-gray-800">
+                        {formatPrice(team.totalVolume)} PV
+                      </div>
+                      <div className="text-[9px] text-gray-400">
+                        {formatPriceVND(team.totalVolume)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Lối vào sơ đồ cây nhị phân */}
+          <div className="px-4 py-2">
+            <Link
+              href="/home/affiliate/tree"
+              className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.98]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <span className="material-symbols-outlined text-primary">account_tree</span>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-text-dark">{t("networkStructure")}</p>
+                <p className="text-xs text-gray-500">{t("viewFullTree")}</p>
+              </div>
+              <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+            </Link>
           </div>
 
           {/* F1 List & Performance */}
@@ -526,6 +699,7 @@ export default function AffiliatePage() {
                           <th className="py-2 px-1 font-medium">{t("username")}</th>
                           <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("fullName")}</th>
                           <th className="py-2 px-1 font-medium">{t("rank")}</th>
+                          <th className="py-2 px-1 font-medium">{t("f1Team")}</th>
                           <th className="py-2 px-1 font-medium text-center">{t("f1DirectReferrals")}</th>
                           <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("f1JoinedDate")}</th>
                         </tr>
@@ -538,13 +712,29 @@ export default function AffiliatePage() {
                             <td className="py-2.5 px-1">
                               <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{f1.packageType || "NONE"}</span>
                             </td>
+                            <td className="py-2.5 px-1">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                f1.binaryTeam === 'left'
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  : f1.binaryTeam === 'right'
+                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                  : 'bg-gray-50 text-gray-500 border border-gray-200'
+                              }`}>
+                                {f1.binaryTeam === 'left'
+                                  ? (lang === 'vi' ? 'Đại lý A' : lang === 'ko' ? '대리점 A' : 'Agency A')
+                                  : f1.binaryTeam === 'right'
+                                  ? (lang === 'vi' ? 'Đại lý B' : lang === 'ko' ? '대리점 B' : 'Agency B')
+                                  : '-'
+                                }
+                              </span>
+                            </td>
                             <td className="py-2.5 px-1 text-center">
                               <span className="inline-flex items-center justify-center min-w-[1.75rem] font-semibold text-primary-dark bg-primary/10 rounded-full text-xs">
                                 {f1.directReferralCount}
                               </span>
                             </td>
-                            <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell">
-                              {f1.createdAt ? new Date(f1.createdAt).toLocaleDateString() : "-"}
+                            <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell" suppressHydrationWarning>
+                              {formatDateSimple(f1.createdAt)}
                             </td>
                           </tr>
                         ))}
@@ -637,6 +827,7 @@ export default function AffiliatePage() {
                   const getActivityIcon = (type: string) => {
                     switch (type) {
                       case "DIRECT":
+                      case "INDIRECT":
                         return {
                           icon: "attach_money",
                           color: "bg-[#13ec5b]/20",
@@ -667,6 +858,8 @@ export default function AffiliatePage() {
                     switch (type) {
                       case "DIRECT":
                         return t("directCommission");
+                      case "INDIRECT":
+                        return t("indirectCommission");
                       case "GROUP":
                         return t("groupCommission");
                       case "MANAGEMENT":
@@ -685,21 +878,27 @@ export default function AffiliatePage() {
                   };
 
                   const formatTimeAgo = (dateString: string) => {
-                    const date = new Date(dateString);
-                    const now = new Date();
-                    const diffMs = now.getTime() - date.getTime();
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffHours = Math.floor(diffMs / 3600000);
-                    const diffDays = Math.floor(diffMs / 86400000);
+                    if (!dateString) return '';
+                    try {
+                      const date = new Date(dateString);
+                      if (isNaN(date.getTime())) return '';
+                      const now = new Date();
+                      const diffMs = now.getTime() - date.getTime();
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffHours = Math.floor(diffMs / 3600000);
+                      const diffDays = Math.floor(diffMs / 86400000);
 
-                    if (diffMins < 1) return t("justNow");
-                    if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
-                    if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
-                    if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
-                    return date.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    });
+                      if (diffMins < 1) return t("justNow");
+                      if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
+                      if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
+                      if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
+                    } catch {
+                      return '';
+                    }
                   };
 
                   const activityStyle = getActivityIcon(activity.type);
@@ -744,7 +943,7 @@ export default function AffiliatePage() {
                               ? `${t("pending")} ${formatPrice(activity.amount)} PV`
                               : `+${formatPrice(activity.amount)} PV`}
                         </p>
-                        <p className="text-[10px] text-gray-400">
+                        <p className="text-[10px] text-gray-400" suppressHydrationWarning>
                           {formatTimeAgo(activity.createdAt)}
                         </p>
                       </div>

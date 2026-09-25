@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   Inject,
   forwardRef,
   Logger,
@@ -28,10 +29,13 @@ import { randomInt } from 'crypto';
 import { createHash, randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductHistory } from '../heap-reward/entities/promising-product-history.entity';
+import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
+import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
+import { SalaryPayment } from '../salary/entities/salary-payment.entity';
+import { RankSalaryPayment } from '../salary/entities/rank-salary-payment.entity';
 
 @Injectable()
 export class AuthService {
@@ -58,8 +62,13 @@ export class AuthService {
     private passwordResetTokenRepo: Repository<PasswordResetToken>,
     @InjectRepository(HeapRewardHistory)
     private heapRewardHistoryRepo: Repository<HeapRewardHistory>,
-    @InjectRepository(PromisingProductHistory)
-    private promisingProductHistoryRepo: Repository<PromisingProductHistory>,
+    @InjectRepository(AgentPoolHistory)
+    private agentPoolHistoryRepo: Repository<AgentPoolHistory>,
+    @InjectRepository(SalaryPayment)
+    private salaryPaymentRepo: Repository<SalaryPayment>,
+    @InjectRepository(RankSalaryPayment)
+    private rankSalaryPaymentRepo: Repository<RankSalaryPayment>,
+    private dataSource: DataSource,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -568,8 +577,10 @@ export class AuthService {
       username: user.username,
       avatar: user.avatar,
       packageType: user.packageType,
+      rank: user.rank || 'NONE',
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount ?? 0),
       emailVerified: user.emailVerified,
+      taxId: user.taxId ?? '',
     };
   }
 
@@ -619,25 +630,27 @@ export class AuthService {
     };
   }
 
-  async getReferralInfo(userId: string) {
+  async getReferralInfo(userId: string, compact = false) {
     const user = await this.userService.findOne(userId);
     if (!user || !user.username) {
       throw new UnauthorizedException('User not found or username not set');
     }
 
-    // Generate referral links for left and right legs (use shopii.biz in production)
+    // Generate referral links for left and right legs (use shoplife.biz in production)
     const referralCode = user.username;
     const baseUrl =
       process.env.FRONTEND_URL ||
       (process.env.NODE_ENV === 'production'
-        ? 'https://shopii.biz'
+        ? 'https://shoplife.biz'
         : 'http://localhost:3000');
     const referralLink = `${baseUrl}/register?ref=${referralCode}`;
     const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
     const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
 
     // Binary tree: chỉ count + volume, không trả members (payload nhỏ, nhanh)
-    const treeStats = await this.userService.getBinaryTreeStatsSummary(userId);
+    const treeStats = compact
+      ? null
+      : await this.userService.getBinaryTreeStatsSummary(userId);
 
     // Format decimal numbers with full precision
     const formatDecimal = (value: number | string): string => {
@@ -670,7 +683,20 @@ export class AuthService {
       take: 24,
     });
 
-    const promisingRewards = await this.promisingProductHistoryRepo.find({
+    const agentPoolRewards = await this.agentPoolHistoryRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 24,
+      relations: ['pool'],
+    });
+
+    const salaryPayments = await this.salaryPaymentRepo.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 24,
+    });
+
+    const rankSalaryPayments = await this.rankSalaryPaymentRepo.find({
       where: { userId },
       order: { createdAt: 'DESC' },
       take: 24,
@@ -686,16 +712,37 @@ export class AuthService {
         createdAt: h.createdAt,
         fromUserId: null,
         fromUser: null,
+        poolLevel: h.poolLevel,
       })),
-      ...promisingRewards.map((h: any) => ({
+      ...agentPoolRewards.map((h: any) => ({
         id: h.id,
-        type: 'HEAP_REWARD',
-        amount: h.amount,
+        type: 'AGENT_POOL',
+        amount: h.rewardAmount,
         status: 'COMPLETED',
         createdAt: h.createdAt,
         fromUserId: null,
         fromUser: null,
-      }))
+        poolLevel: h.poolPercent,
+        poolCode: h.pool?.code || null,
+        withdrawAmount: h.withdrawAmount,
+        reconsumptionAmount: h.reconsumptionAmount,
+        taxAmount: h.taxAmount,
+      })),
+      // Lương tháng: trả giống bể đồng chia đại lý — amount là lương gộp, kèm phần chia ví / thuế.
+      // Lương cấp bậc C1/C2 (bể C1 4%, bể C2 2%) hiển thị cùng loại lương tháng.
+      ...[...salaryPayments, ...rankSalaryPayments].map((s) => ({
+        id: s.id,
+        type: 'SALARY',
+        amount: s.amount,
+        status: 'COMPLETED',
+        createdAt: s.createdAt,
+        fromUserId: null,
+        fromUser: null,
+        salaryMonth: s.month,
+        withdrawAmount: s.withdrawAmount,
+        reconsumptionAmount: s.reconsumptionAmount,
+        taxAmount: s.taxAmount,
+      })),
     ].sort((a: any, b: any) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
@@ -732,6 +779,19 @@ export class AuthService {
         createdAt: createdAtStr,
         fromUserId: c.fromUserId,
         fromUsername,
+        poolLevel: c.poolLevel,
+        poolCode: c.poolCode ?? null,
+        withdrawAmount:
+          c.withdrawAmount === undefined
+            ? null
+            : formatDecimal(c.withdrawAmount),
+        reconsumptionAmount:
+          c.reconsumptionAmount === undefined
+            ? null
+            : formatDecimal(c.reconsumptionAmount),
+        taxAmount:
+          c.taxAmount === undefined ? null : formatDecimal(c.taxAmount),
+        salaryMonth: c.salaryMonth ?? null,
       };
     });
 
@@ -743,6 +803,7 @@ export class AuthService {
         const effective = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           config,
+          user.customMaxCommission,
         );
         maxCommission = formatDecimal(effective);
       }
@@ -751,13 +812,17 @@ export class AuthService {
     // Get min payout threshold from system config
     const minPayoutThreshold = await this.adminService.getMinPayoutThreshold();
 
-    const walletDistribution =
+    const { depositPercent: reconsumptionPercent, withdrawPercent } =
       await this.adminService.getCommissionWalletDistribution();
-    const depositPercent = Number(walletDistribution.depositPercent) || 0;
-    const withdrawPercent = Number(walletDistribution.withdrawPercent) || 0;
+    const taxPercent = 100 - withdrawPercent - reconsumptionPercent;
     const grossCommission = Number(user.totalCommissionReceived) || 0;
     const distributedCommission =
-      grossCommission * ((depositPercent + withdrawPercent) / 100);
+      grossCommission * ((withdrawPercent + reconsumptionPercent) / 100);
+
+    const latestStats = await this.dataSource.getRepository(UserMonthlyStats).findOne({
+      where: { userId },
+      order: { month: 'DESC' },
+    });
 
     return {
       referralCode,
@@ -768,25 +833,20 @@ export class AuthService {
       fullName: user.fullName,
       email: user.email,
       walletAddress: user.walletAddress,
-      /** Số dư ví nạp tiền (banking) - admin duyệt nạp rồi cộng vào đây */
       walletBalance: formatDecimal(user.walletBalance ?? 0),
-      /* Se agrega el saldo de PV para que el frontend lo muestre en el perfil de usuario. */
       pvWalletBalance: formatDecimal(user.pvWalletBalance ?? 0),
-      /** Số dư ví rút tiền - nhận hoa hồng theo tỷ lệ cấu hình */
       withdrawWalletBalance: formatDecimal(user.withdrawWalletBalance ?? 0),
-      /** Số dư ví tích lũy (tiêu dùng) */
       reconsumptionWalletBalance: formatDecimal(user.reconsumptionWalletBalance ?? 0),
       phone: user.phone,
-      phoneNumber: user.phone, // Alias for compatibility
+      phoneNumber: user.phone,
       address: user.address,
       treeStats,
       accumulatedPurchases: formatDecimal(user.totalPurchaseAmount),
       bonusCommission: formatDecimal(user.totalCommissionReceived),
       currentMonthCommission: formatDecimal(currentMonthCommission),
-      /** Tổng phần hoa hồng đã được phân bổ vào 2 ví nội bộ theo cấu hình */
       bonusCommissionNet: formatDecimal(distributedCommission),
-      payoutFeePercent: Math.max(0, 100 - (depositPercent + withdrawPercent)),
-      commissionDepositWalletPercent: depositPercent,
+      payoutFeePercent: taxPercent,
+      commissionDepositWalletPercent: reconsumptionPercent,
       commissionWithdrawWalletPercent: withdrawPercent,
       fakeReceivedCommission: formatDecimal(user.fakeReceivedCommission ?? 0),
       maxCommission,
@@ -799,6 +859,23 @@ export class AuthService {
       createdAt: user.createdAt,
       id: user.id,
       emailVerified: user.emailVerified,
+      monthlyStats: latestStats ? {
+        month: latestStats.month,
+        calculatedRank: user.manualRank && user.manualRank !== 'NONE' ? user.manualRank : latestStats.calculatedRank,
+        groupSales: formatDecimal(latestStats.groupSales),
+        personalSales: formatDecimal(latestStats.personalSales),
+        groupRewardAmount: formatDecimal(latestStats.groupRewardAmount),
+        globalShareAmount: formatDecimal(latestStats.globalShareAmount),
+        isProcessed: latestStats.isProcessed,
+      } : (user.manualRank && user.manualRank !== 'NONE' ? {
+        month: 'current',
+        calculatedRank: user.manualRank,
+        groupSales: '0.00',
+        personalSales: '0.00',
+        groupRewardAmount: '0.00',
+        globalShareAmount: '0.00',
+        isProcessed: false,
+      } : null),
     };
   }
 
@@ -826,6 +903,7 @@ export class AuthService {
         const effective = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           pkg,
+          user.customMaxCommission,
         );
         if (Number(user.totalCommissionReceived) >= effective) {
           reachedPackage = pkg;
@@ -836,6 +914,7 @@ export class AuthService {
         threshold = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           reachedPackage,
+          user.customMaxCommission,
         );
         packageValue = reachedPackage.price;
         return {
@@ -868,6 +947,7 @@ export class AuthService {
     const effectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       config,
+      user.customMaxCommission,
     );
     const packageValue = config.price;
 
@@ -927,7 +1007,106 @@ export class AuthService {
     return detail;
   }
 
-  async getChildren(userId: string, position?: 'left' | 'right') {
+  /**
+   * Cây nhị phân của chính người dùng, hoặc của một thành viên nằm dưới họ.
+   * Payload đã lược bỏ email và giới hạn độ sâu để không lộ dữ liệu tuyến trên
+   * và không cho phép truy vấn quá nặng.
+   */
+  async getMyTree(
+    currentUserId: string,
+    rootUserId?: string,
+    maxDepth = 3,
+  ) {
+    const targetRootId = rootUserId || currentUserId;
+    await this.assertCanViewTreeOf(currentUserId, targetRootId);
+
+    const depth = Math.min(Math.max(Number(maxDepth) || 3, 1), 5);
+    const tree = await this.userService.buildBinaryTree(targetRootId, depth);
+
+    const sanitize = (node: any): any => ({
+      id: node.id,
+      username: node.username,
+      fullName: node.fullName,
+      avatar: node.avatar,
+      packageType: node.packageType,
+      position: node.position,
+      leftBranchTotal: node.leftBranchTotal,
+      rightBranchTotal: node.rightBranchTotal,
+      totalPurchaseAmount: node.totalPurchaseAmount,
+      createdAt: node.createdAt,
+      hasMoreChildren: !!node.hasMoreChildren,
+      children: (node.children || []).map(sanitize),
+    });
+
+    return {
+      maxDepth: depth,
+      isSelfRoot: targetRootId === currentUserId,
+      tree: sanitize(tree),
+    };
+  }
+
+  /**
+   * Danh sách phẳng toàn bộ tuyến dưới, tách theo hai nhánh gốc.
+   * Dùng cho chế độ xem danh sách của màn hình cây; getReferralInfo cố tình
+   * không trả members để giữ payload nhẹ nên không dùng lại được.
+   */
+  async getDownlineList(userId: string) {
+    const user = await this.userService.findOne(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const { leftMembers, rightMembers } =
+      await this.userService.getBinaryTreeMembers(userId);
+
+    const strip = (member: any) => ({
+      id: member.id,
+      username: member.username,
+      fullName: member.fullName,
+      avatar: member.avatar,
+      packageType: member.packageType,
+      totalPurchaseAmount: member.totalPurchaseAmount,
+      createdAt: member.createdAt,
+      depth: member.depth,
+    });
+
+    const byDepth = (a: any, b: any) => a.depth - b.depth;
+
+    return {
+      left: {
+        members: leftMembers.sort(byDepth).map(strip),
+        count: leftMembers.length,
+        volume: parseFloat(String(user.leftBranchTotal || 0)),
+      },
+      right: {
+        members: rightMembers.sort(byDepth).map(strip),
+        count: rightMembers.length,
+        volume: parseFloat(String(user.rightBranchTotal || 0)),
+      },
+    };
+  }
+
+  /**
+   * Người dùng chỉ được xem cây của chính mình hoặc của thành viên nằm bên dưới
+   * mình trong cây nhị phân (theo parentId, nên bao gồm cả trường hợp tràn nhánh).
+   */
+  private async assertCanViewTreeOf(currentUserId: string, targetId: string) {
+    if (currentUserId === targetId) return;
+    const allowed = await this.userService.isBinaryDescendant(
+      currentUserId,
+      targetId,
+    );
+    if (!allowed) {
+      throw new ForbiddenException('Bạn không có quyền xem cây của tài khoản này');
+    }
+  }
+
+  async getChildren(
+    currentUserId: string,
+    userId: string,
+    position?: 'left' | 'right',
+  ) {
+    await this.assertCanViewTreeOf(currentUserId, userId);
     const children = await this.userService.getDownline(userId, position);
     return children.map((child: any) => {
       // Parse decimal values properly
@@ -957,7 +1136,7 @@ export class AuthService {
 
   async updateProfile(userId: string, data: any) {
     // Whitelist fields allow to update (walletAddress = địa chỉ ví nhận hoa hồng)
-    const allowed = ['fullName', 'email', 'phone', 'avatar', 'walletAddress'];
+    const allowed = ['fullName', 'email', 'phone', 'avatar', 'walletAddress', 'taxId'];
     const updateData: any = {};
 
     for (const key of allowed) {
@@ -1202,13 +1381,11 @@ export class AuthService {
 
       referralUserId = referralUser.id; // Lưu ID của người giới thiệu ban đầu
 
-      // Tự động đặt vào nhánh yếu (nhánh có doanh số thấp hơn) của người giới thiệu
-      // để cân bằng hệ thống và tối ưu hóa hoa hồng cân nhánh.
-      // Sử dụng vị trí "Extreme" để xây dựng chân mạnh (power leg) cho hệ thống.
-      const weakLeg = await this.userService.getWeakLeg(referralUserId);
+      // Tôn trọng nhánh người dùng chọn, nếu không có thì tự động chọn nhánh yếu
+      const targetLeg = walletRegisterDto.leg || await this.userService.getWeakLeg(referralUserId);
       const slot = await this.userService.findExtremeSlotInBranch(
         referralUserId,
-        weakLeg,
+        targetLeg,
       );
       parentId = slot.parentId; // Parent trực tiếp trong tree
       position = slot.position;
@@ -1321,11 +1498,11 @@ export class AuthService {
         throw new ConflictException('Referral code (username) does not exist');
       }
       referralUserId = referralUser.id;
-      // Luôn tự động chọn nhánh yếu để đảm bảo cấu trúc cây nhị phân phát triển cân bằng.
-      const weakLeg = await this.userService.getWeakLeg(referralUserId);
+      // Tôn trọng nhánh người dùng chọn, nếu không có thì tự động chọn nhánh yếu
+      const targetLeg = dto.leg || await this.userService.getWeakLeg(referralUserId);
       const slot = await this.userService.findExtremeSlotInBranch(
         referralUserId,
-        weakLeg,
+        targetLeg,
       );
       parentId = slot.parentId;
       position = slot.position;

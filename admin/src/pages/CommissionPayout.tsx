@@ -35,7 +35,10 @@ import {
   BatchPayoutRequest,
   AuditLog,
 } from '../services/commissionPayoutService';
-import dayjs, { Dayjs } from 'dayjs';
+import type { Dayjs } from 'dayjs';
+import { formatUsdt } from '../utils/format';
+import PageHeader from '../components/PageHeader';
+import { formatDateTime } from '../utils/format';
 
 const { Title, Text, Link } = Typography;
 const { TextArea } = Input;
@@ -254,41 +257,7 @@ const CommissionPayout: React.FC = () => {
     message.success('Copied to clipboard');
   };
 
-  const formatPrice = (amount: number | string) => {
-    // Handle null/undefined/zero
-    if (amount === 0 || amount === null || amount === undefined || amount === '0') {
-      return '0.00';
-    }
-
-    // Convert to number first to handle floating-point precision issues
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-
-    // Handle NaN
-    if (isNaN(num)) {
-      return '0.00';
-    }
-
-    // Use toFixed with 8 decimal places (USDT standard), then remove trailing zeros
-    // This fixes floating-point precision issues like 0.020000000000000004
-    let amountStr = num.toFixed(8);
-
-    // Remove trailing zeros but keep at least 2 decimal places
-    amountStr = amountStr.replace(/\.?0+$/, '');
-    if (!amountStr.includes('.')) {
-      amountStr += '.00';
-    } else {
-      const [integerPart, decimalPart] = amountStr.split('.');
-      if (decimalPart.length < 2) {
-        amountStr = `${integerPart}.${decimalPart.padEnd(2, '0')}`;
-      }
-    }
-
-    // Split into integer and decimal parts for formatting
-    const [integerPart, decimalPart] = amountStr.split('.');
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-    return `${formattedInteger}.${decimalPart}`;
-  };
+  const formatPrice = (amount: number | string) => formatUsdt(amount);
 
   const pendingColumns = [
     {
@@ -346,6 +315,16 @@ const CommissionPayout: React.FC = () => {
       },
     },
     {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string) => {
+        const isBlocked = String(status || '').toUpperCase() === 'BLOCKED';
+        return <Tag color={isBlocked ? 'red' : 'orange'}>{isBlocked ? 'Blocked' : 'Pending'}</Tag>;
+      },
+    },
+    {
       title: 'Amount',
       dataIndex: 'amount',
       key: 'amount',
@@ -368,7 +347,7 @@ const CommissionPayout: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => formatDateTime(date),
     },
     {
       title: 'Actions',
@@ -460,7 +439,7 @@ const CommissionPayout: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => formatDateTime(date),
     },
     {
       title: 'Actions',
@@ -479,33 +458,38 @@ const CommissionPayout: React.FC = () => {
   const validCommissions = pendingCommissions.filter(
     (c) => {
       const status = String(c.status || '').toUpperCase();
-      return status === 'PENDING';
+      return status === 'PENDING' || status === 'BLOCKED';
     }
   );
 
   const payableCommissions = pendingCommissions.filter(
     (c) => {
       const status = String(c.status || '').toUpperCase();
-      return status === 'PENDING' && c.user?.walletAddress;
+      return (status === 'PENDING' || status === 'BLOCKED') && c.user?.walletAddress;
     }
   );
 
 
   return (
-    <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={2}>Commission Payout</Title>
-        <Button icon={<ReloadOutlined />} onClick={() => {
-          fetchStats();
-          fetchPendingCommissions();
-          fetchAuditLogs();
-        }}>
-          Refresh
-        </Button>
-      </div>
+    <div className="admin-page" style={{ padding: '24px' }}>
+      <PageHeader
+        title="Commission Payout"
+        actions={
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={() => {
+              fetchStats();
+              fetchPendingCommissions();
+              fetchAuditLogs();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
-      <Row gutter={16} style={{ marginBottom: '24px' }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
@@ -639,9 +623,12 @@ const CommissionPayout: React.FC = () => {
               rowSelection={{
                 selectedRowKeys: selectedCommissions,
                 onChange: (keys) => setSelectedCommissions(keys as string[]),
-                getCheckboxProps: (record: PendingCommission) => ({
-                  disabled: record.status !== 'PENDING',
-                }),
+                getCheckboxProps: (record: PendingCommission) => {
+                  const status = String(record.status || '').toUpperCase();
+                  return {
+                    disabled: status !== 'PENDING' && status !== 'BLOCKED',
+                  };
+                },
               }}
               columns={pendingColumns}
               dataSource={validCommissions}
@@ -698,7 +685,7 @@ const CommissionPayout: React.FC = () => {
         width={800}
       >
         {selectedCommission && (
-          <Descriptions bordered column={2}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
             <Descriptions.Item label="ID" span={2}>
               <span style={{ fontFamily: 'monospace' }}>{selectedCommission.id}</span>
             </Descriptions.Item>
@@ -750,7 +737,7 @@ const CommissionPayout: React.FC = () => {
               <span style={{ fontFamily: 'monospace' }}>{selectedCommission.orderId}</span>
             </Descriptions.Item>
             <Descriptions.Item label="Created At" span={2}>
-              {new Date(selectedCommission.createdAt).toLocaleString()}
+              {formatDateTime(selectedCommission.createdAt)}
             </Descriptions.Item>
           </Descriptions>
         )}
@@ -768,7 +755,7 @@ const CommissionPayout: React.FC = () => {
         width={800}
       >
         {selectedAuditLog && (
-          <Descriptions bordered column={1}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 1 }}>
             <Descriptions.Item label="Action">
               <Tag color="blue">{selectedAuditLog.action}</Tag>
             </Descriptions.Item>
@@ -814,7 +801,7 @@ const CommissionPayout: React.FC = () => {
               {selectedAuditLog.ipAddress || 'N/A'}
             </Descriptions.Item>
             <Descriptions.Item label="Created At">
-              {new Date(selectedAuditLog.createdAt).toLocaleString()}
+              {formatDateTime(selectedAuditLog.createdAt)}
             </Descriptions.Item>
           </Descriptions>
         )}

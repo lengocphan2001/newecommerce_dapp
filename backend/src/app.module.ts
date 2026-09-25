@@ -20,6 +20,8 @@ import { Address } from './user/entities/address.entity';
 import { Product } from './product/entities/product.entity';
 import { Order } from './order/entities/order.entity';
 import { Commission } from './affiliate/entities/commission.entity';
+import { BranchVolumeLog } from './affiliate/entities/branch-volume-log.entity';
+import { UserMonthlyStats } from './affiliate/entities/user-monthly-stats.entity';
 import { AuditLog } from './audit-log/entities/audit-log.entity';
 import { MilestoneRewardConfig } from './admin/entities/milestone-reward-config.entity';
 import { UserMilestone } from './admin/entities/user-milestone.entity';
@@ -55,9 +57,14 @@ import { MatrixRewardModule } from './matrix-reward/matrix-reward.module';
 import { HeapRewardModule } from './heap-reward/heap-reward.module';
 import { HeapRewardPlacement } from './heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from './heap-reward/entities/heap-reward-history.entity';
-import { PromisingProductPlacement } from './heap-reward/entities/promising-product-placement.entity';
-import { PromisingProductHistory } from './heap-reward/entities/promising-product-history.entity';
 import { PasswordResetToken } from './auth/entities/password-reset-token.entity';
+import { AgentPoolModule } from './agent-pool/agent-pool.module';
+import { AgentPool } from './agent-pool/entities/agent-pool.entity';
+import { AgentPoolMember } from './agent-pool/entities/agent-pool-member.entity';
+import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entity';
+import { SalaryModule } from './salary/salary.module';
+import { SalaryPayment } from './salary/entities/salary-payment.entity';
+import { RankSalaryPayment } from './salary/entities/rank-salary-payment.entity';
 
 @Module({
   imports: [
@@ -94,6 +101,8 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
           Product,
           Order,
           Commission,
+          BranchVolumeLog,
+          UserMonthlyStats,
           AuditLog,
           MilestoneRewardConfig,
           UserMilestone,
@@ -119,8 +128,11 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
           PasswordResetToken,
           HeapRewardPlacement,
           HeapRewardHistory,
-          PromisingProductPlacement,
-          PromisingProductHistory,
+          AgentPool,
+          AgentPoolMember,
+          AgentPoolHistory,
+          SalaryPayment,
+          RankSalaryPayment,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||
@@ -150,6 +162,8 @@ import { PasswordResetToken } from './auth/entities/password-reset-token.entity'
     AnalyticsModule,
     MatrixRewardModule,
     HeapRewardModule,
+    AgentPoolModule,
+    SalaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

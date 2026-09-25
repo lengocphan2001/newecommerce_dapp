@@ -15,6 +15,7 @@ import KYC from './pages/KYC';
 import Wallet from './pages/Wallet';
 import Affiliate from './pages/Affiliate';
 import Commissions from './pages/Commissions';
+import MonthlyRewards from './pages/MonthlyRewards';
 import CommissionPayout from './pages/CommissionPayout';
 import Analytics from './pages/Analytics';
 import FakeAnalyticsDashboard from './pages/FakeAnalyticsDashboard';
@@ -34,6 +35,10 @@ import WalletDepositRequests from './pages/WalletDepositRequests';
 import WalletWithdrawRequests from './pages/WalletWithdrawRequests';
 import BlockchainSettings from './pages/BlockchainSettings';
 import HeapReward from './pages/HeapReward';
+import MonthlySales from './pages/MonthlySales';
+import AgentPool from './pages/AgentPool';
+import MonthlySalary from './pages/MonthlySalary';
+import ProductTypes from './pages/ProductTypes';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -205,6 +210,16 @@ function App() {
                 <PrivateRoute>
                   <AdminLayout>
                     <Commissions />
+                  </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monthly-rewards"
+              element={
+                <PrivateRoute>
+                  <AdminLayout>
+                    <MonthlyRewards />
                   </AdminLayout>
                 </PrivateRoute>
               }
@@ -391,6 +406,54 @@ function App() {
                   <AdminLayout>
                     <HeapReward />
                   </AdminLayout>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monthly-sales"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <MonthlySales />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/product-types"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <ProductTypes />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/agent-pool"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <AgentPool />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/monthly-salary"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <MonthlySalary />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
                 </PrivateRoute>
               }
             />

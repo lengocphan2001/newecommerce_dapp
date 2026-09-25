@@ -154,10 +154,18 @@ export const api = {
     return response.json();
   },
 
+  async getProductTypeConfigs(): Promise<{ code: string; name: string; nameEn: string }[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/product-types`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch { return []; }
+  },
+
   async getProducts(
     country?: 'VIETNAM' | 'USA',
     categoryId?: string,
-    productType?: 'STRATEGIC' | 'COMMON',
+    productType?: string,
     options?: { compactHome?: boolean },
   ): Promise<unknown> {
     const compactHome = options?.compactHome === true;
@@ -269,15 +277,16 @@ export const api = {
     return response.json();
   },
 
-  async getReferralInfo() {
-    const cached = apiCache.get<any>('referralInfo');
+  async getReferralInfo(compact = false) {
+    const cacheKey = compact ? 'referralInfo_compact' : 'referralInfo';
+    const cached = apiCache.get<any>(cacheKey);
     if (cached != null) return cached; // Devuelve los datos almacenados en caché para ahorrar consultas costosas en la base de datos del servidor
 
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
     }
-    const response = await fetch(`${API_BASE_URL}/auth/referral/info`, {
+    const response = await fetch(`${API_BASE_URL}/auth/referral/info${compact ? '?compact=true' : ''}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -299,8 +308,63 @@ export const api = {
       if (data.leftLink) data.leftLink = rewrite(data.leftLink);
       if (data.rightLink) data.rightLink = rewrite(data.rightLink);
     }
-    apiCache.set('referralInfo', data); // Guarda los datos en el caché para optimizar llamadas subsiguientes
+    apiCache.set(cacheKey, data); // Guarda los datos en el caché para optimizar llamadas subsiguientes
     return data;
+  },
+
+  /**
+   * Cây nhị phân của người dùng đang đăng nhập.
+   * rootUserId để trống = cây của chính mình; truyền id của một thành viên tuyến
+   * dưới để xem cây con của họ (backend tự kiểm tra quyền).
+   */
+  async getMyTree(rootUserId?: string, maxDepth = 3) {
+    const cacheKey = `${rootUserId || 'me'}_${maxDepth}`;
+    const cached = apiCache.getTree(cacheKey);
+    if (cached != null) return cached as any;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const params = new URLSearchParams({ maxDepth: String(maxDepth) });
+    if (rootUserId) params.set('rootUserId', rootUserId);
+
+    const response = await fetch(`${API_BASE_URL}/auth/referral/tree?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        apiCache.invalidate('referralInfo');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to load tree' }));
+      throw new Error(error.message || 'Failed to load tree');
+    }
+    const data = await response.json();
+    apiCache.setTree(cacheKey, data);
+    return data;
+  },
+
+  /** Danh sách phẳng toàn bộ tuyến dưới, tách theo hai nhánh gốc. */
+  async getDownlineList() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/referral/downline`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        apiCache.invalidate('referralInfo');
+        throw new Error('Authentication expired. Please reconnect your wallet.');
+      }
+      const error = await response.json().catch(() => ({ message: 'Failed to load downline' }));
+      throw new Error(error.message || 'Failed to load downline');
+    }
+    return response.json();
   },
 
   /** Matrix reward pool — cấu hình công khai (cần đăng nhập). */
@@ -389,8 +453,10 @@ export const api = {
     fullName: string;
     email: string;
     packageType: string;
+    totalPurchaseAmount: number;
     createdAt: string;
     directReferralCount: number;
+    binaryTeam?: 'left' | 'right' | null;
   }>> {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -445,13 +511,15 @@ export const api = {
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
     shippingAddress?: string,
-    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet' | 'cod',
-    options?: { shippingPhone?: string; shippingName?: string }
+    paymentMethod?: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' | 'pv_wallet' | 'cod' | 'withdraw_wallet',
+    options?: { shippingPhone?: string; shippingName?: string; buyerUsername?: string; notes?: string }
   ) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const body: Record<string, unknown> = { items, transactionHash, shippingAddress, paymentMethod };
     if (options?.shippingPhone != null) body.shippingPhone = options.shippingPhone;
     if (options?.shippingName != null) body.shippingName = options.shippingName;
+    if (options?.buyerUsername != null) body.buyerUsername = options.buyerUsername;
+    if (options?.notes != null) body.notes = options.notes;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -476,6 +544,20 @@ export const api = {
       apiCache.invalidate('profile');
       apiCache.invalidate('referralInfo');
       apiCache.invalidate('checkReconsumption');
+    }
+    return response.json();
+  },
+
+  async validateDownline(username: string) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${API_BASE_URL}/affiliate/validate-downline/${encodeURIComponent(username)}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ message: 'Validation failed' }));
+      throw new Error(err.message || 'Validation failed');
     }
     return response.json();
   },
@@ -628,7 +710,7 @@ export const api = {
     return data;
   },
 
-  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string }) {
+  async updateProfile(data: { fullName?: string; email?: string; phoneNumber?: string; avatar?: string; walletAddress?: string; taxId?: string }) {
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Not authenticated');
@@ -935,7 +1017,7 @@ export const api = {
     return response.json();
   },
 
-  async purchasePackage(packageId: string) {
+  async purchasePackage(packageId: string, buyerUsername?: string, useWithdrawWallet?: boolean) {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');
     const response = await fetch(`${API_BASE_URL}/package-purchases`, {
@@ -944,7 +1026,7 @@ export const api = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ packageId }),
+      body: JSON.stringify({ packageId, buyerUsername, useWithdrawWallet }),
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
@@ -1026,6 +1108,19 @@ export const api = {
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.message || 'Verification failed');
+    }
+    return response.json();
+  },
+
+  /** Tiến trình cấp bậc C1..C9 của người dùng đang đăng nhập. */
+  async getMyRank() {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/affiliate/my-rank`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch rank progress');
     }
     return response.json();
   },

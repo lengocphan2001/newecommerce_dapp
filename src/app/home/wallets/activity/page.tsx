@@ -29,13 +29,50 @@ interface ActivityItem {
 type TabType = 'all' | 'shopping' | 'commission' | 'system';
 
 export default function ActivityPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [referralInfo, setReferralInfo] = useState<any>(null);
+
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
   // Helper function to format datetime - must be defined before use
   // Only formats valid dates from createdAt, no fallback to current date
@@ -85,6 +122,12 @@ export default function ActivityPage() {
     }
   };
 
+  // " 08/2026" from a salary's "2026-08" month
+  const formatSalaryMonth = (month?: string | null) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(month || '');
+    return match ? ` ${match[2]}/${match[1]}` : '';
+  };
+
   useEffect(() => {
     fetchActivityData();
   }, []);
@@ -95,7 +138,7 @@ export default function ActivityPage() {
 
       const [ordersOutcome, referralOutcome] = await Promise.allSettled([
         api.getOrders(undefined, { limit: 100 }),
-        api.getReferralInfo(),
+        api.getReferralInfo(true),
       ]);
 
       if (ordersOutcome.status === 'fulfilled') {
@@ -176,15 +219,26 @@ export default function ActivityPage() {
         const activityType = String(activity.type || '').toUpperCase();
         const notes = String(activity?.notes || '');
         const isHeapReward = activityType === 'HEAP_REWARD';
+        const isAgentPool = activityType === 'AGENT_POOL';
+        const isSalary = activityType === 'SALARY';
+        // Salary is paid like an agent pool reward, so it is shown the same way (gross).
+        const isPoolReward = isHeapReward || isAgentPool || isSalary;
         const isDirectOrProductDirect =
           activityType === 'DIRECT' ||
+          activityType === 'INDIRECT' ||
           (activityType === 'PRODUCT' && notes.startsWith('Product direct'));
-        if (!isDirectOrProductDirect && !isHeapReward) {
+        if (!isDirectOrProductDirect && !isPoolReward) {
           return;
         }
 
         const commissionType = isHeapReward
           ? t('heapRewardCommission')
+          : isAgentPool
+            ? `${t('agentPoolCommission')}${activity.poolCode ? ` ${activity.poolCode}` : ''}`
+          : isSalary
+            ? `${t('monthlySalary')}${formatSalaryMonth(activity.salaryMonth)}`
+          : activityType === 'INDIRECT'
+            ? t('indirectCommission')
           : t('directCommission');
 
         // Use the same simple logic as order items
@@ -208,16 +262,15 @@ export default function ActivityPage() {
           ? `${t("fromMember")}: ${activity.fromUsername}`
           : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-        const heapDetail = t('heapRewardFromPool');
-        const description = isHeapReward
-          ? (datetimeStr ? `${datetimeStr} • ${heapDetail}` : heapDetail)
+        const description = isPoolReward
+          ? datetimeStr
           : (datetimeStr
             ? `${datetimeStr} • ${fromMemberInfo}`
             : fromMemberInfo);
 
         const feePercent = referralInfo?.payoutFeePercent ?? 10;
         const grossAmount = parseFloat(activity.amount) || 0;
-        const netAmount = isHeapReward
+        const netAmount = isPoolReward
           ? grossAmount
           : grossAmount * (1 - feePercent / 100);
 
@@ -230,9 +283,9 @@ export default function ActivityPage() {
           amountLabel: `+$${Number(netAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`,
           status: ``,
           statusColor: 'text-primary',
-          icon: isHeapReward ? 'savings' : 'card_membership',
-          iconColor: isHeapReward ? 'text-emerald-600' : 'text-amber-500',
-          iconBgColor: isHeapReward ? 'bg-emerald-500/10' : 'bg-amber-500/10',
+          icon: isSalary ? 'payments' : isPoolReward ? 'savings' : 'card_membership',
+          iconColor: isPoolReward ? 'text-emerald-600' : 'text-amber-500',
+          iconBgColor: isPoolReward ? 'bg-emerald-500/10' : 'bg-amber-500/10',
           date: activityDate,
           fromUserId: activity.fromUserId,
           fromUsername: activity.fromUsername,
@@ -466,9 +519,8 @@ export default function ActivityPage() {
                     <div className="shrink-0 text-right">
                       {activity.amount !== undefined && (
                         <>
-                          <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'
-                            }`}>
-                            {activity.amountLabel || `${activity.amount >= 0 ? '+' : '-'}$${Number(Math.abs(activity.amount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
+                          <p className={`text-base font-bold leading-normal ${activity.amount > 0 ? 'text-primary' : 'text-[#0d121b]'}`}>
+                            {activity.amount >= 0 ? '+' : '-'}{formatVnd(Math.abs(activity.amount) * usdtToVnd)}
                           </p>
                           {activity.status && (
                             <span className={`text-[10px] font-bold uppercase ${activity.statusColor || 'text-green-500'}`}>

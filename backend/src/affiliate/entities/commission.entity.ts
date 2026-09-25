@@ -5,16 +5,20 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Order } from '../../order/entities/order.entity';
 
 export enum CommissionType {
   DIRECT = 'direct', // Hoa hồng trực tiếp
+  INDIRECT = 'indirect', // Hoa hồng gián tiếp (F2)
   GROUP = 'group', // Hoa hồng nhóm
   MANAGEMENT = 'management', // Hoa hồng quản lý
   MILESTONE = 'milestone', // Thưởng milestone (2, 4, 6 người...)
   PRODUCT = 'product', // Hoa hồng theo từng sản phẩm (% theo gói TV/CTV/NPP)
+  GROUP_MONTHLY = 'group_monthly', // Thưởng nhóm hàng tháng (Tầng 3) — không còn tạo, thay bằng lương tháng; giữ cho dữ liệu cũ
+  GLOBAL_SHARE_MONTHLY = 'global_share_monthly', // Hoa hồng đồng chia cấp bậc toàn quốc (Tầng 4)
 }
 
 export enum CommissionStatus {
@@ -29,6 +33,7 @@ export class Commission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column()
   userId: string; // User nhận hoa hồng
 
@@ -46,6 +51,7 @@ export class Commission {
   @Column({ type: 'varchar', length: 64, nullable: true })
   milestoneRef: string; // e.g. 'milestone-{id}' để singlePayout tìm commission milestone
 
+  @Index()
   @Column({ nullable: true })
   fromUserId: string; // User tạo ra đơn hàng (cho hoa hồng trực tiếp/quản lý)
 

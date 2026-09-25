@@ -17,7 +17,7 @@ export interface Commission {
     email?: string;
     fullName?: string;
   };
-  type: 'direct' | 'group' | 'management' | 'product' | 'milestone';
+  type: 'direct' | 'indirect' | 'group' | 'management' | 'product' | 'milestone';
   status: 'pending' | 'paid' | 'blocked' | 'cancelled';
   amount: number | string;
   orderAmount: number | string;
@@ -33,13 +33,13 @@ export interface Commission {
 export const commissionService = {
   getAll: (params?: {
     status?: 'pending' | 'paid' | 'blocked' | 'cancelled';
-    type?: 'direct' | 'group' | 'management' | 'product' | 'milestone';
+    type?: 'direct' | 'indirect' | 'group' | 'management' | 'product' | 'milestone';
     userId?: string;
   }) => api.get('/affiliate/admin/commissions', { params }),
   
   exportCommissions: (params?: {
     status?: 'pending' | 'paid' | 'blocked' | 'cancelled';
-    type?: 'direct' | 'group' | 'management' | 'product' | 'milestone';
+    type?: 'direct' | 'indirect' | 'group' | 'management' | 'product' | 'milestone';
     userId?: string;
   }) => api.get('/affiliate/admin/commissions/export', { params, responseType: 'blob' }),
 

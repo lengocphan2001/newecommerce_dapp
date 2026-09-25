@@ -2,12 +2,12 @@ import api from './api';
 
 export const adminService = {
   getDashboard: () => api.get('/admin/dashboard'),
-  getUsers: (params?: any) => api.get('/admin/users', { params }),
   getUserDetail: (id: string) => api.get(`/admin/users/${id}/detail`),
-  getOrders: (params?: any) => api.get('/admin/orders', { params }),
   updateUserStatus: (id: string, status: string) => api.put(`/admin/users/${id}/status`, { status }),
   updateUserFakeCommission: (id: string, fakeReceivedCommission: number) =>
     api.patch(`/admin/users/${id}/fake-commission`, { fakeReceivedCommission }),
+  updateUserManualRank: (id: string, rank: string) =>
+    api.patch(`/admin/users/${id}/manual-rank`, { rank }),
   deductUserWithdrawWallet: (
     id: string,
     data: { amount: number; reason?: string },
@@ -86,5 +86,29 @@ export const adminService = {
     api.post(`/admin/matrix-reward/trees/${level}/add-users`, data),
   clearAllMatrixRewardTreesAndRewards: () =>
     api.post('/admin/matrix-reward/trees/clear-all'),
+
+  /** Reset ví rút tiền (withdrawWalletBalance) về 0 cho tất cả user */
+  resetAllWithdrawWallet: () =>
+    api.post('/admin/users/reset-withdraw-wallet'),
+
+  importUsers: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ total: number; created: number; updated: number; failed: string[] }>(
+      '/admin/users/import',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
+
+  importOrders: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ total: number; created: number; updated: number; failed: string[] }>(
+      '/admin/orders/import',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
 };
 

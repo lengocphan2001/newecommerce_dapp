@@ -26,44 +26,44 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Shopii - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+  title: "Shoplife - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
   description:
-    "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví Shopii để bắt đầu mua sắm ngay hôm nay.",
+    "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví Shoplife để bắt đầu mua sắm ngay hôm nay.",
   keywords: [
-    "Shopii",
-    "Shopii DApp",
+    "Shoplife",
+    "Shoplife DApp",
     "Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
-    "Shopii",
+    "Shoplife",
     "Web3",
     "Blockchain",
     "Decentralized",
   ],
-  authors: [{ name: "Shopii" }],
-  creator: "Shopii",
-  publisher: "Shopii",
+  authors: [{ name: "Shoplife" }],
+  creator: "Shoplife",
+  publisher: "Shoplife",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://Shopii"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://shoplife"
   ),
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Shopii - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    title: "Shoplife - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
     description:
-      "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví Shopii để bắt đầu mua sắm ngay hôm nay.",
+      "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung. Kết nối ví Shoplife để bắt đầu mua sắm ngay hôm nay.",
     url: "/",
-    siteName: "Shopii",
+    siteName: "Shoplife",
     images: [
       {
-        url: "/images/14446125.png",
+        url: "/images/14446130.png",
         width: 1200,
         height: 630,
-        alt: "Shopii",
+        alt: "Shoplife",
       },
     ],
     locale: "vi_VN",
@@ -71,10 +71,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Shopii - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
+    title: "Shoplife - Kết Nối Ví Tiêu Dùng Thông Minh Toàn Cầu",
     description:
       "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
-    images: ["/images/14446125.png"],
+    images: ["/images/14446130.png"],
   },
   robots: {
     index: true,
@@ -89,22 +89,22 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/images/14446125.png", type: "image/png" },
+      { url: "/images/14446130.png", type: "image/png" },
       { url: "/icon.png", type: "image/png" },
     ],
-    shortcut: "/images/14446125.png",
+    shortcut: "/images/14446130.png",
     apple: [
-      { url: "/images/14446125.png", sizes: "180x180" },
-      { url: "/images/14446125.png" },
+      { url: "/images/14446130.png", sizes: "180x180" },
+      { url: "/images/14446130.png" },
     ],
   },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Shopii",
+    title: "Shoplife",
   },
-  applicationName: "Shopii",
+  applicationName: "Shoplife",
 };
 
 export const viewport: Viewport = {
@@ -112,7 +112,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#10B981",
+  themeColor: "#2563EB",
 };
 
 export default function RootLayout({
