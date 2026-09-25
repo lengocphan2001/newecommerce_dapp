@@ -158,7 +158,7 @@ export default function CheckoutPage() {
           (p) => p && Array.isArray(p.productTypes) && p.productTypes.includes("STRATEGIC"),
         );
         setHasStrategicProducts(strategic);
-        if (strategic) setPaymentTab((tab) => (tab === "deposit_wallet" ? "banking" : tab));
+        if (strategic) setPaymentTab((tab) => (tab === "pv_wallet" ? "banking" : tab));
       } catch {
         if (!cancelled) setHasStrategicProducts(false);
       }
@@ -313,10 +313,6 @@ export default function CheckoutPage() {
 
 
   const handleDepositWalletOrder = async () => {
-    if (hasStrategicProducts) {
-      setError("Ví tiêu dùng chỉ dùng cho sản phẩm thông dụng. Vui lòng chọn Chuyển khoản hoặc USDT.");
-      return;
-    }
     if (!shippingAddress.trim()) {
       setError("Vui lòng nhập địa chỉ giao hàng");
       return;
@@ -579,8 +575,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const canPayWithDepositWallet =
-    !hasStrategicProducts && (depositBalance ?? 0) >= finalTotal;
+  const canPayWithDepositWallet = (depositBalance ?? 0) >= finalTotal;
 
   /* Se verifica si el usuario posee los fondos de PV suficientes para el total del pedido. 
      Explicación en español: Comparamos el saldo PV directamente 1:1 con el total en USDT. */
@@ -787,14 +782,13 @@ export default function CheckoutPage() {
                 {/* Ví TD */}
                 <button
                   type="button"
-                  onClick={() => !hasStrategicProducts && setPaymentTab("deposit_wallet")}
-                  disabled={hasStrategicProducts}
+                  onClick={() => setPaymentTab("deposit_wallet")}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
                     paymentTab === "deposit_wallet"
                       ? "border-primary bg-primary/5 text-primary shadow-sm font-semibold"
                       : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví tiêu dùng"}
+                  }`}
+                  title="Ví tiêu dùng"
                 >
                   <span className="material-symbols-outlined text-[18px] mb-0.5">account_balance_wallet</span>
                   <span className="text-[10px]">Ví Tiêu Dùng</span>
@@ -881,12 +875,7 @@ export default function CheckoutPage() {
             {/* Nội dung tab Ví nạp tiền */}
             {paymentTab === "deposit_wallet" && (
               <div className="p-4 space-y-3">
-                <p className="text-sm text-slate-600">Thanh toán bằng số dư ví tiêu dùng. Đơn hàng được xác nhận ngay. Chỉ áp dụng cho sản phẩm thông dụng.</p>
-                {hasStrategicProducts && (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                    Giỏ hàng có sản phẩm chiến lược — không thể thanh toán bằng ví tiêu dùng. Vui lòng chọn Chuyển khoản hoặc USDT.
-                  </div>
-                )}
+                <p className="text-sm text-slate-600">Thanh toán bằng số dư ví tiêu dùng. Đơn hàng được xác nhận ngay. Áp dụng cho mọi sản phẩm.</p>
                 <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
                   <p className="text-xs text-slate-500 font-medium mb-0.5">Số dư ví tiêu dùng</p>
                   <p className="font-bold text-slate-900 text-lg">

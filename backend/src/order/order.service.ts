@@ -273,15 +273,16 @@ export class OrderService {
 
     const paymentMethod = createOrderDto.paymentMethod || 'wallet';
 
-    // Ví tiêu dùng (deposit_wallet) y Ví nạp PV (pv_wallet) solo se permiten para productos comunes (COMMON), no estratégicos
-    if (paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet') {
+    // Ví nạp PV (pv_wallet) solo se permite para productos comunes (COMMON), no estratégicos.
+    // Ví tiêu dùng (deposit_wallet) se acepta para cualquier producto, incluidos los estratégicos.
+    if (paymentMethod === 'pv_wallet') {
       const strategicProducts = products.filter((p) =>
         (p.productTypes || []).includes('STRATEGIC'),
       );
       if (strategicProducts.length > 0) {
         const names = strategicProducts.map((p) => p.name).join(', ');
         throw new BadRequestException(
-          `Ví tiêu dùng chỉ được dùng để mua sản phẩm thông dụng. Giỏ hàng có sản phẩm chiến lược: ${names}`,
+          `Ví nạp PV chỉ được dùng để mua sản phẩm thông dụng. Giỏ hàng có sản phẩm chiến lược: ${names}`,
         );
       }
     }
