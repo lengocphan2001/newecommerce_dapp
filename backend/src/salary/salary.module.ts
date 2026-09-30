@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SalaryPayment } from './entities/salary-payment.entity';
 import { RankSalaryPayment } from './entities/rank-salary-payment.entity';
+import { RankSalaryOverride } from './entities/rank-salary-override.entity';
 import { User } from '../user/entities/user.entity';
 import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
@@ -19,6 +20,7 @@ import { AdminSalaryController } from './salary.controller';
     TypeOrmModule.forFeature([
       SalaryPayment,
       RankSalaryPayment,
+      RankSalaryOverride,
       User,
       UserMonthlyStats,
       BankingConfig,

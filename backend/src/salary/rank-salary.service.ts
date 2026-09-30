@@ -2,13 +2,19 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { RankSalaryPayment } from './entities/rank-salary-payment.entity';
+import { RankSalaryOverride } from './entities/rank-salary-override.entity';
 import { User } from '../user/entities/user.entity';
 import { UserMonthlyStats } from '../affiliate/entities/user-monthly-stats.entity';
 import { runWithDeadlockRetry } from '../common/utils';
 import { AgentPoolService } from '../agent-pool/agent-pool.service';
 import { AdminService } from '../admin/admin.service';
 import { PaySalaryDto } from './dto/pay-salary.dto';
-import { RANK_SALARY_RANKS, computeRankSalaries } from './rank-salary';
+import { AddRankMemberDto, RankMemberDto } from './dto/rank-member.dto';
+import {
+  RANK_SALARY_RANKS,
+  applyRankOverrides,
+  computeRankSalaries,
+} from './rank-salary';
 import {
   SALARY_PAY_DAY,
   isDuplicateKeyError,
@@ -23,6 +29,9 @@ const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
  * the month's reward sales (see rank-salary.ts). Paid on the same schedule and
  * with the same wallet split as the tier salary in SalaryService, but recorded
  * separately in `rank_salary_payments`.
+ *
+ * Admins can add users to a month's list or remove agents from it
+ * (`rank_salary_overrides`); the pools are then shared among the edited list.
  */
 @Injectable()
 export class RankSalaryService {
@@ -31,6 +40,8 @@ export class RankSalaryService {
   constructor(
     @InjectRepository(RankSalaryPayment)
     private readonly paymentRepo: Repository<RankSalaryPayment>,
+    @InjectRepository(RankSalaryOverride)
+    private readonly overrideRepo: Repository<RankSalaryOverride>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(UserMonthlyStats)
@@ -62,37 +73,86 @@ export class RankSalaryService {
    * an agent to a pool by hand is dated when the admin did it, not when the
    * agent reached the rank, so the stored month rank is the better source
    * whenever it exists.
+   *
+   * The admin's changes to the list (`rank_salary_overrides`) are applied on
+   * top, and the pools are shared among the resulting list. Agents removed by
+   * the admin are returned separately in `removed`.
    */
   private async computeMonth(month: string) {
     const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
-    // Same local-time month bounds as AdminService.getMonthlyBranchSales.
-    const monthEnd = new Date(year, monthNumber, 1, 0, 0, 0, 0);
 
-    const ranksMap = await this.getMonthRanks(month, monthEnd);
-    const rankedIds = [...ranksMap.entries()]
-      .filter(([, rank]) => RANK_SALARY_RANKS.includes(rank))
-      .map(([userId]) => userId);
-    if (rankedIds.length === 0) return computeRankSalaries([]);
+    const [baseRanks, overrides] = await Promise.all([
+      this.getBaseRanks(month),
+      this.overrideRepo.find({ where: { month }, order: { createdAt: 'ASC' } }),
+    ]);
+    const overrideByUser = new Map(overrides.map((o) => [o.userId, o]));
+    const listed = applyRankOverrides(baseRanks, overrides);
+    const removedIds = overrides
+      .filter((o) => o.action === 'remove')
+      .map((o) => o.userId);
+    const userIds = [...listed.keys(), ...removedIds];
+    if (userIds.length === 0) {
+      return { ...computeRankSalaries([]), removed: [] };
+    }
 
     const [users, branchSales] = await Promise.all([
       this.userRepo.find({
         select: ['id', 'username', 'fullName', 'email'],
-        where: { id: In(rankedIds) },
+        where: { id: In(userIds) },
       }),
       this.adminService.getMonthlyBranchSales(year, monthNumber),
     ]);
     const sales = new Map(branchSales.map((r) => [r.userId, r.weakSales]));
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const info = (userId: string) => {
+      const u = userById.get(userId);
+      return {
+        userId,
+        username: u?.username || '',
+        fullName: u?.fullName || '',
+        email: u?.email || '',
+        rewardSales: sales.get(userId) || 0,
+      };
+    };
 
-    return computeRankSalaries(
-      users.map((u) => ({
-        userId: u.id,
-        username: u.username || '',
-        fullName: u.fullName || '',
-        email: u.email || '',
-        rank: ranksMap.get(u.id)!,
-        rewardSales: sales.get(u.id) || 0,
-      })),
+    const { pools, rows } = computeRankSalaries(
+      [...listed]
+        .filter(([userId]) => userById.has(userId))
+        .map(([userId, m]) => {
+          const added =
+            m.source === 'manual' ? overrideByUser.get(userId) : undefined;
+          return {
+            ...info(userId),
+            rank: m.rank,
+            source: m.source,
+            addedBy: added?.createdBy ?? null,
+            addedNote: added?.note ?? null,
+          };
+        }),
     );
+
+    const removed = removedIds
+      .filter((userId) => userById.has(userId))
+      .map((userId) => {
+        const o = overrideByUser.get(userId)!;
+        return {
+          ...info(userId),
+          monthRank: baseRanks.get(userId) || 'C0',
+          removedBy: o.createdBy,
+          removedNote: o.note,
+          removedAt: o.createdAt,
+        };
+      });
+
+    return { pools, rows, removed };
+  }
+
+  /** Rank of every agent in the month, before the admin's changes. */
+  private getBaseRanks(month: string) {
+    const [year, monthNumber] = month.split('-').map((p) => parseInt(p, 10));
+    // Same local-time month bounds as AdminService.getMonthlyBranchSales.
+    const monthEnd = new Date(year, monthNumber, 1, 0, 0, 0, 0);
+    return this.getMonthRanks(month, monthEnd);
   }
 
   /** Rank of every agent in the month, from the closing stats or the pools. */
@@ -128,7 +188,7 @@ export class RankSalaryService {
   async getEligibleUsers(monthRaw: string) {
     const month = this.assertMonth(monthRaw);
     const payableFrom = salaryPayableFrom(month);
-    const [{ pools, rows }, distribution] = await Promise.all([
+    const [{ pools, rows, removed }, distribution] = await Promise.all([
       this.computeMonth(month),
       this.agentPoolService.getWalletDistribution(),
     ]);
@@ -139,7 +199,7 @@ export class RankSalaryService {
     });
     const paymentByUser = new Map(payments.map((p) => [p.userId, p]));
 
-    const toRow = (r: (typeof rows)[number]) => {
+    const toRow = (r: (typeof rows)[number] & { listed: boolean }) => {
       const payment = paymentByUser.get(r.userId);
       return {
         userId: r.userId,
@@ -147,6 +207,11 @@ export class RankSalaryService {
         fullName: r.fullName,
         email: r.email,
         rank: r.rank,
+        source: r.source,
+        addedBy: r.addedBy,
+        addedNote: r.addedNote,
+        // false for an agent paid for the month but no longer on the list.
+        listed: r.listed,
         rewardSales: r.rewardSales,
         c1Share: r.c1Share,
         c2Share: r.c2Share,
@@ -169,6 +234,10 @@ export class RankSalaryService {
           fullName: p.user?.fullName || '',
           email: p.user?.email || '',
           rank: p.rank,
+          source: p.source === 'manual' ? 'manual' : 'auto',
+          addedBy: null,
+          addedNote: null,
+          listed: false,
           rewardSales: p.rewardSales,
           c1Share: p.c1Share,
           c2Share: p.c2Share,
@@ -192,9 +261,14 @@ export class RankSalaryService {
         poolAmount: p.poolAmount,
         share: p.share,
       })),
-      rows: [...rows.map(toRow), ...paidElsewhere].sort(
+      rows: [
+        ...rows.map((r) => toRow({ ...r, listed: true })),
+        ...paidElsewhere,
+      ].sort(
         (a, b) => b.rank.localeCompare(a.rank) || b.rewardSales - a.rewardSales,
       ),
+      removed,
+      paidCount: payments.length,
     };
   }
 
@@ -308,6 +382,7 @@ export class RankSalaryService {
                   userId: m.userId,
                   month,
                   rank: m.rank,
+                  source: m.source,
                   rewardSales: m.rewardSales,
                   c1PoolAmount: c1Pool.poolAmount,
                   c1MemberCount: c1Pool.memberCount,
@@ -362,5 +437,142 @@ export class RankSalaryService {
       totalTaxAmount,
       paymentIds: saved.map((p) => p.id),
     };
+  }
+
+  /**
+   * Put a user who is not C1 / C2 in the month onto the rank salary list as
+   * `rank`. Every member's share is recomputed; agents already paid keep what
+   * they were paid.
+   */
+  async addMember(dto: AddRankMemberDto, createdBy: string) {
+    const month = this.assertMonth(dto.month);
+    if (!RANK_SALARY_RANKS.includes(dto.rank)) {
+      throw new BadRequestException('Cấp bậc phải là C1 hoặc C2');
+    }
+    const queryStr = (dto.queryStr || '').trim();
+    if (!queryStr) {
+      throw new BadRequestException(
+        'Vui lòng nhập Username, Email hoặc ID người dùng',
+      );
+    }
+    const user = await this.userRepo.findOne({
+      select: ['id', 'username'],
+      where: [{ id: queryStr }, { username: queryStr }, { email: queryStr }],
+    });
+    if (!user) {
+      throw new BadRequestException('Không tìm thấy người dùng phù hợp');
+    }
+
+    const existing = await this.overrideRepo.findOne({
+      where: { month, userId: user.id },
+    });
+    if (existing?.action === 'remove') {
+      throw new BadRequestException(
+        `${user.username} đang bị loại khỏi danh sách tháng ${month}, hãy bấm Khôi phục`,
+      );
+    }
+    if (existing) {
+      throw new BadRequestException(
+        `${user.username} đã được thêm vào danh sách tháng ${month}`,
+      );
+    }
+    const monthRank = (await this.getBaseRanks(month)).get(user.id);
+    if (monthRank && RANK_SALARY_RANKS.includes(monthRank)) {
+      throw new BadRequestException(
+        `${user.username} là ${monthRank} tháng ${month}, đã có trong danh sách`,
+      );
+    }
+
+    await this.saveOverride({
+      month,
+      userId: user.id,
+      action: 'add',
+      rank: dto.rank,
+      note: (dto.note || '').trim().slice(0, 500) || null,
+      createdBy,
+    });
+    this.logger.log(
+      `[ADMIN] rank salary month=${month} add user=${user.username} rank=${dto.rank} by=${createdBy}.`,
+    );
+    return { month, userId: user.id, rank: dto.rank };
+  }
+
+  /**
+   * Take a user off the month's list: an added user's addition is undone, an
+   * agent who is C1 / C2 by their month rank is left out. An agent already
+   * paid for the month cannot be removed.
+   */
+  async removeMember(dto: RankMemberDto, createdBy: string) {
+    const month = this.assertMonth(dto.month);
+    const paid = await this.paymentRepo.findOne({
+      where: { month, userId: dto.userId },
+    });
+    if (paid) {
+      throw new BadRequestException(
+        `User đã nhận lương cấp bậc tháng ${month}, không thể loại khỏi danh sách`,
+      );
+    }
+
+    const existing = await this.overrideRepo.findOne({
+      where: { month, userId: dto.userId },
+    });
+    if (existing?.action === 'remove') {
+      throw new BadRequestException(
+        `User đã bị loại khỏi danh sách tháng ${month}`,
+      );
+    }
+    if (existing?.action === 'add') {
+      await this.overrideRepo.delete({ id: existing.id });
+    } else {
+      const monthRank = (await this.getBaseRanks(month)).get(dto.userId);
+      if (!monthRank || !RANK_SALARY_RANKS.includes(monthRank)) {
+        throw new BadRequestException(
+          `User không có trong danh sách lương cấp bậc tháng ${month}`,
+        );
+      }
+      await this.saveOverride({
+        month,
+        userId: dto.userId,
+        action: 'remove',
+        rank: null,
+        note: (dto.note || '').trim().slice(0, 500) || null,
+        createdBy,
+      });
+    }
+    this.logger.log(
+      `[ADMIN] rank salary month=${month} remove user=${dto.userId} by=${createdBy}.`,
+    );
+    return { month, userId: dto.userId };
+  }
+
+  /** Put an agent removed from the month's list back on it. */
+  async restoreMember(dto: RankMemberDto, restoredBy: string) {
+    const month = this.assertMonth(dto.month);
+    const existing = await this.overrideRepo.findOne({
+      where: { month, userId: dto.userId, action: 'remove' },
+    });
+    if (!existing) {
+      throw new BadRequestException(
+        `User không bị loại khỏi danh sách tháng ${month}`,
+      );
+    }
+    await this.overrideRepo.delete({ id: existing.id });
+    this.logger.log(
+      `[ADMIN] rank salary month=${month} restore user=${dto.userId} by=${restoredBy}.`,
+    );
+    return { month, userId: dto.userId };
+  }
+
+  private async saveOverride(data: Partial<RankSalaryOverride>) {
+    try {
+      await this.overrideRepo.save(this.overrideRepo.create(data));
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new BadRequestException(
+          'Danh sách vừa được sửa bởi thao tác khác, hãy tải lại',
+        );
+      }
+      throw error;
+    }
   }
 }

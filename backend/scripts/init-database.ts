@@ -55,6 +55,7 @@ import { AgentPoolMember } from '../src/agent-pool/entities/agent-pool-member.en
 import { AgentPoolHistory } from '../src/agent-pool/entities/agent-pool-history.entity';
 import { SalaryPayment } from '../src/salary/entities/salary-payment.entity';
 import { RankSalaryPayment } from '../src/salary/entities/rank-salary-payment.entity';
+import { RankSalaryOverride } from '../src/salary/entities/rank-salary-override.entity';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -161,6 +162,7 @@ async function initializeDatabase() {
       AgentPoolHistory,
       SalaryPayment,
       RankSalaryPayment,
+      RankSalaryOverride,
     ],
     synchronize: false, // Enable synchronize to create tables
     logging: true,

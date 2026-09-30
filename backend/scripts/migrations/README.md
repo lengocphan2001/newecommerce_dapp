@@ -123,3 +123,17 @@ wallet split as the tier salary, and shows as "Lương tháng" in the user's wal
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-rank-salary-payments.sql
 ```
+
+## Create `rank_salary_overrides` and add `source` on `rank_salary_payments`
+
+Admins can add users to a month's C1 / C2 rank salary list, or remove agents from it,
+on the "Lương cấp bậc C1/C2" tab. The pools are shared among the edited list, so every
+member's share changes; agents already paid keep what they were paid. An agent already
+paid for the month cannot be removed. Each payment records whether the agent was on the
+list from the monthly closing (`auto`) or added by an admin (`manual`).
+
+Run after `create-rank-salary-payments.sql`:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-rank-salary-overrides.sql
+```

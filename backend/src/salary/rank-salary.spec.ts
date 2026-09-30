@@ -1,4 +1,68 @@
-import { computeRankSalaries } from './rank-salary';
+import { applyRankOverrides, computeRankSalaries } from './rank-salary';
+
+describe('applyRankOverrides', () => {
+  const base = new Map([
+    ['a', 'C1'],
+    ['b', 'C2'],
+    ['c', 'C0'],
+    ['d', 'C3'],
+  ]);
+
+  it('keeps the C1 / C2 agents of the month when nothing was changed', () => {
+    expect([...applyRankOverrides(base, [])]).toEqual([
+      ['a', { rank: 'C1', source: 'auto' }],
+      ['b', { rank: 'C2', source: 'auto' }],
+    ]);
+  });
+
+  it('adds users by hand and removes agents from the list', () => {
+    const members = applyRankOverrides(base, [
+      { userId: 'c', action: 'add', rank: 'C2' },
+      { userId: 'x', action: 'add', rank: 'C1' },
+      { userId: 'a', action: 'remove', rank: null },
+    ]);
+    expect([...members]).toEqual([
+      ['b', { rank: 'C2', source: 'auto' }],
+      ['c', { rank: 'C2', source: 'manual' }],
+      ['x', { rank: 'C1', source: 'manual' }],
+    ]);
+  });
+
+  it('never changes the rank of an agent already on the list', () => {
+    const members = applyRankOverrides(base, [
+      { userId: 'a', action: 'add', rank: 'C2' },
+    ]);
+    expect(members.get('a')).toEqual({ rank: 'C1', source: 'auto' });
+  });
+
+  it('ignores an add with a rank that is not paid a rank salary', () => {
+    const members = applyRankOverrides(base, [
+      { userId: 'c', action: 'add', rank: 'C3' },
+      { userId: 'x', action: 'add', rank: null },
+    ]);
+    expect(members.has('c')).toBe(false);
+    expect(members.has('x')).toBe(false);
+  });
+
+  it('shares the pools among the list after the changes', () => {
+    const members = applyRankOverrides(base, [
+      { userId: 'c', action: 'add', rank: 'C1' },
+    ]);
+    const { pools } = computeRankSalaries(
+      [...members].map(([userId, m]) => ({
+        userId,
+        rank: m.rank,
+        rewardSales: 1000,
+      })),
+    );
+    expect(pools[0]).toEqual(
+      expect.objectContaining({ memberCount: 3, poolAmount: 120, share: 40 }),
+    );
+    expect(pools[1]).toEqual(
+      expect.objectContaining({ memberCount: 1, poolAmount: 20, share: 20 }),
+    );
+  });
+});
 
 describe('computeRankSalaries', () => {
   const member = (userId: string, rank: string, rewardSales: number) => ({

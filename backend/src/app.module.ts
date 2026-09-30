@@ -65,6 +65,7 @@ import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entit
 import { SalaryModule } from './salary/salary.module';
 import { SalaryPayment } from './salary/entities/salary-payment.entity';
 import { RankSalaryPayment } from './salary/entities/rank-salary-payment.entity';
+import { RankSalaryOverride } from './salary/entities/rank-salary-override.entity';
 
 @Module({
   imports: [
@@ -133,6 +134,7 @@ import { RankSalaryPayment } from './salary/entities/rank-salary-payment.entity'
           AgentPoolHistory,
           SalaryPayment,
           RankSalaryPayment,
+          RankSalaryOverride,
         ],
         synchronize:
           configService.get<string>('FORCE_SYNC') === 'true' ||

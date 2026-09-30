@@ -11,6 +11,7 @@ import { JwtAuthGuard, AdminGuard } from '../common/guards';
 import { SalaryService } from './salary.service';
 import { RankSalaryService } from './rank-salary.service';
 import { PaySalaryDto } from './dto/pay-salary.dto';
+import { AddRankMemberDto, RankMemberDto } from './dto/rank-member.dto';
 
 type AdminRequest = {
   user?: { username?: string; email?: string; sub?: string; id?: string };
@@ -62,6 +63,24 @@ export class AdminSalaryController {
   @Post('rank/pay')
   payRank(@Body() dto: PaySalaryDto, @Request() req: AdminRequest) {
     return this.rankSalaryService.paySalaries(dto, paidByOf(req));
+  }
+
+  /** Add a user who is not C1 / C2 in the month to its rank salary list. */
+  @Post('rank/members')
+  addRankMember(@Body() dto: AddRankMemberDto, @Request() req: AdminRequest) {
+    return this.rankSalaryService.addMember(dto, paidByOf(req));
+  }
+
+  /** Remove a user from the month's rank salary list. */
+  @Post('rank/members/remove')
+  removeRankMember(@Body() dto: RankMemberDto, @Request() req: AdminRequest) {
+    return this.rankSalaryService.removeMember(dto, paidByOf(req));
+  }
+
+  /** Put a removed agent back on the month's rank salary list. */
+  @Post('rank/members/restore')
+  restoreRankMember(@Body() dto: RankMemberDto, @Request() req: AdminRequest) {
+    return this.rankSalaryService.restoreMember(dto, paidByOf(req));
   }
 
   @Get('payments')

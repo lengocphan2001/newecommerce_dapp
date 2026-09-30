@@ -55,6 +55,13 @@ export class RankSalaryPayment {
   @Column({ type: 'varchar', length: 16 })
   rank: string;
 
+  /**
+   * How the agent got on the month's list: `auto` from the monthly closing,
+   * `manual` added by an admin (see RankSalaryOverride).
+   */
+  @Column({ type: 'varchar', length: 16, default: 'auto' })
+  source: string;
+
   /** The agent's own reward sales for `month`, USD. */
   @Column({ ...decimalColumn })
   rewardSales: number;

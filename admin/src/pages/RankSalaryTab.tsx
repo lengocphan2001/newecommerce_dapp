@@ -6,15 +6,22 @@ import {
   Col,
   Input,
   Modal,
+  Popconfirm,
   Row,
   Select,
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
   notification,
 } from 'antd';
-import { DollarOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  DollarOutlined,
+  SearchOutlined,
+  UserAddOutlined,
+  UserDeleteOutlined,
+} from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import api from '../services/api';
 
@@ -26,6 +33,12 @@ interface RankRow {
   fullName: string;
   email: string;
   rank: string;
+  /** auto: C1 / C2 by the monthly closing; manual: added by an admin. */
+  source: 'auto' | 'manual';
+  addedBy: string | null;
+  addedNote: string | null;
+  /** false for an agent paid for the month but no longer on the list. */
+  listed: boolean;
   rewardSales: number;
   c1Share: number;
   c2Share: number;
@@ -37,6 +50,18 @@ interface RankRow {
   paidAmount: number;
   paidAt: string | null;
   paidBy: string | null;
+}
+
+interface RemovedRow {
+  userId: string;
+  username: string;
+  fullName: string;
+  email: string;
+  monthRank: string;
+  rewardSales: number;
+  removedBy: string | null;
+  removedNote: string | null;
+  removedAt: string;
 }
 
 interface RankPool {
@@ -98,6 +123,15 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
   const [payRequest, setPayRequest] = useState<PayRequest | null>(null);
   const [note, setNote] = useState('');
   const [paying, setPaying] = useState(false);
+  const [removed, setRemoved] = useState<RemovedRow[]>([]);
+  const [paidCount, setPaidCount] = useState(0);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addQuery, setAddQuery] = useState('');
+  const [addRank, setAddRank] = useState('C1');
+  const [addNote, setAddNote] = useState('');
+  const [removeTarget, setRemoveTarget] = useState<RankRow | null>(null);
+  const [removeNote, setRemoveNote] = useState('');
+  const [editing, setEditing] = useState(false);
 
   const fetchRows = async () => {
     try {
@@ -110,6 +144,8 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
       setPayable(!!res.data?.payable);
       setPayableFrom(res.data?.payableFrom ? dayjs(res.data.payableFrom) : null);
       setDistribution(res.data?.distribution || null);
+      setRemoved(res.data?.removed || []);
+      setPaidCount(res.data?.paidCount || 0);
       setSelectedIds([]);
     } catch (e: any) {
       notification.error({
@@ -180,6 +216,67 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
     }
   };
 
+  const editList = async (
+    path: string,
+    body: Record<string, unknown>,
+    success: string,
+  ): Promise<boolean> => {
+    try {
+      setEditing(true);
+      await api.post(`/admin/salary/rank/members${path}`, { month: monthStr, ...body });
+      notification.success({ message: success });
+      fetchRows();
+      return true;
+    } catch (e: any) {
+      notification.error({
+        message: 'Sửa danh sách thất bại',
+        description: errorMessage(e),
+      });
+      return false;
+    } finally {
+      setEditing(false);
+    }
+  };
+
+  const openAdd = () => {
+    setAddQuery('');
+    setAddRank('C1');
+    setAddNote('');
+    setAddOpen(true);
+  };
+
+  const submitAdd = async () => {
+    if (!addQuery.trim()) return;
+    const ok = await editList(
+      '',
+      {
+        queryStr: addQuery.trim(),
+        rank: addRank,
+        ...(addNote.trim() ? { note: addNote.trim() } : {}),
+      },
+      `Đã thêm ${addQuery.trim()} vào danh sách ${addRank}`,
+    );
+    if (ok) setAddOpen(false);
+  };
+
+  const openRemove = (r: RankRow) => {
+    setRemoveNote('');
+    setRemoveTarget(r);
+  };
+
+  const submitRemove = async () => {
+    if (!removeTarget) return;
+    const ok = await editList(
+      '/remove',
+      {
+        userId: removeTarget.userId,
+        ...(removeNote.trim() ? { note: removeNote.trim() } : {}),
+      },
+      `Đã loại ${removeTarget.username || removeTarget.userId} khỏi danh sách`,
+    );
+    if (ok) setRemoveTarget(null);
+  };
+
   const columns = [
     {
       title: 'Username',
@@ -209,6 +306,26 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
       key: 'rank',
       width: 90,
       render: (v: string) => <Tag color={RANK_COLORS[v] || 'default'}>{v}</Tag>,
+    },
+    {
+      title: 'Nguồn',
+      dataIndex: 'source',
+      key: 'source',
+      width: 130,
+      render: (v: string, r: RankRow) => (
+        <Space size={2} direction="vertical">
+          {v === 'manual' ? (
+            <Tooltip
+              title={[r.addedBy && `Thêm bởi ${r.addedBy}`, r.addedNote].filter(Boolean).join(' • ')}
+            >
+              <Tag color="orange">Admin thêm</Tag>
+            </Tooltip>
+          ) : (
+            <Tag>Tự động</Tag>
+          )}
+          {!r.listed && <Tag color="red">Không còn trong DS</Tag>}
+        </Space>
+      ),
     },
     {
       title: 'DS tính thưởng',
@@ -294,18 +411,29 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
     {
       title: 'Thao tác',
       key: 'action',
-      width: 110,
+      width: 170,
       fixed: 'right' as const,
       render: (_: any, r: RankRow) => (
-        <Button
-          size="small"
-          type="primary"
-          ghost
-          disabled={!payable || r.paid || r.salaryAmount <= 0}
-          onClick={() => openPay({ mode: 'selected', rows: [r] })}
-        >
-          Trả lương
-        </Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            type="primary"
+            ghost
+            disabled={!payable || r.paid || r.salaryAmount <= 0}
+            onClick={() => openPay({ mode: 'selected', rows: [r] })}
+          >
+            Trả lương
+          </Button>
+          <Tooltip title={r.paid ? 'Đã nhận lương, không thể loại' : 'Loại khỏi danh sách'}>
+            <Button
+              size="small"
+              danger
+              icon={<UserDeleteOutlined />}
+              disabled={r.paid || !r.listed}
+              onClick={() => openRemove(r)}
+            />
+          </Tooltip>
+        </Space>
       ),
     },
   ];
@@ -317,8 +445,17 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
         showIcon
         style={{ marginBottom: 12 }}
         message="Lương cấp bậc C1/C2 tháng này"
-        description="Bể C1 = 4% tổng doanh số tính thưởng của các user C1 + C2, chia đều cho C1 + C2 (C2 cũng nằm trong bể C1). Bể C2 = 2% tổng doanh số tính thưởng của các user C2, chia đều cho C2. Chỉ tính user có cấp bậc C1/C2 của chính tháng này theo số liệu chốt tháng (đã gồm cả cấp bậc admin set tay); tháng chưa chốt thì lấy theo thời gian vào bể đại lý; số tiền được server tính lại khi trả, mỗi user nhận 1 lần/tháng."
+        description="Bể C1 = 4% tổng doanh số tính thưởng của các user C1 + C2, chia đều cho C1 + C2 (C2 cũng nằm trong bể C1). Bể C2 = 2% tổng doanh số tính thưởng của các user C2, chia đều cho C2. Danh sách tự động gồm user có cấp bậc C1/C2 của chính tháng này theo số liệu chốt tháng (đã gồm cả cấp bậc admin set tay); tháng chưa chốt thì lấy theo thời gian vào bể đại lý. Admin có thể thêm user vào hoặc loại user khỏi danh sách, bể được chia lại theo danh sách sau khi sửa; số tiền được server tính lại khi trả, mỗi user nhận 1 lần/tháng."
       />
+
+      {!loading && paidCount > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={`Đã trả lương cấp bậc tháng ${month.format('MM/YYYY')} cho ${paidCount} user. Thêm/loại user sẽ chia lại bể cho những người chưa nhận; người đã nhận giữ nguyên số đã trả, nên tổng chi có thể lệch tiền bể.`}
+        />
+      )}
 
       {!loading && !payable && payableFrom && (
         <Alert
@@ -383,6 +520,9 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
           onChange={(e) => setSearch(e.target.value)}
           style={{ width: 240, maxWidth: '100%' }}
         />
+        <Button icon={<UserAddOutlined />} onClick={openAdd}>
+          Thêm user
+        </Button>
         <Button
           type="primary"
           icon={<DollarOutlined />}
@@ -425,7 +565,7 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
         dataSource={filteredRows}
         columns={columns}
         loading={loading}
-        scroll={{ x: 1650 }}
+        scroll={{ x: 1840 }}
         size="middle"
         pagination={{
           pageSize: 50,
@@ -441,6 +581,172 @@ const RankSalaryTab: React.FC<{ month: Dayjs; reloadKey: number }> = ({ month, r
           }),
         }}
       />
+
+      {removed.length > 0 && (
+        <Card
+          size="small"
+          style={{ marginTop: 12 }}
+          title={`User bị loại khỏi danh sách tháng ${month.format('MM/YYYY')} (${removed.length})`}
+        >
+          <Table
+            rowKey="userId"
+            size="small"
+            dataSource={removed}
+            pagination={false}
+            scroll={{ x: 800 }}
+            columns={[
+              {
+                title: 'Username',
+                dataIndex: 'username',
+                key: 'username',
+                render: (v: string, r: RemovedRow) => (
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{v || '—'}</div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {r.email}
+                    </Text>
+                  </div>
+                ),
+              },
+              {
+                title: 'Cấp bậc tháng',
+                dataIndex: 'monthRank',
+                key: 'monthRank',
+                render: (v: string) => <Tag color={RANK_COLORS[v] || 'default'}>{v}</Tag>,
+              },
+              {
+                title: 'DS tính thưởng',
+                dataIndex: 'rewardSales',
+                key: 'rewardSales',
+                align: 'right' as const,
+                render: (v: number) => money(v),
+              },
+              {
+                title: 'Loại bởi',
+                key: 'removedBy',
+                render: (_: any, r: RemovedRow) => (
+                  <div>
+                    <div>{r.removedBy || '—'}</div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {r.removedAt ? dayjs(r.removedAt).format('DD/MM/YYYY HH:mm') : ''}
+                    </Text>
+                  </div>
+                ),
+              },
+              {
+                title: 'Ghi chú',
+                dataIndex: 'removedNote',
+                key: 'removedNote',
+                ellipsis: true,
+              },
+              {
+                title: 'Thao tác',
+                key: 'action',
+                render: (_: any, r: RemovedRow) => (
+                  <Popconfirm
+                    title={`Đưa ${r.username || r.userId} trở lại danh sách?`}
+                    okText="Khôi phục"
+                    cancelText="Hủy"
+                    onConfirm={() =>
+                      editList(
+                        '/restore',
+                        { userId: r.userId },
+                        `Đã khôi phục ${r.username || r.userId}`,
+                      )
+                    }
+                  >
+                    <Button size="small" loading={editing}>
+                      Khôi phục
+                    </Button>
+                  </Popconfirm>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
+
+      <Modal
+        title={`Thêm user vào lương cấp bậc tháng ${month.format('MM/YYYY')}`}
+        open={addOpen}
+        onCancel={() => !editing && setAddOpen(false)}
+        onOk={submitAdd}
+        okText="Thêm"
+        cancelText="Hủy"
+        okButtonProps={{ disabled: !addQuery.trim() }}
+        confirmLoading={editing}
+        destroyOnClose
+      >
+        <Alert
+          type="info"
+          style={{ marginBottom: 12 }}
+          message="Chỉ thêm được user chưa có trong danh sách. Bể C1/C2 sẽ được chia lại cho tất cả thành viên."
+        />
+        <div style={{ marginBottom: 4 }}>Username / Email / ID</div>
+        <Input
+          value={addQuery}
+          onChange={(e) => setAddQuery(e.target.value)}
+          onPressEnter={submitAdd}
+          placeholder="VD: nguyenvana"
+          style={{ marginBottom: 12 }}
+        />
+        <div style={{ marginBottom: 4 }}>Tính lương như</div>
+        <Select
+          value={addRank}
+          onChange={setAddRank}
+          style={{ width: '100%', marginBottom: 12 }}
+          options={[
+            { label: 'C1 (nhận phần bể C1)', value: 'C1' },
+            { label: 'C2 (nhận phần bể C1 + bể C2)', value: 'C2' },
+          ]}
+        />
+        <div style={{ marginBottom: 4 }}>Ghi chú</div>
+        <Input.TextArea
+          rows={2}
+          maxLength={500}
+          value={addNote}
+          onChange={(e) => setAddNote(e.target.value)}
+          placeholder="VD: Bị sót do chưa chốt tháng"
+        />
+      </Modal>
+
+      <Modal
+        title="Loại user khỏi danh sách lương cấp bậc"
+        open={!!removeTarget}
+        onCancel={() => !editing && setRemoveTarget(null)}
+        onOk={submitRemove}
+        okText="Loại khỏi danh sách"
+        okButtonProps={{ danger: true }}
+        cancelText="Hủy"
+        confirmLoading={editing}
+        destroyOnClose
+      >
+        {removeTarget && (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <Text>
+                Loại <Text strong>{removeTarget.username || removeTarget.userId}</Text> (
+                {removeTarget.rank}) khỏi lương cấp bậc tháng {month.format('MM/YYYY')}.{' '}
+                {removeTarget.source === 'manual'
+                  ? 'User này do admin thêm, sẽ bị xóa khỏi danh sách.'
+                  : 'User sẽ nằm trong mục "User bị loại" và có thể khôi phục.'}{' '}
+                Bể sẽ được chia lại cho các thành viên còn lại.
+              </Text>
+            </div>
+            {removeTarget.source !== 'manual' && (
+              <>
+                <div style={{ marginBottom: 4 }}>Lý do</div>
+                <Input.TextArea
+                  rows={2}
+                  maxLength={500}
+                  value={removeNote}
+                  onChange={(e) => setRemoveNote(e.target.value)}
+                />
+              </>
+            )}
+          </>
+        )}
+      </Modal>
 
       <Modal
         title={`Trả lương cấp bậc C1/C2 tháng ${month.format('MM/YYYY')}`}

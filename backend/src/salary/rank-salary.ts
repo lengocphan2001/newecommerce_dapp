@@ -26,6 +26,44 @@ export const RANK_SALARY_POOLS: readonly RankSalaryPool[] = [
 /** Ranks paid a rank salary. */
 export const RANK_SALARY_RANKS: readonly string[] = ['C1', 'C2'];
 
+export type RankSalarySource = 'auto' | 'manual';
+
+export interface RankSalaryOverrideInput {
+  userId: string;
+  action: string;
+  rank: string | null;
+}
+
+/**
+ * The month's C1 / C2 list after the admin's changes: `remove` takes an agent
+ * off, `add` puts on a user who is not C1 / C2 by their month rank. An `add`
+ * never changes the rank of an agent who is already on the list.
+ */
+export function applyRankOverrides(
+  baseRanks: Map<string, string>,
+  overrides: RankSalaryOverrideInput[],
+): Map<string, { rank: string; source: RankSalarySource }> {
+  const members = new Map<string, { rank: string; source: RankSalarySource }>();
+  for (const [userId, rank] of baseRanks) {
+    if (RANK_SALARY_RANKS.includes(rank)) {
+      members.set(userId, { rank, source: 'auto' });
+    }
+  }
+  for (const o of overrides) {
+    if (o.action === 'remove') {
+      members.delete(o.userId);
+    } else if (
+      o.action === 'add' &&
+      o.rank &&
+      RANK_SALARY_RANKS.includes(o.rank) &&
+      !members.has(o.userId)
+    ) {
+      members.set(o.userId, { rank: o.rank, source: 'manual' });
+    }
+  }
+  return members;
+}
+
 export interface RankSalaryMember {
   userId: string;
   rank: string;
