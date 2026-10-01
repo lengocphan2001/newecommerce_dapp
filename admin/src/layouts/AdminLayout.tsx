@@ -253,6 +253,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       permission: null,
       adminOnly: true,
     },
+    {
+      key: '/reward-report',
+      icon: <BarChartOutlined />,
+      label: 'Thống kê trả thưởng',
+      permission: null,
+      adminOnly: true,
+    },
   ];
 
   // Filter menu items based on permissions

@@ -137,3 +137,30 @@ Run after `create-rank-salary-payments.sql`:
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-rank-salary-overrides.sql
 ```
+
+## Add wallet-split columns on `commissions` (reward report)
+
+The "Thống kê trả thưởng" admin page reports every reward with the part credited to the
+withdraw wallet, the reconsumption wallet and tax. Commissions now record that split when
+they are paid. The script also adds `createdAt` indexes the report filters on.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-commission-wallet-split.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-commission-wallet-split.sql
+```
+
+Then backfill commissions paid before this change from the percentages in their notes
+(dry run first, then `--apply`):
+
+```bash
+cd backend
+npm run script:backfill-commission-wallet-split
+npm run script:backfill-commission-wallet-split -- --apply
+```

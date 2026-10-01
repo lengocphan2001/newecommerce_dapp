@@ -151,6 +151,7 @@ export class AgentPoolHistory {
   })
   taxAmount: number;
 
+  @Index('IDX_agent_pool_histories_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 }

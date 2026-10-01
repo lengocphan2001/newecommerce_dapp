@@ -93,6 +93,49 @@ export class Commission {
   })
   orderAmount: number; // Giá trị đơn hàng
 
+  /**
+   * Wallet split written when the commission is paid: the part credited to
+   * `users.withdrawWalletBalance`, the part credited to
+   * `users.reconsumptionWalletBalance`, and the tax credited to no wallet.
+   * All 0 while unpaid, and for commissions marked paid without crediting a
+   * wallet (on-chain payouts, manual approval).
+   */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  withdrawAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  reconsumptionAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  taxAmount: number;
+
   @Column({ nullable: true })
   level: number; // Cấp độ (F1, F2, F3) cho hoa hồng quản lý
 
@@ -114,6 +157,7 @@ export class Commission {
   @Column({ type: 'timestamp', nullable: true })
   payoutDate: Date; // Date when payout was executed
 
+  @Index('IDX_commissions_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 }

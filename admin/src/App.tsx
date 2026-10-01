@@ -38,6 +38,7 @@ import HeapReward from './pages/HeapReward';
 import MonthlySales from './pages/MonthlySales';
 import AgentPool from './pages/AgentPool';
 import MonthlySalary from './pages/MonthlySalary';
+import RewardReport from './pages/RewardReport';
 import ProductTypes from './pages/ProductTypes';
 import './App.css';
 
@@ -452,6 +453,18 @@ function App() {
                   <AdminOnlyRoute>
                     <AdminLayout>
                       <MonthlySalary />
+                    </AdminLayout>
+                  </AdminOnlyRoute>
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/reward-report"
+              element={
+                <PrivateRoute>
+                  <AdminOnlyRoute>
+                    <AdminLayout>
+                      <RewardReport />
                     </AdminLayout>
                   </AdminOnlyRoute>
                 </PrivateRoute>

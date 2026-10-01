@@ -63,6 +63,7 @@ import { AgentPool } from './agent-pool/entities/agent-pool.entity';
 import { AgentPoolMember } from './agent-pool/entities/agent-pool-member.entity';
 import { AgentPoolHistory } from './agent-pool/entities/agent-pool-history.entity';
 import { SalaryModule } from './salary/salary.module';
+import { RewardReportModule } from './reward-report/reward-report.module';
 import { SalaryPayment } from './salary/entities/salary-payment.entity';
 import { RankSalaryPayment } from './salary/entities/rank-salary-payment.entity';
 import { RankSalaryOverride } from './salary/entities/rank-salary-override.entity';
@@ -166,6 +167,7 @@ import { RankSalaryOverride } from './salary/entities/rank-salary-override.entit
     HeapRewardModule,
     AgentPoolModule,
     SalaryModule,
+    RewardReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

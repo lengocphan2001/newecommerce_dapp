@@ -16,6 +16,7 @@ import {
 } from '../audit-log/entities/audit-log.entity';
 import { AdminService } from '../admin/admin.service';
 import { roundMoney } from '../common/utils/number.util';
+import { splitCommissionAmount } from './commission-wallet-split';
 
 const COMMISSION_FEE_PERCENT = 12;
 
@@ -250,6 +251,14 @@ export class CommissionPayoutService {
           commission.payoutTxHash = null as any;
           commission.payoutBlockNumber = null as any;
           commission.payoutDate = new Date();
+          Object.assign(
+            commission,
+            splitCommissionAmount(
+              commission.amount,
+              withdrawPercent,
+              reconsumptionPercent,
+            ),
+          );
           const parts = [
             commission.notes,
             `Distributed: withdraw wallet (${withdrawPercent}%), reconsumption wallet (${reconsumptionPercent}%), tax (${taxPercent}%)`,
