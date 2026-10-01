@@ -52,6 +52,7 @@ import { CommissionPayoutService } from '../affiliate/commission-payout.service'
 import { Web3Service } from '../blockchain/web3.service';
 import { MailService } from '../mail/mail.service';
 import { AgentPoolService } from '../agent-pool/agent-pool.service';
+import { HeapRewardService } from '../heap-reward/heap-reward.service';
 
 function roundWithdrawBalance(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -127,6 +128,8 @@ export class AdminService {
     private mailService: MailService,
     @Inject(forwardRef(() => AgentPoolService))
     private agentPoolService: AgentPoolService,
+    @Inject(forwardRef(() => HeapRewardService))
+    private heapRewardService: HeapRewardService,
   ) {}
 
   async getDashboard() {
@@ -765,6 +768,18 @@ export class AdminService {
         `Không đồng bộ được bể đại lý sau khi đổi cấp thủ công của ${userId}`,
         error as Error,
       );
+    }
+
+    // Người được gán cấp thủ công vào bể Heap 100 và 500 nếu chưa từng ở đó.
+    if (upperRank !== 'NONE') {
+      try {
+        await this.heapRewardService.addPlacementsForManualRank(userId);
+      } catch (error) {
+        this.logger.error(
+          `Không xếp được ${userId} vào bể Heap sau khi gán cấp thủ công`,
+          error as Error,
+        );
+      }
     }
 
     return this.getUserDetail(userId);
