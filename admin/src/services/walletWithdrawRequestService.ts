@@ -25,7 +25,20 @@ export interface WalletWithdrawRequest {
     fullName?: string;
     email?: string;
     phone?: string;
+    packageType?: string;
   };
+  kycInfo?: {
+    id?: string;
+    documentType?: string;
+    documentNumber?: string;
+    frontImage?: string;
+    backImage?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
+    status?: string;
+    createdAt?: string;
+  } | null;
 }
 
 export const walletWithdrawRequestService = {

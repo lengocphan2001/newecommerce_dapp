@@ -18,6 +18,7 @@ import { Order, OrderStatus } from '../order/entities/order.entity';
 import { User } from '../user/entities/user.entity';
 import { SystemConfig } from '../admin/entities/system-config.entity';
 import { PackagesService } from '../packages/packages.service';
+import { roundMoney } from '../common/utils/number.util';
 
 const CFG_MIN_ORDER = 'matrixRewardMinOrderUsd';
 const CFG_MAX_ORDER = 'matrixRewardMaxOrderUsd';
@@ -39,11 +40,6 @@ type ProcessResult =
   | 'placed_root'       // đặt thành root cây, chưa có upline để trả
   | 'paid'              // đặt node + trả hoa hồng cho ≥1 upline
   | 'placed_no_upline'; // đặt vào cây nhưng tất cả upline đã đạt maxEarn
-
-function roundMoney(n: number): number {
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100) / 100;
-}
 
 function isDuplicateKeyError(err: unknown): boolean {
   const msg = String((err as any)?.message ?? err ?? '');
@@ -383,7 +379,7 @@ export class MatrixRewardService {
 
     const user = await manager.getRepository(User).findOne({
       where: { id: userId },
-      select: ['id', 'packageType', 'totalPurchaseAmount'],
+      select: ['id', 'packageType', 'totalPurchaseAmount', 'customMaxCommission'],
     });
     if (!user) return false;
 
@@ -397,6 +393,7 @@ export class MatrixRewardService {
     const maxEffectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       pkg,
+      user.customMaxCommission,
     );
     const requiredEarnOnPrevTree = roundMoney(
       (Math.max(0, Number(prevTreeQualifyPercent) || 0) / 100) *
@@ -613,6 +610,7 @@ export class MatrixRewardService {
         'packageType',
         'totalPurchaseAmount',
         'totalCommissionReceived',
+        'customMaxCommission',
       ],
     });
     if (!u) return false;
@@ -652,7 +650,7 @@ export class MatrixRewardService {
   private async isMatrixPayoutEligible(
     user: Pick<
       User,
-      'packageType' | 'totalPurchaseAmount' | 'totalCommissionReceived'
+      'packageType' | 'totalPurchaseAmount' | 'totalCommissionReceived' | 'customMaxCommission'
     >,
   ): Promise<boolean> {
     if (!user.packageType || user.packageType === 'NONE') return false;
@@ -661,6 +659,7 @@ export class MatrixRewardService {
     const effectiveThreshold = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount || 0),
       pkg,
+      user.customMaxCommission,
     );
     return Number(user.totalCommissionReceived || 0) < effectiveThreshold;
   }

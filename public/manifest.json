@@ -1,6 +1,6 @@
 {
-  "name": "Shopii - Grocery DApp",
-  "short_name": "Shopii",
+  "name": "Shoplife - Grocery DApp",
+  "short_name": "Shoplife",
   "description": "Mua sắm nhu yếu phẩm và gia tăng thu nhập thông qua mạng lưới phi tập trung",
   "id": "/",
   "start_url": "/",
@@ -8,18 +8,18 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "background_color": "#ffffff",
-  "theme_color": "#10B981",
+  "theme_color": "#2563EB",
   "orientation": "portrait",
   "lang": "vi",
   "icons": [
     {
-      "src": "/images/14446125.png",
+      "src": "/images/14446130.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/images/14446125.png",
+      "src": "/images/14446130.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

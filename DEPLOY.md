@@ -39,9 +39,9 @@ sudo apt install -y nginx
 
 ```bash
 sudo apt install -y mysql-server
-sudo mysql -e "CREATE USER 'gcchic'@'localhost' IDENTIFIED BY 'gcchic123';"
-sudo mysql -e "CREATE DATABASE gcchic;"
-sudo mysql -e "GRANT ALL ON gcchic.* TO 'gcchic'@'localhost'; FLUSH PRIVILEGES;"
+sudo mysql -e "CREATE USER 'shoplife'@'localhost' IDENTIFIED BY 'shoplife123';"
+sudo mysql -e "CREATE DATABASE shoplife;"
+sudo mysql -e "GRANT ALL ON shoplife.* TO 'shoplife'@'localhost'; FLUSH PRIVILEGES;"
 ```
 
 **Hoặc PostgreSQL:**
@@ -66,9 +66,9 @@ sudo apt install -y certbot python3-certbot-nginx
 
 ```bash
 cd /var/www
-sudo mkdir -p shopii
-sudo chown $USER:$USER shopii
-cd shopii
+sudo mkdir -p shoplife
+sudo chown $USER:$USER shoplife
+cd shoplife
 git clone <URL_REPO_CUA_BAN> .
 # hoặc upload code qua scp/rsync
 ```
@@ -76,7 +76,7 @@ git clone <URL_REPO_CUA_BAN> .
 ### 2.2 Cấu trúc thư mục sau khi build
 
 ```
-/var/www/shopii/
+/var/www/shoplife/
 ├── backend/          # NestJS API
 ├── admin/            # React Admin (build ra admin/build)
 ├── (root)/           # Next.js Frontend (build ra .next hoặc out nếu static)
@@ -93,7 +93,7 @@ git clone <URL_REPO_CUA_BAN> .
 ### 3.1 Tạo file `.env` trong `backend/`
 
 ```bash
-cd /var/www/shopii/backend
+cd /var/www/shoplife/backend
 nano .env
 ```
 
@@ -107,15 +107,15 @@ PORT=3002
 DB_TYPE=mysql
 DB_HOST=localhost
 DB_PORT=3306
-DB_USERNAME=shopiibiztest
+DB_USERNAME=shoplifebiztest
 DB_PASSWORD=paswotr123
-DB_NAME=shopiibiztest
+DB_NAME=shoplifebiztest
 
 # JWT (tạo chuỗi bí mật mạnh)
 JWT_SECRET=your_super_secret_jwt_key_change_this
 
 # CORS – domain của bạn
-CORS_ORIGINS=https://shopiibiztest.top,https://www.shopiibiztest.top,https://shopiibiztest.top/admin
+CORS_ORIGINS=https://shoplife.vn,https://www.shoplife.vn,https://shoplife.vn/admin
 
 # CHỈ local/dev: tắt toàn bộ express rate limit trên API (auth, wallet, uploads, export CSV…)
 # Production không set hoặc để false
@@ -160,7 +160,7 @@ Nếu DB production **không** dùng synchronize, thêm cột OTP (một lần):
 ### 3.2 Cài đặt, build và chạy
 
 ```bash
-cd /var/www/shopii/backend
+cd /var/www/shoplife/backend
 npm ci
 npm run build
 ```
@@ -178,22 +178,22 @@ Chạy bằng PM2: dùng file **ecosystem** (mục 3.3 bên dưới) để trán
 Tạo **một file** ecosystem tại thư mục gốc repo, khai báo cả API và FE:
 
 ```bash
-cd /var/www/shopii
+cd /var/www/shoplife
 `cat > ecosystem.config.js <<'EOF'
 module.exports = {
   apps: [
     {
-      name: 'shopii-api',
+      name: 'shoplife-api',
       script: 'npm',
       args: 'run start:prod',
-      cwd: '/var/www/shopii/backend',
+      cwd: '/var/www/shoplife/backend',
       env: { NODE_ENV: 'production' }
     },
     {
-      name: 'shopii-fe',
+      name: 'shoplife-fe',
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3001',
-      cwd: '/var/www/shopii',
+      cwd: '/var/www/shoplife',
       env: { NODE_ENV: 'production' }
     }
   ]
@@ -208,18 +208,18 @@ EOF`
 ```bash
 # Bước 1: Build Backend (bắt buộc trước khi start PM2)
 # Build ra dist/src/main.js (không phải dist/main.js)
-cd /var/www/shopii/backend
+cd /var/www/shoplife/backend
 npm ci
 npm run build
 
 # Bước 2: Build Frontend (nếu dùng next start)
-cd /var/www/shopii
+cd /var/www/shoplife
 npm ci
 npm run build
 
 # Bước 3: Khởi động PM2
-cd /var/www/shopii
-pm2 delete shopii-api shopii-fe 2>/dev/null || true
+cd /var/www/shoplife
+pm2 delete shoplife-api shoplife-fe 2>/dev/null || true
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
@@ -229,7 +229,7 @@ Kiểm tra:
 
 ```bash
 pm2 status
-pm2 logs shopii-api
+pm2 logs shoplife-api
 curl -s http://localhost:3002
 ```
 
@@ -249,16 +249,16 @@ Bạn có thể chạy Next ở chế độ server (`next start`) hoặc build s
 ### 4.1 File `.env` tại thư mục gốc (cùng cấp với `package.json` của Next)
 
 ```bash
-cd /var/www/shopii
+cd /var/www/shoplife
 nano .env
 ```
 
 Ví dụ:
 
 ```env
-NEXT_PUBLIC_API_URL=https://shopiibiztest.top/api
-NEXT_PUBLIC_SITE_URL=https://shopiibiztest.top
-NEXT_PUBLIC_PAYMENT_WALLET=0xYourPaymentWalletAddress
+NEXT_PUBLIC_API_URL=https://shoplife.vn/api
+NEXT_PUBLIC_SITE_URL=https://shoplife.vn
+NEXT_PUBLIC_PAYMENT_WALLET=0x50223f86FD2187972871B036F541383Dce8b4D74
 ```
 
 Nếu dùng **static export** (chỉ serve file tĩnh, không cần Node cho FE):
@@ -272,18 +272,18 @@ NEXT_PUBLIC_STATIC_EXPORT=true
 **Cách 1: Chạy Next server (SSR / API routes nếu có)**
 
 ```bash
-cd /var/www/shopii
+cd /var/www/shoplife
 npm ci
 npm run build
 # Khởi động bằng ecosystem (đã cấu hình ở mục 3.3)
-pm2 start ecosystem.config.js --only shopii-fe
+pm2 start ecosystem.config.js --only shoplife-fe
 # Hoặc khởi động cả API + FE: pm2 start ecosystem.config.js
 ```
 
 **Cách 2: Static export (chỉ HTML/JS/CSS, Nginx serve)**
 
 ```bash
-cd /var/www/shopii
+cd /var/www/shoplife
 npm ci
 npm run build:static
 # Output nằm trong thư mục out/
@@ -308,14 +308,14 @@ Trong trang **Products** của Admin:
 ### 5.1 File `admin/.env.production`
 
 ```bash
-cd /var/www/shopii/admin
+cd /var/www/shoplife/admin
 nano .env.production
 ```
 
 Ví dụ:
 
 ```env
-REACT_APP_API_URL=https://shopiibiztest.top/api
+REACT_APP_API_URL=https://shoplife.vn/api
 ```
 
 `homepage` trong `admin/package.json` đã là `"/admin"`, nên build sẽ dùng base path `/admin`.
@@ -323,7 +323,7 @@ REACT_APP_API_URL=https://shopiibiztest.top/api
 ### 5.2 Build
 
 ```bash
-cd /var/www/shopii/admin
+cd /var/www/shoplife/admin
 npm ci
 npm run build:prod
 ```
@@ -345,7 +345,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 2. **Giới hạn bộ nhớ Node** rồi build lại:
 
 ```bash
-cd /var/www/shopii/admin
+cd /var/www/shoplife/admin
 NODE_OPTIONS=--max-old-space-size=2048 npm run build:prod
 # VPS 512MB: dùng 1536; 1GB: 2048; 2GB: 3072
 ```
@@ -358,7 +358,7 @@ cd admin
 npm ci
 npm run build:prod
 # Đẩy admin/build lên VPS:
-scp -r build root@your-vps-ip:/var/www/shopii/admin/
+scp -r build root@your-vps-ip:/var/www/shoplife/admin/
 ```
 
 ---
@@ -367,16 +367,16 @@ scp -r build root@your-vps-ip:/var/www/shopii/admin/
 
 Giả sử:
 
-- Domain chính (FE): `https://shopiibiztest.top`
-- Admin: `https://shopiibiztest.top/admin`
-- API Backend: `https://shopiibiztest.top/api` (cùng domain, path `/api`)
+- Domain chính (FE): `https://shoplife.vn`
+- Admin: `https://shoplife.vn/admin`
+- API Backend: `https://shoplife.vn/api` (cùng domain, path `/api`)
 
-### 6.0 Nhiều domain trên cùng VPS (shopiibiztest.top bị trùng nội dung domain khác)
+### 6.0 Nhiều domain trên cùng VPS (shoplife.vn bị trùng nội dung domain khác)
 
-Khi bạn đã có một domain khác chạy trên VPS, truy cập **shopiibiztest.top** có thể thấy nội dung của domain kia vì:
+Khi bạn đã có một domain khác chạy trên VPS, truy cập **shoplife.vn** có thể thấy nội dung của domain kia vì:
 
-- Nginx dùng **`server_name`** để chọn server block. Nếu không có block nào khớp `shopiibiztest.top`, Nginx dùng **default server** (block có `listen 80 default_server` hoặc block đọc đầu tiên).
-- Cần có **một file cấu hình riêng** cho Shopii, **chỉ** `server_name shopiibiztest.top www.shopiibiztest.top`, không trùng với domain kia.
+- Nginx dùng **`server_name`** để chọn server block. Nếu không có block nào khớp `shoplife.vn`, Nginx dùng **default server** (block có `listen 80 default_server` hoặc block đọc đầu tiên).
+- Cần có **một file cấu hình riêng** cho shoplife, **chỉ** `server_name shoplife.vn www.shoplife.vn`, không trùng với domain kia.
 
 **Cách xử lý:**
 
@@ -387,40 +387,40 @@ Khi bạn đã có một domain khác chạy trên VPS, truy cập **shopiibizte
    ```
    Ghi nhớ domain nào đang dùng `default_server` (nếu có).
 
-2. **Tạo file cấu hình chỉ cho Shopii** (tên file riêng, ví dụ `shopiibiztest` hoặc `shopii`):
+2. **Tạo file cấu hình chỉ cho shoplife** (tên file riêng, ví dụ `shoplifebiztest` hoặc `shoplife`):
    ```bash
-   sudo nano /etc/nginx/sites-available/shopiibiztest
+   sudo nano /etc/nginx/sites-available/shoplifebiztest
    ```
    Dán **đúng** một trong hai block `server` ở mục 6.2 (PM2 port 3001 hoặc static `out/`). Trong block đó **bắt buộc** có:
    ```nginx
-   server_name shopiibiztest.top www.shopiibiztest.top;
+   server_name shoplife.vn www.shoplife.vn;
    ```
    Không thêm domain khác vào dòng này.
 
-3. **Bật site Shopii và kiểm tra:**
+3. **Bật site shoplife và kiểm tra:**
    ```bash
-   sudo ln -sf /etc/nginx/sites-available/shopiibiztest /etc/nginx/sites-enabled/
+   sudo ln -sf /etc/nginx/sites-available/shoplifebiztest /etc/nginx/sites-enabled/
    sudo nginx -t
    sudo systemctl reload nginx
    ```
 
 4. **Nếu domain kia đang dùng `default_server`:** mở file config của domain đó (trong `sites-available`), tìm `listen 80 default_server;` và **bỏ** `default_server` (chỉ để `listen 80;`), đồng thời đảm bảo trong đó có `server_name domain-kia.com www.domain-kia.com;`. Reload Nginx lại. Như vậy mỗi domain chỉ nhận đúng host của nó.
 
-5. **Kiểm tra DNS:** `shopiibiztest.top` và `www.shopiibiztest.top` phải trỏ A record về đúng IP VPS.
+5. **Kiểm tra DNS:** `shoplife.vn` và `www.shoplife.vn` phải trỏ A record về đúng IP VPS.
 
-Sau khi sửa, truy cập `http://shopiibiztest.top` sẽ vào đúng FE Shopii, không còn hiện nội dung domain kia.
+Sau khi sửa, truy cập `http://shoplife.vn` sẽ vào đúng FE shoplife, không còn hiện nội dung domain kia.
 
 ### 6.1 Backend (API) – subdomain hoặc path
 
 Tạo file cấu hình:
 
 ```bash
-sudo nano /etc/nginx/sites-available/shopii
+sudo nano /etc/nginx/sites-available/shoplife
 ```
 
-**API qua path `https://shopiibiztest.top/api`** (cùng domain với FE) – khuyến nghị
+**API qua path `https://shoplife.vn/api`** (cùng domain với FE) – khuyến nghị
 
-Thêm vào block `server` của `shopiibiztest.top` (xem 6.2):
+Thêm vào block `server` của `shoplife.vn` (xem 6.2):
 
 ```nginx
 location /api {
@@ -438,7 +438,7 @@ location /api {
 }
 ```
 
-`NEXT_PUBLIC_API_URL` và `REACT_APP_API_URL` đặt là `https://shopiibiztest.top/api` (đã cấu hình ở mục 4.1 và 5.1).
+`NEXT_PUBLIC_API_URL` và `REACT_APP_API_URL` đặt là `https://shoplife.vn/api` (đã cấu hình ở mục 4.1 và 5.1).
 
 **Thông báo real-time (admin):** Panel admin dùng Socket.IO namespace `/notifications`, path engine `/api/socket.io` khi API URL kết thúc bằng `/api`. Backend phải chạy, Nginx proxy `/api` như trên (có `Upgrade`/`Connection`), và sau deploy **build lại admin** để lấy client socket đúng path. Tài khoản đăng nhập **User có `isAdmin`** (không phải staff) trước đây bị từ chối socket — cần backend mới (gateway cho phép cả hai loại).
 
@@ -449,7 +449,7 @@ location /api {
 ```nginx
 server {
     listen 80;
-    server_name shopiibiztest.top www.shopiibiztest.top;
+    server_name shoplife.vn www.shoplife.vn;
 
     # Endpoint generate credentials nặng (bcrypt × N users) — tăng timeout riêng
     location = /api/admin/users/export-login-credentials {
@@ -480,17 +480,17 @@ server {
     # Admin CRA: không cache `index.html` (entry SPA). Nếu không, sau deploy vẫn thấy bundle cũ tới khi Ctrl+Shift+R.
     # File JS/CSS trong `/admin/static/` có hash — có thể cache lâu (block tùy chọn bên dưới).
     location = /admin/index.html {
-        alias /var/www/shopii/admin/build/index.html;
+        alias /var/www/shoplife/admin/build/index.html;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
         add_header Pragma "no-cache";
     }
     location /admin/static/ {
-        alias /var/www/shopii/admin/build/static/;
+        alias /var/www/shoplife/admin/build/static/;
         expires 365d;
         add_header Cache-Control "public, immutable";
     }
     location /admin {
-        alias /var/www/shopii/admin/build;
+        alias /var/www/shoplife/admin/build;
         try_files $uri $uri/ /admin/index.html;
     }
 
@@ -522,8 +522,8 @@ server {
 ```nginx
 server {
     listen 80;
-    server_name shopiibiztest.top www.shopiibiztest.top;
-    root /var/www/shopii/out;
+    server_name shoplife.vn www.shoplife.vn;
+    root /var/www/shoplife/out;
 
     # Endpoint generate credentials nặng (bcrypt × N users) — tăng timeout riêng
     location = /api/admin/users/export-login-credentials {
@@ -552,17 +552,17 @@ server {
     }
 
     location = /admin/index.html {
-        alias /var/www/shopii/admin/build/index.html;
+        alias /var/www/shoplife/admin/build/index.html;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
         add_header Pragma "no-cache";
     }
     location /admin/static/ {
-        alias /var/www/shopii/admin/build/static/;
+        alias /var/www/shoplife/admin/build/static/;
         expires 365d;
         add_header Cache-Control "public, immutable";
     }
     location /admin {
-        alias /var/www/shopii/admin/build;
+        alias /var/www/shoplife/admin/build;
         try_files $uri $uri/ /admin/index.html;
     }
 
@@ -594,12 +594,12 @@ server {
 
 ### 6.3 Bật site và reload Nginx
 
-Dùng đúng tên file bạn đã tạo (ví dụ `shopii` hoặc `shopiibiztest`):
+Dùng đúng tên file bạn đã tạo (ví dụ `shoplife` hoặc `shoplifebiztest`):
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/shopii /etc/nginx/sites-enabled/
-# Hoặc nếu bạn đặt tên file shopiibiztest:
-# sudo ln -sf /etc/nginx/sites-available/shopiibiztest /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/shoplife /etc/nginx/sites-enabled/
+# Hoặc nếu bạn đặt tên file shoplifebiztest:
+# sudo ln -sf /etc/nginx/sites-available/shoplifebiztest /etc/nginx/sites-enabled/
 
 sudo nginx -t
 sudo systemctl reload nginx
@@ -625,7 +625,7 @@ location = /api/admin/users/export-login-credentials {
 ```
 
 ```bash
-sudo nano /etc/nginx/sites-available/shopii   # hoặc tên file của bạn
+sudo nano /etc/nginx/sites-available/shoplife   # hoặc tên file của bạn
 # Thêm block trên, rồi:
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -633,7 +633,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 6.4 SSL với Certbot
 
 ```bash
-sudo certbot --nginx -d gcchic.com -d www.gcchic.com
+sudo certbot --nginx -d shoplife.vn -d www.shoplife.vn
 sudo certbot renew --dry-run
 ```
 
@@ -642,17 +642,17 @@ sudo certbot renew --dry-run
 ## 9. Xử lý sự cố nhanh
 
 - **Admin build "exited too early" / thoát sớm:** VPS thiếu RAM. Thêm swap (mục 5.2), hoặc chạy `NODE_OPTIONS=--max-old-space-size=2048 npm run build:prod`, hoặc build Admin trên máy local rồi scp thư mục `admin/build` lên VPS.
-- **`Script not found: .../backend/dist/main.js` / API không start:** Backend build ra `dist/src/main.js` (không phải `dist/main.js`). Đảm bảo `package.json` có `"start:prod": "node dist/src/main.js"`. Sau khi sửa: `cd /var/www/shopii/backend && npm run build && ls dist/src/main.js`, rồi `pm2 restart shopii-api`.
-- **API 502:** Kiểm tra Backend có chạy: `pm2 status`, `pm2 logs shopii-api`. Kiểm tra `backend/.env` (DB, PORT).
-- **MySQL báo `ER_NO_SUCH_TABLE` (thiếu bảng):** Chạy script tạo bảng: `cd /var/www/shopii/backend && npm run db:init`. Script này dùng `.env` để kết nối và sẽ `synchronize` để tạo các table cần thiết (bao gồm `wallet_deposit_requests`). Sau đó restart API: `pm2 restart shopii-api`.  
-- **shopiibiztest.top hiện nội dung domain khác:** Cần server block riêng chỉ với `server_name shopiibiztest.top www.shopiibiztest.top` (mục 6.0). Kiểm tra `sites-enabled`, bỏ `default_server` khỏi config domain kia nếu cần.
+- **`Script not found: .../backend/dist/main.js` / API không start:** Backend build ra `dist/src/main.js` (không phải `dist/main.js`). Đảm bảo `package.json` có `"start:prod": "node dist/src/main.js"`. Sau khi sửa: `cd /var/www/shoplife/backend && npm run build && ls dist/src/main.js`, rồi `pm2 restart shoplife-api`.
+- **API 502:** Kiểm tra Backend có chạy: `pm2 status`, `pm2 logs shoplife-api`. Kiểm tra `backend/.env` (DB, PORT).
+- **MySQL báo `ER_NO_SUCH_TABLE` (thiếu bảng):** Chạy script tạo bảng: `cd /var/www/shoplife/backend && npm run db:init`. Script này dùng `.env` để kết nối và sẽ `synchronize` để tạo các table cần thiết (bao gồm `wallet_deposit_requests`). Sau đó restart API: `pm2 restart shoplife-api`.  
+- **shoplife.vn hiện nội dung domain khác:** Cần server block riêng chỉ với `server_name shoplife.vn www.shoplife.vn` (mục 6.0). Kiểm tra `sites-enabled`, bỏ `default_server` khỏi config domain kia nếu cần.
 - **FE/Admin trắng hoặc 404:** Kiểm tra Nginx `root`/`alias`, đường dẫn `out/` và `admin/build/`. Base path Admin phải là `/admin`.
 - **CORS:** Thêm đúng domain vào `CORS_ORIGINS` trong `backend/.env` và restart Backend.
 - **Upload file:** Backend serve upload tại `/files`. Đảm bảo thư mục `backend/uploads` tồn tại và Nginx không chặn body size (`client_max_body_size 50M;`).
 
-Nếu bạn dùng domain/path khác (ví dụ API tại `https://shopiibiztest.top/api`), chỉ cần chỉnh lại `proxy_pass` và các biến `*_API_URL` cho đúng.
+Nếu bạn dùng domain/path khác (ví dụ API tại `https://shoplife.vn/api`), chỉ cần chỉnh lại `proxy_pass` và các biến `*_API_URL` cho đúng.
 server {
-    server_name gcchic.com www.gcchic.com;
+    server_name shoplife.vn www.shoplife.vn;
 
     # Upload lớn (tuỳ bạn chỉnh)
     client_max_body_size 50M;
@@ -668,7 +668,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-      # --- API: https://gcchic.com/api -> http://127.0.0.1:3002 ---
+      # --- API: https://shoplife.vn/api -> http://127.0.0.1:3002 ---
     location ^~ /api/ {
         rewrite ^/api/?(.*)$ /$1 break;
 
@@ -690,16 +690,16 @@ server {
         return 301 /api/;
     }
 
-    # --- Admin: https://gcchic.com/admin -> /var/www/shopii/admin/build ---
+    # --- Admin: https://shoplife.vn/admin -> /var/www/shoplife/admin/build ---
     location = /admin {
         return 301 /admin/;
     }
 
     location ^~ /admin/ {
-        alias /var/www/shopii/admin/build/;
+        alias /var/www/shoplife/admin/build/;
         try_files $uri $uri/ /admin/index.html;
     }
-    # --- Frontend Next.js: https://gcchic.com/ -> http://127.0.0.1:3001 ---
+    # --- Frontend Next.js: https://shoplife.vn/ -> http://127.0.0.1:3001 ---
     location / {
         proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
@@ -725,33 +725,17 @@ server {
 
 }
 server {
-    if ($host = www.gcchic.com) {
+    if ($host = www.shoplife.vn) {
         return 301 https://$host$request_uri;
     } # managed by Certbot
 
 
-    if ($host = gcchic.com) {
+    if ($host = shoplife.vn) {
         return 301 https://$host$request_uri;
     } # managed by Certbot
 
 
     listen 80;
-    server_name gcchic.com www.gcchic.com;
+    server_name shoplife.vn www.shoplife.vn;
     return 404; # managed by Certbot
-
-
-
-
-}
-server {
-    if ($host = gcchic.com) {
-        return 301 https://$host$request_uri;
-    } # managed by Certbot
-
-
-    server_name gcchic.com www.gcchic.com;
-    listen 80;
-    return 404; # managed by Certbot
-
-
 }

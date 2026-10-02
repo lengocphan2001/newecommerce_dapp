@@ -40,6 +40,7 @@ export class HeapRewardHistory {
   @Column({ type: 'date', nullable: true })
   rewardDate: Date; // e.g., '2026-04-20'
 
+  @Index('IDX_heap_reward_histories_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 }

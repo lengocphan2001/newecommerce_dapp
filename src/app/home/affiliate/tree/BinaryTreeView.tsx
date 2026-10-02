@@ -1,348 +1,404 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import TreeCanvas from "./components/TreeCanvas";
+import TreeLegend from "./components/TreeLegend";
+import NodeDetailSheet from "./components/NodeDetailSheet";
+import BranchListView, { ListBranch, ListMember } from "./components/BranchListView";
+import TreeSkeleton from "./components/TreeSkeleton";
+import { Branch, TreeNode, TreeResponse, countMembers } from "./components/treeUtils";
 
-interface TreeNode {
-  id: string;
-  username: string;
-  fullName: string;
-  avatar?: string;
-  packageType: string;
-  position?: 'left' | 'right';
-  leftBranchTotal?: number;
-  rightBranchTotal?: number;
-  totalPurchaseAmount?: number;
-  createdAt?: string;
-  depth?: number;
+type ViewMode = "diagram" | "list";
+
+interface PathItem {
+  id: string | null;
+  label: string;
+}
+
+const DEPTH_OPTIONS = [2, 3, 5];
+
+function toNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  const parsed = parseFloat(String(value ?? "0"));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function toListBranch(raw: any, side: Branch): ListBranch {
+  const members: ListMember[] = (raw?.members || []).map((member: any) => ({
+    id: member.id || "",
+    username: member.username || "",
+    fullName: member.fullName || "",
+    avatar: member.avatar,
+    packageType: member.packageType || "NONE",
+    position: side,
+    totalPurchaseAmount: toNumber(member.totalPurchaseAmount),
+    depth: member.depth || 1,
+  }));
+  return {
+    members,
+    volume: toNumber(raw?.volume),
+    count: raw?.count || 0,
+  };
+}
+
+/** Tìm node theo tên hoặc tài khoản trong phần cây đang tải. */
+function findNode(node: TreeNode | null, keyword: string): TreeNode | null {
+  if (!node) return null;
+  const needle = keyword.trim().toLowerCase();
+  if (!needle) return null;
+  const username = (node.username || "").toLowerCase();
+  const fullName = (node.fullName || "").toLowerCase();
+  if (username.includes(needle) || fullName.includes(needle)) return node;
+  for (const child of node.children || []) {
+    const found = findNode(child, keyword);
+    if (found) return found;
+  }
+  return null;
 }
 
 export default function BinaryTreeView() {
   const { t } = useI18n();
   const router = useRouter();
-  const [treeData, setTreeData] = useState<{
-    left: { members: TreeNode[]; volume: number; count: number };
-    right: { members: TreeNode[]; volume: number; count: number };
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+
+  const [authorized, setAuthorized] = useState(false);
+  const [view, setView] = useState<ViewMode>("diagram");
+  const [depth, setDepth] = useState(3);
+  const [path, setPath] = useState<PathItem[]>([{ id: null, label: "" }]);
+
+  const [treeRes, setTreeRes] = useState<TreeResponse | null>(null);
+  const [listData, setListData] = useState<{ left: ListBranch; right: ListBranch } | null>(null);
   const [myReferralCode, setMyReferralCode] = useState("");
 
+  const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
+
+  const currentRootId = path[path.length - 1]?.id ?? null;
+
+  // Trang chỉ dành cho người đã đăng nhập. Chặn ngay khi mount để không loé
+  // nội dung trước lúc layout /home kịp điều hướng.
   useEffect(() => {
-    fetchTreeData();
+    if (typeof window === "undefined") return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.replace("/");
+      return;
+    }
+    setAuthorized(true);
+  }, [router]);
+
+  useEffect(() => {
+    if (!authorized) return;
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const [info, tree] = await Promise.all([
+          api.getReferralInfo(true),
+          api.getMyTree(currentRootId || undefined, depth),
+        ]);
+        if (cancelled) return;
+        setMyReferralCode(info?.referralCode || "");
+        setTreeRes(tree as TreeResponse);
+      } catch (err: any) {
+        if (cancelled) return;
+        if (handleAuthError(err, router)) return;
+        setError(err?.message || "Không tải được cây nhị phân");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [authorized, currentRootId, depth, router]);
+
+  // Danh sách hai cột lấy toàn bộ tuyến dưới, chỉ tải khi người dùng thật sự mở
+  // tab đó vì truy vấn đệ quy này nặng hơn nhiều so với sơ đồ giới hạn theo cấp.
+  useEffect(() => {
+    if (!authorized || view !== "list" || listData || listLoading) return;
+    let cancelled = false;
+
+    const loadList = async () => {
+      try {
+        setListLoading(true);
+        const downline = await api.getDownlineList();
+        if (cancelled) return;
+        setListData({
+          left: toListBranch(downline?.left, "left"),
+          right: toListBranch(downline?.right, "right"),
+        });
+      } catch (err: any) {
+        if (cancelled) return;
+        if (handleAuthError(err, router)) return;
+        setError(err?.message || "Không tải được danh sách thành viên");
+      } finally {
+        if (!cancelled) setListLoading(false);
+      }
+    };
+
+    loadList();
+    return () => {
+      cancelled = true;
+    };
+  }, [authorized, view, listData, listLoading, router]);
+
+  const goToInvite = useCallback(
+    (branch: Branch) => {
+      const query = myReferralCode ? `?ref=${encodeURIComponent(myReferralCode)}&leg=${branch}` : "";
+      router.push(`/register${query}`);
+    },
+    [myReferralCode, router],
+  );
+
+  const drillDown = useCallback((node: TreeNode) => {
+    setSelectedNode(null);
+    setHighlightId(null);
+    setSearchMessage("");
+    setPath((prev) => [...prev, { id: node.id, label: node.username || node.fullName || "" }]);
   }, []);
 
-  const fetchTreeData = async () => {
-    try {
-      setLoading(true);
-      const info = await api.getReferralInfo();
-      setMyReferralCode(info.referralCode || "");
+  const goToPathIndex = useCallback((index: number) => {
+    setSelectedNode(null);
+    setHighlightId(null);
+    setSearchMessage("");
+    setPath((prev) => prev.slice(0, index + 1));
+  }, []);
 
-      // Format members data
-      const leftMembers = (info.treeStats?.left?.members || []).map((member: any) => ({
-        id: member.id || '',
-        username: member.username || '',
-        fullName: member.fullName || '',
-        avatar: member.avatar,
-        packageType: member.packageType || 'NONE',
-        position: 'left' as const,
-        leftBranchTotal: typeof member.leftBranchTotal === 'number' ? member.leftBranchTotal : parseFloat(member.leftBranchTotal || '0') || 0,
-        rightBranchTotal: typeof member.rightBranchTotal === 'number' ? member.rightBranchTotal : parseFloat(member.rightBranchTotal || '0') || 0,
-        totalPurchaseAmount: typeof member.totalPurchaseAmount === 'number' ? member.totalPurchaseAmount : parseFloat(member.totalPurchaseAmount || '0') || 0,
-        createdAt: member.createdAt,
-        depth: member.depth || 1,
-      }));
+  const handleSearch = useCallback(() => {
+    const keyword = searchQuery.trim();
+    if (!keyword) return;
 
-      const rightMembers = (info.treeStats?.right?.members || []).map((member: any) => ({
-        id: member.id || '',
-        username: member.username || '',
-        fullName: member.fullName || '',
-        avatar: member.avatar,
-        packageType: member.packageType || 'NONE',
-        position: 'right' as const,
-        leftBranchTotal: typeof member.leftBranchTotal === 'number' ? member.leftBranchTotal : parseFloat(member.leftBranchTotal || '0') || 0,
-        rightBranchTotal: typeof member.rightBranchTotal === 'number' ? member.rightBranchTotal : parseFloat(member.rightBranchTotal || '0') || 0,
-        totalPurchaseAmount: typeof member.totalPurchaseAmount === 'number' ? member.totalPurchaseAmount : parseFloat(member.totalPurchaseAmount || '0') || 0,
-        createdAt: member.createdAt,
-        depth: member.depth || 1,
-      }));
-
-      setTreeData({
-        left: {
-          members: leftMembers,
-          volume: typeof info.treeStats?.left?.volume === 'number' ? info.treeStats.left.volume : parseFloat(info.treeStats?.left?.volume || '0') || 0,
-          count: info.treeStats?.left?.count || 0,
-        },
-        right: {
-          members: rightMembers,
-          volume: typeof info.treeStats?.right?.volume === 'number' ? info.treeStats.right.volume : parseFloat(info.treeStats?.right?.volume || '0') || 0,
-          count: info.treeStats?.right?.count || 0,
-        },
-      });
-    } catch (err: any) {
-      if (handleAuthError(err, router)) {
+    if (view === "diagram") {
+      const found = findNode(treeRes?.tree || null, keyword);
+      if (!found) {
+        setHighlightId(null);
+        setSearchMessage(t("treeNotFound"));
         return;
       }
-      setError(err.message || "Failed to load tree data");
-    } finally {
-      setLoading(false);
+      setHighlightId(found.id);
+      setSearchMessage("");
+      window.requestAnimationFrame(() => {
+        document
+          .getElementById(`tree-node-${found.id}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      });
+      return;
     }
-  };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    // Search logic can be implemented later
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(price);
-  };
-
-  const formatVolume = (volume: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4,
-    }).format(volume);
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    } catch {
-      return '';
+    const needle = keyword.toLowerCase();
+    const all = [...(listData?.left.members || []), ...(listData?.right.members || [])];
+    const found = all.find(
+      (m) => m.username.toLowerCase().includes(needle) || m.fullName.toLowerCase().includes(needle),
+    );
+    if (!found) {
+      setHighlightId(null);
+      setSearchMessage(t("treeNotFound"));
+      return;
     }
-  };
+    setHighlightId(found.id);
+    setSearchMessage("");
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`tree-list-${found.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [searchQuery, view, treeRes, listData, t]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-gray">
-        <div className="flex flex-col items-center gap-4">
-          <span className="material-symbols-outlined animate-spin text-primary text-4xl">refresh</span>
-          <p className="text-gray-500">{t("affiliateLoading")}</p>
-        </div>
-      </div>
-    );
-  }
+  const canvasLabels = useMemo(
+    () => ({
+      you: t("treeYou"),
+      emptySlot: t("treeEmptySlot"),
+      zoomIn: t("treeZoomIn"),
+      zoomOut: t("treeZoomOut"),
+      reset: t("treeReset"),
+      loadMore: t("treeLoadMore"),
+    }),
+    [t],
+  );
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background-gray">
-        <div className="text-center p-4">
-          <p className="text-red-500 mb-4">{error}</p>
-          <button
-            onClick={() => router.back()}
-            className="px-4 py-2 bg-primary text-white rounded-lg"
-          >
-            {t("back") || "Quay lại"}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const visibleMembers = useMemo(() => countMembers(treeRes?.tree || null), [treeRes]);
 
-  if (!treeData) {
-    return null;
+  if (!authorized) {
+    return <TreeSkeleton />;
   }
 
   return (
-    <div className="flex flex-col bg-background-gray min-h-screen overflow-x-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_1px_3px_rgba(37,99,235,0.05)]">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background-gray">
+      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-blue-100 bg-white/90 px-4 py-3 shadow-[0_1px_3px_rgba(37,99,235,0.05)] backdrop-blur-md">
         <button
           onClick={() => router.back()}
-          className="flex items-center justify-center p-2 -ml-2 rounded-full hover:bg-blue-50 transition-colors"
+          className="-ml-2 flex items-center justify-center rounded-full p-2 transition-colors hover:bg-blue-50"
+          aria-label={t("back") || "Quay lại"}
         >
           <span className="material-symbols-outlined text-slate-800">arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("networkStructure")}</h1>
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-600/10 border border-blue-600/20">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-600 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-            </span>
-            <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Shopii</span>
-          </div>
-          <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-blue-50 transition-colors">
-            <span className="material-symbols-outlined text-slate-800">filter_list</span>
-          </button>
+        <h1 className="flex-1 text-center text-lg font-bold tracking-tight text-slate-900">
+          {t("networkStructure")}
+        </h1>
+        <div className="flex items-center gap-1 rounded-full bg-slate-100 p-0.5">
+          {(["diagram", "list"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => {
+                setView(mode);
+                setHighlightId(null);
+                setSearchMessage("");
+              }}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                view === mode ? "bg-white text-primary shadow-sm" : "text-slate-500"
+              }`}
+            >
+              {mode === "diagram" ? t("treeViewDiagram") : t("treeViewList")}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Search Section */}
-      <div className="w-full max-w-lg mx-auto px-4 pt-4">
-        <label className="flex flex-col w-full">
-          <div className="flex w-full items-stretch rounded-xl h-12 bg-white shadow-sm border border-gray-100">
-            <div className="flex items-center justify-center pl-4 text-gray-400">
-              <span className="material-symbols-outlined text-[20px]">search</span>
-            </div>
-            <input
-              className="form-input flex-1 border-none bg-transparent focus:ring-0 text-base placeholder:text-gray-400"
-              placeholder={t("searchMemberId")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            <button
-              onClick={handleSearch}
-              className="px-4 text-primary font-semibold text-sm"
-            >
-              {t("search")}
-            </button>
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 p-4 pb-32">
+        <div className="flex h-12 w-full items-stretch rounded-xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-center pl-4 text-gray-400">
+            <span className="material-symbols-outlined text-[20px]">search</span>
           </div>
-        </label>
-      </div>
-
-      {/* Main Content - Two Column Layout */}
-      <main className="flex-1 flex flex-col max-w-lg mx-auto w-full p-4 gap-4 pb-32">
-        <div className="grid grid-cols-2 gap-4">
-          {/* Left Branch */}
-          <div className="flex flex-col gap-3">
-            {/* Left Branch Summary Card */}
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
-              <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
-                {t("affiliateLeftBranchLabel")}
-              </p>
-              <div className="flex flex-col">
-                <span className="text-base font-bold text-text-dark">
-                  ${formatVolume(treeData.left.volume)}
-                </span>
-                <span className="text-[10px] text-gray-500">
-                  {treeData.left.count} {t("members")}
-                </span>
-              </div>
-            </div>
-
-            {/* Left Branch Members List */}
-            <div className="flex flex-col gap-2">
-              {treeData.left.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 relative overflow-hidden"
-                  style={{
-                    marginLeft: `${(member.depth || 1) > 1 ? (member.depth! - 1) * 8 : 0}px`,
-                    borderColor: (member.depth || 1) > 1 ? '#e2e8f0' : '#135bec20'
-                  }}
-                >
-                  {(member.depth || 1) > 1 && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-100"></div>
-                  )}
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-sm">
-                      {member.packageType === 'NONE' ? 'person' : 'workspace_premium'}
-                    </span>
-                  </div>
-                  <div className="min-w-0 overflow-hidden flex-1">
-                    <p className="text-[11px] font-bold truncate text-text-dark">
-                      {member.fullName || member.username}
-                    </p>
-                    <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[8px] px-1 rounded font-bold ${member.packageType === 'NONE' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                        {member.packageType}
-                      </span>
-                      {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
-                        <p className="text-[9px] text-emerald-600 font-bold">
-                          ${formatPrice(member.totalPurchaseAmount)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Add Member Button */}
-              <button
-                onClick={() => router.push(`/register?ref=${myReferralCode}&leg=left`)}
-                className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
-              >
-                <span className="material-symbols-outlined text-primary text-xl">add_circle</span>
-                <span className="text-[10px] font-bold text-primary uppercase">{t("addMember")}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Right Branch */}
-          <div className="flex flex-col gap-3">
-            {/* Right Branch Summary Card */}
-            <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100">
-              <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">
-                {t("affiliateRightBranchLabel")}
-              </p>
-              <div className="flex flex-col">
-                <span className="text-base font-bold text-text-dark">
-                  ${formatVolume(treeData.right.volume)}
-                </span>
-                <span className="text-[10px] text-gray-500">
-                  {treeData.right.count} {t("members")}
-                </span>
-              </div>
-            </div>
-
-            {/* Right Branch Members List */}
-            <div className="flex flex-col gap-2">
-              {treeData.right.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="bg-white p-2 rounded-xl border border-gray-100 flex items-center gap-2 relative overflow-hidden"
-                  style={{
-                    marginLeft: `${(member.depth || 1) > 1 ? (member.depth! - 1) * 8 : 0}px`,
-                    borderColor: (member.depth || 1) > 1 ? '#e2e8f0' : '#135bec20'
-                  }}
-                >
-                  {(member.depth || 1) > 1 && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-100"></div>
-                  )}
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-primary text-sm">
-                      {member.packageType === 'NONE' ? 'person' : 'workspace_premium'}
-                    </span>
-                  </div>
-                  <div className="min-w-0 overflow-hidden flex-1">
-                    <p className="text-[11px] font-bold truncate text-text-dark">
-                      {member.fullName || member.username}
-                    </p>
-                    <p className="text-[9px] text-gray-400 font-mono uppercase">{member.username}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[8px] px-1 rounded font-bold ${member.packageType === 'NONE' ? 'bg-gray-100 text-gray-600' : 'bg-purple-100 text-purple-700'
-                        }`}>
-                        {member.packageType}
-                      </span>
-                      {member.totalPurchaseAmount !== undefined && member.totalPurchaseAmount > 0 && (
-                        <p className="text-[9px] text-emerald-600 font-bold">
-                          ${formatPrice(member.totalPurchaseAmount)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Add Member Button */}
-              <button
-                onClick={() => router.push(`/register?ref=${myReferralCode}&leg=right`)}
-                className="bg-blue-50 border-2 border-dashed border-primary rounded-xl p-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
-              >
-                <span className="material-symbols-outlined text-primary text-xl">add_circle</span>
-                <span className="text-[10px] font-bold text-primary uppercase">{t("addMember")}</span>
-              </button>
-            </div>
-          </div>
+          <input
+            className="form-input flex-1 border-none bg-transparent text-base placeholder:text-gray-400 focus:ring-0"
+            placeholder={t("searchMemberId")}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setSearchMessage("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
+          />
+          <button onClick={handleSearch} className="px-4 text-sm font-semibold text-primary">
+            {t("search")}
+          </button>
         </div>
+        {searchMessage && <p className="-mt-2 text-xs text-amber-600">{searchMessage}</p>}
+
+        {error && (
+          <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {view === "diagram" ? (
+          <>
+            {/* Đường dẫn khi đang xem cây con của một thành viên tuyến dưới */}
+            {path.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1 text-xs">
+                {path.map((item, index) => (
+                  <React.Fragment key={`${item.id ?? "root"}-${index}`}>
+                    {index > 0 && <span className="text-slate-300">/</span>}
+                    <button
+                      type="button"
+                      onClick={() => goToPathIndex(index)}
+                      className={`rounded px-1.5 py-0.5 font-semibold ${
+                        index === path.length - 1 ? "bg-primary/10 text-primary" : "text-slate-500"
+                      }`}
+                    >
+                      {index === 0 ? t("treeBackToRoot") : `@${item.label}`}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-semibold text-slate-500">{t("treeDepth")}</span>
+                {DEPTH_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setDepth(option)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                      depth === option
+                        ? "bg-primary text-white"
+                        : "border border-slate-200 bg-white text-slate-500"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[11px] text-slate-400">
+                {visibleMembers} {t("treeTotalMembers")}
+              </span>
+            </div>
+
+            {loading ? (
+              <TreeSkeleton />
+            ) : treeRes ? (
+              <>
+                <TreeCanvas
+                  root={treeRes.tree}
+                  maxLevel={treeRes.maxDepth}
+                  highlightId={highlightId}
+                  labels={canvasLabels}
+                  onNodeClick={setSelectedNode}
+                  onEmptySlotClick={goToInvite}
+                  onDrillDown={drillDown}
+                />
+                <TreeLegend
+                  youLabel={t("treeLegendYou")}
+                  team1Label={t("treeLegendTeam1")}
+                  team2Label={t("treeLegendTeam2")}
+                />
+              </>
+            ) : null}
+          </>
+        ) : listLoading || !listData ? (
+          <TreeSkeleton />
+        ) : (
+          <BranchListView
+            left={listData.left}
+            right={listData.right}
+            highlightId={highlightId}
+            labels={{
+              left: t("affiliateLeftBranchLabel"),
+              right: t("affiliateRightBranchLabel"),
+              members: t("members"),
+              addMember: t("addMember"),
+            }}
+            onInvite={goToInvite}
+          />
+        )}
       </main>
+
+      {selectedNode && (
+        <NodeDetailSheet
+          node={selectedNode}
+          isRoot={selectedNode.id === treeRes?.tree.id}
+          canDrillDown={selectedNode.id !== treeRes?.tree.id}
+          labels={{
+            title: t("treeMemberDetail"),
+            joinedAt: t("treeJoinedAt"),
+            personalVolume: t("treePersonalVolume"),
+            team1Volume: t("treeTeam1Volume"),
+            team2Volume: t("treeTeam2Volume"),
+            viewMemberTree: t("treeViewMemberTree"),
+            close: t("treeClose"),
+          }}
+          onClose={() => setSelectedNode(null)}
+          onViewTree={drillDown}
+        />
+      )}
     </div>
   );
 }

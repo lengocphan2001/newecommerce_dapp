@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
 import { handleAuthError } from "@/app/utils/auth";
+import { formatAmount, formatVnd, usdToVnd } from "@/app/utils/format";
 
 interface OrderItem {
   productId: string;
@@ -20,6 +21,9 @@ interface Order {
   userId: string;
   items: OrderItem[];
   totalAmount: number;
+  shippingFee?: number;
+  vatRate?: number;
+  vatAmount?: number;
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled";
   shippingAddress?: string;
   transactionHash?: string;
@@ -102,21 +106,9 @@ function OrdersPageContent() {
     }
   };
 
-  const formatPrice = (amount: number) => {
-    return amount?.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    });
-  };
+  const formatPrice = (amount: number) => formatAmount(amount, 2, 4);
 
-  const formatPriceVND = (amount: number) => {
-    // Assuming 1 USDT ≈ 24,500 VND
-    const vndAmount = amount * 24500;
-    return vndAmount.toLocaleString("vi-VN", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-  };
+  const formatPriceVND = (amount: number) => formatVnd(usdToVnd(amount));
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -224,7 +216,7 @@ function OrdersPageContent() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shopii</span>
+            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shoplife</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-emerald-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
@@ -330,11 +322,12 @@ function OrdersPageContent() {
               return (
                 <div
                   key={order.id}
+                  role="button"
                   onClick={() => router.push(`/home/orders/detail?id=${order.id}`)}
-                  className={`flex flex-col gap-3 rounded-2xl p-4 shadow-[0_2px_12px_rgba(37,99,235,0.06)] border ${isCancelled
-                    ? "bg-slate-50 border-slate-200 opacity-75"
-                    : "bg-white border-blue-100"
-                    } active:scale-[0.99] transition-all duration-200 cursor-pointer`}
+                  className={`flex flex-col gap-3 p-4 premium-card ${isCancelled
+                    ? "bg-slate-50 opacity-75"
+                    : "bg-white"
+                    } cursor-pointer`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex items-start gap-3">
@@ -371,7 +364,7 @@ function OrdersPageContent() {
                       <div className="text-right mt-1">
                         <p className={`text-lg font-bold tracking-tight ${isCancelled ? "text-slate-600" : "text-blue-800"
                           }`}>
-                          {formatPrice(order.totalAmount)} PV
+                          {formatPriceVND(order.totalAmount)}
                         </p>
                       </div>
                     </div>

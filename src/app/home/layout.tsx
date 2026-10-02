@@ -30,10 +30,10 @@ export default function HomeLayout({ children }: { children: React.ReactNode }) 
   // All pages will have header (from each page) and bottom nav (from layout)
   // Bottom nav height: ~80px (pt-3 pb-5 + safe area)
   return (
-    <div className="min-h-screen w-full bg-[#f3f4f6]">
-      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-2xl bg-white">
+    <div className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-0 md:p-4 lg:p-6">
+      <div className="relative flex min-h-screen md:min-h-[92vh] md:max-h-[92vh] w-full flex-col overflow-x-hidden max-w-md md:max-w-4xl lg:max-w-5xl mx-auto shadow-soft bg-white md:rounded-3xl border border-slate-100">
         {/* Content area - each page renders its own header */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           {children}
         </div>
         {/* Bottom Navigation - chỉ hiển thị cho người dùng đã đăng nhập */}

@@ -14,7 +14,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Trust proxy headers (for HTTPS detection behind reverse proxy)
-  app.set('trust proxy', true);
+  app.set('trust proxy', 1);
 
   // CORS must run BEFORE express.json / rate-limit so browser preflight (OPTIONS) gets
   // Access-Control-* headers. Otherwise /auth/username-login/verify etc. fail in the browser.

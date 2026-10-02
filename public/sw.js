@@ -1,5 +1,5 @@
 // Bump version mỗi khi thay đổi SW logic — trình duyệt sẽ xóa cache cũ và active SW mới.
-const CACHE_VERSION = "shopii-cache-v2";
+const CACHE_VERSION = "shoplife-cache-v2";
 const OFFLINE_URL = "/";
 
 // Chỉ cache static assets có content-hash (JS, CSS, font, image từ _next/static/)
