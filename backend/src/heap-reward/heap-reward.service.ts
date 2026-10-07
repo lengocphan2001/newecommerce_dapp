@@ -55,8 +55,8 @@ export class HeapRewardService {
    * 2. Xếp người mua vào bể theo tổng mua tích lũy (users.totalPurchaseAmount,
    *    đã cộng đơn này): bể nào đủ điều kiện mà người mua chưa từng có vị trí
    *    thì vào ngay, kể cả khi đơn này dưới 100.
-   * 3. Vào lại một bể đã từng có vị trí vẫn theo luật cũ: chỉ khi bản thân
-   *    đơn đạt mốc của bể đó và đủ số F1 đạt ngưỡng.
+   * 3. Vào lại một bể đã từng có vị trí: chỉ khi bản thân đơn đạt mốc của bể
+   *    đó (không cần F1).
    */
   async processOrderIfEligible(orderId: string, skipWalletUpdate?: boolean): Promise<void> {
     try {
@@ -95,14 +95,9 @@ export class HeapRewardService {
           await this.createNewPlacement(user.id, p, 0, order.id);
           this.logger.log(`User ${user.id} joins Heap pool ${p} (first time, purchase total ${purchaseTotal}).`);
         } else if (orderPools.includes(p)) {
-          // Lần n (>0), cần kiểm tra F1 đạt ngưỡng tương ứng với bể p
-          const f1Count = await this.countQualifiedF1s(user.id, p);
-          if (f1Count >= timesEntered) {
-            await this.createNewPlacement(user.id, p, timesEntered, order.id);
-            this.logger.log(`User ${user.id} joins Heap pool ${p} (timesEntered: ${timesEntered}). Qualified F1s: ${f1Count}`);
-          } else {
-            this.logger.log(`User ${user.id} cannot join Heap pool ${p}. Needs ${timesEntered} qualified F1s at >= ${p} PV, has ${f1Count}.`);
-          }
+          // Đã từng có vị trí: đơn đạt mốc bể p thì vào lại, không cần F1
+          await this.createNewPlacement(user.id, p, timesEntered, order.id);
+          this.logger.log(`User ${user.id} joins Heap pool ${p} (timesEntered: ${timesEntered}).`);
         }
       }
     } catch (e) {
@@ -134,26 +129,6 @@ export class HeapRewardService {
       this.logger.log(`User ${userId} joins Heap pool ${p} (${reason}).`);
     }
     return joined;
-  }
-
-  private async countQualifiedF1s(userId: string, qualifyAmount: number): Promise<number> {
-    const f1Users = await this.userRepo.find({
-      where: { referralUserId: userId },
-      select: ['id'],
-    });
-
-    if (f1Users.length === 0) return 0;
-
-    const f1Ids = f1Users.map(u => u.id);
-
-    const builder = this.orderRepo.createQueryBuilder('order');
-    builder.select('COUNT(DISTINCT order.userId)', 'count');
-    builder.where('order.userId IN (:...f1Ids)', { f1Ids });
-    builder.andWhere('order.status IN (:...statuses)', { statuses: [OrderStatus.CONFIRMED, OrderStatus.DELIVERED] });
-    builder.andWhere('order.totalAmount >= :amount', { amount: qualifyAmount });
-
-    const result = await builder.getRawOne();
-    return Number(result?.count || 0);
   }
 
   private async createNewPlacement(userId: string, poolLevel: number, currentTimesEntered: number, triggerOrderId: string | null): Promise<HeapRewardPlacement> {

@@ -35,8 +35,7 @@ function setup(opts: { orderTotal: number; purchaseTotal: number; existing?: num
   const distribute = jest
     .spyOn(service, 'distributeInstantPayoutForPool')
     .mockResolvedValue(undefined);
-  const f1 = jest.spyOn(service as any, 'countQualifiedF1s').mockResolvedValue(0);
-  return { service, created, distribute, f1 };
+  return { service, created, distribute };
 }
 
 describe('heapPoolsForAmount', () => {
@@ -72,14 +71,12 @@ describe('HeapRewardService.processOrderIfEligible', () => {
     expect(created.map((c) => c.poolLevel)).toEqual([500, 2400]);
   });
 
-  it('re-enters a pool only from an order of that level with enough F1s', async () => {
+  it('re-enters a pool only from an order of that level, without F1s', async () => {
     const small = setup({ orderTotal: 50, purchaseTotal: 700, existing: [100, 500] });
     await small.service.processOrderIfEligible('order-1');
-    expect(small.f1).not.toHaveBeenCalled();
     expect(small.created).toEqual([]);
 
     const big = setup({ orderTotal: 600, purchaseTotal: 1300, existing: [100, 500] });
-    big.f1.mockResolvedValue(1);
     await big.service.processOrderIfEligible('order-1');
     expect(big.created.map((c) => [c.poolLevel, c.timesEntered])).toEqual([
       [100, 1],
