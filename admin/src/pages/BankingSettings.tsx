@@ -13,14 +13,32 @@ import {
     InputNumber,
     Select,
 } from 'antd';
-import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined } from '@ant-design/icons';
+import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined, WalletOutlined } from '@ant-design/icons';
 import { bankingService, BankingConfig } from '../services/bankingService';
-import { systemConfigService } from '../services/systemConfigService';
+import { systemConfigService, WalletPaymentToggleKey } from '../services/systemConfigService';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
 
 const VIETQR_BANKS_API = 'https://api.vietqr.io/v2/banks';
+
+const WALLET_PAYMENT_TOGGLES: { key: WalletPaymentToggleKey; label: string; description: string }[] = [
+    {
+        key: 'depositWalletPaymentEnabled',
+        label: 'Ví tiêu dùng',
+        description: 'Cho phép người dùng thanh toán đơn hàng bằng ví tiêu dùng.',
+    },
+    {
+        key: 'pvWalletPaymentEnabled',
+        label: 'Ví nạp PV',
+        description: 'Cho phép người dùng thanh toán đơn hàng bằng ví nạp PV.',
+    },
+    {
+        key: 'withdrawWalletPaymentEnabled',
+        label: 'Ví thưởng',
+        description: 'Cho phép người dùng thanh toán đơn hàng bằng ví thưởng.',
+    },
+];
 
 interface VietQRBank {
     id: number;
@@ -41,6 +59,12 @@ const BankingSettings: React.FC = () => {
     const [usdtQrPreview, setUsdtQrPreview] = useState<string | undefined>(undefined);
     const [bankList, setBankList] = useState<VietQRBank[]>([]);
     const [banksLoading, setBanksLoading] = useState(true);
+    const [walletToggles, setWalletToggles] = useState<Record<WalletPaymentToggleKey, boolean>>({
+        depositWalletPaymentEnabled: true,
+        pvWalletPaymentEnabled: true,
+        withdrawWalletPaymentEnabled: true,
+    });
+    const [savingToggle, setSavingToggle] = useState<WalletPaymentToggleKey | null>(null);
 
     useEffect(() => {
         fetchConfig();
@@ -96,6 +120,11 @@ const BankingSettings: React.FC = () => {
                   config.commissionDepositWalletPercent ?? 12,
                 commissionWithdrawWalletPercent:
                   config.commissionWithdrawWalletPercent ?? 80,
+            });
+            setWalletToggles({
+                depositWalletPaymentEnabled: config.depositWalletPaymentEnabled ?? true,
+                pvWalletPaymentEnabled: config.pvWalletPaymentEnabled ?? true,
+                withdrawWalletPaymentEnabled: config.withdrawWalletPaymentEnabled ?? true,
             });
         } catch {
             payoutForm.setFieldsValue({
@@ -160,6 +189,19 @@ const BankingSettings: React.FC = () => {
             message.error('Failed to upload USDT QR image');
         }
         return false;
+    };
+
+    const handleToggleWalletPayment = async (key: WalletPaymentToggleKey, enabled: boolean) => {
+        setSavingToggle(key);
+        try {
+            const config = await systemConfigService.update({ [key]: enabled });
+            setWalletToggles((prev) => ({ ...prev, [key]: config[key] ?? enabled }));
+            message.success(enabled ? 'Đã bật thanh toán bằng ví' : 'Đã tắt thanh toán bằng ví');
+        } catch {
+            message.error('Không lưu được cài đặt thanh toán bằng ví');
+        } finally {
+            setSavingToggle(null);
+        }
     };
 
     const handleSavePayout = async (values: any) => {
@@ -380,6 +422,38 @@ const BankingSettings: React.FC = () => {
                         </Button>
                     </Form.Item>
                 </Form>
+            </Card>
+
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+                <WalletOutlined style={{ fontSize: 24 }} />
+                <Title level={3} style={{ margin: 0 }}>Wallet Payment Settings</Title>
+            </div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                Bật/tắt việc mua hàng bằng từng loại ví. Áp dụng cho mọi đơn hàng (kể cả đặt hộ),
+                thay đổi có hiệu lực ngay. Số dư ví của người dùng không bị ảnh hưởng.
+            </Text>
+
+            <Card loading={loading}>
+                {WALLET_PAYMENT_TOGGLES.map((item, index) => (
+                    <React.Fragment key={item.key}>
+                        {index > 0 && <Divider style={{ margin: '12px 0' }} />}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                                <Text strong>{item.label}</Text>
+                                <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                                    {item.description}
+                                </Text>
+                            </div>
+                            <Switch
+                                checked={walletToggles[item.key]}
+                                loading={savingToggle === item.key}
+                                onChange={(checked) => handleToggleWalletPayment(item.key, checked)}
+                                checkedChildren="Bật"
+                                unCheckedChildren="Tắt"
+                            />
+                        </div>
+                    </React.Fragment>
+                ))}
             </Card>
 
             <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>

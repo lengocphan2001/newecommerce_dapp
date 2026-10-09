@@ -5,7 +5,15 @@ export interface SystemConfig {
     indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
+    depositWalletPaymentEnabled: boolean;
+    pvWalletPaymentEnabled: boolean;
+    withdrawWalletPaymentEnabled: boolean;
 }
+
+export type WalletPaymentToggleKey =
+    | 'depositWalletPaymentEnabled'
+    | 'pvWalletPaymentEnabled'
+    | 'withdrawWalletPaymentEnabled';
 
 export const systemConfigService = {
     async get(): Promise<SystemConfig> {

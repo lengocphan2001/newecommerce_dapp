@@ -56,6 +56,13 @@ export default function CheckoutPage() {
   const [buyerName, setBuyerName] = useState("");
   const [buyerValidationError, setBuyerValidationError] = useState("");
 
+  /** Admin bật/tắt mua hàng bằng từng loại ví */
+  const [walletPaymentEnabled, setWalletPaymentEnabled] = useState<Record<"deposit_wallet" | "pv_wallet" | "withdraw_wallet", boolean>>({
+    deposit_wallet: true,
+    pv_wallet: true,
+    withdraw_wallet: true,
+  });
+
   /** Giỏ có sản phẩm chiến lược → không thanh toán bằng ví tiêu dùng */
   const [hasStrategicProducts, setHasStrategicProducts] = useState(false);
 
@@ -134,6 +141,13 @@ export default function CheckoutPage() {
     loadCheckoutUser();
     calculateShippingFee();
     api.getBankingConfig().then((c) => setBankingConfig(c)).catch(() => setBankingConfig(null));
+    api.getWalletPaymentToggles()
+      .then((c) => setWalletPaymentEnabled({
+        deposit_wallet: c.depositWalletPaymentEnabled,
+        pv_wallet: c.pvWalletPaymentEnabled,
+        withdraw_wallet: c.withdrawWalletPaymentEnabled,
+      }))
+      .catch(() => { /* giữ mặc định, backend vẫn chặn nếu ví bị tắt */ });
 
     const handleStorageChange = () => {
       loadCheckoutUser();
@@ -141,6 +155,18 @@ export default function CheckoutPage() {
     window.addEventListener('focus', handleStorageChange);
     return () => window.removeEventListener('focus', handleStorageChange);
   }, [items]);
+
+  // Tab ví đang chọn bị admin tắt (hoặc Ví PV không dùng được do có SP chiến lược) → chuyển sang ví còn dùng được, không còn thì Chuyển khoản
+  useEffect(() => {
+    const isUsable = (tab: "deposit_wallet" | "pv_wallet" | "withdraw_wallet") =>
+      walletPaymentEnabled[tab] && !(tab === "pv_wallet" && hasStrategicProducts);
+    setPaymentTab((tab) => {
+      if (tab !== "deposit_wallet" && tab !== "pv_wallet" && tab !== "withdraw_wallet") return tab;
+      if (isUsable(tab)) return tab;
+      const fallback = (["deposit_wallet", "pv_wallet", "withdraw_wallet"] as const).find(isUsable);
+      return fallback ?? "banking";
+    });
+  }, [walletPaymentEnabled, hasStrategicProducts]);
 
   useEffect(() => {
     let cancelled = false;
@@ -782,47 +808,56 @@ export default function CheckoutPage() {
                 {/* Ví TD */}
                 <button
                   type="button"
-                  onClick={() => setPaymentTab("deposit_wallet")}
+                  onClick={() => walletPaymentEnabled.deposit_wallet && setPaymentTab("deposit_wallet")}
+                  disabled={!walletPaymentEnabled.deposit_wallet}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
                     paymentTab === "deposit_wallet"
                       ? "border-primary bg-primary/5 text-primary shadow-sm font-semibold"
                       : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                  }`}
-                  title="Ví tiêu dùng"
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  title={walletPaymentEnabled.deposit_wallet ? "Ví tiêu dùng" : "Thanh toán bằng ví tiêu dùng đang tạm khóa"}
                 >
                   <span className="material-symbols-outlined text-[18px] mb-0.5">account_balance_wallet</span>
                   <span className="text-[10px]">Ví Tiêu Dùng</span>
+                  {!walletPaymentEnabled.deposit_wallet && <span className="text-[9px] text-slate-400">Tạm khóa</span>}
                 </button>
 
                 {/* Ví PV */}
                 <button
                   type="button"
-                  onClick={() => !hasStrategicProducts && setPaymentTab("pv_wallet")}
-                  disabled={hasStrategicProducts}
+                  onClick={() => !hasStrategicProducts && walletPaymentEnabled.pv_wallet && setPaymentTab("pv_wallet")}
+                  disabled={hasStrategicProducts || !walletPaymentEnabled.pv_wallet}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
                     paymentTab === "pv_wallet"
                       ? "border-primary bg-primary/5 text-primary shadow-sm font-semibold"
                       : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  title={hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví nạp PV"}
+                  title={
+                    !walletPaymentEnabled.pv_wallet
+                      ? "Thanh toán bằng ví nạp PV đang tạm khóa"
+                      : hasStrategicProducts ? "Không áp dụng cho sản phẩm chiến lược" : "Ví nạp PV"
+                  }
                 >
                   <span className="material-symbols-outlined text-[18px] mb-0.5">monetization_on</span>
                   <span className="text-[10px]">Ví Nạp PV</span>
+                  {!walletPaymentEnabled.pv_wallet && <span className="text-[9px] text-slate-400">Tạm khóa</span>}
                 </button>
 
                 {/* Ví Thưởng */}
                 <button
                   type="button"
-                  onClick={() => setPaymentTab("withdraw_wallet")}
+                  onClick={() => walletPaymentEnabled.withdraw_wallet && setPaymentTab("withdraw_wallet")}
+                  disabled={!walletPaymentEnabled.withdraw_wallet}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
                     paymentTab === "withdraw_wallet"
                       ? "border-primary bg-primary/5 text-primary shadow-sm font-semibold"
                       : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                  }`}
-                  title="Ví thưởng"
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  title={walletPaymentEnabled.withdraw_wallet ? "Ví thưởng" : "Thanh toán bằng ví thưởng đang tạm khóa"}
                 >
                   <span className="material-symbols-outlined text-[18px] mb-0.5">payments</span>
                   <span className="text-[10px]">Ví Thưởng</span>
+                  {!walletPaymentEnabled.withdraw_wallet && <span className="text-[9px] text-slate-400">Tạm khóa</span>}
                 </button>
 
                 {/* Chuyển khoản */}
@@ -1177,9 +1212,9 @@ export default function CheckoutPage() {
             onClick={handlePayment}
             disabled={
               processingStep !== "idle" ||
-              (paymentTab === "deposit_wallet" && !canPayWithDepositWallet) ||
-              (paymentTab === "pv_wallet" && !canPayWithPvWallet) ||
-              (paymentTab === "withdraw_wallet" && !canPayWithWithdrawWallet) ||
+              (paymentTab === "deposit_wallet" && (!canPayWithDepositWallet || !walletPaymentEnabled.deposit_wallet)) ||
+              (paymentTab === "pv_wallet" && (!canPayWithPvWallet || !walletPaymentEnabled.pv_wallet)) ||
+              (paymentTab === "withdraw_wallet" && (!canPayWithWithdrawWallet || !walletPaymentEnabled.withdraw_wallet)) ||
               (paymentTab === "banking" && !bankingConfig?.isEnabled) ||
               (paymentTab === "usdt" && (!bankingConfig?.usdtEnabled || !bankingConfig?.usdtWalletAddress)) ||
               (isProxy && (!buyerUsername.trim() || !!buyerValidationError || isValidatingBuyer))

@@ -287,6 +287,9 @@ export class OrderService {
       }
     }
 
+    // Admin có thể tắt mua hàng bằng từng loại ví (áp dụng cho mọi đơn, kể cả đặt hộ)
+    await this.adminService.assertWalletPaymentEnabled(paymentMethod);
+
     // Yêu cầu đăng nhập nếu dùng ví thanh toán
     if ((paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet' || paymentMethod === 'withdraw_wallet') && !userId) {
       throw new BadRequestException('Phương thức thanh toán bằng ví yêu cầu người dùng đăng nhập.');

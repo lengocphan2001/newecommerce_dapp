@@ -62,6 +62,21 @@ function roundWithdrawBalance(n: number): number {
 const COMMISSION_PAYOUT_FEE_PERCENT = 12;
 
 /**
+ * Công tắc cho phép mua hàng bằng từng loại ví (lưu trong system_config dưới
+ * dạng 'true' / 'false'). Chưa có row nghĩa là đang bật.
+ */
+export const WALLET_PAYMENT_TOGGLE_KEYS = {
+  deposit_wallet: 'depositWalletPaymentEnabled',
+  pv_wallet: 'pvWalletPaymentEnabled',
+  withdraw_wallet: 'withdrawWalletPaymentEnabled',
+} as const;
+
+export type WalletPaymentMethod = keyof typeof WALLET_PAYMENT_TOGGLE_KEYS;
+type WalletPaymentToggleKey =
+  (typeof WALLET_PAYMENT_TOGGLE_KEYS)[WalletPaymentMethod];
+export type WalletPaymentToggles = Record<WalletPaymentToggleKey, boolean>;
+
+/**
  * Số liệu bổ sung cho mỗi user khi xuất CSV — cùng những con số mà trang chi
  * tiết user hiển thị, nhưng tính hàng loạt cho toàn bộ bảng users.
  */
@@ -1202,8 +1217,14 @@ export class AdminService {
     indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
-  }> {
-    const [thresholdRow, indirectRateRow, depositPercentRow, withdrawPercentRow] =
+  } & WalletPaymentToggles> {
+    const [
+      thresholdRow,
+      indirectRateRow,
+      depositPercentRow,
+      withdrawPercentRow,
+      walletPaymentToggles,
+    ] =
       await Promise.all([
         this.systemConfigRepository.findOne({
           where: { key: 'minPayoutThreshold' },
@@ -1217,8 +1238,10 @@ export class AdminService {
         this.systemConfigRepository.findOne({
           where: { key: 'commissionWithdrawWalletPercent' },
         }),
+        this.getWalletPaymentToggles(),
       ]);
     return {
+      ...walletPaymentToggles,
       minPayoutThreshold: thresholdRow
         ? parseFloat(thresholdRow.value)
         : this.defaultMinPayoutThreshold,
@@ -1235,6 +1258,40 @@ export class AdminService {
   }
 
   /**
+   * Trạng thái bật/tắt mua hàng bằng từng loại ví. Mặc định bật khi chưa cấu hình.
+   */
+  async getWalletPaymentToggles(): Promise<WalletPaymentToggles> {
+    const keys = Object.values(WALLET_PAYMENT_TOGGLE_KEYS);
+    const rows = await this.systemConfigRepository.find({
+      where: { key: In(keys) },
+    });
+    const byKey = new Map(rows.map((r) => [r.key, r.value]));
+    return Object.fromEntries(
+      keys.map((key) => [key, byKey.get(key) !== 'false']),
+    ) as WalletPaymentToggles;
+  }
+
+  /**
+   * Ném lỗi nếu admin đang tắt mua hàng bằng ví tương ứng với paymentMethod.
+   * Các phương thức không phải ví (banking, usdt, cod...) luôn được cho qua.
+   */
+  async assertWalletPaymentEnabled(paymentMethod: string): Promise<void> {
+    if (!(paymentMethod in WALLET_PAYMENT_TOGGLE_KEYS)) return;
+    const key = WALLET_PAYMENT_TOGGLE_KEYS[paymentMethod as WalletPaymentMethod];
+    const row = await this.systemConfigRepository.findOne({ where: { key } });
+    if (row?.value === 'false') {
+      const labels: Record<WalletPaymentMethod, string> = {
+        deposit_wallet: 'ví tiêu dùng',
+        pv_wallet: 'ví nạp PV',
+        withdraw_wallet: 'ví thưởng',
+      };
+      throw new BadRequestException(
+        `Thanh toán bằng ${labels[paymentMethod as WalletPaymentMethod]} đang tạm khóa. Vui lòng chọn phương thức khác.`,
+      );
+    }
+  }
+
+  /**
    * Update system config values
    */
   async updateSystemConfig(dto: {
@@ -1242,12 +1299,17 @@ export class AdminService {
     indirectCommissionRateF2?: number;
     commissionDepositWalletPercent?: number;
     commissionWithdrawWalletPercent?: number;
-  }): Promise<{
+  } & Partial<WalletPaymentToggles>): Promise<{
     minPayoutThreshold: number;
     indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
-  }> {
+  } & WalletPaymentToggles> {
+    for (const key of Object.values(WALLET_PAYMENT_TOGGLE_KEYS)) {
+      if (dto[key] !== undefined && typeof dto[key] !== 'boolean') {
+        throw new BadRequestException(`${key} must be a boolean`);
+      }
+    }
     if (dto.indirectCommissionRateF2 !== undefined) {
       const value = Number(dto.indirectCommissionRateF2);
       if (!Number.isFinite(value) || value < 0 || value > 100) {
@@ -1342,6 +1404,11 @@ export class AdminService {
         row.value = String(dto.commissionWithdrawWalletPercent);
       }
       await this.systemConfigRepository.save(row);
+    }
+    for (const key of Object.values(WALLET_PAYMENT_TOGGLE_KEYS)) {
+      if (dto[key] !== undefined) {
+        await this.updateSingleSystemConfig(key, String(dto[key]));
+      }
     }
     return this.getSystemConfig();
   }

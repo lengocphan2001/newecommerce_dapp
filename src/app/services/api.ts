@@ -507,6 +507,23 @@ export const api = {
     apiCache.set('bankingConfig', data);
     return data;
   },
+  /** Public: which wallets can currently be used to pay for orders (admin toggles). Not cached so changes apply immediately. */
+  async getWalletPaymentToggles(): Promise<{
+    depositWalletPaymentEnabled: boolean;
+    pvWalletPaymentEnabled: boolean;
+    withdrawWalletPaymentEnabled: boolean;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/admin/system-config`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch system config');
+    }
+    const data = await response.json();
+    return {
+      depositWalletPaymentEnabled: data.depositWalletPaymentEnabled !== false,
+      pvWalletPaymentEnabled: data.pvWalletPaymentEnabled !== false,
+      withdrawWalletPaymentEnabled: data.withdrawWalletPaymentEnabled !== false,
+    };
+  },
   async createOrder(
     items: Array<{ productId: string; quantity: number; properties?: { [key: string]: string } }>,
     transactionHash?: string,
