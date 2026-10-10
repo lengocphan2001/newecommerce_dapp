@@ -542,7 +542,8 @@ export default function AffiliatePage() {
               {/* Maximum Commission & Branch Totals */}
               <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
                 <h4 className="text-sm font-bold text-text-dark mb-3">
-                  {t("commission")} & {t("networkStructure")}
+                  {t("commission")}
+                  {visibility?.userNetworkStructureVisible && <> & {t("networkStructure")}</>}
                 </h4>
                 <div className="space-y-3">
                   {/* Total Commission Can Receive */}
@@ -673,21 +674,23 @@ export default function AffiliatePage() {
           )}
 
           {/* Lối vào sơ đồ cây nhị phân */}
-          <div className="px-4 py-2">
-            <Link
-              href="/home/affiliate/tree"
-              className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.98]"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <span className="material-symbols-outlined text-primary">account_tree</span>
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-text-dark">{t("networkStructure")}</p>
-                <p className="text-xs text-gray-500">{t("viewFullTree")}</p>
-              </div>
-              <span className="material-symbols-outlined text-gray-400">chevron_right</span>
-            </Link>
-          </div>
+          {visibility?.userNetworkStructureVisible && (
+            <div className="px-4 py-2">
+              <Link
+                href="/home/affiliate/tree"
+                className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.98]"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <span className="material-symbols-outlined text-primary">account_tree</span>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-text-dark">{t("networkStructure")}</p>
+                  <p className="text-xs text-gray-500">{t("viewFullTree")}</p>
+                </div>
+                <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+              </Link>
+            </div>
+          )}
 
           {visibility?.userF1ListVisible && (
             <>

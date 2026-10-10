@@ -7,6 +7,7 @@ export interface UserVisibilityToggles {
   userOrderHistoryVisible: boolean;
   userF1ListVisible: boolean;
   userSalesVisible: boolean;
+  userNetworkStructureVisible: boolean;
 }
 
 export const api = {
@@ -531,7 +532,7 @@ export const api = {
       withdrawWalletPaymentEnabled: data.withdrawWalletPaymentEnabled !== false,
     };
   },
-  /** Public: which data the admin currently shows on the user app (reward history, orders, F1 list, sales). Not cached so changes apply immediately. */
+  /** Public: which data the admin currently shows on the user app (reward history, orders, F1 list, sales, network structure). Not cached so changes apply immediately. */
   async getUserVisibilityToggles(): Promise<UserVisibilityToggles> {
     const response = await fetch(`${API_BASE_URL}/admin/system-config`);
     if (!response.ok) {
@@ -543,6 +544,7 @@ export const api = {
       userOrderHistoryVisible: data.userOrderHistoryVisible !== false,
       userF1ListVisible: data.userF1ListVisible !== false,
       userSalesVisible: data.userSalesVisible !== false,
+      userNetworkStructureVisible: data.userNetworkStructureVisible !== false,
     };
   },
   async createOrder(

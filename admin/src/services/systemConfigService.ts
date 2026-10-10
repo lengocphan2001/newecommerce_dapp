@@ -12,6 +12,7 @@ export interface SystemConfig {
     userOrderHistoryVisible: boolean;
     userF1ListVisible: boolean;
     userSalesVisible: boolean;
+    userNetworkStructureVisible: boolean;
 }
 
 export type WalletPaymentToggleKey =
@@ -23,7 +24,8 @@ export type UserVisibilityToggleKey =
     | 'userRewardHistoryVisible'
     | 'userOrderHistoryVisible'
     | 'userF1ListVisible'
-    | 'userSalesVisible';
+    | 'userSalesVisible'
+    | 'userNetworkStructureVisible';
 
 export const systemConfigService = {
     async get(): Promise<SystemConfig> {

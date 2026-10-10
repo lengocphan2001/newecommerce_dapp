@@ -1035,6 +1035,7 @@ export class AuthService {
     rootUserId?: string,
     maxDepth = 3,
   ) {
+    await this.adminService.assertUserDataVisible('userNetworkStructureVisible');
     const targetRootId = rootUserId || currentUserId;
     await this.assertCanViewTreeOf(currentUserId, targetRootId);
 
@@ -1071,6 +1072,7 @@ export class AuthService {
    * không trả members để giữ payload nhẹ nên không dùng lại được.
    */
   async getDownlineList(userId: string) {
+    await this.adminService.assertUserDataVisible('userNetworkStructureVisible');
     const user = await this.userService.findOne(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -1130,6 +1132,7 @@ export class AuthService {
     userId: string,
     position?: 'left' | 'right',
   ) {
+    await this.adminService.assertUserDataVisible('userNetworkStructureVisible');
     await this.assertCanViewTreeOf(currentUserId, userId);
     const children = await this.userService.getDownline(userId, position);
     const { userSalesVisible } =

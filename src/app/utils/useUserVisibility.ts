@@ -8,6 +8,7 @@ const ALL_VISIBLE: UserVisibilityToggles = {
   userOrderHistoryVisible: true,
   userF1ListVisible: true,
   userSalesVisible: true,
+  userNetworkStructureVisible: true,
 };
 
 /**

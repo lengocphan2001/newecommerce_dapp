@@ -87,6 +87,7 @@ export const USER_VISIBILITY_TOGGLE_KEYS = [
   'userOrderHistoryVisible',
   'userF1ListVisible',
   'userSalesVisible',
+  'userNetworkStructureVisible',
 ] as const;
 
 export type UserVisibilityToggleKey =

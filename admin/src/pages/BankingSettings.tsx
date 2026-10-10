@@ -61,6 +61,11 @@ const USER_VISIBILITY_TOGGLES: { key: UserVisibilityToggleKey; label: string; de
         label: 'Doanh số',
         description: 'Doanh số tính thưởng, tích lũy, chênh lệch, doanh số đội nhóm và doanh số nhánh trên cây.',
     },
+    {
+        key: 'userNetworkStructureVisible',
+        label: 'Cấu trúc mạng lưới',
+        description: 'Lối vào và màn hình sơ đồ cây nhị phân (dạng cây lẫn dạng danh sách).',
+    },
 ];
 
 interface VietQRBank {
@@ -93,6 +98,7 @@ const BankingSettings: React.FC = () => {
         userOrderHistoryVisible: true,
         userF1ListVisible: true,
         userSalesVisible: true,
+        userNetworkStructureVisible: true,
     });
     const [savingVisibility, setSavingVisibility] = useState<UserVisibilityToggleKey | null>(null);
 
@@ -161,6 +167,7 @@ const BankingSettings: React.FC = () => {
                 userOrderHistoryVisible: config.userOrderHistoryVisible ?? true,
                 userF1ListVisible: config.userF1ListVisible ?? true,
                 userSalesVisible: config.userSalesVisible ?? true,
+                userNetworkStructureVisible: config.userNetworkStructureVisible ?? true,
             });
         } catch {
             payoutForm.setFieldsValue({
