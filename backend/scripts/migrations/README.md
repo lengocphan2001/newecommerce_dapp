@@ -164,3 +164,39 @@ cd backend
 npm run script:backfill-commission-wallet-split
 npm run script:backfill-commission-wallet-split -- --apply
 ```
+
+## Add `paidByUserId` and `paidFromReconsumptionAmount` on `orders`
+
+Deleting an order paid from an internal wallet (bonus, PV or consumption wallet) refunds
+the money to the wallet it came from. New orders record who paid (the sponsor on proxy
+orders) and how much of a consumption wallet payment came from the commission part. Run
+this before deploying the backend, otherwise loading orders fails on the missing columns.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-order-wallet-payer.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-order-wallet-payer.sql
+```
+
+## Add `orderId`, `pushedOut` and `walletCredited` on `heap_reward_histories`
+
+Deleting an order takes back the heap rewards it paid to the other members of the pool.
+New heap rewards record the order that paid them. Run this before deploying the backend.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-heap-history-order.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-heap-history-order.sql
+```

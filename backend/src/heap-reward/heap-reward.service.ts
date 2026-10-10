@@ -75,7 +75,7 @@ export class HeapRewardService {
       if (poolLevel > 0) {
         const rewardPercent = await this.getConfigValue(`HEAP_POOL_PERCENT_${poolLevel}`, poolLevel === 100 ? 5 : 10);
         const poolAmount = orderTotal * (rewardPercent / 100);
-        await this.distributeInstantPayoutForPool(poolLevel, poolAmount, poolLevel, order.userId, skipWalletUpdate);
+        await this.distributeInstantPayoutForPool(poolLevel, poolAmount, poolLevel, order.userId, skipWalletUpdate, order.id);
       }
 
       // 2. Xếp người mua vào các bể (Họ sẽ được nhận thưởng từ các đơn hàng tiếp theo sau này)
@@ -159,6 +159,7 @@ export class HeapRewardService {
     triggerOrderPoolLevel: number,
     buyerUserId?: string,
     skipWalletUpdate?: boolean,
+    orderId?: string,
   ) {
     this.logger.log(`Starting instant Heap Reward payout for pool ${poolLevel} with amount: ${poolAmount} (triggered by order pool level: ${triggerOrderPoolLevel}, skipWalletUpdate: ${!!skipWalletUpdate})`);
     try {
@@ -229,6 +230,9 @@ export class HeapRewardService {
               amount: actualReward,
               poolLevel,
               rewardDate: new Date(),
+              orderId: orderId ?? null,
+              pushedOut: isPushOut,
+              walletCredited: !skipWalletUpdate,
             });
             await hHistoryRepo.save(history);
 

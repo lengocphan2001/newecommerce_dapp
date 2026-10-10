@@ -202,7 +202,19 @@ export class OrderController {
     if (!req.user.isAdmin) {
       throw new Error('Unauthorized: Only admin can delete and rollback orders');
     }
-    await this.orderService.deleteOrderAndRollback(id);
-    return { success: true, message: 'Đơn hàng và các hoa hồng/doanh số liên quan đã được xóa và thu hồi thành công.' };
+    const refund = await this.orderService.deleteOrderAndRollback(
+      id,
+      req.user.userId || req.user.sub,
+    );
+    const refundNote = refund
+      ? ` Đã hoàn ${refund.credits
+          .map((c) => `$${c.amount.toFixed(2)}`)
+          .join(' + ')} về ví của @${refund.username || refund.userId}.`
+      : '';
+    return {
+      success: true,
+      message: `Đơn hàng và các hoa hồng/doanh số liên quan đã được xóa và thu hồi thành công.${refundNote}`,
+      refund,
+    };
   }
 }

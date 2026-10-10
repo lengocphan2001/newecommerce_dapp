@@ -27,7 +27,30 @@ import { MatrixRewardNode } from '../matrix-reward/entities/matrix-reward-node.e
 import { HeapRewardPlacement } from '../heap-reward/entities/heap-reward-placement.entity';
 import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
 import { UserMilestone } from '../admin/entities/user-milestone.entity';
-import { AgentPoolService } from 'src/agent-pool/agent-pool.service';
+import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
+import { AgentPoolMember } from '../agent-pool/entities/agent-pool-member.entity';
+import { AgentPoolService } from '../agent-pool/agent-pool.service';
+import {
+  AuditLog,
+  AuditLogAction,
+  AuditLogEntityType,
+} from '../audit-log/entities/audit-log.entity';
+
+/** Các phương thức thanh toán trừ thẳng vào số dư ví nội bộ của người trả tiền. */
+const INTERNAL_WALLET_METHODS = ['deposit_wallet', 'pv_wallet', 'withdraw_wallet'];
+
+const WALLET_LABELS: Record<string, string> = {
+  withdrawWalletBalance: 'ví thưởng',
+  pvWalletBalance: 'ví nạp PV',
+  reconsumptionWalletBalance: 'ví tiêu dùng (hoa hồng)',
+  walletBalance: 'ví tiêu dùng (nạp tiền)',
+};
+
+export interface WalletRefund {
+  userId: string;
+  username: string | null;
+  credits: Array<{ wallet: string; amount: number }>;
+}
 
 @Injectable()
 export class OrderService {
@@ -295,6 +318,9 @@ export class OrderService {
       throw new BadRequestException('Phương thức thanh toán bằng ví yêu cầu người dùng đăng nhập.');
     }
 
+    // Phần đã trừ từ ví tích lũy hoa hồng, để khi xóa đơn hoàn đúng về từng ví
+    let paidFromReconsumptionAmount: number | null = null;
+
     // Ví tiêu dùng: trừ số dư (ưu tiên từ reconsumptionWalletBalance ví tích lũy hoa hồng 25%, còn thiếu trừ tiếp walletBalance ví nạp)
     if (paymentMethod === 'deposit_wallet' && userId) {
       const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -311,10 +337,12 @@ export class OrderService {
 
       if (reconsumptionBal >= finalTotal) {
         user.reconsumptionWalletBalance = reconsumptionBal - finalTotal;
+        paidFromReconsumptionAmount = finalTotal;
       } else {
         const remaining = finalTotal - reconsumptionBal;
         user.reconsumptionWalletBalance = 0;
         user.walletBalance = bankingBal - remaining;
+        paidFromReconsumptionAmount = reconsumptionBal;
       }
       await this.userRepository.save(user);
     }
@@ -375,6 +403,9 @@ export class OrderService {
       shippingPhone: createOrderDto.shippingPhone,
       shippingName: createOrderDto.shippingName,
       paymentMethod,
+      paidByUserId:
+        userId && INTERNAL_WALLET_METHODS.includes(paymentMethod) ? userId : null,
+      paidFromReconsumptionAmount,
       notes: proxyNote ? (createOrderDto.notes ? `${createOrderDto.notes} | ${proxyNote}` : proxyNote) : createOrderDto.notes,
     });
 
@@ -845,8 +876,17 @@ export class OrderService {
 
         if (comm.status === CommissionStatus.PAID) {
           const commAmount = Number(comm.amount) || 0;
-          const withdrawDeduct = Math.round((commAmount * withdrawPercent / 100) * 1e8) / 1e8;
-          const reconsumptionDeduct = Math.round((commAmount * depositPercent / 100) * 1e8) / 1e8;
+          // Trừ đúng phần đã cộng vào từng ví lúc trả. Hoa hồng trả trước khi có
+          // cột withdrawAmount / reconsumptionAmount thì ước theo tỷ lệ hiện tại.
+          const recordedWithdraw = Number(comm.withdrawAmount) || 0;
+          const recordedReconsumption = Number(comm.reconsumptionAmount) || 0;
+          const hasRecordedSplit = recordedWithdraw + recordedReconsumption > 0;
+          const withdrawDeduct = hasRecordedSplit
+            ? recordedWithdraw
+            : Math.round((commAmount * withdrawPercent / 100) * 1e8) / 1e8;
+          const reconsumptionDeduct = hasRecordedSplit
+            ? recordedReconsumption
+            : Math.round((commAmount * depositPercent / 100) * 1e8) / 1e8;
 
           let newWithdraw = Number(beneficiary.withdrawWalletBalance || 0) - withdrawDeduct;
           let newReconsumption = Number(beneficiary.reconsumptionWalletBalance || 0) - reconsumptionDeduct;
@@ -916,6 +956,12 @@ export class OrderService {
       await heapPlacementRepo.remove(heapPlacements);
     }
 
+    // 6b. Heap: thưởng mà đơn này chia cho các thành viên đang ở trong bể
+    await this.rollbackHeapRewardsOfOrder(orderId, manager);
+
+    // 6c. Bể đồng hưởng lãnh đạo C1..C9 chia từ đơn này
+    await this.rollbackAgentPoolRewardsOfOrder(orderId, manager);
+
     // 7. Milestone catch-down
     if (buyerId) {
       const buyerUser = await userRepo.findOne({ where: { id: buyerId } });
@@ -966,9 +1012,183 @@ export class OrderService {
     }
   }
 
-  async deleteOrderAndRollback(orderId: string): Promise<void> {
+  /**
+   * Thu hồi thưởng heap mà đơn này chia cho thành viên khác trong bể: trừ ví,
+   * trừ totalRewarded của vị trí, và đưa vị trí trở lại bể nếu chính phần
+   * thưởng này đã đẩy nó ra (trừ khi người đó đã vào lại bể bằng vị trí mới).
+   * Lịch sử tạo trước khi có cột orderId không xác định được đơn nên bỏ qua.
+   */
+  private async rollbackHeapRewardsOfOrder(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const historyRepo = manager.getRepository(HeapRewardHistory);
+    const placementRepo = manager.getRepository(HeapRewardPlacement);
+    const userRepo = manager.getRepository(User);
+
+    const histories = await historyRepo.find({ where: { orderId } });
+    for (const history of histories) {
+      const amount = Number(history.amount) || 0;
+      if (amount > 0 && history.walletCredited) {
+        await userRepo.decrement({ id: history.userId }, 'withdrawWalletBalance', amount);
+      }
+
+      const placement = await placementRepo.findOne({ where: { id: history.placementId } });
+      if (placement) {
+        placement.totalRewarded = Math.max(0, Number(placement.totalRewarded) - amount);
+        if (history.pushedOut && !placement.isActive) {
+          const reEntered = await placementRepo.count({
+            where: { userId: placement.userId, poolLevel: placement.poolLevel, isActive: true },
+          });
+          if (reEntered === 0) {
+            placement.isActive = true;
+            placement.timesEntered = Math.max(0, Number(placement.timesEntered) - 1);
+          }
+        }
+        await placementRepo.save(placement);
+      }
+    }
+    if (histories.length > 0) {
+      await historyRepo.remove(histories);
+    }
+  }
+
+  /**
+   * Thu hồi thưởng bể đồng hưởng lãnh đạo (C1..C9) chia từ đơn này: trừ đúng
+   * phần đã cộng vào ví rút / ví tiêu dùng và totalRewarded của thành viên.
+   */
+  private async rollbackAgentPoolRewardsOfOrder(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const historyRepo = manager.getRepository(AgentPoolHistory);
+    const memberRepo = manager.getRepository(AgentPoolMember);
+    const userRepo = manager.getRepository(User);
+
+    const histories = await historyRepo.find({ where: { orderId } });
+    for (const history of histories) {
+      const withdraw = Number(history.withdrawAmount) || 0;
+      const reconsumption = Number(history.reconsumptionAmount) || 0;
+      if (withdraw > 0) {
+        await userRepo.decrement({ id: history.userId }, 'withdrawWalletBalance', withdraw);
+      }
+      if (reconsumption > 0) {
+        await userRepo.decrement({ id: history.userId }, 'reconsumptionWalletBalance', reconsumption);
+      }
+      if (history.memberId) {
+        await memberRepo.decrement(
+          { id: history.memberId },
+          'totalRewarded',
+          Number(history.rewardAmount) || 0,
+        );
+      }
+    }
+    if (histories.length > 0) {
+      await historyRepo.remove(histories);
+    }
+  }
+
+  /**
+   * Người đã trả tiền cho đơn ví. Đơn cũ chưa có paidByUserId: đơn mua hộ lấy
+   * sponsor từ ghi chú "Mua hộ bởi @username", còn lại là người mua.
+   */
+  private async resolveWalletPayer(
+    order: Order,
+    userRepo: Repository<User>,
+  ): Promise<User | null> {
+    if (order.paidByUserId) {
+      return userRepo.findOne({ where: { id: order.paidByUserId } });
+    }
+    const proxyMatch = /Mua hộ bởi @(\S+)/.exec(order.notes || '');
+    if (proxyMatch) {
+      const ref = proxyMatch[1];
+      // Lúc tạo đơn, sponsor không có username thì ghi chú chứa id. Chỉ so
+      // với cột id khi ref là uuid, Postgres báo lỗi nếu so uuid với chuỗi khác.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+      return userRepo.findOne({
+        where: isUuid ? [{ username: ref }, { id: ref }] : { username: ref },
+      });
+    }
+    return order.userId
+      ? userRepo.findOne({ where: { id: order.userId } })
+      : null;
+  }
+
+  /**
+   * Hoàn totalAmount về đúng ví đã trừ khi tạo đơn: ví thưởng, ví nạp PV, hoặc
+   * ví tiêu dùng (chia lại theo phần đã trừ từ ví hoa hồng / ví nạp). Đơn ví
+   * tiêu dùng cũ không lưu phần chia nên hoàn hết vào ví tích lũy hoa hồng.
+   */
+  private async refundWalletPayment(
+    order: Order,
+    manager: EntityManager,
+    adminUserId?: string,
+  ): Promise<WalletRefund | null> {
+    if (!INTERNAL_WALLET_METHODS.includes(order.paymentMethod)) return null;
+    const total = Number(order.totalAmount) || 0;
+    if (total <= 0) return null;
+
+    const userRepo = manager.getRepository(User);
+    const payer = await this.resolveWalletPayer(order, userRepo);
+    if (!payer) {
+      throw new BadRequestException(
+        'Không tìm thấy người đã trả tiền để hoàn tiền ví. Đơn chưa bị xóa.',
+      );
+    }
+
+    let credits: WalletRefund['credits'];
+    if (order.paymentMethod === 'withdraw_wallet') {
+      credits = [{ wallet: 'withdrawWalletBalance', amount: total }];
+    } else if (order.paymentMethod === 'pv_wallet') {
+      credits = [{ wallet: 'pvWalletBalance', amount: total }];
+    } else {
+      const fromReconsumption = Math.min(
+        total,
+        order.paidFromReconsumptionAmount ?? total,
+      );
+      credits = [
+        { wallet: 'reconsumptionWalletBalance', amount: fromReconsumption },
+        { wallet: 'walletBalance', amount: total - fromReconsumption },
+      ].filter((c) => c.amount > 0);
+    }
+
+    for (const credit of credits) {
+      await userRepo.increment({ id: payer.id }, credit.wallet, credit.amount);
+    }
+
+    const summary = credits
+      .map((c) => `$${c.amount.toFixed(2)} ${WALLET_LABELS[c.wallet]}`)
+      .join(', ');
+    const auditRepo = manager.getRepository(AuditLog);
+    await auditRepo.save(
+      auditRepo.create({
+        action: AuditLogAction.ADMIN_ACTION,
+        entityType: AuditLogEntityType.ORDER,
+        entityId: order.id,
+        userId: adminUserId,
+        description: `Xóa đơn ${order.id}: hoàn ${summary} cho @${payer.username || payer.id}`,
+        metadata: {
+          type: 'order_wallet_refund',
+          orderId: order.id,
+          paymentMethod: order.paymentMethod,
+          totalAmount: total,
+          payerUserId: payer.id,
+          buyerUserId: order.userId,
+          credits,
+        },
+      }),
+    );
+
+    return { userId: payer.id, username: payer.username || null, credits };
+  }
+
+  async deleteOrderAndRollback(
+    orderId: string,
+    adminUserId?: string,
+  ): Promise<WalletRefund | null> {
     const order = await this.findOne(orderId);
-    
+    let refund: WalletRefund | null = null;
+
     await this.dataSource.transaction(async (manager) => {
       const isActive = [
         OrderStatus.CONFIRMED,
@@ -982,8 +1202,14 @@ export class OrderService {
         await this.rollbackOrderEffects(orderId, manager);
       }
 
+      // Đơn trả bằng ví nội bộ: hoàn tiền về ví nguồn. Hủy đơn không hoàn
+      // tiền, nên đơn đã hủy cũng được hoàn khi xóa.
+      refund = await this.refundWalletPayment(order, manager, adminUserId);
+
       const orderRepo = manager.getRepository(Order);
       await orderRepo.remove(order);
     });
+
+    return refund;
   }
 }

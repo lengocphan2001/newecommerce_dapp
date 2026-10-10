@@ -114,9 +114,32 @@ export class Order {
   @Column({ default: false })
   isReconsumption: boolean; // Đánh dấu đơn hàng tái tiêu dùng
 
-  /** Payment method: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' */
+  /** Payment method: 'wallet' | 'banking' | 'deposit_wallet' | 'pv_wallet' | 'withdraw_wallet' | 'usdt' | 'cod' */
   @Column({ nullable: true, default: 'wallet' })
   paymentMethod: string;
+
+  /**
+   * Người đã trả tiền khi thanh toán bằng ví nội bộ. Khác userId khi mua hộ
+   * (sponsor trả tiền). Null với đơn cũ và đơn không trả bằng ví.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  paidByUserId: string | null;
+
+  /**
+   * Đơn ví tiêu dùng: phần đã trừ từ reconsumptionWalletBalance, phần còn lại
+   * của totalAmount trừ từ walletBalance. Null với đơn cũ và đơn ví khác.
+   */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) => (value == null ? null : parseFloat(value)),
+    },
+  })
+  paidFromReconsumptionAmount: number | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

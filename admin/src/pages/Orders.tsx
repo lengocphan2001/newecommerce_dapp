@@ -6,6 +6,13 @@ import { adminService } from '../services/adminService';
 import api from '../services/api';
 import { formatDateTime } from '../utils/format';
 
+/** Ví được hoàn tiền khi xóa đơn, theo phương thức thanh toán. */
+const WALLET_REFUND_LABELS: Record<string, string> = {
+  withdraw_wallet: 'ví thưởng',
+  pv_wallet: 'ví nạp PV',
+  deposit_wallet: 'ví tiêu dùng',
+};
+
 const Orders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
@@ -151,12 +158,20 @@ const Orders: React.FC = () => {
     }
   };
 
-  const handleDeleteOrder = (orderId: string) => {
+  const handleDeleteOrder = (order: Order) => {
+    const refundWallet = WALLET_REFUND_LABELS[order.paymentMethod || ''];
     Modal.confirm({
       title: 'Xác nhận xóa đơn hàng nhầm lẫn?',
       content: (
         <div style={{ color: '#ef4444' }}>
-          <strong>CẢNH BÁO NGUY HIỂM:</strong> Hành động này sẽ xóa vĩnh viễn đơn hàng khỏi cơ sở dữ liệu và <strong>ĐẢO NGƯỢC/THU HỒI TOÀN BỘ HOA HỒNG, DOANH SỐ CÁ NHÂN, DOANH SỐ NHÁNH TUYẾN TRÊN VÀ MATRIX REWARDS</strong> phát sinh từ đơn hàng này. Việc này không thể hoàn tác!
+          <strong>CẢNH BÁO NGUY HIỂM:</strong> Hành động này sẽ xóa vĩnh viễn đơn hàng khỏi cơ sở dữ liệu và <strong>ĐẢO NGƯỢC/THU HỒI TOÀN BỘ HOA HỒNG, DOANH SỐ CÁ NHÂN, DOANH SỐ NHÁNH TUYẾN TRÊN, MATRIX, CHIA SẺ LỢI NHUẬN (HEAP) VÀ ĐỒNG HƯỞNG LÃNH ĐẠO (C1..C9)</strong> phát sinh từ đơn hàng này. Việc này không thể hoàn tác!
+          {refundWallet && (
+            <div style={{ marginTop: 12, color: '#111827' }}>
+              Đơn thanh toán bằng {refundWallet}: hoàn{' '}
+              <strong>${Number(order.totalAmount || 0).toFixed(2)}</strong> về {refundWallet} của người đã trả
+              tiền (người mua hộ nếu là đơn mua hộ).
+            </div>
+          )}
         </div>
       ),
       okText: 'Xóa vĩnh viễn & Thu hồi',
@@ -164,7 +179,7 @@ const Orders: React.FC = () => {
       cancelText: 'Hủy bỏ',
       onOk: async () => {
         try {
-          const res = await api.delete(`/orders/${orderId}`);
+          const res = await api.delete(`/orders/${order.id}`);
           message.success(res.data.message || 'Xóa đơn hàng và thu hồi hoa hồng thành công.');
           fetchOrders(getQueryParams());
         } catch (error: any) {
@@ -322,7 +337,7 @@ const Orders: React.FC = () => {
             type="link"
             size="small"
             danger
-            onClick={() => handleDeleteOrder(record.id)}
+            onClick={() => handleDeleteOrder(record)}
           >
             Xóa & Thu hồi
           </Button>
