@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
@@ -75,6 +76,22 @@ export type WalletPaymentMethod = keyof typeof WALLET_PAYMENT_TOGGLE_KEYS;
 type WalletPaymentToggleKey =
   (typeof WALLET_PAYMENT_TOGGLE_KEYS)[WalletPaymentMethod];
 export type WalletPaymentToggles = Record<WalletPaymentToggleKey, boolean>;
+
+/**
+ * Công tắc hiển thị dữ liệu trên app người dùng (lưu trong system_config dạng
+ * 'true' / 'false'). Chưa có row nghĩa là đang hiện. Tắt thì cả màn hình lẫn
+ * API phía người dùng đều không trả dữ liệu tương ứng.
+ */
+export const USER_VISIBILITY_TOGGLE_KEYS = [
+  'userRewardHistoryVisible',
+  'userOrderHistoryVisible',
+  'userF1ListVisible',
+  'userSalesVisible',
+] as const;
+
+export type UserVisibilityToggleKey =
+  (typeof USER_VISIBILITY_TOGGLE_KEYS)[number];
+export type UserVisibilityToggles = Record<UserVisibilityToggleKey, boolean>;
 
 /**
  * Số liệu bổ sung cho mỗi user khi xuất CSV — cùng những con số mà trang chi
@@ -1217,13 +1234,14 @@ export class AdminService {
     indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
-  } & WalletPaymentToggles> {
+  } & WalletPaymentToggles & UserVisibilityToggles> {
     const [
       thresholdRow,
       indirectRateRow,
       depositPercentRow,
       withdrawPercentRow,
       walletPaymentToggles,
+      userVisibilityToggles,
     ] =
       await Promise.all([
         this.systemConfigRepository.findOne({
@@ -1239,9 +1257,11 @@ export class AdminService {
           where: { key: 'commissionWithdrawWalletPercent' },
         }),
         this.getWalletPaymentToggles(),
+        this.getUserVisibilityToggles(),
       ]);
     return {
       ...walletPaymentToggles,
+      ...userVisibilityToggles,
       minPayoutThreshold: thresholdRow
         ? parseFloat(thresholdRow.value)
         : this.defaultMinPayoutThreshold,
@@ -1272,6 +1292,27 @@ export class AdminService {
   }
 
   /**
+   * Trạng thái hiện/ẩn dữ liệu trên app người dùng. Mặc định hiện khi chưa cấu hình.
+   */
+  async getUserVisibilityToggles(): Promise<UserVisibilityToggles> {
+    const rows = await this.systemConfigRepository.find({
+      where: { key: In([...USER_VISIBILITY_TOGGLE_KEYS]) },
+    });
+    const byKey = new Map(rows.map((r) => [r.key, r.value]));
+    return Object.fromEntries(
+      USER_VISIBILITY_TOGGLE_KEYS.map((key) => [key, byKey.get(key) !== 'false']),
+    ) as UserVisibilityToggles;
+  }
+
+  /** Ném 403 nếu admin đang ẩn loại dữ liệu này khỏi app người dùng. */
+  async assertUserDataVisible(key: UserVisibilityToggleKey): Promise<void> {
+    const row = await this.systemConfigRepository.findOne({ where: { key } });
+    if (row?.value === 'false') {
+      throw new ForbiddenException('Thông tin này đang tạm ẩn.');
+    }
+  }
+
+  /**
    * Ném lỗi nếu admin đang tắt mua hàng bằng ví tương ứng với paymentMethod.
    * Các phương thức không phải ví (banking, usdt, cod...) luôn được cho qua.
    */
@@ -1299,13 +1340,16 @@ export class AdminService {
     indirectCommissionRateF2?: number;
     commissionDepositWalletPercent?: number;
     commissionWithdrawWalletPercent?: number;
-  } & Partial<WalletPaymentToggles>): Promise<{
+  } & Partial<WalletPaymentToggles> & Partial<UserVisibilityToggles>): Promise<{
     minPayoutThreshold: number;
     indirectCommissionRateF2: number;
     commissionDepositWalletPercent: number;
     commissionWithdrawWalletPercent: number;
-  } & WalletPaymentToggles> {
-    for (const key of Object.values(WALLET_PAYMENT_TOGGLE_KEYS)) {
+  } & WalletPaymentToggles & UserVisibilityToggles> {
+    for (const key of [
+      ...Object.values(WALLET_PAYMENT_TOGGLE_KEYS),
+      ...USER_VISIBILITY_TOGGLE_KEYS,
+    ]) {
       if (dto[key] !== undefined && typeof dto[key] !== 'boolean') {
         throw new BadRequestException(`${key} must be a boolean`);
       }
@@ -1405,7 +1449,10 @@ export class AdminService {
       }
       await this.systemConfigRepository.save(row);
     }
-    for (const key of Object.values(WALLET_PAYMENT_TOGGLE_KEYS)) {
+    for (const key of [
+      ...Object.values(WALLET_PAYMENT_TOGGLE_KEYS),
+      ...USER_VISIBILITY_TOGGLE_KEYS,
+    ]) {
       if (dto[key] !== undefined) {
         await this.updateSingleSystemConfig(key, String(dto[key]));
       }

@@ -6,6 +6,7 @@ import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
 
 export default function F1ListPage() {
   const { t, lang } = useI18n();
@@ -23,6 +24,7 @@ export default function F1ListPage() {
   }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const visibility = useUserVisibility();
 
   useEffect(() => {
     const load = async () => {
@@ -53,6 +55,17 @@ export default function F1ListPage() {
   };
 
   const goToAffiliate = () => router.push("/home/affiliate");
+
+  if (visibility && !visibility.userF1ListVisible) {
+    return (
+      <div className="flex flex-col bg-background-gray">
+        <AppHeader title={t("f1ListTitle")} showBack={true} onBack={goToAffiliate} />
+        <main className="flex-1 px-4 py-8 text-center">
+          <p className="text-gray-500">{t("infoHidden")}</p>
+        </main>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

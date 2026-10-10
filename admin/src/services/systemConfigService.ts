@@ -8,12 +8,22 @@ export interface SystemConfig {
     depositWalletPaymentEnabled: boolean;
     pvWalletPaymentEnabled: boolean;
     withdrawWalletPaymentEnabled: boolean;
+    userRewardHistoryVisible: boolean;
+    userOrderHistoryVisible: boolean;
+    userF1ListVisible: boolean;
+    userSalesVisible: boolean;
 }
 
 export type WalletPaymentToggleKey =
     | 'depositWalletPaymentEnabled'
     | 'pvWalletPaymentEnabled'
     | 'withdrawWalletPaymentEnabled';
+
+export type UserVisibilityToggleKey =
+    | 'userRewardHistoryVisible'
+    | 'userOrderHistoryVisible'
+    | 'userF1ListVisible'
+    | 'userSalesVisible';
 
 export const systemConfigService = {
     async get(): Promise<SystemConfig> {

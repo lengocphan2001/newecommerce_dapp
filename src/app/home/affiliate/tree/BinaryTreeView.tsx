@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
 import TreeCanvas from "./components/TreeCanvas";
 import TreeLegend from "./components/TreeLegend";
 import NodeDetailSheet from "./components/NodeDetailSheet";
@@ -79,6 +80,7 @@ export default function BinaryTreeView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const showSales = useUserVisibility()?.userSalesVisible ?? false;
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
 
   const currentRootId = path[path.length - 1]?.id ?? null;
@@ -367,6 +369,7 @@ export default function BinaryTreeView() {
           <TreeSkeleton />
         ) : (
           <BranchListView
+            showSales={showSales}
             left={listData.left}
             right={listData.right}
             highlightId={highlightId}
@@ -383,6 +386,7 @@ export default function BinaryTreeView() {
 
       {selectedNode && (
         <NodeDetailSheet
+          showSales={showSales}
           node={selectedNode}
           isRoot={selectedNode.id === treeRes?.tree.id}
           canDrillDown={selectedNode.id !== treeRes?.tree.id}

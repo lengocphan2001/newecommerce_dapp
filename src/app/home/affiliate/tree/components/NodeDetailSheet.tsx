@@ -16,6 +16,8 @@ interface Props {
   node: TreeNode;
   isRoot: boolean;
   canDrillDown: boolean;
+  /** False when the admin hides sales on the user app. */
+  showSales: boolean;
   labels: {
     title: string;
     joinedAt: string;
@@ -34,6 +36,7 @@ export default function NodeDetailSheet({
   node,
   isRoot,
   canDrillDown,
+  showSales,
   labels,
   onClose,
   onViewTree,
@@ -44,7 +47,7 @@ export default function NodeDetailSheet({
       ? BRANCH_COLOR.right
       : BRANCH_COLOR.left;
 
-  const rows: Array<{ label: string; value: string; color?: string }> = [
+  const rows: Array<{ label: string; value: string; color?: string }> = !showSales ? [] : [
     { label: labels.personalVolume, value: `$${formatAmount(node.totalPurchaseAmount, 2, 2)}` },
     {
       label: labels.team1Volume,

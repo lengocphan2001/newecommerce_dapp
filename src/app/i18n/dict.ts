@@ -320,6 +320,7 @@ export type I18nKey =
   | "f1Performance"
   | "f1DirectReferrals"
   | "f1Empty"
+  | "infoHidden"
   | "f1JoinedDate"
   | "viewFullF1List"
   | "imageTooLarge"

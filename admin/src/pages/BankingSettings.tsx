@@ -13,9 +13,9 @@ import {
     InputNumber,
     Select,
 } from 'antd';
-import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined, WalletOutlined } from '@ant-design/icons';
+import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined, WalletOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import { bankingService, BankingConfig } from '../services/bankingService';
-import { systemConfigService, WalletPaymentToggleKey } from '../services/systemConfigService';
+import { systemConfigService, WalletPaymentToggleKey, UserVisibilityToggleKey } from '../services/systemConfigService';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
@@ -37,6 +37,29 @@ const WALLET_PAYMENT_TOGGLES: { key: WalletPaymentToggleKey; label: string; desc
         key: 'withdrawWalletPaymentEnabled',
         label: 'Ví thưởng',
         description: 'Cho phép người dùng thanh toán đơn hàng bằng ví thưởng.',
+    },
+];
+
+const USER_VISIBILITY_TOGGLES: { key: UserVisibilityToggleKey; label: string; description: string }[] = [
+    {
+        key: 'userRewardHistoryVisible',
+        label: 'Lịch sử trả thưởng',
+        description: 'Danh sách mọi loại thưởng đã nhận (hoa hồng, đồng chia, lương tháng...).',
+    },
+    {
+        key: 'userOrderHistoryVisible',
+        label: 'Lịch sử mua hàng',
+        description: 'Danh sách và chi tiết đơn hàng của người dùng.',
+    },
+    {
+        key: 'userF1ListVisible',
+        label: 'Danh sách F1',
+        description: 'Danh sách người được giới thiệu trực tiếp và chi tiết từng F1.',
+    },
+    {
+        key: 'userSalesVisible',
+        label: 'Doanh số',
+        description: 'Doanh số tính thưởng, tích lũy, chênh lệch, doanh số đội nhóm và doanh số nhánh trên cây.',
     },
 ];
 
@@ -65,6 +88,13 @@ const BankingSettings: React.FC = () => {
         withdrawWalletPaymentEnabled: true,
     });
     const [savingToggle, setSavingToggle] = useState<WalletPaymentToggleKey | null>(null);
+    const [visibilityToggles, setVisibilityToggles] = useState<Record<UserVisibilityToggleKey, boolean>>({
+        userRewardHistoryVisible: true,
+        userOrderHistoryVisible: true,
+        userF1ListVisible: true,
+        userSalesVisible: true,
+    });
+    const [savingVisibility, setSavingVisibility] = useState<UserVisibilityToggleKey | null>(null);
 
     useEffect(() => {
         fetchConfig();
@@ -125,6 +155,12 @@ const BankingSettings: React.FC = () => {
                 depositWalletPaymentEnabled: config.depositWalletPaymentEnabled ?? true,
                 pvWalletPaymentEnabled: config.pvWalletPaymentEnabled ?? true,
                 withdrawWalletPaymentEnabled: config.withdrawWalletPaymentEnabled ?? true,
+            });
+            setVisibilityToggles({
+                userRewardHistoryVisible: config.userRewardHistoryVisible ?? true,
+                userOrderHistoryVisible: config.userOrderHistoryVisible ?? true,
+                userF1ListVisible: config.userF1ListVisible ?? true,
+                userSalesVisible: config.userSalesVisible ?? true,
             });
         } catch {
             payoutForm.setFieldsValue({
@@ -201,6 +237,19 @@ const BankingSettings: React.FC = () => {
             message.error('Không lưu được cài đặt thanh toán bằng ví');
         } finally {
             setSavingToggle(null);
+        }
+    };
+
+    const handleToggleVisibility = async (key: UserVisibilityToggleKey, visible: boolean) => {
+        setSavingVisibility(key);
+        try {
+            const config = await systemConfigService.update({ [key]: visible });
+            setVisibilityToggles((prev) => ({ ...prev, [key]: config[key] ?? visible }));
+            message.success(visible ? 'Đã hiện thông tin trên app người dùng' : 'Đã ẩn thông tin trên app người dùng');
+        } catch {
+            message.error('Không lưu được cài đặt hiển thị');
+        } finally {
+            setSavingVisibility(null);
         }
     };
 
@@ -450,6 +499,38 @@ const BankingSettings: React.FC = () => {
                                 onChange={(checked) => handleToggleWalletPayment(item.key, checked)}
                                 checkedChildren="Bật"
                                 unCheckedChildren="Tắt"
+                            />
+                        </div>
+                    </React.Fragment>
+                ))}
+            </Card>
+
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+                <EyeInvisibleOutlined style={{ fontSize: 24 }} />
+                <Title level={3} style={{ margin: 0 }}>User App Visibility</Title>
+            </div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                Hiện/ẩn thông tin trên app của tất cả người dùng. Khi ẩn, cả màn hình lẫn API phía người dùng
+                đều không trả dữ liệu này. Trang admin không bị ảnh hưởng.
+            </Text>
+
+            <Card loading={loading}>
+                {USER_VISIBILITY_TOGGLES.map((item, index) => (
+                    <React.Fragment key={item.key}>
+                        {index > 0 && <Divider style={{ margin: '12px 0' }} />}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                                <Text strong>{item.label}</Text>
+                                <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                                    {item.description}
+                                </Text>
+                            </div>
+                            <Switch
+                                checked={visibilityToggles[item.key]}
+                                loading={savingVisibility === item.key}
+                                onChange={(checked) => handleToggleVisibility(item.key, checked)}
+                                checkedChildren="Hiện"
+                                unCheckedChildren="Ẩn"
                             />
                         </div>
                     </React.Fragment>

@@ -4,11 +4,13 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const { t } = useI18n();
   const [pressedHref, setPressedHref] = useState<string | null>(null);
+  const visibility = useUserVisibility();
 
   useEffect(() => {
     setPressedHref(null);
@@ -20,7 +22,7 @@ export default function BottomNav() {
     { href: "/home/wallets", label: t("navWallets"), icon: "account_balance_wallet", activePaths: ["/home/wallets"] },
     { href: "/home/affiliate", label: t("navAffiliate"), icon: "group_work", activePaths: ["/home/affiliate"] },
     { href: "/home/profile", label: t("navAccount"), icon: "person", activePaths: ["/home/profile", "/home/account"] },
-  ];
+  ].filter((item) => item.href !== "/home/orders" || visibility?.userOrderHistoryVisible);
 
   const isActive = (item: (typeof menuItems)[0]) => {
     const normalizedPathname = pathname.replace(/\/$/, "") || "/";

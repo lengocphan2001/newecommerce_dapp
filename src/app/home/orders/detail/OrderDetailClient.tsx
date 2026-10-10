@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
+import HiddenInfoScreen from "@/app/components/HiddenInfoScreen";
 import { formatAmount, formatVndPlain, usdToVnd } from "@/app/utils/format";
 
 interface OrderItem {
@@ -43,6 +45,7 @@ export default function OrderDetailClient() {
     const [loading, setLoading] = useState(true);
     const [itemsWithImages, setItemsWithImages] = useState<OrderItem[]>([]);
     const [copied, setCopied] = useState(false);
+    const visibility = useUserVisibility();
 
     useEffect(() => {
         if (orderId) {
@@ -154,6 +157,10 @@ export default function OrderDetailClient() {
             default: return 0;
         }
     };
+
+    if (visibility && !visibility.userOrderHistoryVisible) {
+        return <HiddenInfoScreen title={t("orderDetails")} />;
+    }
 
     if (loading) {
         return (

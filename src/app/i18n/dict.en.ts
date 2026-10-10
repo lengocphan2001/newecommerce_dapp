@@ -318,6 +318,7 @@ const dict: Dict = {
   f1Performance: "Performance",
   f1DirectReferrals: "Direct referrals",
   f1Empty: "You have no C1 yet.",
+  infoHidden: "This information is temporarily hidden.",
   f1JoinedDate: "Joined",
   viewFullF1List: "View full C1 list",
   imageTooLarge: "Image too large (Max 5MB)",

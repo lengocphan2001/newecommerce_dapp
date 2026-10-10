@@ -31,6 +31,8 @@ interface Props {
     addMember: string;
   };
   highlightId?: string | null;
+  /** False when the admin hides sales on the user app. */
+  showSales: boolean;
   onInvite: (branch: "left" | "right") => void;
 }
 
@@ -42,7 +44,7 @@ function formatVolume(volume: number) {
  * Hai cột thành viên theo nhánh. Giữ lại vì nhiều người dùng đã quen cách xem
  * này và nó đọc nhanh hơn sơ đồ khi tuyến dưới dài.
  */
-export default function BranchListView({ left, right, labels, highlightId, onInvite }: Props) {
+export default function BranchListView({ left, right, labels, highlightId, showSales, onInvite }: Props) {
   const columns: Array<{ side: "left" | "right"; title: string; data: ListBranch }> = [
     { side: "left", title: labels.left, data: left },
     { side: "right", title: labels.right, data: right },
@@ -55,9 +57,11 @@ export default function BranchListView({ left, right, labels, highlightId, onInv
           <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
             <p className="mb-1 text-[10px] font-bold uppercase text-gray-400">{column.title}</p>
             <div className="flex flex-col">
-              <span className="text-base font-bold text-text-dark">
-                ${formatVolume(column.data.volume)}
-              </span>
+              {showSales && (
+                <span className="text-base font-bold text-text-dark">
+                  ${formatVolume(column.data.volume)}
+                </span>
+              )}
               <span className="text-[10px] text-gray-500">
                 {column.data.count} {labels.members}
               </span>
@@ -92,7 +96,7 @@ export default function BranchListView({ left, right, labels, highlightId, onInv
                     <span className={`rounded px-1 text-[8px] font-bold ${getMemberTagClass(member)}`}>
                       {getMemberTag(member)}
                     </span>
-                    {member.totalPurchaseAmount > 0 && (
+                    {showSales && member.totalPurchaseAmount > 0 && (
                       <p className="text-[9px] font-bold text-emerald-600">
                         ${formatAmount(member.totalPurchaseAmount, 2, 2)}
                       </p>

@@ -318,6 +318,7 @@ const dict: Dict = {
   f1Performance: "Hiệu suất",
   f1DirectReferrals: "Số C1",
   f1Empty: "Bạn chưa có C1 nào.",
+  infoHidden: "Thông tin này đang tạm ẩn.",
   f1JoinedDate: "Ngày tham gia",
   viewFullF1List: "Xem đầy đủ danh sách C1",
   imageTooLarge: "Ảnh quá lớn (Max 5MB)",

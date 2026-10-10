@@ -6,6 +6,7 @@ import { api } from "@/app/services/api";
 import { invalidateCache } from "@/app/services/apiCache";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function ProfilePage() {
   const [bankingConfig, setBankingConfig] = useState<any>(null);
   const [rankInfo, setRankInfo] = useState<any>(null);
   const [loadingRank, setLoadingRank] = useState(true);
+  const visibility = useUserVisibility();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
 
@@ -596,17 +598,21 @@ export default function ProfilePage() {
               <span className="flex-1 font-medium text-slate-800 text-left">{t("shippingAddress")}</span>
               <span className="material-symbols-outlined text-slate-300">chevron_right</span>
             </button>
-            <div className="mx-4 border-t border-slate-50"></div>
-            <button
-              onClick={() => router.push('/home/orders')}
-              className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
-                <span className="material-symbols-outlined text-xl font-medium">history</span>
-              </div>
-              <span className="flex-1 font-medium text-slate-800 text-left">{t("orderHistoryNav")}</span>
-              <span className="material-symbols-outlined text-slate-300">chevron_right</span>
-            </button>
+            {visibility?.userOrderHistoryVisible && (
+              <>
+                <div className="mx-4 border-t border-slate-50"></div>
+                <button
+                  onClick={() => router.push('/home/orders')}
+                  className="w-full flex items-center gap-4 px-4 py-4 active:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600">
+                    <span className="material-symbols-outlined text-xl font-medium">history</span>
+                  </div>
+                  <span className="flex-1 font-medium text-slate-800 text-left">{t("orderHistoryNav")}</span>
+                  <span className="material-symbols-outlined text-slate-300">chevron_right</span>
+                </button>
+              </>
+            )}
           </div>
 
           <div className="premium-card overflow-hidden">

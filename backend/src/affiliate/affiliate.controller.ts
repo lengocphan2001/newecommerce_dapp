@@ -10,6 +10,8 @@ import {
   Put,
   Res,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AffiliateService } from './affiliate.service';
@@ -22,6 +24,7 @@ import {
   CancelSingleCommissionDto,
 } from './dto';
 import { JwtAuthGuard, AdminGuard } from '../common/guards';
+import { AdminService } from '../admin/admin.service';
 
 @Controller('affiliate')
 @UseGuards(JwtAuthGuard)
@@ -29,6 +32,8 @@ export class AffiliateController {
   constructor(
     private readonly affiliateService: AffiliateService,
     private readonly commissionService: CommissionService,
+    @Inject(forwardRef(() => AdminService))
+    private readonly adminService: AdminService,
   ) {}
 
   @Post('register')
@@ -49,7 +54,12 @@ export class AffiliateController {
   @Get('my-rank')
   async getMyRank(@Request() req: any, @Query('month') month?: string) {
     const userId = req.user.userId || req.user.sub || req.user.id;
-    return this.commissionService.getMyRankProgress(userId, month);
+    const [progress, { userSalesVisible }] = await Promise.all([
+      this.commissionService.getMyRankProgress(userId, month),
+      this.adminService.getUserVisibilityToggles(),
+    ]);
+    if (userSalesVisible) return progress;
+    return { ...progress, personalSales: 0, groupSales: 0 };
   }
 
   @Get('all-stats')
@@ -80,6 +90,9 @@ export class AffiliateController {
     // User chỉ có thể xem commissions của mình (trừ admin)
     if (!req.user.isAdmin && userId !== (req.user.userId || req.user.sub)) {
       throw new Error('Unauthorized');
+    }
+    if (!req.user.isAdmin) {
+      await this.adminService.assertUserDataVisible('userRewardHistoryVisible');
     }
     return this.affiliateService.getCommissions(userId, query);
   }

@@ -2,6 +2,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 import { apiCache } from './apiCache';
 
+export interface UserVisibilityToggles {
+  userRewardHistoryVisible: boolean;
+  userOrderHistoryVisible: boolean;
+  userF1ListVisible: boolean;
+  userSalesVisible: boolean;
+}
+
 export const api = {
   async checkWallet(address: string) {
     const response = await fetch(`${API_BASE_URL}/auth/wallet/check?address=${encodeURIComponent(address)}`);
@@ -522,6 +529,20 @@ export const api = {
       depositWalletPaymentEnabled: data.depositWalletPaymentEnabled !== false,
       pvWalletPaymentEnabled: data.pvWalletPaymentEnabled !== false,
       withdrawWalletPaymentEnabled: data.withdrawWalletPaymentEnabled !== false,
+    };
+  },
+  /** Public: which data the admin currently shows on the user app (reward history, orders, F1 list, sales). Not cached so changes apply immediately. */
+  async getUserVisibilityToggles(): Promise<UserVisibilityToggles> {
+    const response = await fetch(`${API_BASE_URL}/admin/system-config`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch system config');
+    }
+    const data = await response.json();
+    return {
+      userRewardHistoryVisible: data.userRewardHistoryVisible !== false,
+      userOrderHistoryVisible: data.userOrderHistoryVisible !== false,
+      userF1ListVisible: data.userF1ListVisible !== false,
+      userSalesVisible: data.userSalesVisible !== false,
     };
   },
   async createOrder(

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
 import { handleAuthError } from "@/app/utils/auth";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
+import HiddenInfoScreen from "@/app/components/HiddenInfoScreen";
 import { formatAmount, formatVnd, usdToVnd } from "@/app/utils/format";
 
 interface OrderItem {
@@ -40,6 +42,7 @@ function OrdersPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { t } = useI18n();
+  const visibility = useUserVisibility();
 
   useEffect(() => {
     fetchOrders();
@@ -198,6 +201,10 @@ function OrdersPageContent() {
   ).length;
   const deliveredCount = orders.filter((o) => o.status === "delivered").length;
   const cancelledCount = orders.filter((o) => o.status === "cancelled").length;
+
+  if (visibility && !visibility.userOrderHistoryVisible) {
+    return <HiddenInfoScreen title={t("orderHistory")} />;
+  }
 
   return (
     <div className="flex flex-col bg-background-light min-h-screen">

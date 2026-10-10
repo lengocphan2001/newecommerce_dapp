@@ -7,6 +7,7 @@ import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
 import { QRCodeSVG } from "qrcode.react";
 import { formatAmount, formatVnd, usdToVnd } from "@/app/utils/format";
 
@@ -76,6 +77,7 @@ export default function AffiliatePage() {
     binaryTeam?: 'left' | 'right' | null;
   }>>([]);
   const [f1Loading, setF1Loading] = useState(false);
+  const visibility = useUserVisibility();
 
   useEffect(() => {
     fetchReferralInfo();
@@ -112,7 +114,7 @@ export default function AffiliatePage() {
   }, [referralInfo?.packageType]);
 
   useEffect(() => {
-    if (!referralInfo) return;
+    if (!referralInfo || !visibility?.userF1ListVisible) return;
     const loadF1 = async () => {
       setF1Loading(true);
       try {
@@ -126,7 +128,7 @@ export default function AffiliatePage() {
       }
     };
     loadF1();
-  }, [referralInfo]);
+  }, [referralInfo, visibility?.userF1ListVisible]);
 
   const getMaxCommission = () => {
     if (referralInfo?.maxCommission) {
@@ -574,93 +576,101 @@ export default function AffiliatePage() {
                       </div>
                     </div>
                   )}
-                  {/* Nhánh yếu tháng hiện tại */}
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
-                      <span className="text-sm font-bold text-amber-800">
-                        {lang === "vi" ? "Doanh số tính thưởng" : "Doanh số tính thưởng"}
-                      </span>
+                  {visibility?.userSalesVisible && (
+                    <>
+                    {/* Nhánh yếu tháng hiện tại */}
+                    <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="material-symbols-outlined text-amber-600 text-xl">trending_down</span>
+                        <span className="text-sm font-bold text-amber-800">
+                          {lang === "vi" ? "Doanh số tính thưởng" : "Doanh số tính thưởng"}
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold text-amber-700">
+                        {formatPriceVND(weakBranchMonthlyVolume)}
+                      </p>
                     </div>
-                    <p className="text-2xl font-bold text-amber-700">
-                      {formatPriceVND(weakBranchMonthlyVolume)}
-                    </p>
-                  </div>
 
-                  {/* Doanh số nhánh yếu (Tích lũy) */}
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
-                      <span className="text-sm font-bold text-blue-800">
-                        {lang === "vi" ? "Doanh số tích lũy" : "Bonus Calculation Volume"}
-                      </span>
+                    {/* Doanh số nhánh yếu (Tích lũy) */}
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="material-symbols-outlined text-blue-600 text-xl">insights</span>
+                        <span className="text-sm font-bold text-blue-800">
+                          {lang === "vi" ? "Doanh số tích lũy" : "Bonus Calculation Volume"}
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {formatPriceVND(weakBranchTotalVolume)}
+                      </p>
                     </div>
-                    <p className="text-2xl font-bold text-blue-700">
-                      {formatPriceVND(weakBranchTotalVolume)}
-                    </p>
-                  </div>
 
-                  {/* Doanh số cần đạt */}
-                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
-                      <span className="text-sm font-bold text-purple-800">
-                        {lang === "vi" ? "Doanh số chênh lệch" : "Adjustment Volume"}
-                      </span>
+                    {/* Doanh số cần đạt */}
+                    <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="material-symbols-outlined text-purple-600 text-xl">ads_click</span>
+                        <span className="text-sm font-bold text-purple-800">
+                          {lang === "vi" ? "Doanh số chênh lệch" : "Adjustment Volume"}
+                        </span>
+                      </div>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {formatPriceVND(targetVolume)}
+                      </p>
                     </div>
-                    <p className="text-2xl font-bold text-purple-700">
-                      {formatPriceVND(targetVolume)}
-                    </p>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Doanh số Đội nhóm */}
-          <div className="px-4 py-2">
-            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <h4 className="text-sm font-bold text-text-dark mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">groups</span>
-                {t("teamSalesTitle")}
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                {teams.map((team) => (
-                  <div key={team.name} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex flex-col justify-between">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`h-6 w-6 rounded-full ${team.color} flex items-center justify-center text-white text-[10px] font-bold`}>
-                        {team.name}
+          {visibility?.userSalesVisible && (
+            <>
+            {/* Doanh số Đội nhóm */}
+            <div className="px-4 py-2">
+              <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <h4 className="text-sm font-bold text-text-dark mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-xl">groups</span>
+                  {t("teamSalesTitle")}
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {teams.map((team) => (
+                    <div key={team.name} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex flex-col justify-between">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`h-6 w-6 rounded-full ${team.color} flex items-center justify-center text-white text-[10px] font-bold`}>
+                          {team.name}
+                        </div>
+                        <span className="text-xs font-bold text-gray-700">
+                          {lang === 'vi' ? `Đại lý ${team.name}` : lang === 'ko' ? `대리점 ${team.name}` : `Agency ${team.name}`}
+                        </span>
                       </div>
-                      <span className="text-xs font-bold text-gray-700">
-                        {lang === 'vi' ? `Đại lý ${team.name}` : lang === 'ko' ? `대리점 ${team.name}` : `Agency ${team.name}`}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-gray-500">
-                        {t("monthlySales")}:
-                      </div>
-                      <div className="text-xs font-bold text-gray-800">
-                        {formatPrice(team.monthlyVolume)} PV
-                      </div>
-                      <div className="text-[9px] text-gray-400">
-                        {formatPriceVND(team.monthlyVolume)}
-                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-gray-500">
+                          {t("monthlySales")}:
+                        </div>
+                        <div className="text-xs font-bold text-gray-800">
+                          {formatPrice(team.monthlyVolume)} PV
+                        </div>
+                        <div className="text-[9px] text-gray-400">
+                          {formatPriceVND(team.monthlyVolume)}
+                        </div>
                       
-                      <div className="text-[10px] text-gray-500 mt-1">
-                        {t("accumulatedSales")}:
-                      </div>
-                      <div className="text-xs font-bold text-gray-800">
-                        {formatPrice(team.totalVolume)} PV
-                      </div>
-                      <div className="text-[9px] text-gray-400">
-                        {formatPriceVND(team.totalVolume)}
+                        <div className="text-[10px] text-gray-500 mt-1">
+                          {t("accumulatedSales")}:
+                        </div>
+                        <div className="text-xs font-bold text-gray-800">
+                          {formatPrice(team.totalVolume)} PV
+                        </div>
+                        <div className="text-[9px] text-gray-400">
+                          {formatPriceVND(team.totalVolume)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+            </>
+          )}
 
           {/* Lối vào sơ đồ cây nhị phân */}
           <div className="px-4 py-2">
@@ -679,81 +689,85 @@ export default function AffiliatePage() {
             </Link>
           </div>
 
-          {/* F1 List & Performance */}
-          <div className="px-4 py-2">
-            <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <h4 className="text-sm font-bold text-text-dark mb-3 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">group</span>
-                {t("f1ListTitle")} ({f1List.length})
-              </h4>
-              {f1Loading ? (
-                <p className="text-sm text-gray-500 py-4">{t("affiliateLoading")}</p>
-              ) : f1List.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4">{t("f1Empty")}</p>
-              ) : (
-                <>
-                  <div className="overflow-x-auto -mx-1">
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="border-b border-gray-200 text-left text-gray-600">
-                          <th className="py-2 px-1 font-medium">{t("username")}</th>
-                          <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("fullName")}</th>
-                          <th className="py-2 px-1 font-medium">{t("rank")}</th>
-                          <th className="py-2 px-1 font-medium">{t("f1Team")}</th>
-                          <th className="py-2 px-1 font-medium text-center">{t("f1DirectReferrals")}</th>
-                          <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("f1JoinedDate")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {f1List.slice(0, 5).map((f1) => (
-                          <tr key={f1.id} className="border-b border-gray-100 hover:bg-gray-50/50">
-                            <td className="py-2.5 px-1 font-medium text-text-dark">{f1.username || "-"}</td>
-                            <td className="py-2.5 px-1 text-gray-600 hidden sm:table-cell truncate max-w-[120px]">{f1.fullName || "-"}</td>
-                            <td className="py-2.5 px-1">
-                              <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{f1.packageType || "NONE"}</span>
-                            </td>
-                            <td className="py-2.5 px-1">
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                f1.binaryTeam === 'left'
-                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                  : f1.binaryTeam === 'right'
-                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                  : 'bg-gray-50 text-gray-500 border border-gray-200'
-                              }`}>
-                                {f1.binaryTeam === 'left'
-                                  ? (lang === 'vi' ? 'Đại lý A' : lang === 'ko' ? '대리점 A' : 'Agency A')
-                                  : f1.binaryTeam === 'right'
-                                  ? (lang === 'vi' ? 'Đại lý B' : lang === 'ko' ? '대리점 B' : 'Agency B')
-                                  : '-'
-                                }
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-1 text-center">
-                              <span className="inline-flex items-center justify-center min-w-[1.75rem] font-semibold text-primary-dark bg-primary/10 rounded-full text-xs">
-                                {f1.directReferralCount}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell" suppressHydrationWarning>
-                              {formatDateSimple(f1.createdAt)}
-                            </td>
+          {visibility?.userF1ListVisible && (
+            <>
+            {/* F1 List & Performance */}
+            <div className="px-4 py-2">
+              <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <h4 className="text-sm font-bold text-text-dark mb-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-xl">group</span>
+                  {t("f1ListTitle")} ({f1List.length})
+                </h4>
+                {f1Loading ? (
+                  <p className="text-sm text-gray-500 py-4">{t("affiliateLoading")}</p>
+                ) : f1List.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4">{t("f1Empty")}</p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto -mx-1">
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="border-b border-gray-200 text-left text-gray-600">
+                            <th className="py-2 px-1 font-medium">{t("username")}</th>
+                            <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("fullName")}</th>
+                            <th className="py-2 px-1 font-medium">{t("rank")}</th>
+                            <th className="py-2 px-1 font-medium">{t("f1Team")}</th>
+                            <th className="py-2 px-1 font-medium text-center">{t("f1DirectReferrals")}</th>
+                            <th className="py-2 px-1 font-medium hidden sm:table-cell">{t("f1JoinedDate")}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {f1List.length > 0 && (
-                    <Link
-                      href="/home/affiliate/f1"
-                      className="mt-3 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-lg bg-primary/10 text-primary-dark font-medium text-sm hover:bg-primary/20 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-lg">list</span>
-                      {t("viewFullF1List")} ({f1List.length})
-                    </Link>
-                  )}
-                </>
-              )}
+                        </thead>
+                        <tbody>
+                          {f1List.slice(0, 5).map((f1) => (
+                            <tr key={f1.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                              <td className="py-2.5 px-1 font-medium text-text-dark">{f1.username || "-"}</td>
+                              <td className="py-2.5 px-1 text-gray-600 hidden sm:table-cell truncate max-w-[120px]">{f1.fullName || "-"}</td>
+                              <td className="py-2.5 px-1">
+                                <span className="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{f1.packageType || "NONE"}</span>
+                              </td>
+                              <td className="py-2.5 px-1">
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                  f1.binaryTeam === 'left'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : f1.binaryTeam === 'right'
+                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                    : 'bg-gray-50 text-gray-500 border border-gray-200'
+                                }`}>
+                                  {f1.binaryTeam === 'left'
+                                    ? (lang === 'vi' ? 'Đại lý A' : lang === 'ko' ? '대리점 A' : 'Agency A')
+                                    : f1.binaryTeam === 'right'
+                                    ? (lang === 'vi' ? 'Đại lý B' : lang === 'ko' ? '대리점 B' : 'Agency B')
+                                    : '-'
+                                  }
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-1 text-center">
+                                <span className="inline-flex items-center justify-center min-w-[1.75rem] font-semibold text-primary-dark bg-primary/10 rounded-full text-xs">
+                                  {f1.directReferralCount}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-1 text-gray-500 text-xs hidden sm:table-cell" suppressHydrationWarning>
+                                {formatDateSimple(f1.createdAt)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {f1List.length > 0 && (
+                      <Link
+                        href="/home/affiliate/f1"
+                        className="mt-3 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-lg bg-primary/10 text-primary-dark font-medium text-sm hover:bg-primary/20 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-lg">list</span>
+                        {t("viewFullF1List")} ({f1List.length})
+                      </Link>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+            </>
+          )}
 
           {/* Referral Tools — một link; team trái/phải chọn ở trang đăng ký */}
           <div className="px-4 py-4 mb-2">
@@ -807,158 +821,162 @@ export default function AffiliatePage() {
             </div>
           </div>
 
-          {/* Recent Activity List */}
-          <div className="px-4 pb-8 flex-1">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">
-                {t("recentActivity")}
-              </h3>
-              <button
-                onClick={() => router.push("/home/wallets/activity")}
-                className="text-sm font-medium text-primary-dark hover:text-primary"
-              >
-                {t("seeAll")}
-              </button>
-            </div>
+          {visibility?.userRewardHistoryVisible && (
+            <>
+            {/* Recent Activity List */}
+            <div className="px-4 pb-8 flex-1">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold mb-3 px-1 text-text-dark">
+                  {t("recentActivity")}
+                </h3>
+                <button
+                  onClick={() => router.push("/home/wallets/activity")}
+                  className="text-sm font-medium text-primary-dark hover:text-primary"
+                >
+                  {t("seeAll")}
+                </button>
+              </div>
 
-            <div className="space-y-3">
-              {directRecentActivity.length > 0 ? (
-                directRecentActivity.map((activity) => {
-                  const getActivityIcon = (type: string) => {
-                    switch (type) {
-                      case "DIRECT":
-                      case "INDIRECT":
-                        return {
-                          icon: "attach_money",
-                          color: "bg-[#13ec5b]/20",
-                          textColor: "text-[#13ec5b]",
-                        };
-                      case "GROUP":
-                        return {
-                          icon: "group",
-                          color: "bg-blue-500/20",
-                          textColor: "text-blue-400",
-                        };
-                      case "MANAGEMENT":
-                        return {
-                          icon: "military_tech",
-                          color: "bg-purple-500/20",
-                          textColor: "text-purple-400",
-                        };
-                      default:
-                        return {
-                          icon: "attach_money",
-                          color: "bg-[#13ec5b]/20",
-                          textColor: "text-[#13ec5b]",
-                        };
-                    }
-                  };
+              <div className="space-y-3">
+                {directRecentActivity.length > 0 ? (
+                  directRecentActivity.map((activity) => {
+                    const getActivityIcon = (type: string) => {
+                      switch (type) {
+                        case "DIRECT":
+                        case "INDIRECT":
+                          return {
+                            icon: "attach_money",
+                            color: "bg-[#13ec5b]/20",
+                            textColor: "text-[#13ec5b]",
+                          };
+                        case "GROUP":
+                          return {
+                            icon: "group",
+                            color: "bg-blue-500/20",
+                            textColor: "text-blue-400",
+                          };
+                        case "MANAGEMENT":
+                          return {
+                            icon: "military_tech",
+                            color: "bg-purple-500/20",
+                            textColor: "text-purple-400",
+                          };
+                        default:
+                          return {
+                            icon: "attach_money",
+                            color: "bg-[#13ec5b]/20",
+                            textColor: "text-[#13ec5b]",
+                          };
+                      }
+                    };
 
-                  const getActivityTitle = (type: string) => {
-                    switch (type) {
-                      case "DIRECT":
-                        return t("directCommission");
-                      case "INDIRECT":
-                        return t("indirectCommission");
-                      case "GROUP":
-                        return t("groupCommission");
-                      case "MANAGEMENT":
-                        return t("managementCommission");
-                      default:
-                        return t("commissionReceived");
-                    }
-                  };
+                    const getActivityTitle = (type: string) => {
+                      switch (type) {
+                        case "DIRECT":
+                          return t("directCommission");
+                        case "INDIRECT":
+                          return t("indirectCommission");
+                        case "GROUP":
+                          return t("groupCommission");
+                        case "MANAGEMENT":
+                          return t("managementCommission");
+                        default:
+                          return t("commissionReceived");
+                      }
+                    };
 
-                  const getActivitySubtitle = (activity: any) => {
-                    const fromInfo = activity.fromUsername
-                      ? `${t("fromMember")}: ${activity.fromUsername}`
-                      : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
+                    const getActivitySubtitle = (activity: any) => {
+                      const fromInfo = activity.fromUsername
+                        ? `${t("fromMember")}: ${activity.fromUsername}`
+                        : (activity.fromUserId ? `${t("fromMember")}: ${activity.fromUserId.slice(-6)}` : '');
 
-                    return fromInfo;
-                  };
+                      return fromInfo;
+                    };
 
-                  const formatTimeAgo = (dateString: string) => {
-                    if (!dateString) return '';
-                    try {
-                      const date = new Date(dateString);
-                      if (isNaN(date.getTime())) return '';
-                      const now = new Date();
-                      const diffMs = now.getTime() - date.getTime();
-                      const diffMins = Math.floor(diffMs / 60000);
-                      const diffHours = Math.floor(diffMs / 3600000);
-                      const diffDays = Math.floor(diffMs / 86400000);
+                    const formatTimeAgo = (dateString: string) => {
+                      if (!dateString) return '';
+                      try {
+                        const date = new Date(dateString);
+                        if (isNaN(date.getTime())) return '';
+                        const now = new Date();
+                        const diffMs = now.getTime() - date.getTime();
+                        const diffMins = Math.floor(diffMs / 60000);
+                        const diffHours = Math.floor(diffMs / 3600000);
+                        const diffDays = Math.floor(diffMs / 86400000);
 
-                      if (diffMins < 1) return t("justNow");
-                      if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
-                      if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
-                      if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
-                      return date.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      });
-                    } catch {
-                      return '';
-                    }
-                  };
+                        if (diffMins < 1) return t("justNow");
+                        if (diffMins < 60) return `${diffMins} ${t("minutesAgo")}`;
+                        if (diffHours < 24) return `${diffHours} ${t("hoursAgo")}`;
+                        if (diffDays < 7) return `${diffDays} ${t("daysAgo")}`;
+                        return date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        });
+                      } catch {
+                        return '';
+                      }
+                    };
 
-                  const activityStyle = getActivityIcon(activity.type);
-                  const isPending = activity.status === "PENDING";
-                  const isBlocked = activity.status === "BLOCKED";
+                    const activityStyle = getActivityIcon(activity.type);
+                    const isPending = activity.status === "PENDING";
+                    const isBlocked = activity.status === "BLOCKED";
 
-                  return (
-                    <div
-                      key={activity.id}
-                      className={`flex items-center justify-between p-3 rounded-lg bg-white border ${isBlocked ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'} shadow-sm`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`h-10 w-10 rounded-full ${isBlocked ? 'bg-orange-100' : activityStyle.color} flex items-center justify-center ${isBlocked ? 'text-orange-600' : activityStyle.textColor}`}
-                        >
-                          <span className="material-symbols-outlined text-lg">
-                            {isBlocked ? 'lock' : activityStyle.icon}
-                          </span>
+                    return (
+                      <div
+                        key={activity.id}
+                        className={`flex items-center justify-between p-3 rounded-lg bg-white border ${isBlocked ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'} shadow-sm`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`h-10 w-10 rounded-full ${isBlocked ? 'bg-orange-100' : activityStyle.color} flex items-center justify-center ${isBlocked ? 'text-orange-600' : activityStyle.textColor}`}
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              {isBlocked ? 'lock' : activityStyle.icon}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-text-dark">
+                              {getActivityTitle(activity.type)}
+                              {isBlocked && (
+                                <span className="ml-2 text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase">
+                                  {t("blocked") || "Bị chặn"}
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {isBlocked ? (t("reconsumptionRequired") || "Cần tái tiêu dùng") : getActivitySubtitle(activity)}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-text-dark">
-                            {getActivityTitle(activity.type)}
-                            {isBlocked && (
-                              <span className="ml-2 text-[9px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase">
-                                {t("blocked") || "Bị chặn"}
-                              </span>
-                            )}
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-bold ${isBlocked ? "text-orange-600" : (isPending ? "text-yellow-600" : "text-primary-dark")
+                              }`}
+                          >
+                            {isBlocked
+                              ? ""
+                              : isPending
+                                ? `${t("pending")} ${formatPrice(activity.amount)} PV`
+                                : `+${formatPrice(activity.amount)} PV`}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            {isBlocked ? (t("reconsumptionRequired") || "Cần tái tiêu dùng") : getActivitySubtitle(activity)}
+                          <p className="text-[10px] text-gray-400" suppressHydrationWarning>
+                            {formatTimeAgo(activity.createdAt)}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p
-                          className={`text-sm font-bold ${isBlocked ? "text-orange-600" : (isPending ? "text-yellow-600" : "text-primary-dark")
-                            }`}
-                        >
-                          {isBlocked
-                            ? ""
-                            : isPending
-                              ? `${t("pending")} ${formatPrice(activity.amount)} PV`
-                              : `+${formatPrice(activity.amount)} PV`}
-                        </p>
-                        <p className="text-[10px] text-gray-400" suppressHydrationWarning>
-                          {formatTimeAgo(activity.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="flex items-center justify-center p-6 rounded-lg bg-white border border-gray-100 shadow-sm">
-                  <p className="text-sm text-gray-500">
-                    {t("noRecentActivity")}
-                  </p>
-                </div>
-              )}
+                    );
+                  })
+                ) : (
+                  <div className="flex items-center justify-center p-6 rounded-lg bg-white border border-gray-100 shadow-sm">
+                    <p className="text-sm text-gray-500">
+                      {t("noRecentActivity")}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>

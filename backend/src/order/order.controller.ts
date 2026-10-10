@@ -10,18 +10,23 @@ import {
   Request,
   UseGuards,
   Res,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { AdminService } from '../admin/admin.service';
 
 @Controller('orders')
 export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly notificationsGateway: NotificationsGateway,
+    @Inject(forwardRef(() => AdminService))
+    private readonly adminService: AdminService,
   ) {}
 
   @Get()
@@ -29,6 +34,7 @@ export class OrderController {
   async findAll(@Query() query: any, @Request() req: any) {
     // Admin có thể xem tất cả, user chỉ xem của mình
     if (!req.user.isAdmin) {
+      await this.adminService.assertUserDataVisible('userOrderHistoryVisible');
       query.userId = req.user.userId || req.user.sub;
     }
     return this.orderService.findAll(query);
@@ -118,6 +124,9 @@ export class OrderController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string, @Request() req: any) {
+    if (!req.user.isAdmin) {
+      await this.adminService.assertUserDataVisible('userOrderHistoryVisible');
+    }
     const order = await this.orderService.findOne(id);
     // User chỉ có thể xem đơn hàng của mình (trừ admin)
     if (

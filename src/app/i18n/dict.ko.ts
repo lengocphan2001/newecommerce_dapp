@@ -318,6 +318,7 @@ const dict: Dict = {
   f1Performance: "성과",
   f1DirectReferrals: "직접 추천 수",
   f1Empty: "아직 C1이 없습니다.",
+  infoHidden: "이 정보는 일시적으로 숨겨져 있습니다.",
   f1JoinedDate: "가입일",
   viewFullF1List: "C1 전체 목록 보기",
   imageTooLarge: "이미지가 너무 큽니다 (최대 5MB)",

@@ -647,10 +647,20 @@ export class AuthService {
     const leftLink = `${baseUrl}/register?ref=${referralCode}&leg=left`;
     const rightLink = `${baseUrl}/register?ref=${referralCode}&leg=right`;
 
+    const visibility = await this.adminService.getUserVisibilityToggles();
+
     // Binary tree: chỉ count + volume, không trả members (payload nhỏ, nhanh)
     const treeStats = compact
       ? null
       : await this.userService.getBinaryTreeStatsSummary(userId);
+    if (treeStats && !visibility.userSalesVisible) {
+      for (const branch of [treeStats.left, treeStats.right]) {
+        branch.volume = 0;
+        branch.total = 0;
+        branch.monthlyVolume = 0;
+      }
+      treeStats.weakBranchTotalVolume = 0;
+    }
 
     // Format decimal numbers with full precision
     const formatDecimal = (value: number | string): string => {
@@ -749,7 +759,11 @@ export class AuthService {
       return dateB - dateA;
     });
 
-    const recentActivity = recentActivityRaw.slice(0, 20).map((c: any) => {
+    // Admin ẩn lịch sử trả thưởng thì không trả danh sách nào cho app người dùng
+    const visibleActivity = visibility.userRewardHistoryVisible
+      ? recentActivityRaw.slice(0, 20)
+      : [];
+    const recentActivity = visibleActivity.map((c: any) => {
       const fromUsername =
         c.fromUser?.username || c.fromUser?.fullName || null;
 
@@ -823,6 +837,8 @@ export class AuthService {
       where: { userId },
       order: { month: 'DESC' },
     });
+    const formatSales = (value: number | string) =>
+      visibility.userSalesVisible ? formatDecimal(value) : '0.00';
 
     return {
       referralCode,
@@ -862,8 +878,8 @@ export class AuthService {
       monthlyStats: latestStats ? {
         month: latestStats.month,
         calculatedRank: user.manualRank && user.manualRank !== 'NONE' ? user.manualRank : latestStats.calculatedRank,
-        groupSales: formatDecimal(latestStats.groupSales),
-        personalSales: formatDecimal(latestStats.personalSales),
+        groupSales: formatSales(latestStats.groupSales),
+        personalSales: formatSales(latestStats.personalSales),
         groupRewardAmount: formatDecimal(latestStats.groupRewardAmount),
         globalShareAmount: formatDecimal(latestStats.globalShareAmount),
         isProcessed: latestStats.isProcessed,
@@ -977,6 +993,7 @@ export class AuthService {
    * Danh sách F1 (người giới thiệu trực tiếp) của user, kèm hiệu suất (số F1 của từng người).
    */
   async getF1List(userId: string) {
+    await this.adminService.assertUserDataVisible('userF1ListVisible');
     const list = await this.userService.getF1ListWithPerformance(userId);
     return list.map((item) => ({
       ...item,
@@ -988,6 +1005,7 @@ export class AuthService {
   }
 
   async getF1Details(userId: string, f1UserId: string) {
+    await this.adminService.assertUserDataVisible('userF1ListVisible');
     const f1User = await this.userService.findOne(f1UserId);
     if (!f1User || f1User.referralUserId !== userId) {
       throw new UnauthorizedException('User is not your F1');
@@ -1022,6 +1040,8 @@ export class AuthService {
 
     const depth = Math.min(Math.max(Number(maxDepth) || 3, 1), 5);
     const tree = await this.userService.buildBinaryTree(targetRootId, depth);
+    const { userSalesVisible } =
+      await this.adminService.getUserVisibilityToggles();
 
     const sanitize = (node: any): any => ({
       id: node.id,
@@ -1030,8 +1050,8 @@ export class AuthService {
       avatar: node.avatar,
       packageType: node.packageType,
       position: node.position,
-      leftBranchTotal: node.leftBranchTotal,
-      rightBranchTotal: node.rightBranchTotal,
+      leftBranchTotal: userSalesVisible ? node.leftBranchTotal : 0,
+      rightBranchTotal: userSalesVisible ? node.rightBranchTotal : 0,
       totalPurchaseAmount: node.totalPurchaseAmount,
       createdAt: node.createdAt,
       hasMoreChildren: !!node.hasMoreChildren,
@@ -1058,6 +1078,10 @@ export class AuthService {
 
     const { leftMembers, rightMembers } =
       await this.userService.getBinaryTreeMembers(userId);
+    const { userSalesVisible } =
+      await this.adminService.getUserVisibilityToggles();
+    const branchVolume = (total: unknown) =>
+      userSalesVisible ? parseFloat(String(total || 0)) : 0;
 
     const strip = (member: any) => ({
       id: member.id,
@@ -1076,12 +1100,12 @@ export class AuthService {
       left: {
         members: leftMembers.sort(byDepth).map(strip),
         count: leftMembers.length,
-        volume: parseFloat(String(user.leftBranchTotal || 0)),
+        volume: branchVolume(user.leftBranchTotal),
       },
       right: {
         members: rightMembers.sort(byDepth).map(strip),
         count: rightMembers.length,
-        volume: parseFloat(String(user.rightBranchTotal || 0)),
+        volume: branchVolume(user.rightBranchTotal),
       },
     };
   }
@@ -1108,6 +1132,8 @@ export class AuthService {
   ) {
     await this.assertCanViewTreeOf(currentUserId, userId);
     const children = await this.userService.getDownline(userId, position);
+    const { userSalesVisible } =
+      await this.adminService.getUserVisibilityToggles();
     return children.map((child: any) => {
       // Parse decimal values properly
       const parseDecimal = (value: any): number => {
@@ -1126,8 +1152,8 @@ export class AuthService {
         avatar: child.avatar,
         packageType: child.packageType,
         position: child.position,
-        leftBranchTotal: parseDecimal(child.leftBranchTotal),
-        rightBranchTotal: parseDecimal(child.rightBranchTotal),
+        leftBranchTotal: userSalesVisible ? parseDecimal(child.leftBranchTotal) : 0,
+        rightBranchTotal: userSalesVisible ? parseDecimal(child.rightBranchTotal) : 0,
         totalPurchaseAmount: parseDecimal(child.totalPurchaseAmount),
         createdAt: child.createdAt,
       };
