@@ -7,13 +7,22 @@ export interface Kyc {
   documentNumber: string;
   frontImage?: string;
   backImage?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountHolder?: string;
+  bankBranch?: string;
   status: string;
+  notes?: string;
   createdAt?: string;
+  updatedAt?: string;
   user?: {
     id?: string;
     email?: string;
     fullName?: string;
     username?: string;
+    phone?: string;
+    country?: string;
+    walletAddress?: string;
   };
 }
 
@@ -21,9 +30,6 @@ export const kycService = {
   getStatus: (userId: string) => api.get(`/kyc/status/${userId}`),
   verify: (id: string, data: { approved: boolean; notes?: string }) => api.put(`/kyc/verify/${id}`, data),
   getAll: (params?: any) => api.get('/kyc', { params }),
-  /** Export all KYC records to CSV (Excel-compatible). Returns blob for download. */
-  exportToExcel: () =>
-    api.get('/kyc/export', { responseType: 'blob' }),
   delete: (id: string) => api.delete(`/kyc/${id}`),
 };
 

@@ -176,7 +176,7 @@ const Staffs: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between' , gap: 12 }}>
         <h2>Staff Management</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
           Create Staff
@@ -184,6 +184,7 @@ const Staffs: React.FC = () => {
       </div>
 
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={staffs}
         loading={loading}

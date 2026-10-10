@@ -20,9 +20,17 @@ export class PackagePurchaseController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  async create(@Request() req: any, @Body() body: { packageId: string }) {
+  async create(
+    @Request() req: any,
+    @Body() body: { packageId: string; buyerUsername?: string; useWithdrawWallet?: boolean },
+  ) {
     const userId = req.user?.userId ?? req.user?.id;
-    return this.purchaseService.create(userId, body.packageId);
+    return this.purchaseService.create(
+      userId,
+      body.packageId,
+      body.buyerUsername,
+      body.useWithdrawWallet,
+    );
   }
 
   @Get('my')

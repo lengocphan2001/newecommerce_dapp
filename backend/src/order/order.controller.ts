@@ -3,24 +3,30 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
   Request,
   UseGuards,
   Res,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { OrderService } from './order.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto';
 import { JwtAuthGuard } from '../common/guards';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { AdminService } from '../admin/admin.service';
 
 @Controller('orders')
 export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly notificationsGateway: NotificationsGateway,
+    @Inject(forwardRef(() => AdminService))
+    private readonly adminService: AdminService,
   ) {}
 
   @Get()
@@ -28,6 +34,7 @@ export class OrderController {
   async findAll(@Query() query: any, @Request() req: any) {
     // Admin có thể xem tất cả, user chỉ xem của mình
     if (!req.user.isAdmin) {
+      await this.adminService.assertUserDataVisible('userOrderHistoryVisible');
       query.userId = req.user.userId || req.user.sub;
     }
     return this.orderService.findAll(query);
@@ -56,6 +63,9 @@ export class OrderController {
       'Product IDs',
       'Shipping Address',
       'Transaction Hash',
+      'Shipping Fee',
+      'VAT Rate',
+      'VAT Amount',
       'Created At',
       'Updated At',
     ];
@@ -97,6 +107,9 @@ export class OrderController {
         escapeCsv(productIdsString),
         escapeCsv(order.shippingAddress ?? ''),
         escapeCsv(order.transactionHash ?? ''),
+        escapeCsv(order.shippingFee ?? 0),
+        escapeCsv(order.vatRate ?? 8),
+        escapeCsv(order.vatAmount ?? 0),
         escapeCsv(order.createdAt),
         escapeCsv(order.updatedAt),
       ];
@@ -111,6 +124,9 @@ export class OrderController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string, @Request() req: any) {
+    if (!req.user.isAdmin) {
+      await this.adminService.assertUserDataVisible('userOrderHistoryVisible');
+    }
     const order = await this.orderService.findOne(id);
     // User chỉ có thể xem đơn hàng của mình (trừ admin)
     if (
@@ -175,5 +191,30 @@ export class OrderController {
     }
     const userId = req.user.userId || req.user.sub;
     return this.orderService.confirmPayment(id, transactionHash, userId);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  async deleteOrderAndRollback(
+    @Param('id') id: string,
+    @Request() req: any,
+  ) {
+    if (!req.user.isAdmin) {
+      throw new Error('Unauthorized: Only admin can delete and rollback orders');
+    }
+    const refund = await this.orderService.deleteOrderAndRollback(
+      id,
+      req.user.userId || req.user.sub,
+    );
+    const refundNote = refund
+      ? ` Đã hoàn ${refund.credits
+          .map((c) => `$${c.amount.toFixed(2)}`)
+          .join(' + ')} về ví của @${refund.username || refund.userId}.`
+      : '';
+    return {
+      success: true,
+      message: `Đơn hàng và các hoa hồng/doanh số liên quan đã được xóa và thu hồi thành công.${refundNote}`,
+      refund,
+    };
   }
 }

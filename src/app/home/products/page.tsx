@@ -6,6 +6,7 @@ import AppHeader from "@/app/components/AppHeader";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { api } from "@/app/services/api";
+import { formatAmount } from "@/app/utils/format";
 
 interface Category {
   id: string;
@@ -104,12 +105,44 @@ export default function ProductsPage() {
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
+
+  const formatPrice = (price: number) => formatAmount(price, 2, 4);
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation();
@@ -301,16 +334,16 @@ export default function ProductsPage() {
 
         {loading ? (
           <div className="px-4 pt-4 pb-8 bg-white">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 animate-pulse"
+                  className="bg-white rounded-xl overflow-hidden border border-gray-100 p-3 space-y-3 shadow-sm"
                 >
-                  <div className="relative aspect-square w-full bg-gray-50"></div>
-                  <div className="p-3 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="relative aspect-square w-full skeleton-shimmer rounded-lg"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 skeleton-shimmer rounded w-3/4"></div>
+                    <div className="h-4 skeleton-shimmer rounded w-1/2"></div>
                   </div>
                 </div>
               ))}
@@ -328,12 +361,12 @@ export default function ProductsPage() {
               <h3 className="text-lg font-bold text-text-dark">{getCountryLabel(selectedCountries)}</h3>
               <span className="text-xs text-gray-500 font-medium">{filteredProducts.length} items found</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => handleProductClick(product.id)}
-                  className="group bg-white rounded-xl overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-gray-100 hover:border-primary/30 transition-all hover:shadow-lg"
+                  className="group premium-card overflow-hidden cursor-pointer"
                 >
                   <div className="relative aspect-square w-full bg-gray-50 overflow-hidden">
                     {product.thumbnailUrl ? (
@@ -394,19 +427,19 @@ export default function ProductsPage() {
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1.5 mb-0.5">
                               <span className="text-xs text-gray-400 line-through">
-                                {formatPrice(product.price)}
+                                {formatVnd(product.price * usdtToVnd)}
                               </span>
                               <span className="bg-red-50 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
                                 -{product.salePercentage}%
                               </span>
                             </div>
                             <p className="text-lg font-bold text-red-600 leading-none">
-                              {formatPrice(product.price * (1 - product.salePercentage / 100))} <span className="text-[10px] font-normal text-red-600">PV</span>
+                              {formatVnd(product.price * (1 - product.salePercentage / 100) * usdtToVnd)}
                             </p>
                           </div>
                         ) : (
                           <p className="text-lg font-bold text-primary-dark">
-                            {formatPrice(product.price)} <span className="text-xs font-normal text-gray-500">PV</span>
+                            {formatVnd(product.price * usdtToVnd)}
                           </p>
                         )}
                       </div>

@@ -31,6 +31,11 @@ export interface Product {
   combos?: { quantity: number; price: number; label?: string }[];
   /** true = hoa hồng sản phẩm (%), false = chỉ hoa hồng theo gói (package). */
   useProductCommission?: boolean;
+  /** Tỷ lệ hoa hồng gián tiếp F2 cho sản phẩm (%) */
+  indirectCommissionRateF2?: number;
+  /** Tỷ lệ % giá trị sản phẩm (chưa thuế) làm căn cứ tính hoa hồng (ví dụ: 85, 90, 95). Mặc định 95%. */
+  commissionBasePercent?: number;
+
   /** Direct: commission % for buyer package TV/CTV/NPP (0–100). */
   commissionPercentTV?: number;
   commissionPercentCTV?: number;
@@ -72,6 +77,7 @@ export const productService = {
   update: (id: string, data: Partial<Product>) => api.put<Product>(`/products/${id}`, data),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/products/${id}`),
   togglePush: (id: string) => api.put<Product>(`/products/${id}/push`),
+  reorder: (ids: string[]) => api.put<{ success: boolean }>('/products/reorder', { ids }),
   export: () => api.get('/products/export', { responseType: 'blob' }),
   importCsv: (file: File) => {
     const fd = new FormData();

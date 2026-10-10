@@ -20,13 +20,14 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { formatUsdt } from '../utils/format';
 
 interface TreeNode {
   id: string;
   username: string | null;
   fullName: string;
   email: string;
-  packageType: 'NONE' | 'CTV' | 'NPP';
+  packageType: string;
   avatar?: string;
   leftBranchTotal: number;
   rightBranchTotal: number;
@@ -48,9 +49,14 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       node.position === 'right' ? '#52c41a' :
         '#722ed1';
 
-  const getPackageColor = (packageType: 'NONE' | 'CTV' | 'NPP') => {
+  const getPackageColor = (packageType: string) => {
+    const total = Number(node.totalPurchaseAmount) || 0;
+    if (total >= 600) {
+      return 'orange';
+    }
     switch (packageType) {
       case 'NPP':
+      case 'DT':
         return 'gold';
       case 'CTV':
         return 'blue';
@@ -59,19 +65,8 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
     }
   };
 
-  const formatPrice = (amount: number) => {
-    if (amount === 0 || amount === null || amount === undefined || isNaN(amount)) {
-      return '0.00';
-    }
-    // Fix floating-point precision issues
-    let str = amount.toFixed(8).replace(/\.?0+$/, '');
-    if (!str.includes('.')) str += '.00';
-    else {
-      const [int, dec] = str.split('.');
-      if (dec.length < 2) str = `${int}.${dec.padEnd(2, '0')}`;
-    }
-    return str;
-  };
+  const formatPrice = (amount: number) =>
+    formatUsdt(amount, { grouping: false });
 
   return (
     <div
@@ -102,7 +97,15 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       <div style={{ textAlign: 'center' }}>
         <div style={{ marginBottom: 8 }}>
           <Tag color={getPackageColor(node.packageType)} style={{ marginBottom: 4, fontSize: '11px' }}>
-            {node.packageType}
+            {(() => {
+              const total = Number(node.totalPurchaseAmount) || 0;
+              if (total >= 600) return 'Đại lý';
+              const type = node.packageType;
+              if (type === 'NPP' || type === 'DT') return 'Đối Tác';
+              if (type === 'CTV') return 'CTV';
+              if (type === 'TV') return 'Thành Viên';
+              return type;
+            })()}
           </Tag>
         </div>
         {node.username && (
@@ -350,7 +353,7 @@ const TreeView: React.FC = () => {
   }, [nodes.length]);
 
   return (
-    <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
+    <div className="admin-page" style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
       <Card
         title={
           <Space>
@@ -394,7 +397,7 @@ const TreeView: React.FC = () => {
             <Select
               showSearch
               placeholder="Select root user by Name, Email or ID"
-              style={{ width: 400 }}
+              style={{ width: '100%', maxWidth: 400 }}
               value={rootUserId}
               onChange={setRootUserId}
               filterOption={(input, option) => {
@@ -416,7 +419,7 @@ const TreeView: React.FC = () => {
               }))}
             />
             <Select
-              style={{ width: 150 }}
+              style={{ width: '100%', maxWidth: 150 }}
               value={maxDepth}
               onChange={setMaxDepth}
               options={[
@@ -453,6 +456,7 @@ const TreeView: React.FC = () => {
           <ReactFlowProvider>
             <div
               ref={reactFlowContainerRef}
+              className="admin-flow-canvas"
               style={{
                 width: '100%',
                 height: '75vh',

@@ -5,16 +5,20 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Order } from '../../order/entities/order.entity';
 
 export enum CommissionType {
   DIRECT = 'direct', // Hoa hồng trực tiếp
+  INDIRECT = 'indirect', // Hoa hồng gián tiếp (F2)
   GROUP = 'group', // Hoa hồng nhóm
   MANAGEMENT = 'management', // Hoa hồng quản lý
   MILESTONE = 'milestone', // Thưởng milestone (2, 4, 6 người...)
   PRODUCT = 'product', // Hoa hồng theo từng sản phẩm (% theo gói TV/CTV/NPP)
+  GROUP_MONTHLY = 'group_monthly', // Thưởng nhóm hàng tháng (Tầng 3) — không còn tạo, thay bằng lương tháng; giữ cho dữ liệu cũ
+  GLOBAL_SHARE_MONTHLY = 'global_share_monthly', // Hoa hồng đồng chia cấp bậc toàn quốc (Tầng 4)
 }
 
 export enum CommissionStatus {
@@ -29,6 +33,7 @@ export class Commission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column()
   userId: string; // User nhận hoa hồng
 
@@ -46,6 +51,7 @@ export class Commission {
   @Column({ type: 'varchar', length: 64, nullable: true })
   milestoneRef: string; // e.g. 'milestone-{id}' để singlePayout tìm commission milestone
 
+  @Index()
   @Column({ nullable: true })
   fromUserId: string; // User tạo ra đơn hàng (cho hoa hồng trực tiếp/quản lý)
 
@@ -87,6 +93,49 @@ export class Commission {
   })
   orderAmount: number; // Giá trị đơn hàng
 
+  /**
+   * Wallet split written when the commission is paid: the part credited to
+   * `users.withdrawWalletBalance`, the part credited to
+   * `users.reconsumptionWalletBalance`, and the tax credited to no wallet.
+   * All 0 while unpaid, and for commissions marked paid without crediting a
+   * wallet (on-chain payouts, manual approval).
+   */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  withdrawAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  reconsumptionAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value) || 0,
+    },
+  })
+  taxAmount: number;
+
   @Column({ nullable: true })
   level: number; // Cấp độ (F1, F2, F3) cho hoa hồng quản lý
 
@@ -108,6 +157,7 @@ export class Commission {
   @Column({ type: 'timestamp', nullable: true })
   payoutDate: Date; // Date when payout was executed
 
+  @Index('IDX_commissions_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 }

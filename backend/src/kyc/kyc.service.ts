@@ -72,17 +72,15 @@ export class KycService {
   }
 
   async getAll(params?: any) {
-    return this.kycRepository.find({
+    const list = await this.kycRepository.find({
       order: { createdAt: 'DESC' },
       relations: ['user'],
     });
-  }
-
-  /** Get all KYC records for export (with user relation for email, username, etc.) */
-  async getAllForExport() {
-    return this.kycRepository.find({
-      order: { createdAt: 'DESC' },
-      relations: ['user'],
+    // Never ship the user's password hash to the admin client.
+    return list.map(({ user, ...kyc }) => {
+      if (!user) return { ...kyc, user };
+      const { password, ...safeUser } = user;
+      return { ...kyc, user: safeUser };
     });
   }
 

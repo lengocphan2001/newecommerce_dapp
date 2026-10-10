@@ -40,6 +40,20 @@ export class HeapRewardHistory {
   @Column({ type: 'date', nullable: true })
   rewardDate: Date; // e.g., '2026-04-20'
 
+  /** Đơn hàng đã sinh ra phần thưởng này. Null với lịch sử cũ. */
+  @Index()
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  orderId: string | null;
+
+  /** Phần thưởng này làm vị trí chạm max payout và bị đẩy khỏi bể. */
+  @Column({ default: false })
+  pushedOut: boolean;
+
+  /** False khi chạy đồng bộ mô phỏng (skipWalletUpdate): không cộng tiền vào ví. */
+  @Column({ default: true })
+  walletCredited: boolean;
+
+  @Index('IDX_heap_reward_histories_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 }

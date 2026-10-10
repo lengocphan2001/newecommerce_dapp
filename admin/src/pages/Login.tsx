@@ -35,10 +35,11 @@ const Login: React.FC = () => {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
+        padding: 16,
         background: '#f0f2f5',
       }}
     >
-      <Card style={{ width: 400 }}>
+      <Card style={{ width: '100%', maxWidth: 400 }}>
         <h1 style={{ textAlign: 'center', marginBottom: 24 }}>Admin Login</h1>
         <Form
           name="login"

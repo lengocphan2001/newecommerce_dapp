@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource, EntityManager, MoreThan } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { Product } from '../product/entities/product.entity';
 import { User } from '../user/entities/user.entity';
@@ -18,6 +18,39 @@ import { GoogleSheetsService } from '../common/google-sheets.service';
 import { MilestoneRewardService } from '../admin/milestone-reward.service';
 import { MatrixRewardService } from '../matrix-reward/matrix-reward.service';
 import { HeapRewardService } from '../heap-reward/heap-reward.service';
+import { AdminService } from '../admin/admin.service';
+import { BranchVolumeLog } from '../affiliate/entities/branch-volume-log.entity';
+import { Commission, CommissionStatus } from '../affiliate/entities/commission.entity';
+import { MatrixRewardLedger } from '../matrix-reward/entities/matrix-reward-ledger.entity';
+import { MatrixRewardOrderProcessed } from '../matrix-reward/entities/matrix-reward-order-processed.entity';
+import { MatrixRewardNode } from '../matrix-reward/entities/matrix-reward-node.entity';
+import { HeapRewardPlacement } from '../heap-reward/entities/heap-reward-placement.entity';
+import { HeapRewardHistory } from '../heap-reward/entities/heap-reward-history.entity';
+import { UserMilestone } from '../admin/entities/user-milestone.entity';
+import { AgentPoolHistory } from '../agent-pool/entities/agent-pool-history.entity';
+import { AgentPoolMember } from '../agent-pool/entities/agent-pool-member.entity';
+import { AgentPoolService } from '../agent-pool/agent-pool.service';
+import {
+  AuditLog,
+  AuditLogAction,
+  AuditLogEntityType,
+} from '../audit-log/entities/audit-log.entity';
+
+/** Các phương thức thanh toán trừ thẳng vào số dư ví nội bộ của người trả tiền. */
+const INTERNAL_WALLET_METHODS = ['deposit_wallet', 'pv_wallet', 'withdraw_wallet'];
+
+const WALLET_LABELS: Record<string, string> = {
+  withdrawWalletBalance: 'ví thưởng',
+  pvWalletBalance: 'ví nạp PV',
+  reconsumptionWalletBalance: 'ví tiêu dùng (hoa hồng)',
+  walletBalance: 'ví tiêu dùng (nạp tiền)',
+};
+
+export interface WalletRefund {
+  userId: string;
+  username: string | null;
+  credits: Array<{ wallet: string; amount: number }>;
+}
 
 @Injectable()
 export class OrderService {
@@ -39,6 +72,10 @@ export class OrderService {
     private matrixRewardService: MatrixRewardService,
     @Inject(forwardRef(() => HeapRewardService))
     private heapRewardService: HeapRewardService,
+    private agentPoolService: AgentPoolService,
+    @Inject(forwardRef(() => AdminService))
+    private adminService: AdminService,
+    private dataSource: DataSource,
   ) {}
 
   private getOrderItems(order: Order): Array<{
@@ -148,6 +185,50 @@ export class OrderService {
   }
 
   async create(createOrderDto: CreateOrderDto, userId?: string) {
+    let buyerId = userId;
+    let proxyNote = '';
+
+    if (createOrderDto.buyerUsername?.trim()) {
+      if (!userId) {
+        throw new BadRequestException('Phải đăng nhập để sử dụng tính năng mua hộ.');
+      }
+      const buyer = await this.userRepository.findOne({
+        where: { username: createOrderDto.buyerUsername.trim() },
+        select: ['id', 'username', 'fullName', 'referralUserId'],
+      });
+      if (!buyer) {
+        throw new NotFoundException('Username người được mua hộ không tồn tại.');
+      }
+
+      // Check downline
+      let isDownline = false;
+      let currentId = buyer.id;
+      const visited = new Set<string>();
+      while (currentId) {
+        if (currentId === userId) {
+          isDownline = true;
+          break;
+        }
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+        
+        const u = await this.userRepository.findOne({
+          where: { id: currentId },
+          select: ['id', 'referralUserId'],
+        });
+        if (!u || !u.referralUserId) break;
+        currentId = u.referralUserId;
+      }
+
+      if (!isDownline) {
+        throw new BadRequestException('User được mua hộ không thuộc tuyến dưới của bạn.');
+      }
+
+      buyerId = buyer.id;
+      const sponsor = await this.userRepository.findOne({ where: { id: userId }, select: ['username'] });
+      proxyNote = `Mua hộ bởi @${sponsor?.username || userId}`;
+    }
+
     // Lấy thông tin sản phẩm và tính tổng tiền
     const items: Array<{
       productId: string;
@@ -206,40 +287,63 @@ export class OrderService {
 
     }
 
-    // Add shipping fee to total amount
-    const finalTotal = totalAmount + shippingFee;
+    // Calculate VAT (8%)
+    const vatRate = 8;
+    const vatAmount = totalAmount * (vatRate / 100);
+
+    // Add shipping fee and VAT to total amount
+    const finalTotal = totalAmount + shippingFee + vatAmount;
 
     const paymentMethod = createOrderDto.paymentMethod || 'wallet';
 
-    // Ví tiêu dùng (deposit_wallet) y Ví nạp PV (pv_wallet) solo se permiten para productos comunes (COMMON), no estratégicos
-    if (paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet') {
+    // Ví nạp PV (pv_wallet) solo se permite para productos comunes (COMMON), no estratégicos.
+    // Ví tiêu dùng (deposit_wallet) se acepta para cualquier producto, incluidos los estratégicos.
+    if (paymentMethod === 'pv_wallet') {
       const strategicProducts = products.filter((p) =>
         (p.productTypes || []).includes('STRATEGIC'),
       );
       if (strategicProducts.length > 0) {
         const names = strategicProducts.map((p) => p.name).join(', ');
         throw new BadRequestException(
-          `Ví tiêu dùng chỉ được dùng để mua sản phẩm thông dụng. Giỏ hàng có sản phẩm chiến lược: ${names}`,
+          `Ví nạp PV chỉ được dùng để mua sản phẩm thông dụng. Giỏ hàng có sản phẩm chiến lược: ${names}`,
         );
       }
     }
 
+    // Admin có thể tắt mua hàng bằng từng loại ví (áp dụng cho mọi đơn, kể cả đặt hộ)
+    await this.adminService.assertWalletPaymentEnabled(paymentMethod);
+
     // Yêu cầu đăng nhập nếu dùng ví thanh toán
-    if ((paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet') && !userId) {
+    if ((paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet' || paymentMethod === 'withdraw_wallet') && !userId) {
       throw new BadRequestException('Phương thức thanh toán bằng ví yêu cầu người dùng đăng nhập.');
     }
 
-    // Ví nạp tiền: trừ số dư và xác nhận đơn ngay
+    // Phần đã trừ từ ví tích lũy hoa hồng, để khi xóa đơn hoàn đúng về từng ví
+    let paidFromReconsumptionAmount: number | null = null;
+
+    // Ví tiêu dùng: trừ số dư (ưu tiên từ reconsumptionWalletBalance ví tích lũy hoa hồng 25%, còn thiếu trừ tiếp walletBalance ví nạp)
     if (paymentMethod === 'deposit_wallet' && userId) {
       const user = await this.userRepository.findOne({ where: { id: userId } });
       if (!user) throw new NotFoundException('User not found');
-      const balance = Number(user.walletBalance ?? 0);
-      if (balance < finalTotal) {
+      const reconsumptionBal = Number(user.reconsumptionWalletBalance ?? 0);
+      const bankingBal = Number(user.walletBalance ?? 0);
+      const totalBalance = reconsumptionBal + bankingBal;
+
+      if (totalBalance < finalTotal) {
         throw new BadRequestException(
-          `Số dư ví tiêu dùng không đủ. Hiện tại: ${balance.toFixed(2)} PV, cần: ${finalTotal.toFixed(2)} PV`,
+          `Số dư ví tiêu dùng không đủ. Hiện tại: $${totalBalance.toFixed(2)} USDT, cần: $${finalTotal.toFixed(2)} USDT`,
         );
       }
-      user.walletBalance = balance - finalTotal;
+
+      if (reconsumptionBal >= finalTotal) {
+        user.reconsumptionWalletBalance = reconsumptionBal - finalTotal;
+        paidFromReconsumptionAmount = finalTotal;
+      } else {
+        const remaining = finalTotal - reconsumptionBal;
+        user.reconsumptionWalletBalance = 0;
+        user.walletBalance = bankingBal - remaining;
+        paidFromReconsumptionAmount = reconsumptionBal;
+      }
       await this.userRepository.save(user);
     }
 
@@ -261,23 +365,48 @@ export class OrderService {
       await this.userRepository.save(user);
     }
 
-    // Determine initial status: Crypto (transactionHash), deposit_wallet or pv_wallet → CONFIRMED; Banking → PENDING
+    // Ví thưởng (withdraw_wallet): trừ số dư ví thưởng của người thanh toán (userId)
+    if (paymentMethod === 'withdraw_wallet' && userId) {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) throw new NotFoundException('User not found');
+      const withdrawBal = Number(user.withdrawWalletBalance ?? 0);
+
+      if (withdrawBal < finalTotal) {
+        throw new BadRequestException(
+          `Số dư ví thưởng không đủ. Hiện tại: $${withdrawBal.toFixed(2)} PV, cần: $${finalTotal.toFixed(2)} PV`,
+        );
+      }
+
+      user.withdrawWalletBalance = withdrawBal - finalTotal;
+      await this.userRepository.save(user);
+    }
+
+    // Determine initial status: Crypto (transactionHash), deposit_wallet, pv_wallet or withdraw_wallet → CONFIRMED; Banking → PENDING
     const initialStatus =
-      createOrderDto.transactionHash || paymentMethod === 'deposit_wallet' || paymentMethod === 'pv_wallet'
+      createOrderDto.transactionHash ||
+      paymentMethod === 'deposit_wallet' ||
+      paymentMethod === 'pv_wallet' ||
+      paymentMethod === 'withdraw_wallet'
         ? OrderStatus.CONFIRMED
         : OrderStatus.PENDING;
 
     const order = this.orderRepository.create({
-      userId,
+      userId: buyerId,
       items,
       totalAmount: finalTotal,
       shippingFee: shippingFee > 0 ? shippingFee : undefined,
+      vatRate,
+      vatAmount,
       status: initialStatus,
       transactionHash: createOrderDto.transactionHash,
       shippingAddress: createOrderDto.shippingAddress,
       shippingPhone: createOrderDto.shippingPhone,
       shippingName: createOrderDto.shippingName,
       paymentMethod,
+      paidByUserId:
+        userId && INTERNAL_WALLET_METHODS.includes(paymentMethod) ? userId : null,
+      paidFromReconsumptionAmount,
+      notes: proxyNote ? (createOrderDto.notes ? `${createOrderDto.notes} | ${proxyNote}` : proxyNote) : createOrderDto.notes,
     });
 
     const savedOrder = await this.orderRepository.save(order);
@@ -445,19 +574,42 @@ export class OrderService {
       );
     }
 
-    // 5. Matrix reward pool (binary trees per level) — đơn ≥ config USDT
-    this.matrixRewardService
-      .processOrderIfEligible(order.id)
-      .catch((err) =>
-        console.error(`[MATRIX] Error processing order ${order.id}:`, err),
-      );
+    // 5-7. Các bể thưởng chạy nền, nhưng tuần tự với nhau: cả ba đều cộng vào
+    // users.withdrawWalletBalance trong transaction riêng, chạy song song thì
+    // khoá chéo nhau và MySQL huỷ một transaction với ER_LOCK_DEADLOCK.
+    void (async () => {
+      // 5. Matrix reward pool (binary trees per level) — đơn ≥ config USDT
+      try {
+        await this.matrixRewardService.processOrderIfEligible(order.id);
+      } catch (err) {
+        console.error(`[MATRIX] Error processing order ${order.id}:`, err);
+      }
 
-    // 6. Heap Reward
-    this.heapRewardService
-      .processOrderIfEligible(order.id)
-      .catch((err) =>
-        console.error(`[HEAP] Error processing order ${order.id}:`, err),
-      );
+      // 6. Heap Reward
+      try {
+        await this.heapRewardService.processOrderIfEligible(order.id);
+      } catch (err) {
+        console.error(`[HEAP] Error processing order ${order.id}:`, err);
+      }
+
+      // 7. Agent Level Pools (C1, C2, ...)
+      try {
+        // Đơn mới có thể đưa người mua hoặc tuyến trên đủ điều kiện lên
+        // C1..C9, nên cập nhật thành viên bể trước khi chia phần của đơn này.
+        await this.agentPoolService.syncMembershipsForOrder(order.id);
+      } catch (err) {
+        console.error(
+          `[AGENT-POOL] Error syncing memberships for order ${order.id}:`,
+          err,
+        );
+      }
+
+      try {
+        await this.agentPoolService.processOrder(order.id);
+      } catch (err) {
+        console.error(`[AGENT-POOL] Error processing order ${order.id}:`, err);
+      }
+    })();
   }
 
   async updateStatus(id: string, updateStatusDto: UpdateOrderStatusDto) {
@@ -504,16 +656,32 @@ export class OrderService {
       return savedOrder;
     }
 
-    // Nếu hủy đơn hàng, hoàn lại stock
+    // Nếu hủy đơn hàng, hoàn lại stock và thu hồi commission/volume
     if (
       newStatus === OrderStatus.CANCELLED &&
       oldStatus !== OrderStatus.CANCELLED
     ) {
-      await this.updateStockByOrderItems(order, 'increase');
+      const isWasActive = [
+        OrderStatus.CONFIRMED,
+        OrderStatus.PROCESSING,
+        OrderStatus.SHIPPED,
+        OrderStatus.DELIVERED
+      ].includes(oldStatus);
+
+      await this.dataSource.transaction(async (manager) => {
+        await this.updateStockByOrderItems(order, 'increase');
+        if (isWasActive) {
+          await this.rollbackOrderEffects(order.id, manager);
+        }
+        order.status = newStatus;
+        await manager.getRepository(Order).save(order);
+      });
+    } else {
+      order.status = newStatus;
+      await this.orderRepository.save(order);
     }
 
-    order.status = newStatus;
-    const finalSavedOrder = await this.orderRepository.save(order);
+    const finalSavedOrder = await this.findOne(order.id);
 
     // Sync to Google Sheets
     try {
@@ -539,11 +707,22 @@ export class OrderService {
       throw new Error('Cannot cancel delivered order');
     }
 
-    // Hoàn lại stock
-    await this.updateStockByOrderItems(order, 'increase');
+    const wasActive = [
+      OrderStatus.CONFIRMED,
+      OrderStatus.PROCESSING,
+      OrderStatus.SHIPPED
+    ].includes(order.status);
 
-    order.status = OrderStatus.CANCELLED;
-    const cancelledOrder = await this.orderRepository.save(order);
+    await this.dataSource.transaction(async (manager) => {
+      await this.updateStockByOrderItems(order, 'increase');
+      if (wasActive) {
+        await this.rollbackOrderEffects(order.id, manager);
+      }
+      order.status = OrderStatus.CANCELLED;
+      await manager.getRepository(Order).save(order);
+    });
+
+    const cancelledOrder = await this.findOne(id);
 
     // Sync to Google Sheets
     try {
@@ -583,6 +762,7 @@ export class OrderService {
         const effective = this.packagesService.getEffectiveThreshold(
           Number(user.totalPurchaseAmount),
           pkg,
+          user.customMaxCommission,
         );
         if (
           Number(user.totalCommissionReceived) >= effective &&
@@ -601,6 +781,7 @@ export class OrderService {
     const effective = this.packagesService.getEffectiveThreshold(
       Number(user.totalPurchaseAmount),
       pkg,
+      user.customMaxCommission,
     );
     if (
       Number(user.totalCommissionReceived) >= effective &&
@@ -610,5 +791,425 @@ export class OrderService {
     }
 
     return false;
+  }
+
+  async rollbackOrderEffects(orderId: string, manager: EntityManager): Promise<void> {
+    const orderRepo = manager.getRepository(Order);
+    const userRepo = manager.getRepository(User);
+    const branchVolumeLogRepo = manager.getRepository(BranchVolumeLog);
+    const commissionRepo = manager.getRepository(Commission);
+    const matrixLedgerRepo = manager.getRepository(MatrixRewardLedger);
+    const matrixProcessedRepo = manager.getRepository(MatrixRewardOrderProcessed);
+    const matrixNodeRepo = manager.getRepository(MatrixRewardNode);
+    const heapPlacementRepo = manager.getRepository(HeapRewardPlacement);
+    const userMilestoneRepo = manager.getRepository(UserMilestone);
+
+    const order = await orderRepo.findOne({ where: { id: orderId } });
+    if (!order) return;
+
+    const buyerId = order.userId;
+    const orderAmount = Number(order.totalAmount) || 0;
+
+    // 1. Rollback buyer's purchase total & package type
+    if (buyerId && orderAmount > 0) {
+      const buyer = await userRepo.findOne({ where: { id: buyerId } });
+      if (buyer) {
+        let newPurchaseAmount = Number(buyer.totalPurchaseAmount || 0) - orderAmount;
+        if (newPurchaseAmount < 0) newPurchaseAmount = 0;
+
+        let newReconsumptionAmount = Number(buyer.totalReconsumptionAmount || 0);
+        if (order.isReconsumption) {
+          newReconsumptionAmount -= orderAmount;
+          if (newReconsumptionAmount < 0) newReconsumptionAmount = 0;
+        }
+
+        // Downgrade package type if needed
+        const packages = await this.packagesService.findAll();
+        let highestQualified = 'NONE';
+        let highestLevel = 0;
+        for (const pkg of packages) {
+          if (!pkg.isActive) continue;
+          const price = Number(pkg.price) ?? 0;
+          if (newPurchaseAmount >= price && pkg.level > highestLevel) {
+            highestQualified = pkg.code;
+            highestLevel = pkg.level;
+          }
+        }
+
+        await userRepo.update(buyerId, {
+          totalPurchaseAmount: newPurchaseAmount,
+          totalReconsumptionAmount: newReconsumptionAmount,
+          packageType: highestQualified,
+        });
+      }
+    }
+
+    // 2. Rollback branch volumes (ancestors)
+    const branchLogs = await branchVolumeLogRepo.find({ where: { orderId } });
+    for (const log of branchLogs) {
+      const ancestor = await userRepo.findOne({ where: { id: log.userId } });
+      if (ancestor) {
+        const sideField = log.side === 'left' ? 'leftBranchTotal' : 'rightBranchTotal';
+        let currentTotal = Number(ancestor[sideField] || 0);
+        let newTotal = currentTotal - Number(log.amount || 0);
+        if (newTotal < 0) newTotal = 0;
+
+        await userRepo.update(ancestor.id, { [sideField]: newTotal });
+      }
+    }
+    if (branchLogs.length > 0) {
+      await branchVolumeLogRepo.remove(branchLogs);
+    }
+
+    // 3. Rollback Direct, Indirect, Product, and Milestone commissions
+    const commissions = await commissionRepo.find({ where: { orderId } });
+    const { depositPercent, withdrawPercent } = await this.adminService.getCommissionWalletDistribution();
+
+    for (const comm of commissions) {
+      const beneficiary = await userRepo.findOne({ where: { id: comm.userId } });
+      if (beneficiary) {
+        let currentReceived = Number(beneficiary.totalCommissionReceived || 0);
+        let newReceived = currentReceived - Number(comm.amount || 0);
+        if (newReceived < 0) newReceived = 0;
+
+        const updatePayload: any = { totalCommissionReceived: newReceived };
+
+        if (comm.status === CommissionStatus.PAID) {
+          const commAmount = Number(comm.amount) || 0;
+          // Trừ đúng phần đã cộng vào từng ví lúc trả. Hoa hồng trả trước khi có
+          // cột withdrawAmount / reconsumptionAmount thì ước theo tỷ lệ hiện tại.
+          const recordedWithdraw = Number(comm.withdrawAmount) || 0;
+          const recordedReconsumption = Number(comm.reconsumptionAmount) || 0;
+          const hasRecordedSplit = recordedWithdraw + recordedReconsumption > 0;
+          const withdrawDeduct = hasRecordedSplit
+            ? recordedWithdraw
+            : Math.round((commAmount * withdrawPercent / 100) * 1e8) / 1e8;
+          const reconsumptionDeduct = hasRecordedSplit
+            ? recordedReconsumption
+            : Math.round((commAmount * depositPercent / 100) * 1e8) / 1e8;
+
+          let newWithdraw = Number(beneficiary.withdrawWalletBalance || 0) - withdrawDeduct;
+          let newReconsumption = Number(beneficiary.reconsumptionWalletBalance || 0) - reconsumptionDeduct;
+
+          updatePayload.withdrawWalletBalance = newWithdraw;
+          updatePayload.reconsumptionWalletBalance = newReconsumption;
+        }
+
+        await userRepo.update(beneficiary.id, updatePayload);
+      }
+    }
+    if (commissions.length > 0) {
+      await commissionRepo.remove(commissions);
+    }
+
+    // 4. Matrix Rewards rollback
+    const matrixLedgers = await matrixLedgerRepo.find({ where: { orderId } });
+    for (const mLeg of matrixLedgers) {
+      const beneficiary = await userRepo.findOne({ where: { id: mLeg.beneficiaryUserId } });
+      if (beneficiary) {
+        const mAmount = Number(mLeg.amount) || 0;
+        if (mAmount > 0) {
+          let newWithdraw = Number(beneficiary.withdrawWalletBalance || 0) - mAmount;
+          await userRepo.update(beneficiary.id, { withdrawWalletBalance: newWithdraw });
+
+          const reverseLedger = matrixLedgerRepo.create({
+            treeId: mLeg.treeId,
+            beneficiaryUserId: mLeg.beneficiaryUserId,
+            amount: -mAmount,
+            sourceNodeId: mLeg.sourceNodeId,
+            orderId: orderId,
+          });
+          await matrixLedgerRepo.save(reverseLedger);
+        }
+      }
+    }
+    await matrixProcessedRepo.delete({ orderId });
+
+    // 5. Matrix Nodes cleanup
+    const matrixNode = await matrixNodeRepo.findOne({ where: { placementOrderId: orderId } });
+    if (matrixNode) {
+      const childrenCount = await matrixNodeRepo.count({ where: { parentNodeId: matrixNode.id } });
+      if (childrenCount === 0) {
+        await matrixNodeRepo.remove(matrixNode);
+      } else {
+        await matrixNodeRepo.update(matrixNode.id, { placementOrderId: null });
+      }
+    }
+
+    // 6. Heap Placements cleanup
+    const heapPlacements = await heapPlacementRepo.find({ where: { triggerOrderId: orderId } });
+    if (heapPlacements.length > 0) {
+      const placementIds = heapPlacements.map(hp => hp.id);
+      const hHistoryRepo = manager.getRepository(HeapRewardHistory);
+      const heapHistories = await hHistoryRepo.find({ where: { placementId: In(placementIds) } });
+
+      for (const history of heapHistories) {
+        const amount = Number(history.amount) || 0;
+        if (amount > 0) {
+          const hUser = await userRepo.findOne({ where: { id: history.userId } });
+          if (hUser) {
+            let newWithdraw = Number(hUser.withdrawWalletBalance || 0) - amount;
+            await userRepo.update(hUser.id, { withdrawWalletBalance: newWithdraw });
+          }
+        }
+      }
+      await heapPlacementRepo.remove(heapPlacements);
+    }
+
+    // 6b. Heap: thưởng mà đơn này chia cho các thành viên đang ở trong bể
+    await this.rollbackHeapRewardsOfOrder(orderId, manager);
+
+    // 6c. Bể đồng hưởng lãnh đạo C1..C9 chia từ đơn này
+    await this.rollbackAgentPoolRewardsOfOrder(orderId, manager);
+
+    // 7. Milestone catch-down
+    if (buyerId) {
+      const buyerUser = await userRepo.findOne({ where: { id: buyerId } });
+      if (buyerUser && buyerUser.referralUserId) {
+        const referrerId = buyerUser.referralUserId;
+        const referrer = await userRepo.findOne({ where: { id: referrerId } });
+        if (referrer) {
+          const directReferrals = await userRepo.find({ where: { referralUserId: referrerId } });
+          const newQualifiedCount = directReferrals.filter(ref => Number(ref.totalPurchaseAmount) > 0).length;
+
+          const invalidMilestones = await userMilestoneRepo.find({
+            where: {
+              userId: referrerId,
+              milestoneCount: MoreThan(newQualifiedCount),
+            }
+          });
+
+          for (const mil of invalidMilestones) {
+            const milComms = await commissionRepo.find({
+              where: {
+                milestoneRef: `milestone-${mil.id}`,
+              }
+            });
+
+            for (const mc of milComms) {
+              let currentMcReceived = Number(referrer.totalCommissionReceived || 0);
+              let newMcReceived = currentMcReceived - Number(mc.amount || 0);
+              if (newMcReceived < 0) newMcReceived = 0;
+
+              const mcPayload: any = { totalCommissionReceived: newMcReceived };
+
+              if (mc.status === CommissionStatus.PAID) {
+                const mcAmount = Number(mc.amount) || 0;
+                const withdrawMcDeduct = Math.round((mcAmount * withdrawPercent / 100) * 1e8) / 1e8;
+                const reconsumptionMcDeduct = Math.round((mcAmount * depositPercent / 100) * 1e8) / 1e8;
+
+                mcPayload.withdrawWalletBalance = Number(referrer.withdrawWalletBalance || 0) - withdrawMcDeduct;
+                mcPayload.reconsumptionWalletBalance = Number(referrer.reconsumptionWalletBalance || 0) - reconsumptionMcDeduct;
+              }
+
+              await userRepo.update(referrerId, mcPayload);
+              await commissionRepo.remove(mc);
+            }
+            await userMilestoneRepo.remove(mil);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Thu hồi thưởng heap mà đơn này chia cho thành viên khác trong bể: trừ ví,
+   * trừ totalRewarded của vị trí, và đưa vị trí trở lại bể nếu chính phần
+   * thưởng này đã đẩy nó ra (trừ khi người đó đã vào lại bể bằng vị trí mới).
+   * Lịch sử tạo trước khi có cột orderId không xác định được đơn nên bỏ qua.
+   */
+  private async rollbackHeapRewardsOfOrder(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const historyRepo = manager.getRepository(HeapRewardHistory);
+    const placementRepo = manager.getRepository(HeapRewardPlacement);
+    const userRepo = manager.getRepository(User);
+
+    const histories = await historyRepo.find({ where: { orderId } });
+    for (const history of histories) {
+      const amount = Number(history.amount) || 0;
+      if (amount > 0 && history.walletCredited) {
+        await userRepo.decrement({ id: history.userId }, 'withdrawWalletBalance', amount);
+      }
+
+      const placement = await placementRepo.findOne({ where: { id: history.placementId } });
+      if (placement) {
+        placement.totalRewarded = Math.max(0, Number(placement.totalRewarded) - amount);
+        if (history.pushedOut && !placement.isActive) {
+          const reEntered = await placementRepo.count({
+            where: { userId: placement.userId, poolLevel: placement.poolLevel, isActive: true },
+          });
+          if (reEntered === 0) {
+            placement.isActive = true;
+            placement.timesEntered = Math.max(0, Number(placement.timesEntered) - 1);
+          }
+        }
+        await placementRepo.save(placement);
+      }
+    }
+    if (histories.length > 0) {
+      await historyRepo.remove(histories);
+    }
+  }
+
+  /**
+   * Thu hồi thưởng bể đồng hưởng lãnh đạo (C1..C9) chia từ đơn này: trừ đúng
+   * phần đã cộng vào ví rút / ví tiêu dùng và totalRewarded của thành viên.
+   */
+  private async rollbackAgentPoolRewardsOfOrder(
+    orderId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const historyRepo = manager.getRepository(AgentPoolHistory);
+    const memberRepo = manager.getRepository(AgentPoolMember);
+    const userRepo = manager.getRepository(User);
+
+    const histories = await historyRepo.find({ where: { orderId } });
+    for (const history of histories) {
+      const withdraw = Number(history.withdrawAmount) || 0;
+      const reconsumption = Number(history.reconsumptionAmount) || 0;
+      if (withdraw > 0) {
+        await userRepo.decrement({ id: history.userId }, 'withdrawWalletBalance', withdraw);
+      }
+      if (reconsumption > 0) {
+        await userRepo.decrement({ id: history.userId }, 'reconsumptionWalletBalance', reconsumption);
+      }
+      if (history.memberId) {
+        await memberRepo.decrement(
+          { id: history.memberId },
+          'totalRewarded',
+          Number(history.rewardAmount) || 0,
+        );
+      }
+    }
+    if (histories.length > 0) {
+      await historyRepo.remove(histories);
+    }
+  }
+
+  /**
+   * Người đã trả tiền cho đơn ví. Đơn cũ chưa có paidByUserId: đơn mua hộ lấy
+   * sponsor từ ghi chú "Mua hộ bởi @username", còn lại là người mua.
+   */
+  private async resolveWalletPayer(
+    order: Order,
+    userRepo: Repository<User>,
+  ): Promise<User | null> {
+    if (order.paidByUserId) {
+      return userRepo.findOne({ where: { id: order.paidByUserId } });
+    }
+    const proxyMatch = /Mua hộ bởi @(\S+)/.exec(order.notes || '');
+    if (proxyMatch) {
+      const ref = proxyMatch[1];
+      // Lúc tạo đơn, sponsor không có username thì ghi chú chứa id. Chỉ so
+      // với cột id khi ref là uuid, Postgres báo lỗi nếu so uuid với chuỗi khác.
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref);
+      return userRepo.findOne({
+        where: isUuid ? [{ username: ref }, { id: ref }] : { username: ref },
+      });
+    }
+    return order.userId
+      ? userRepo.findOne({ where: { id: order.userId } })
+      : null;
+  }
+
+  /**
+   * Hoàn totalAmount về đúng ví đã trừ khi tạo đơn: ví thưởng, ví nạp PV, hoặc
+   * ví tiêu dùng (chia lại theo phần đã trừ từ ví hoa hồng / ví nạp). Đơn ví
+   * tiêu dùng cũ không lưu phần chia nên hoàn hết vào ví tích lũy hoa hồng.
+   */
+  private async refundWalletPayment(
+    order: Order,
+    manager: EntityManager,
+    adminUserId?: string,
+  ): Promise<WalletRefund | null> {
+    if (!INTERNAL_WALLET_METHODS.includes(order.paymentMethod)) return null;
+    const total = Number(order.totalAmount) || 0;
+    if (total <= 0) return null;
+
+    const userRepo = manager.getRepository(User);
+    const payer = await this.resolveWalletPayer(order, userRepo);
+    if (!payer) {
+      throw new BadRequestException(
+        'Không tìm thấy người đã trả tiền để hoàn tiền ví. Đơn chưa bị xóa.',
+      );
+    }
+
+    let credits: WalletRefund['credits'];
+    if (order.paymentMethod === 'withdraw_wallet') {
+      credits = [{ wallet: 'withdrawWalletBalance', amount: total }];
+    } else if (order.paymentMethod === 'pv_wallet') {
+      credits = [{ wallet: 'pvWalletBalance', amount: total }];
+    } else {
+      const fromReconsumption = Math.min(
+        total,
+        order.paidFromReconsumptionAmount ?? total,
+      );
+      credits = [
+        { wallet: 'reconsumptionWalletBalance', amount: fromReconsumption },
+        { wallet: 'walletBalance', amount: total - fromReconsumption },
+      ].filter((c) => c.amount > 0);
+    }
+
+    for (const credit of credits) {
+      await userRepo.increment({ id: payer.id }, credit.wallet, credit.amount);
+    }
+
+    const summary = credits
+      .map((c) => `$${c.amount.toFixed(2)} ${WALLET_LABELS[c.wallet]}`)
+      .join(', ');
+    const auditRepo = manager.getRepository(AuditLog);
+    await auditRepo.save(
+      auditRepo.create({
+        action: AuditLogAction.ADMIN_ACTION,
+        entityType: AuditLogEntityType.ORDER,
+        entityId: order.id,
+        userId: adminUserId,
+        description: `Xóa đơn ${order.id}: hoàn ${summary} cho @${payer.username || payer.id}`,
+        metadata: {
+          type: 'order_wallet_refund',
+          orderId: order.id,
+          paymentMethod: order.paymentMethod,
+          totalAmount: total,
+          payerUserId: payer.id,
+          buyerUserId: order.userId,
+          credits,
+        },
+      }),
+    );
+
+    return { userId: payer.id, username: payer.username || null, credits };
+  }
+
+  async deleteOrderAndRollback(
+    orderId: string,
+    adminUserId?: string,
+  ): Promise<WalletRefund | null> {
+    const order = await this.findOne(orderId);
+    let refund: WalletRefund | null = null;
+
+    await this.dataSource.transaction(async (manager) => {
+      const isActive = [
+        OrderStatus.CONFIRMED,
+        OrderStatus.PROCESSING,
+        OrderStatus.SHIPPED,
+        OrderStatus.DELIVERED
+      ].includes(order.status);
+
+      if (isActive) {
+        await this.updateStockByOrderItems(order, 'increase');
+        await this.rollbackOrderEffects(orderId, manager);
+      }
+
+      // Đơn trả bằng ví nội bộ: hoàn tiền về ví nguồn. Hủy đơn không hoàn
+      // tiền, nên đơn đã hủy cũng được hoàn khi xóa.
+      refund = await this.refundWalletPayment(order, manager, adminUserId);
+
+      const orderRepo = manager.getRepository(Order);
+      await orderRepo.remove(order);
+    });
+
+    return refund;
   }
 }

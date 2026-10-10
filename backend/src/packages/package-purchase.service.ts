@@ -23,17 +23,102 @@ export class PackagePurchaseService {
     private packagesService: PackagesService,
   ) {}
 
-  async create(userId: string, packageId: string): Promise<PackagePurchase> {
+  async create(
+    userId: string,
+    packageId: string,
+    buyerUsername?: string,
+    useWithdrawWallet?: boolean,
+  ): Promise<PackagePurchase> {
     const pkg = await this.packagesService.findOne(packageId);
     if (!pkg || !pkg.isActive) {
       throw new BadRequestException('Package not found or inactive');
     }
 
+    let buyerId = userId;
+    let proxyNote = '';
+
+    if (buyerUsername?.trim()) {
+      const buyer = await this.userRepository.findOne({
+        where: { username: buyerUsername.trim() },
+        select: ['id', 'username', 'fullName', 'referralUserId'],
+      });
+      if (!buyer) {
+        throw new NotFoundException('Username người được mua hộ không tồn tại.');
+      }
+
+      // Check downline
+      let isDownline = false;
+      let currentId = buyer.id;
+      const visited = new Set<string>();
+      while (currentId) {
+        if (currentId === userId) {
+          isDownline = true;
+          break;
+        }
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
+
+        const u = await this.userRepository.findOne({
+          where: { id: currentId },
+          select: ['id', 'referralUserId'],
+        });
+        if (!u || !u.referralUserId) break;
+        currentId = u.referralUserId;
+      }
+
+      if (!isDownline) {
+        throw new BadRequestException('User được mua hộ không thuộc tuyến dưới của bạn.');
+      }
+
+      buyerId = buyer.id;
+      const sponsor = await this.userRepository.findOne({ where: { id: userId }, select: ['username'] });
+      proxyNote = `Mua hộ bởi @${sponsor?.username || userId}`;
+    }
+
+    // Check balance if useWithdrawWallet
+    if (useWithdrawWallet) {
+      const payer = await this.userRepository.findOne({ where: { id: userId } });
+      if (!payer) throw new NotFoundException('Payer not found');
+      const withdrawBal = Number(payer.withdrawWalletBalance ?? 0);
+      const price = Number(pkg.price);
+
+      if (withdrawBal < price) {
+        throw new BadRequestException(
+          `Số dư ví thưởng không đủ. Hiện tại: $${withdrawBal.toFixed(2)} PV, cần: $${price.toFixed(2)} PV`,
+        );
+      }
+
+      // Deduct balance
+      payer.withdrawWalletBalance = withdrawBal - price;
+      await this.userRepository.save(payer);
+
+      // Create purchase as PAID
+      const purchase = this.purchaseRepository.create({
+        userId: buyerId,
+        packageId: pkg.id,
+        amount: price,
+        status: PackagePurchaseStatus.PAID,
+        paidAt: new Date(),
+        paymentReference: proxyNote || 'Ví thưởng',
+      });
+      const savedPurchase = await this.purchaseRepository.save(purchase);
+
+      // Perform user package upgrade immediately
+      await this.userRepository.update(buyerId, {
+        packageType: pkg.code,
+        totalCommissionReceived: 0,
+      });
+
+      return savedPurchase;
+    }
+
+    // Normal purchase path
     const purchase = this.purchaseRepository.create({
-      userId,
+      userId: buyerId,
       packageId: pkg.id,
       amount: Number(pkg.price),
       status: PackagePurchaseStatus.PENDING,
+      paymentReference: proxyNote || undefined,
     });
     return this.purchaseRepository.save(purchase);
   }

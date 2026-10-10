@@ -47,6 +47,7 @@ export class MatrixRewardLedger {
   @Column({ type: 'uuid' })
   orderId: string;
 
+  @Index('IDX_matrix_reward_ledger_createdAt')
   @CreateDateColumn()
   createdAt: Date;
 }

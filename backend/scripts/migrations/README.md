@@ -33,3 +33,170 @@ Withdraw requests VND value is stored statically to prevent display balances fro
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-withdraw-request-rate-and-amount-vnd.sql
 ```
+
+## Add indexes on `orders` (`status`, `createdAt`)
+
+Monthly reward calculation filters orders by status and a `createdAt` range, and the
+admin dashboard sorts by `createdAt`. Without these indexes both scan the whole table.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-orders-status-created-at-index.sql
+```
+
+MySQL has no `CREATE INDEX IF NOT EXISTS`, so run `SHOW INDEX FROM orders;` first and
+skip any statement whose index is already present.
+
+## Add wallet-split columns on `agent_pool_histories`
+
+Agent pool rewards used to go entirely into the withdraw wallet. They are now split
+70% withdraw wallet / 20% reconsumption wallet / 10% tax (percentages come from
+`system_config`), and each payout row records the split. Existing rows are backfilled
+as 100% withdraw so old history stays truthful.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-agent-pool-wallet-split.sql
+```
+
+## Add `source` and `syncedRank` on `agent_pool_members`
+
+Approving an order now syncs pool membership with the buyer's (and their upline's)
+agent rank: a user ranked C5 is an active member of pools C1..C5, and drops out again
+when the rank falls. Rows the admin added by hand are marked `MANUAL` and are never
+touched by that sync.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-agent-pool-member-source.sql
+```
+
+Rows the sync creates are marked `AUTO`.
+
+## Add `agentRank` on `users`
+
+The membership sync needs each user's current rank on the row, so approving an order can
+recompute only the buyer and their upline (one query per level) instead of re-ranking the
+whole tree.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-user-agent-rank.sql
+```
+
+After running both migrations, call `POST /admin/agent-pool/members/sync-all` once: it fills
+`users.agentRank` for everybody and enrols users who already qualified before the feature
+existed. Until it runs, an F1 with an empty `agentRank` is counted at its base rank only.
+
+## Create `salary_payments` table
+
+Users are paid a monthly salary from the "Lương tháng" admin page when their reward
+sales ("doanh số tính thưởng", the weak binary branch sales) for the month reach a salary
+tier: 10M–100M VND 4%, 100M–500M 6%, 500M–1B 8%, from 1B 10% (lower bound inclusive,
+upper bound exclusive). Sales are converted to VND with the USDT/VND rate from Banking
+Settings, and the salary is the month's reward sales times the tier rate, computed on the
+server. The salary for a month can be paid from the 10th of the following month, once per
+user.
+Each payment is paid like an agent pool reward: it is split with the same wallet
+distribution from `system_config` (default 70% `users.withdrawWalletBalance`, 20%
+`users.reconsumptionWalletBalance`, 10% tax credited nowhere). It is recorded
+as one `salary_payments` row, which the user sees in the wallet's recent activity and on
+`/home/wallets/activity`.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-salary-payments.sql
+```
+
+If `salary_payments` already exists from an earlier version, follow the commented upgrade
+steps at the end of `create-salary-payments.sql`: check for users paid more than once in a
+month (the new unique key on `(month, userId)` can't be added while they exist), then add
+`tierCode`, `rate`, `vndRate` and the unique key.
+
+## Create `rank_salary_payments` table
+
+The "Lương tháng" admin page also pays a rank salary to C1 and C2 agents (tab "Lương cấp
+bậc C1/C2"), out of two pools built from the month's reward sales:
+
+- Pool C1: 4% of the combined reward sales of all C1 and C2 agents, shared equally among
+  them (a C2 agent also sits in the C1 pool).
+- Pool C2: 2% of the combined reward sales of the C2 agents, shared equally among them.
+
+It follows the same schedule (from the 10th of the following month, once per agent) and
+wallet split as the tier salary, and shows as "Lương tháng" in the user's wallet activity.
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-rank-salary-payments.sql
+```
+
+## Create `rank_salary_overrides` and add `source` on `rank_salary_payments`
+
+Admins can add users to a month's C1 / C2 rank salary list, or remove agents from it,
+on the "Lương cấp bậc C1/C2" tab. The pools are shared among the edited list, so every
+member's share changes; agents already paid keep what they were paid. An agent already
+paid for the month cannot be removed. Each payment records whether the agent was on the
+list from the monthly closing (`auto`) or added by an admin (`manual`).
+
+Run after `create-rank-salary-payments.sql`:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-rank-salary-overrides.sql
+```
+
+## Add wallet-split columns on `commissions` (reward report)
+
+The "Thống kê trả thưởng" admin page reports every reward with the part credited to the
+withdraw wallet, the reconsumption wallet and tax. Commissions now record that split when
+they are paid. The script also adds `createdAt` indexes the report filters on.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-commission-wallet-split.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-commission-wallet-split.sql
+```
+
+Then backfill commissions paid before this change from the percentages in their notes
+(dry run first, then `--apply`):
+
+```bash
+cd backend
+npm run script:backfill-commission-wallet-split
+npm run script:backfill-commission-wallet-split -- --apply
+```
+
+## Add `paidByUserId` and `paidFromReconsumptionAmount` on `orders`
+
+Deleting an order paid from an internal wallet (bonus, PV or consumption wallet) refunds
+the money to the wallet it came from. New orders record who paid (the sponsor on proxy
+orders) and how much of a consumption wallet payment came from the commission part. Run
+this before deploying the backend, otherwise loading orders fails on the missing columns.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-order-wallet-payer.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-order-wallet-payer.sql
+```
+
+## Add `orderId`, `pushedOut` and `walletCredited` on `heap_reward_histories`
+
+Deleting an order takes back the heap rewards it paid to the other members of the pool.
+New heap rewards record the order that paid them. Run this before deploying the backend.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-heap-history-order.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-heap-history-order.sql
+```

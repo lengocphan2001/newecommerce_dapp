@@ -68,7 +68,7 @@ export class CreateProductDto {
 
   @IsArray()
   @IsOptional()
-  productTypes?: ('STRATEGIC' | 'COMMON')[];
+  productTypes?: string[];
 
   @IsArray()
   @IsString({ each: true })
@@ -131,6 +131,19 @@ export class CreateProductDto {
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
   useProductCommission?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  indirectCommissionRateF2?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  commissionBasePercent?: number;
+
 
   // Xác định sản phẩm có phải là sản phẩm triển vọng để áp dụng cơ chế đồng chia đa bể và hàng đợi FIFO hay không
   @IsBoolean()

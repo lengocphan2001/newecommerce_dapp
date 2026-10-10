@@ -6,6 +6,7 @@ import AppHeader from "@/app/components/AppHeader";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { handleAuthError } from "@/app/utils/auth";
+import { formatAmount } from "@/app/utils/format";
 
 interface Transaction {
   id: string;
@@ -180,7 +181,7 @@ export default function WalletsPage() {
       setLoading(true);
       try {
         const [info, requests, withdraws, banks, bankCfg] = await Promise.all([
-          api.getReferralInfo(),
+          api.getReferralInfo(true),
           api.getMyDepositRequests().catch(() => []),
           api.getMyWithdrawRequests().catch(() => []),
           api.getMyBankAccounts().catch(() => []),
@@ -312,8 +313,8 @@ export default function WalletsPage() {
     const rate = usdtWithdrawRateVnd > 0 ? usdtWithdrawRateVnd : 24000;
     const amount = amountVnd / rate;
 
-    if (!amount || amount < 30) {
-      setWithdrawError(`Số tiền rút tối thiểu là 30 PV (~${(30 * rate).toLocaleString("vi-VN")} ₫)`);
+    if (!amountVnd || amountVnd < 500000) {
+      setWithdrawError("Số tiền rút tối thiểu là 500.000 ₫");
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {
@@ -432,22 +433,9 @@ export default function WalletsPage() {
     }
   };
 
-  const formatPrice = (price: string | number) => {
-    const num = typeof price === 'string' ? parseFloat(price) : price;
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(num);
-  };
+  const formatPrice = (price: string | number) => formatAmount(price, 2, 2);
 
-  const formatUSDT = (balance: string | number) => {
-    const num = typeof balance === 'string' ? parseFloat(balance) : balance;
-    if (isNaN(num) || num === 0) return "0.00";
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(num);
-  };
+  const formatUSDT = (balance: string | number) => formatAmount(balance, 2, 4);
 
   /** Tỷ giá chỉ cho modal rút ví — tách với tỷ giá nạp/checkout (`usdtPriceVnd`). */
   const usdtWithdrawRateVnd =
@@ -472,6 +460,13 @@ export default function WalletsPage() {
       ? Math.round(walletBalance * usdtDepositRateVnd)
       : Math.round(walletBalance * 25000); // fallback
 
+  const formatRecentActivityVND = (amount: number) => {
+    const rate = usdtDepositRateVnd > 0 ? usdtDepositRateVnd : 25000;
+    const normalizedAmount = Math.abs(amount) > 10000 ? Math.abs(amount) / rate : Math.abs(amount);
+    const vndAmount = normalizedAmount * rate;
+    return `${vndAmount.toLocaleString("vi-VN")} VND`;
+  };
+
 
   // Preserve the following if needed elsewhere, otherwise we can just compute it. 
   // Looks like depositPercent / withdrawPercent are used later for feePercent, so keep them.
@@ -491,6 +486,17 @@ export default function WalletsPage() {
     }
   };
 
+  const formatDateSimple = (dateString: string | null | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString("vi-VN");
+    } catch {
+      return '';
+    }
+  };
+
   // Helper function to safely create Date for sorting
   const createDateSafe = (dateString: string | null | undefined): string => {
     if (!dateString) return new Date(0).toISOString();
@@ -503,6 +509,12 @@ export default function WalletsPage() {
     }
   };
 
+  // " 08/2026" from a salary's "2026-08" month
+  const formatSalaryMonth = (month?: string | null) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(month || '');
+    return match ? ` ${match[2]}/${match[1]}` : '';
+  };
+
   // Recent transactions - combine commissions and orders
   const allTransactions: Transaction[] = [
     // Commissions
@@ -512,7 +524,10 @@ export default function WalletsPage() {
         const notes = String(activity?.notes || "");
         return (
           activityType === "DIRECT" ||
+          activityType === "INDIRECT" ||
           activityType === "HEAP_REWARD" ||
+          activityType === "AGENT_POOL" ||
+          activityType === "SALARY" ||
           (activityType === "PRODUCT" && notes.startsWith("Product direct"))
         );
       })
@@ -523,11 +538,17 @@ export default function WalletsPage() {
         // Determine commission type label
         const commissionTitle = activityType === 'DIRECT'
           ? t("directCommission")
+          : activityType === 'INDIRECT'
+            ? t("indirectCommission")
           : activityType === 'HEAP_REWARD'
             ? t("heapRewardCommission")
-            : activityType === 'GROUP'
-              ? t("groupCommission")
-              : t("managementCommission");
+            : activityType === 'AGENT_POOL'
+              ? `${t("agentPoolCommission")}${activity.poolCode ? ` ${activity.poolCode}` : ''}`
+              : activityType === 'SALARY'
+                ? `${t("monthlySalary")}${formatSalaryMonth(activity.salaryMonth)}`
+              : activityType === 'GROUP'
+                ? t("groupCommission")
+                : t("managementCommission");
 
         return {
           id: activity.id,
@@ -537,9 +558,12 @@ export default function WalletsPage() {
           status: activity.status === 'PENDING' ? t("pending") : t("completed"),
           date: formatDateSafe(activity.createdAt),
           createdAt: createDateSafe(activity.createdAt), // Keep original for sorting
-          icon: 'call_received',
+          icon: activityType === 'SALARY' ? 'payments' : 'call_received',
           iconColor: 'text-[#13ec5b]',
-          skipWalletSplitDisplay: activityType === 'HEAP_REWARD',
+          skipWalletSplitDisplay:
+            activityType === 'HEAP_REWARD' ||
+            activityType === 'AGENT_POOL' ||
+            activityType === 'SALARY',
         };
       }) || []),
     // Orders
@@ -602,7 +626,7 @@ export default function WalletsPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shopii</span>
+            <span className="text-[10px] font-bold text-primary-dark uppercase tracking-wider">Shoplife</span>
           </div>
           <button className="flex items-center justify-center p-2 -mr-2 rounded-full hover:bg-emerald-50 transition-colors">
             <span className="material-symbols-outlined text-slate-800">filter_list</span>
@@ -610,99 +634,50 @@ export default function WalletsPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col gap-6 px-4 bg-white mt-4">
+      <main className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 px-4 bg-white mt-4">
         {/* Thông tin cá nhân */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-violet-200">
+        <div className="relative overflow-hidden premium-card p-4">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500" />
-          <div className="relative z-10 flex flex-col gap-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                {referralInfo?.avatar ? (
-                  <img
-                    src={referralInfo.avatar}
-                    alt=""
-                    className="h-14 w-14 rounded-full object-cover border border-violet-100 shrink-0"
-                  />
-                ) : (
-                  <div className="h-14 w-14 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-violet-600 text-[28px]">person</span>
-                  </div>
+          <div className="relative z-10 flex items-center gap-3">
+            {referralInfo?.avatar ? (
+              <img src={referralInfo.avatar} alt="" className="h-12 w-12 rounded-full object-cover border border-violet-100 shrink-0" />
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-violet-600 text-2xl">person</span>
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-bold text-text-dark truncate leading-tight">
+                {referralInfo?.fullName?.trim() || referralInfo?.username || "—"}
+              </h2>
+              <p className="text-xs text-gray-500 truncate">@{referralInfo?.username}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {referralInfo?.packageType && referralInfo.packageType !== "NONE" && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                    {referralInfo.packageType}
+                  </span>
                 )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-600">Thông tin cá nhân</p>
-                  <h2 className="text-xl font-bold tracking-tight text-text-dark truncate">
-                    {referralInfo?.fullName?.trim() || referralInfo?.username || "—"}
-                  </h2>
-                  {referralInfo?.username ? (
-                    <p className="text-sm text-gray-500 truncate">@{referralInfo.username}</p>
-                  ) : null}
-                </div>
+                {referralInfo?.createdAt && (
+                  <span className="text-[10px] text-gray-400" suppressHydrationWarning>
+                    {formatDateSimple(referralInfo.createdAt)}
+                  </span>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => router.push("/home/profile/edit")}
-                className="shrink-0 text-sm font-semibold text-primary-dark hover:text-primary"
-              >
-                Chỉnh sửa
-              </button>
             </div>
-            <dl className="grid gap-3 text-sm border-t border-gray-100 pt-4">
-              <div>
-                <dt className="text-xs font-medium text-gray-500">Email</dt>
-                <dd className="text-text-dark break-all">{referralInfo?.email || "—"}</dd>
-              </div>
-              {(referralInfo?.phone || referralInfo?.phoneNumber) ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Điện thoại</dt>
-                  <dd className="text-text-dark">{referralInfo.phone || referralInfo.phoneNumber}</dd>
-                </div>
-              ) : null}
-              {referralInfo?.address?.trim() ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Địa chỉ</dt>
-                  <dd className="text-text-dark">{referralInfo.address.trim()}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt className="text-xs font-medium text-gray-500">Mã thành viên</dt>
-                <dd className="font-mono text-xs text-gray-700 break-all">{referralInfo?.id || "—"}</dd>
-              </div>
-              {referralInfo?.packageType && referralInfo.packageType !== "NONE" ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Gói</dt>
-                  <dd className="text-text-dark">{referralInfo.packageType}</dd>
-                </div>
-              ) : null}
-              {referralInfo?.createdAt ? (
-                <div>
-                  <dt className="text-xs font-medium text-gray-500">Tham gia</dt>
-                  <dd className="text-text-dark">
-                    {new Date(referralInfo.createdAt).toLocaleDateString("vi-VN")}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
+            <button
+              type="button"
+              onClick={() => router.push("/home/profile/edit")}
+              className="shrink-0 text-xs font-semibold text-primary-dark hover:text-primary"
+            >
+              Chỉnh sửa
+            </button>
           </div>
         </div>
 
-        {/* Ví tích lũy */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-fuchsia-200">
-          <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-fuchsia-500 to-pink-500" />
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Ví tích lũy</p>
-              <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `${reconsumptionApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
-              </p>
-            </div>
-            <div className="rounded-xl bg-fuchsia-100 text-fuchsia-600 p-2.5 flex items-center justify-center">
-              <span className="material-symbols-outlined text-xl">savings</span>
-            </div>
-          </div>
-        </div>
+      
 
         {/* Ví rút tiền */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-rose-200">
+        <div className="relative overflow-hidden premium-card p-6">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 to-orange-400" />
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -785,14 +760,14 @@ export default function WalletsPage() {
           </div>
         </div>
 
-        {/* Ví nạp tiền (banking) */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-cyan-200">
+        {/* Ví tiêu dùng (bao gồm hoa hồng 25% + tiền nạp) */}
+        <div className="relative overflow-hidden premium-card p-6">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-cyan-500 to-blue-500" />
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600">Ví tiêu dùng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `${walletApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
+                {balanceVisible ? `${(reconsumptionApproxVnd + walletApproxVnd).toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
             </div>
             <button
@@ -819,7 +794,7 @@ export default function WalletsPage() {
                       <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
                         {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? approvedText : "Từ chối"}
                       </span>
-                      <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
+                      <span className="text-gray-500 text-xs" suppressHydrationWarning>{formatDateSimple(r.createdAt)}</span>
                     </div>
                   );
                 })}
@@ -829,16 +804,13 @@ export default function WalletsPage() {
         </div>
 
         {/* Ví nạp PV (USDT) */}
-        <div className="relative overflow-hidden rounded-2xl bg-white p-6 shadow-md border border-indigo-200">
+        <div className="relative overflow-hidden premium-card p-6">
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500" />
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600">Ví nạp PV</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
                 {balanceVisible ? `${formatUSDT(pvWalletBalance)} PV` : "••••••"}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Tỷ giá nạp: 1 PV = 1.08 USDT
               </p>
             </div>
             <button
@@ -872,7 +844,7 @@ export default function WalletsPage() {
                       <span className={`font-medium ${r.status === "PENDING" ? "text-amber-600" : r.status === "APPROVED" ? "text-green-600" : "text-red-600"}`}>
                         {r.status === "PENDING" ? "Chờ duyệt" : r.status === "APPROVED" ? approvedText : "Từ chối"}
                       </span>
-                      <span className="text-gray-500 text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
+                      <span className="text-gray-500 text-xs" suppressHydrationWarning>{formatDateSimple(r.createdAt)}</span>
                     </div>
                   );
                 })}
@@ -1211,18 +1183,18 @@ export default function WalletsPage() {
                     </div>
                     <div className="flex flex-col">
                       <p className="text-sm font-semibold text-text-dark">{tx.title}</p>
-                      <p className="text-xs text-gray-500">{tx.date}</p>
+                      <p className="text-xs text-gray-500" suppressHydrationWarning>{tx.date}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className={`text-sm font-bold ${tx.type === 'commission' || tx.type === 'deposit' ? 'text-primary-dark' : 'text-text-dark'}`}>
                       {tx.type === 'commission' || tx.type === 'deposit'
-                        ? `+${formatUSDT(
+                        ? `+${formatRecentActivityVND(
                             tx.skipWalletSplitDisplay
                               ? Math.abs(tx.amount)
                               : Math.abs(tx.amount) * (1 - feePercent / 100),
-                          )} PV`
-                        : `-${formatUSDT(Math.abs(tx.amount))} PV`}
+                          )}`
+                        : `-${formatRecentActivityVND(Math.abs(tx.amount))}`}
                     </p>
                     <p className="text-xs text-gray-500">{tx.status}</p>
                   </div>
