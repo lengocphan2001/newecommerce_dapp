@@ -102,7 +102,7 @@ export class SalaryService {
     const payableFrom = salaryPayableFrom(month);
     const [vndRate, distribution] = await Promise.all([
       this.getVndRate(),
-      this.agentPoolService.getWalletDistribution(),
+      this.agentPoolService.getSalaryWalletDistribution(),
     ]);
 
     const qualifying = vndRate
@@ -172,9 +172,9 @@ export class SalaryService {
    * per user. Tiers and amounts are recomputed here; if any listed user does
    * not qualify or has already been paid for the month, nobody is paid.
    *
-   * Paid the same way as an agent pool reward: the gross amount is split with
-   * the shared wallet distribution from `system_config` (default 70% withdraw
-   * wallet / 20% reconsumption wallet / 10% tax deducted), same rounding.
+   * The gross amount goes to the reconsumption wallet only: the withdraw share
+   * of the shared wallet distribution is folded into it (default 90%
+   * reconsumption wallet / 10% tax deducted), same rounding as agent pools.
    */
   async paySalaries(dto: PaySalaryDto, paidBy: string) {
     const month = this.assertMonth(dto.month);
@@ -198,7 +198,7 @@ export class SalaryService {
         'Chưa cấu hình tỉ giá USDT/VND tại Banking Settings',
       );
     }
-    const distribution = await this.agentPoolService.getWalletDistribution();
+    const distribution = await this.agentPoolService.getSalaryWalletDistribution();
 
     const qualifying = new Map(
       (await this.getQualifyingUsers(month, vndRate)).map((r) => [r.userId, r]),

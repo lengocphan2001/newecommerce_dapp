@@ -200,6 +200,23 @@ export class AgentPoolService {
     };
   }
 
+  /**
+   * Tỷ lệ chia ví cho lương tháng (lương doanh số + lương danh hiệu): phần
+   * ví rút được gộp vào ví tiêu dùng (mặc định 90% ví tiêu dùng), thuế giữ
+   * nguyên theo cấu hình chung.
+   */
+  async getSalaryWalletDistribution(): Promise<WalletDistribution> {
+    const { withdrawPercent, reconsumptionPercent, taxPercent } =
+      await this.getWalletDistribution();
+    return {
+      withdrawPercent: 0,
+      reconsumptionPercent: Number(
+        (withdrawPercent + reconsumptionPercent).toFixed(2),
+      ),
+      taxPercent,
+    };
+  }
+
   // ── 1. Pool Management ───────────────────────────────────────────────────
 
   async getAllPools(): Promise<AgentPool[]> {

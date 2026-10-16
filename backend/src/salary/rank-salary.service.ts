@@ -190,7 +190,7 @@ export class RankSalaryService {
     const payableFrom = salaryPayableFrom(month);
     const [{ pools, rows, removed }, distribution] = await Promise.all([
       this.computeMonth(month),
-      this.agentPoolService.getWalletDistribution(),
+      this.agentPoolService.getSalaryWalletDistribution(),
     ]);
     // Paid rows for the month, including agents whose rank has dropped since.
     const payments = await this.paymentRepo.find({
@@ -295,7 +295,7 @@ export class RankSalaryService {
       );
     }
 
-    const distribution = await this.agentPoolService.getWalletDistribution();
+    const distribution = await this.agentPoolService.getSalaryWalletDistribution();
     const { pools, rows } = await this.computeMonth(month);
     const [c1Pool, c2Pool] = pools;
     const members = new Map(rows.map((r) => [r.userId, r]));

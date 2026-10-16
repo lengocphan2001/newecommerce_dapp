@@ -97,8 +97,8 @@ interface WalletDistribution {
  */
 const SALARY_PAY_DAY = 10;
 const DEFAULT_DISTRIBUTION: WalletDistribution = {
-  withdrawPercent: 70,
-  reconsumptionPercent: 20,
+  withdrawPercent: 0,
+  reconsumptionPercent: 90,
   taxPercent: 10,
 };
 
