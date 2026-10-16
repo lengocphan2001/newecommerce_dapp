@@ -669,6 +669,11 @@ export default function HomePage() {
                         </span>
                       </button>
                     </div>
+                    {product.stock > 0 && !product.tags?.includes('COMING_SOON') && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {t("stockAvailable").replace("{count}", product.stock.toString())}
+                      </p>
+                    )}
                     {(() => {
                       const useProductCommission = product.useProductCommission === true;
                       // Khi bật hoa hồng sản phẩm: dùng đúng directCommissionRate từ tab "Hoa hồng sản phẩm" (commissionConfigByPackage.NPP). DB lưu 0–1 → *100 để hiển thị %.

@@ -473,6 +473,15 @@ export default function ProductDetailClient() {
             <span className="text-sm text-text-main border-l border-gray-300 pl-1.5 ml-1.5 font-medium">{rating}</span>
             <span className="text-sm text-text-sub border-l border-gray-300 pl-1.5 ml-1.5">{t("sold")} {soldCount > 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount}</span>
           </div>
+          {!product.tags?.includes('COMING_SOON') && (
+            product.stock > 0 ? (
+              <span className="text-sm text-green-600 font-medium">
+                {t("stockAvailable").replace("{count}", product.stock.toString())}
+              </span>
+            ) : (
+              <span className="text-sm text-red-600 font-medium">{t("outOfStock")}</span>
+            )
+          )}
         </div>
 
         {/* Dynamic Properties Selection */}
