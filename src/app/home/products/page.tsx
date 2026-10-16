@@ -164,12 +164,14 @@ export default function ProductsPage() {
       ? product.price * (1 - product.salePercentage / 100)
       : product.price;
 
-    addItem({
+    const added = addItem({
       productId: product.id,
       productName: localizedName,
       price: finalPrice,
       thumbnailUrl: product.thumbnailUrl,
+      stock: product.stock,
     }, buttonElement);
+    if (!added) alert(t("stockLimitReached"));
   };
 
   const handleProductClick = (productId: string) => {

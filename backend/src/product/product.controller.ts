@@ -42,6 +42,20 @@ export class ProductController {
     return this.productService.findThumbnailMapByIds(ids);
   }
 
+  /** Tồn kho hiện tại theo id (comma-separated), max 50. Public, không cache, cho giỏ hàng. */
+  @Get('stock')
+  async stock(@Query('ids') idsRaw: string) {
+    if (!idsRaw?.trim()) {
+      return {};
+    }
+    const ids = idsRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 50);
+    return this.productService.findStockMapByIds(ids);
+  }
+
   @Get('export')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async exportProducts(@Query() query: any, @Res() res: Response) {

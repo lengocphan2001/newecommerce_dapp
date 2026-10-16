@@ -8,9 +8,11 @@ import { api } from "@/app/services/api";
 import { apiCache } from "@/app/services/apiCache";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { formatAmount, formatVnd } from "@/app/utils/format";
+import { useCartStockCheck } from "@/app/utils/useCartStockCheck";
 
 export default function CheckoutPage() {
   const { items, totalAmount, clearCart } = useShoppingCart();
+  const stockProblems = useCartStockCheck();
   const router = useRouter();
   const { t } = useI18n();
   const [processingStep, setProcessingStep] = useState<ProcessingStep>("idle");
@@ -1201,6 +1203,18 @@ export default function CheckoutPage() {
 
       {/* Footer */}
       <div className="bg-white border-t border-purple-100 shadow-[0_-8px_30px_rgba(139,92,246,0.06)] p-4 pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+        {stockProblems.size > 0 && (
+          <div className="max-w-lg mx-auto mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-red-600 font-medium">{t("cartStockProblem")}</p>
+            <button
+              type="button"
+              onClick={() => router.push("/home/cart")}
+              className="shrink-0 text-sm font-semibold text-primary-dark"
+            >
+              {t("cartTitle")}
+            </button>
+          </div>
+        )}
         <div className="max-w-lg mx-auto flex gap-4 items-center justify-between">
           <div className="flex flex-col">
             <span className="text-xs text-text-sub font-medium mb-0.5">{t("totalPayment")}</span>
@@ -1212,6 +1226,7 @@ export default function CheckoutPage() {
             onClick={handlePayment}
             disabled={
               processingStep !== "idle" ||
+              stockProblems.size > 0 ||
               (paymentTab === "deposit_wallet" && (!canPayWithDepositWallet || !walletPaymentEnabled.deposit_wallet)) ||
               (paymentTab === "pv_wallet" && (!canPayWithPvWallet || !walletPaymentEnabled.pv_wallet)) ||
               (paymentTab === "withdraw_wallet" && (!canPayWithWithdrawWallet || !walletPaymentEnabled.withdraw_wallet)) ||

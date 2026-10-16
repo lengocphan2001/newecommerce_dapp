@@ -258,6 +258,19 @@ export const api = {
     return response.json();
   },
 
+  /** Tồn kho hiện tại theo id (không cache), cho giỏ hàng / checkout. */
+  async getProductStocks(productIds: string[]): Promise<Record<string, number>> {
+    const unique = [...new Set(productIds.filter(Boolean))].slice(0, 50);
+    if (unique.length === 0) return {};
+    const qs = new URLSearchParams();
+    qs.set('ids', unique.join(','));
+    const response = await fetch(`${API_BASE_URL}/products/stock?${qs.toString()}`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error('Failed to fetch product stock');
+    return response.json();
+  },
+
   /** Một request thay cho N lần getProduct (ảnh dòng đơn hàng). */
   async getProductThumbnails(
     productIds: string[],
@@ -585,6 +598,7 @@ export const api = {
       apiCache.invalidate('referralInfo');
       apiCache.invalidate('checkReconsumption');
     }
+    apiCache.clearProducts(); // Tồn kho vừa đổi
     return response.json();
   },
 

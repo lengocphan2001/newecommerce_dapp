@@ -254,16 +254,37 @@ export class OrderService {
       : [];
     const productMap = new Map(products.map((p) => [p.id, p]));
 
+    // Cùng một sản phẩm có thể nằm ở nhiều dòng (khác thuộc tính), nên so tồn
+    // kho với tổng số lượng của sản phẩm đó trong đơn.
+    const requestedQty = new Map<string, number>();
     for (const item of createOrderDto.items) {
-      const product = productMap.get(item.productId);
-
+      const quantity = Number(item.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new BadRequestException('Số lượng sản phẩm không hợp lệ.');
+      }
+      requestedQty.set(
+        item.productId,
+        (requestedQty.get(item.productId) ?? 0) + quantity,
+      );
+    }
+    for (const [productId, quantity] of requestedQty) {
+      const product = productMap.get(productId);
       if (!product) {
-        throw new NotFoundException(`Product ${item.productId} not found`);
+        throw new NotFoundException(`Product ${productId} not found`);
       }
+      const stock = Number(product.stock) || 0;
+      if (stock <= 0) {
+        throw new BadRequestException(`Sản phẩm "${product.name}" đã hết hàng.`);
+      }
+      if (stock < quantity) {
+        throw new BadRequestException(
+          `Sản phẩm "${product.name}" chỉ còn ${stock} trong kho.`,
+        );
+      }
+    }
 
-      if (product.stock < item.quantity) {
-        throw new Error(`Insufficient stock for product ${product.name}`);
-      }
+    for (const item of createOrderDto.items) {
+      const product = productMap.get(item.productId)!;
 
       const itemTotal = product.price * item.quantity;
       totalAmount += itemTotal;

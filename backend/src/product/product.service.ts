@@ -132,6 +132,23 @@ export class ProductService {
     return out;
   }
 
+  /** Tồn kho hiện tại theo id (tối đa 50), để giỏ hàng kiểm tra trước khi đặt. */
+  async findStockMapByIds(ids: string[]): Promise<Record<string, number>> {
+    const unique = [...new Set(ids.filter(Boolean))].slice(0, 50);
+    if (unique.length === 0) {
+      return {};
+    }
+    const rows = await this.productRepository.find({
+      where: { id: In(unique) },
+      select: ['id', 'stock'],
+    });
+    const out: Record<string, number> = {};
+    for (const r of rows) {
+      out[r.id] = Number(r.stock) || 0;
+    }
+    return out;
+  }
+
   async findOne(id: string) {
     const product = await this.productRepository.findOne({
       where: { id },

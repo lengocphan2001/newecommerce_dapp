@@ -114,6 +114,8 @@ export const apiCache = {
   /** Keyed cache for products list (key = "country_categoryId") */
   getProducts: getProductsKeyed,
   setProducts: setProductsKeyed,
+  /** Drop cached product lists (e.g. after an order changes stock). */
+  clearProducts: () => productsStore.clear(),
   /** Keyed cache for the binary tree (key = "<rootUserId>_<maxDepth>") */
   getTree: getTreeKeyed,
   setTree: setTreeKeyed,

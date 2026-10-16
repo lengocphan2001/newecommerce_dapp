@@ -65,7 +65,7 @@ export default function ProductDetailClient() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const { addItem, totalItems } = useShoppingCart();
+  const { addItem, totalItems, items: cartItems } = useShoppingCart();
   const sliderRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
 
@@ -226,9 +226,19 @@ export default function ProductDetailClient() {
 
   const formatPrice = (price: number) => formatAmount(price, 2, 4);
 
-  const handleAddToCart = (e?: React.MouseEvent) => {
-    if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
+  /** false khi hết hàng hoặc giỏ đã đủ tồn kho; khi đó không thêm gì cả. */
+  const handleAddToCart = (e?: React.MouseEvent): boolean => {
+    if (!product || product.stock <= 0 || product.tags?.includes('COMING_SOON')) return false;
     const buttonElement = e?.currentTarget as HTMLElement;
+
+    const inCart = cartItems
+      .filter((i) => i.productId === product.id)
+      .reduce((sum, i) => sum + i.quantity, 0);
+    const adding = selectedCombo ? selectedCombo.quantity : 1;
+    if (inCart + adding > product.stock) {
+      alert(t("stockLimitReached"));
+      return false;
+    }
 
     if (selectedCombo) {
       // Add combo: add item once per quantity in the combo
@@ -240,9 +250,10 @@ export default function ProductDetailClient() {
           price: parseFloat((selectedCombo.price / selectedCombo.quantity).toFixed(6)),
           thumbnailUrl: product.thumbnailUrl,
           properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
+          stock: product.stock,
         }, buttonElement);
       }
-      return;
+      return true;
     }
 
     const finalPrice = product.salePercentage && product.salePercentage > 0
@@ -255,12 +266,14 @@ export default function ProductDetailClient() {
       price: finalPrice,
       thumbnailUrl: product.thumbnailUrl,
       properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
+      stock: product.stock,
     }, buttonElement);
+    return true;
   };
 
   const handleBuyNow = () => {
-    if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
-    handleAddToCart();
+    if (!product || product.stock <= 0 || product.tags?.includes('COMING_SOON')) return;
+    if (!handleAddToCart()) return;
     router.push('/home/cart');
   };
 
@@ -619,7 +632,7 @@ export default function ProductDetailClient() {
         <div className="max-w-md mx-auto flex gap-2">
           <button
             onClick={handleAddToCart}
-            disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
+            disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
             className="flex-1 flex items-center justify-center gap-2 bg-yellow-50 text-primary-dark font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-yellow-100 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
@@ -627,7 +640,7 @@ export default function ProductDetailClient() {
           </button>
           <button
             onClick={handleBuyNow}
-            disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
+            disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
             className="flex-1 flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-primary-dark transition-colors"
           >
             <span className="material-symbols-outlined text-xl">shopping_bag</span>

@@ -6,6 +6,7 @@ import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
 import { formatAmount } from "@/app/utils/format";
+import { useCartStockCheck } from "@/app/utils/useCartStockCheck";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, totalAmount, totalItems, clearCart } = useShoppingCart();
@@ -14,6 +15,7 @@ export default function CartPage() {
   const [referralInfo, setReferralInfo] = useState<{ packageType?: string; accumulatedPurchases?: string | number } | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [mounted, setMounted] = useState(false);
+  const stockProblems = useCartStockCheck();
 
   useEffect(() => {
     setMounted(true);
@@ -213,6 +215,13 @@ export default function CartPage() {
                         </div>
                       )}
                       <p className="text-slate-500 text-xs mt-1 font-medium">{t("unit")}</p>
+                      {stockProblems.has(item.productId) && (
+                        <p className="text-red-600 text-xs mt-1 font-semibold">
+                          {stockProblems.get(item.productId)! <= 0
+                            ? t("outOfStock")
+                            : t("stockOnlyLeft").replace("{count}", String(stockProblems.get(item.productId)))}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => removeItem(item.productId)}
@@ -240,7 +249,11 @@ export default function CartPage() {
                       />
                       <button
                         onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                        className="size-7 flex items-center justify-center rounded bg-primary text-black shadow-sm hover:bg-primary/80 transition-colors"
+                        disabled={
+                          typeof item.stock === "number" &&
+                          items.filter((i) => i.productId === item.productId).reduce((sum, i) => sum + i.quantity, 0) >= item.stock
+                        }
+                        className="size-7 flex items-center justify-center rounded bg-primary text-black shadow-sm hover:bg-primary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <span className="material-symbols-outlined text-sm">add</span>
                       </button>
@@ -273,9 +286,13 @@ export default function CartPage() {
               </div>
             </div>
           </div>
+          {stockProblems.size > 0 && (
+            <p className="text-sm text-red-600 font-medium">{t("cartStockProblem")}</p>
+          )}
           <button
             onClick={() => router.push("/home/checkout")}
-            className="group w-full bg-primary hover:bg-primary-dark active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_12px_24px_rgba(16,185,129,0.35)]"
+            disabled={stockProblems.size > 0}
+            className="disabled:opacity-50 disabled:cursor-not-allowed group w-full bg-primary hover:bg-primary-dark active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_12px_24px_rgba(16,185,129,0.35)]"
           >
             {t("proceedToPayment")}
             <span className="material-symbols-outlined text-black font-bold group-hover:translate-x-1 transition-transform">arrow_forward</span>
