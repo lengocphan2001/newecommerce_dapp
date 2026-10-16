@@ -322,7 +322,7 @@ export default function WalletsPage() {
     const amount = amountVnd / rate;
 
     if (!amountVnd || amountVnd < 500000) {
-      setWithdrawError("Số tiền rút tối thiểu là 500.000 ₫");
+      setWithdrawError("Số tiền rút tối thiểu là 500.000 đồng");
       return;
     }
     if (amount > withdrawWalletBalance + 1e-10) {
@@ -723,7 +723,7 @@ export default function WalletsPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Ví thưởng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `${balanceApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
+                {balanceVisible ? `${balanceApproxVnd.toLocaleString("vi-VN")} đồng` : "••••••"}
               </p>
             </div>
             <div className="flex flex-col gap-2 shrink-0">
@@ -846,7 +846,7 @@ export default function WalletsPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Ví tiêu dùng</p>
               <p className="text-2xl font-bold text-text-dark mt-1">
-                {balanceVisible ? `${(reconsumptionApproxVnd + walletApproxVnd).toLocaleString("vi-VN")} ₫` : "••••••"}
+                {balanceVisible ? `${(reconsumptionApproxVnd + walletApproxVnd).toLocaleString("vi-VN")} đồng` : "••••••"}
               </p>
             </div>
             <button
@@ -1129,7 +1129,7 @@ export default function WalletsPage() {
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Số dư khả dụng:{" "}
-                    <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} ₫</span>
+                    <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} đồng</span>
                   </p>
                 </div>
                 <div>
@@ -1203,7 +1203,7 @@ export default function WalletsPage() {
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Số dư ví thưởng:{" "}
-                    <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} ₫</span>
+                    <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} đồng</span>
                   </p>
                 </div>
                 {swapError && <p className="text-sm text-red-600">{swapError}</p>}

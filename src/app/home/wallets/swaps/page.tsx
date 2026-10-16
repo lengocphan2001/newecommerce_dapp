@@ -91,7 +91,7 @@ export default function WalletSwapsPage() {
             <span>Ví tiêu dùng</span>
           </div>
           <p className="text-2xl font-bold text-text-dark mt-1">
-            {totalAmountVnd.toLocaleString("vi-VN")} ₫
+            {totalAmountVnd.toLocaleString("vi-VN")} đồng
           </p>
           <p className="text-xs text-gray-500 mt-1">Tổng đã chuyển qua {total} lần</p>
         </div>
@@ -128,7 +128,7 @@ export default function WalletSwapsPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-base font-bold text-[#0d121b]">
-                      {swapVnd(s).toLocaleString("vi-VN")} ₫
+                      {swapVnd(s).toLocaleString("vi-VN")} đồng
                     </p>
                     <span className="text-[10px] font-bold uppercase text-green-500">Hoàn thành</span>
                   </div>

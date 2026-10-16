@@ -67,11 +67,7 @@ export default function ActivityPage() {
   }, []);
 
   const formatVnd = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return `${amount.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} đồng`;
   };
 
   // Helper function to format datetime - must be defined before use
