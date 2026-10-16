@@ -47,6 +47,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { Kyc } from './kyc/entities/kyc.entity';
 import { WalletDepositRequest } from './wallet/entities/wallet-deposit-request.entity';
 import { WalletWithdrawRequest } from './wallet/entities/wallet-withdraw-request.entity';
+import { WalletSwap } from './wallet/entities/wallet-swap.entity';
 import { UserBankAccount } from './wallet/entities/user-bank-account.entity';
 import { MatrixRewardTree } from './matrix-reward/entities/matrix-reward-tree.entity';
 import { MatrixRewardNode } from './matrix-reward/entities/matrix-reward-node.entity';
@@ -121,6 +122,7 @@ import { RankSalaryOverride } from './salary/entities/rank-salary-override.entit
           Kyc,
           WalletDepositRequest,
           WalletWithdrawRequest,
+          WalletSwap,
           UserBankAccount,
           MatrixRewardTree,
           MatrixRewardNode,

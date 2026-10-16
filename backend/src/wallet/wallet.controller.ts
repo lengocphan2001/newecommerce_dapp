@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../common/guards';
 import {
   CreateBankAccountDto,
   CreateDepositRequestDto,
+  CreateWalletSwapDto,
   CreateWithdrawRequestDto,
   UpdateBankAccountDto,
 } from './dto';
@@ -122,6 +123,28 @@ export class WalletController {
         ? (status as WalletWithdrawStatus)
         : undefined;
     return this.walletService.getMyWithdrawRequests(userId, statusEnum);
+  }
+
+  /** Chuyển số dư từ ví thưởng sang ví tiêu dùng, áp dụng ngay, không cần admin duyệt */
+  @Post('swaps')
+  @UseGuards(JwtAuthGuard)
+  async createSwap(@Request() req: any, @Body() dto: CreateWalletSwapDto) {
+    return this.walletService.swapRewardToConsumption(req.user.sub, dto.amount);
+  }
+
+  /** Lịch sử chuyển ví thưởng sang ví tiêu dùng */
+  @Get('swaps')
+  @UseGuards(JwtAuthGuard)
+  async getMySwaps(
+    @Request() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.walletService.getMySwaps(
+      req.user.sub,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+    );
   }
 
   /** Webhook nhận sự kiện chuyển khoản USDT tự động từ QuickNode Streams */

@@ -4,6 +4,7 @@ import { WalletController } from './wallet.controller';
 import { WalletService } from './wallet.service';
 import { WalletDepositRequest } from './entities/wallet-deposit-request.entity';
 import { WalletWithdrawRequest } from './entities/wallet-withdraw-request.entity';
+import { WalletSwap } from './entities/wallet-swap.entity';
 import { UserBankAccount } from './entities/user-bank-account.entity';
 import { User } from '../user/entities/user.entity';
 import { BankingConfig } from '../admin/entities/banking-config.entity';
@@ -19,6 +20,7 @@ import { BlockchainModule } from '../blockchain/blockchain.module';
     TypeOrmModule.forFeature([
       WalletDepositRequest,
       WalletWithdrawRequest,
+      WalletSwap,
       UserBankAccount,
       User,
       BankingConfig,

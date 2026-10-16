@@ -217,3 +217,21 @@ MySQL:
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-product-exclude-from-sales.sql
 ```
+
+## Create `wallet_swaps`
+
+Users can move balance from the reward wallet to the consumption wallet themselves
+(no admin approval). This table keeps the history of those swaps. Run this before
+deploying the backend.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/create-wallet-swaps.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/create-wallet-swaps.sql
+```

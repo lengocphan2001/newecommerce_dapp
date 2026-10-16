@@ -30,6 +30,12 @@ export default function WalletsPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [depositRequests, setDepositRequests] = useState<any[]>([]);
   const [withdrawRequests, setWithdrawRequests] = useState<any[]>([]);
+  const [walletSwaps, setWalletSwaps] = useState<any[]>([]);
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  // swapMax = true: chuyển toàn bộ số dư chính xác (tránh sai số khi đổi VND → USDT)
+  const [swapForm, setSwapForm] = useState({ amountVnd: "", swapMax: false });
+  const [swapSubmitting, setSwapSubmitting] = useState(false);
+  const [swapError, setSwapError] = useState("");
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [showDepositModal, setShowDepositModal] = useState(false);
   // Controlamos la visibilidad del modal de recarga para el monedero PV
@@ -180,16 +186,18 @@ export default function WalletsPage() {
     try {
       setLoading(true);
       try {
-        const [info, requests, withdraws, banks, bankCfg] = await Promise.all([
+        const [info, requests, withdraws, banks, bankCfg, swaps] = await Promise.all([
           api.getReferralInfo(true),
           api.getMyDepositRequests().catch(() => []),
           api.getMyWithdrawRequests().catch(() => []),
           api.getMyBankAccounts().catch(() => []),
           api.getBankingConfig().catch(() => null),
+          api.getMyWalletSwaps({ limit: 5 }).catch(() => null),
         ]);
         setReferralInfo(info);
         setDepositRequests(Array.isArray(requests) ? requests : []);
         setWithdrawRequests(Array.isArray(withdraws) ? withdraws : []);
+        setWalletSwaps(swaps?.items ?? []);
         setBankAccounts(Array.isArray(banks) ? banks : []);
         if (bankCfg) setBankingConfig(bankCfg);
       } catch (err: any) {
@@ -346,6 +354,38 @@ export default function WalletsPage() {
       setWithdrawError(msg);
     } finally {
       setWithdrawSubmitting(false);
+    }
+  };
+
+  const handleOpenSwap = () => {
+    setSwapError("");
+    setSwapForm({ amountVnd: "", swapMax: false });
+    setShowSwapModal(true);
+  };
+
+  const handleSubmitSwap = async () => {
+    setSwapError("");
+    const amountVnd = parseVndAmount(swapForm.amountVnd || "");
+    const amount = swapForm.swapMax ? withdrawWalletBalance : amountVnd / activeWithdrawRate;
+
+    if (!(amount > 0)) {
+      setSwapError("Vui lòng nhập số tiền muốn chuyển");
+      return;
+    }
+    if (amount > withdrawWalletBalance + 1e-9) {
+      setSwapError("Số dư ví thưởng không đủ");
+      return;
+    }
+
+    setSwapSubmitting(true);
+    try {
+      await api.createWalletSwap(amount);
+      setShowSwapModal(false);
+      await fetchWalletData();
+    } catch (err: any) {
+      setSwapError(err?.message || "Chuyển ví thất bại");
+    } finally {
+      setSwapSubmitting(false);
     }
   };
 
@@ -686,15 +726,54 @@ export default function WalletsPage() {
                 {balanceVisible ? `${balanceApproxVnd.toLocaleString("vi-VN")} ₫` : "••••••"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleOpenWithdraw}
-              className="rounded-xl bg-rose-500 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-rose-600"
-            >
-              <span className="material-symbols-outlined text-lg">payments</span>
-              Rút tiền
-            </button>
+            <div className="flex flex-col gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleOpenWithdraw}
+                className="rounded-xl bg-rose-500 text-white font-semibold px-4 py-2.5 flex items-center gap-2 hover:bg-rose-600"
+              >
+                <span className="material-symbols-outlined text-lg">payments</span>
+                Rút tiền
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenSwap}
+                disabled={withdrawWalletBalance <= 0}
+                className="rounded-xl border border-cyan-500 text-cyan-700 font-semibold px-4 py-2 flex items-center gap-2 hover:bg-cyan-50 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-lg">swap_horiz</span>
+                Chuyển ví
+              </button>
+            </div>
           </div>
+          {walletSwaps.length > 0 && (
+            <div className="border-t border-gray-100 pt-3 mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-gray-600">Chuyển sang ví tiêu dùng gần đây</p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/home/wallets/swaps")}
+                  className="text-primary-dark text-xs font-semibold"
+                >
+                  {t("seeAll")}
+                </button>
+              </div>
+              <div className="space-y-2">
+                {walletSwaps.slice(0, 5).map((s: any) => {
+                  const amountVnd = s.amountVnd != null
+                    ? Number(s.amountVnd)
+                    : Math.round(Number(s.amount || 0) * activeWithdrawRate);
+                  return (
+                    <div key={s.id} className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0">
+                      <span className="font-mono">{`${amountVnd.toLocaleString("vi-VN")} VND`}</span>
+                      <span className="font-medium text-green-600">Đã chuyển</span>
+                      <span className="text-gray-500 text-xs" suppressHydrationWarning>{formatDateSimple(s.createdAt)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {withdrawRequests.length > 0 && (
             <div className="border-t border-gray-100 pt-3 mt-3">
               <p className="text-xs font-medium text-gray-600 mb-2">Yêu cầu rút tiền gần đây</p>
@@ -1084,6 +1163,56 @@ export default function WalletsPage() {
                 <button type="button" onClick={() => !withdrawSubmitting && setShowWithdrawModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-300 font-medium">Hủy</button>
                 <button type="button" onClick={handleSubmitWithdraw} disabled={withdrawSubmitting} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-medium disabled:opacity-70">
                   {withdrawSubmitting ? "Đang gửi..." : "Gửi yêu cầu rút"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Chuyển ví thưởng → ví tiêu dùng */}
+        {showSwapModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 overflow-y-auto py-8" onClick={() => !swapSubmitting && setShowSwapModal(false)}>
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 my-auto" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-text-dark mb-1">Chuyển ví thưởng sang ví tiêu dùng</h3>
+              <p className="text-xs text-gray-500 mb-4">Số tiền được chuyển ngay, không cần chờ duyệt. Ví tiêu dùng chỉ dùng để mua hàng, không rút được.</p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tiền chuyển (VND)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={swapForm.amountVnd}
+                      onChange={(e) =>
+                        setSwapForm({ amountVnd: formatVndInput(e.target.value), swapMax: false })
+                      }
+                      className="flex-1 min-w-0 rounded-xl border border-gray-300 px-4 py-2.5 font-mono"
+                      placeholder="VD: 500.000"
+                    />
+                    <button
+                      type="button"
+                      disabled={swapSubmitting || withdrawWalletBalance <= 0}
+                      onClick={() =>
+                        setSwapForm({ amountVnd: balanceApproxVnd.toLocaleString("vi-VN"), swapMax: true })
+                      }
+                      className="shrink-0 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary-dark disabled:opacity-50"
+                    >
+                      Max
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Số dư ví thưởng:{" "}
+                    <span className="font-mono text-gray-700">{balanceApproxVnd.toLocaleString("vi-VN")} ₫</span>
+                  </p>
+                </div>
+                {swapError && <p className="text-sm text-red-600">{swapError}</p>}
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button type="button" onClick={() => !swapSubmitting && setShowSwapModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-300 font-medium">Hủy</button>
+                <button type="button" onClick={handleSubmitSwap} disabled={swapSubmitting} className="flex-1 py-2.5 rounded-xl bg-cyan-500 text-white font-medium disabled:opacity-70">
+                  {swapSubmitting ? "Đang chuyển..." : "Chuyển"}
                 </button>
               </div>
             </div>

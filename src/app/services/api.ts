@@ -956,6 +956,45 @@ export const api = {
     return response.json();
   },
 
+  /** Chuyển số dư (USDT) từ ví thưởng sang ví tiêu dùng — áp dụng ngay, không cần admin duyệt */
+  async createWalletSwap(amount: number) {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const response = await fetch(`${API_BASE_URL}/wallet/swaps`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ amount }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      const msg = Array.isArray(err?.message) ? err.message[0] : err?.message;
+      throw new Error(msg || 'Chuyển ví thất bại');
+    }
+    apiCache.invalidate('referralInfo'); // Số dư hai ví đổi ngay
+    return response.json();
+  },
+
+  async getMyWalletSwaps(params: { page?: number; limit?: number } = {}): Promise<{
+    items: Array<{ id: string; amount: number; rate: number | null; amountVnd: number | null; createdAt: string }>;
+    total: number;
+    page: number;
+    limit: number;
+    totalAmount: number;
+    totalAmountVnd: number;
+  }> {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    const query = new URLSearchParams();
+    if (params.page) query.set('page', String(params.page));
+    if (params.limit) query.set('limit', String(params.limit));
+    const qs = query.toString();
+    const response = await fetch(`${API_BASE_URL}/wallet/swaps${qs ? `?${qs}` : ''}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get wallet swaps');
+    return response.json();
+  },
+
   async getMyWithdrawRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED') {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('Not authenticated');

@@ -40,6 +40,7 @@ import { PackagePurchase } from '../src/packages/entities/package-purchase.entit
 import { Kyc } from '../src/kyc/entities/kyc.entity';
 import { WalletDepositRequest } from '../src/wallet/entities/wallet-deposit-request.entity';
 import { WalletWithdrawRequest } from '../src/wallet/entities/wallet-withdraw-request.entity';
+import { WalletSwap } from '../src/wallet/entities/wallet-swap.entity';
 import { UserBankAccount } from '../src/wallet/entities/user-bank-account.entity';
 import { MatrixRewardTree } from '../src/matrix-reward/entities/matrix-reward-tree.entity';
 import { MatrixRewardNode } from '../src/matrix-reward/entities/matrix-reward-node.entity';
@@ -147,6 +148,7 @@ async function initializeDatabase() {
       Kyc,
       WalletDepositRequest,
       WalletWithdrawRequest,
+      WalletSwap,
       UserBankAccount,
       MatrixRewardTree,
       MatrixRewardNode,
