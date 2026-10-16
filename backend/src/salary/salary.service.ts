@@ -172,9 +172,9 @@ export class SalaryService {
    * per user. Tiers and amounts are recomputed here; if any listed user does
    * not qualify or has already been paid for the month, nobody is paid.
    *
-   * The gross amount goes to the reconsumption wallet only: the withdraw share
-   * of the shared wallet distribution is folded into it (default 90%
-   * reconsumption wallet / 10% tax deducted), same rounding as agent pools.
+   * The gross amount goes to the reconsumption wallet only, after the fixed
+   * salary tax (70% reconsumption wallet / 30% tax deducted), same rounding
+   * as agent pools.
    */
   async paySalaries(dto: PaySalaryDto, paidBy: string) {
     const month = this.assertMonth(dto.month);

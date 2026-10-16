@@ -31,6 +31,7 @@ import {
 import {
   DEFAULT_RECONSUMPTION_WALLET_PERCENT,
   DEFAULT_WITHDRAW_WALLET_PERCENT,
+  SALARY_TAX_PERCENT,
 } from '../common/constants/wallet-distribution';
 
 /** Một thay đổi thành viên do việc đồng bộ cấp bậc tạo ra. */
@@ -201,19 +202,15 @@ export class AgentPoolService {
   }
 
   /**
-   * Tỷ lệ chia ví cho lương tháng (lương doanh số + lương danh hiệu): phần
-   * ví rút được gộp vào ví tiêu dùng (mặc định 90% ví tiêu dùng), thuế giữ
-   * nguyên theo cấu hình chung.
+   * Tỷ lệ chia ví cho lương tháng (lương doanh số + lương danh hiệu): không
+   * vào ví rút, 30% thuế bị trừ thẳng, 70% còn lại vào ví tiêu dùng. Cố định,
+   * không theo cấu hình chia ví của hoa hồng.
    */
   async getSalaryWalletDistribution(): Promise<WalletDistribution> {
-    const { withdrawPercent, reconsumptionPercent, taxPercent } =
-      await this.getWalletDistribution();
     return {
       withdrawPercent: 0,
-      reconsumptionPercent: Number(
-        (withdrawPercent + reconsumptionPercent).toFixed(2),
-      ),
-      taxPercent,
+      reconsumptionPercent: 100 - SALARY_TAX_PERCENT,
+      taxPercent: SALARY_TAX_PERCENT,
     };
   }
 

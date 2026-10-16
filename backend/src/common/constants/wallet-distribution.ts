@@ -11,3 +11,9 @@
  */
 export const DEFAULT_WITHDRAW_WALLET_PERCENT = 70;
 export const DEFAULT_RECONSUMPTION_WALLET_PERCENT = 20;
+
+/**
+ * Tax deducted from monthly and rank salaries. The rest goes to the
+ * reconsumption wallet only; salaries never credit the withdraw wallet.
+ */
+export const SALARY_TAX_PERCENT = 30;

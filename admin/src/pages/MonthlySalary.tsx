@@ -98,8 +98,8 @@ interface WalletDistribution {
 const SALARY_PAY_DAY = 10;
 const DEFAULT_DISTRIBUTION: WalletDistribution = {
   withdrawPercent: 0,
-  reconsumptionPercent: 90,
-  taxPercent: 10,
+  reconsumptionPercent: 70,
+  taxPercent: 30,
 };
 
 const TIER_COLORS: Record<string, string> = {
