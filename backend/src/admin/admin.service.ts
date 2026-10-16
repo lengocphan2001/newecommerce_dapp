@@ -43,6 +43,11 @@ import {
   computeSubtreeAggregates,
 } from '../common/utils/referral-tree';
 import {
+  excludedItemsValue,
+  loadSalesExcludedProductIds,
+  orderSalesValue,
+} from '../common/utils/sales-value';
+import {
   SALES_ORDER_STATUSES,
   WEAK_BRANCH_ACCUMULATION_START,
   weakBranchAccumulationStart,
@@ -358,6 +363,9 @@ export class AdminService {
       .andWhere('o.createdAt < :rangeEnd', { rangeEnd })
       .andWhere('o.userId IS NOT NULL')
       .getMany();
+    const excludedProductIds = await loadSalesExcludedProductIds(
+      this.orderRepository.manager,
+    );
 
     // Doanh số cá nhân theo từng tháng, khoá là year * 12 + (month - 1).
     const personalByMonth = new Map<number, Map<string, number>>();
@@ -365,11 +373,7 @@ export class AdminService {
       if (!order.userId) continue;
       const created = new Date(order.createdAt);
       const key = created.getFullYear() * 12 + created.getMonth();
-      const items = Array.isArray(order.items) ? order.items : [];
-      let value = 0;
-      for (const item of items) {
-        value += (Number(item.price) || 0) * (Number(item.quantity) || 0);
-      }
+      const value = orderSalesValue(order.items, excludedProductIds);
       let monthMap = personalByMonth.get(key);
       if (!monthMap) {
         monthMap = new Map<string, number>();
@@ -1788,16 +1792,33 @@ export class AdminService {
 
     const validStatuses = ['confirmed', 'processing', 'shipped', 'delivered'];
 
-    const rows = await this.orderRepository
-      .createQueryBuilder('o')
-      .select('o.userId', 'userId')
-      .addSelect('COALESCE(SUM(o.totalAmount), 0)', 'totalSales')
-      .where('o.status IN (:...statuses)', { statuses: validStatuses })
-      .andWhere('o.createdAt >= :start', { start })
-      .andWhere('o.createdAt < :end', { end })
-      .andWhere('o.userId IS NOT NULL')
-      .groupBy('o.userId')
-      .getRawMany<{ userId: string; totalSales: string }>();
+    const [orders, excludedProductIds] = await Promise.all([
+      this.orderRepository
+        .createQueryBuilder('o')
+        .select(['o.id', 'o.userId', 'o.items', 'o.totalAmount'])
+        .where('o.status IN (:...statuses)', { statuses: validStatuses })
+        .andWhere('o.createdAt >= :start', { start })
+        .andWhere('o.createdAt < :end', { end })
+        .andWhere('o.userId IS NOT NULL')
+        .getMany(),
+      loadSalesExcludedProductIds(this.orderRepository.manager),
+    ]);
+
+    // Tổng giá trị đơn, trừ các dòng hàng của sản phẩm excludeFromSales.
+    const salesByUser = new Map<string, number>();
+    for (const order of orders) {
+      if (!order.userId) continue;
+      const value = Math.max(
+        0,
+        (Number(order.totalAmount) || 0) -
+          excludedItemsValue(order.items, excludedProductIds),
+      );
+      salesByUser.set(order.userId, (salesByUser.get(order.userId) || 0) + value);
+    }
+    const rows = [...salesByUser].map(([userId, totalSales]) => ({
+      userId,
+      totalSales,
+    }));
 
     if (rows.length === 0) return [];
 
@@ -1816,7 +1837,7 @@ export class AdminService {
         fullName: u?.fullName || '',
         email: u?.email || '',
         packageType: u?.packageType || 'NONE',
-        totalSales: parseFloat(r.totalSales) || 0,
+        totalSales: r.totalSales,
       };
     }).sort((a, b) => b.totalSales - a.totalSales);
   }
@@ -1887,14 +1908,13 @@ export class AdminService {
         .getMany(),
     ]);
 
+    const excludedProductIds = await loadSalesExcludedProductIds(
+      this.orderRepository.manager,
+    );
     const personalSalesMap = new Map<string, number>();
     for (const order of orders) {
       if (!order.userId) continue;
-      const items = Array.isArray(order.items) ? order.items : [];
-      let value = 0;
-      for (const item of items) {
-        value += (Number(item.price) || 0) * (Number(item.quantity) || 0);
-      }
+      const value = orderSalesValue(order.items, excludedProductIds);
       personalSalesMap.set(
         order.userId,
         (personalSalesMap.get(order.userId) || 0) + value,

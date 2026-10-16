@@ -150,6 +150,12 @@ export class UpdateProductDto {
   @Transform(({ value }) => value === true || value === 'true')
   isPromisingProduct?: boolean;
 
+  // Bật = đơn mua sản phẩm này không được cộng doanh số
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  excludeFromSales?: boolean;
+
 
   @IsNumber()
   @IsOptional()

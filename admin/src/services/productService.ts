@@ -25,6 +25,8 @@ export interface Product {
   fakeSold?: number;
   /** Show in home page image strip (under title). */
   featuredOnHome?: boolean;
+  /** true = orders for this product do not count towards sales */
+  excludeFromSales?: boolean;
   createdAt?: string;
   pushedAt?: string;
   salePercentage?: number;

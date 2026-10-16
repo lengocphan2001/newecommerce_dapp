@@ -20,6 +20,10 @@ import * as bcrypt from 'bcryptjs';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PackagesService } from '../packages/packages.service';
 import { weakBranchAccumulationStart } from '../common/constants/branch-volume';
+import {
+  loadSalesExcludedProductIds,
+  orderSalesValue,
+} from '../common/utils/sales-value';
 
 @Injectable()
 export class UserService {
@@ -652,6 +656,10 @@ export class UserService {
     const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const end = new Date(year, month, 1, 0, 0, 0, 0);
 
+    const excludedProductIds = await loadSalesExcludedProductIds(
+      this.orderRepository.manager,
+    );
+
     const getVolumeForIds = async (ids: string[]): Promise<number> => {
       if (ids.length === 0) return 0;
 
@@ -672,10 +680,7 @@ export class UserService {
 
       let sum = 0;
       for (const order of orders) {
-        const items = Array.isArray(order.items) ? order.items : [];
-        for (const item of items) {
-          sum += (Number(item.price) || 0) * (Number(item.quantity) || 0);
-        }
+        sum += orderSalesValue(order.items, excludedProductIds);
       }
       return sum;
     };

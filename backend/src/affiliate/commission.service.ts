@@ -27,6 +27,11 @@ import {
 } from '../common/utils/referral-tree';
 import { computeRanksMap } from '../common/utils/rank-calculator';
 import {
+  excludedItemsValue,
+  loadSalesExcludedProductIds,
+  orderSalesValue,
+} from '../common/utils/sales-value';
+import {
   DAILY_RANK_MIN_PURCHASE,
   GLOBAL_SHARE_RATES,
   MONTHLY_RANK_ORDER,
@@ -249,7 +254,7 @@ export class CommissionService {
 
       // BƯỚC 2: Update volume cho TẤT CẢ ancestors (giữ nguyên để phục vụ các logic cây khác)
       this.logger.log(`Step 2: Updating branch volumes for order ${orderId}`);
-      await this.updateBranchVolumes(order, buyer);
+      await this.updateBranchVolumes(order, buyer, productMap);
 
       this.logger.log(`Commission calculation completed for order ${orderId}`);
     } catch (error: any) {
@@ -717,10 +722,28 @@ export class CommissionService {
   /**
    * Update volume cho TẤT CẢ ancestors trong binary tree
    */
-  private async updateBranchVolumes(order: Order, buyer: User): Promise<void> {
+  private async updateBranchVolumes(
+    order: Order,
+    buyer: User,
+    productMap: Map<string, Product>,
+  ): Promise<void> {
     if (!buyer.parentId) {
       this.logger.debug(
         `Buyer ${buyer.id} has no parentId, skipping volume update`,
+      );
+      return;
+    }
+
+    // Sản phẩm bật excludeFromSales không được cộng doanh số nhánh.
+    const excludedProductIds = new Set(
+      [...productMap.values()]
+        .filter((p) => p.excludeFromSales === true)
+        .map((p) => p.id),
+    );
+    const orderValue = orderSalesValue(order.items, excludedProductIds);
+    if (orderValue <= 0) {
+      this.logger.log(
+        `Order ${order.id} has no sales value (products excluded from sales), skipping volume update`,
       );
       return;
     }
@@ -735,7 +758,6 @@ export class CommissionService {
       // Xác định buyer thuộc nhánh nào của ancestor
       const buyerSide = await this.getBuyerSide(buyer, ancestor);
 
-      const orderValue = this.getOrderValueForCommission(order);
       this.logger.log(
         `Updating volume for ancestor ${ancestor.id}: ${buyerSide} branch increase by ${orderValue}`,
       );
@@ -2098,12 +2120,21 @@ export class CommissionService {
       },
     });
 
+    const excludedProductIds = await loadSalesExcludedProductIds(
+      this.orderRepository.manager,
+    );
+
     // Calc total national sales
     let totalNationalSales = 0;
     const userPersonalSalesMap = new Map<string, number>();
 
     for (const order of orders) {
-      const amt = Number(order.totalAmount) || 0;
+      // Dòng hàng của sản phẩm excludeFromSales không tính vào doanh số.
+      const amt = Math.max(
+        0,
+        (Number(order.totalAmount) || 0) -
+          excludedItemsValue(order.items, excludedProductIds),
+      );
       totalNationalSales += amt;
       if (order.userId) {
         userPersonalSalesMap.set(

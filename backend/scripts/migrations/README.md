@@ -200,3 +200,20 @@ MySQL:
 ```bash
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-heap-history-order.sql
 ```
+
+## Add `excludeFromSales` on `products`
+
+Admins can mark a product so its orders do not count towards sales (personal, branch
+and group). Commission is unchanged. Run this before deploying the backend.
+
+PostgreSQL:
+
+```bash
+psql -U YOUR_DB_USER -d YOUR_DB_NAME -f backend/scripts/migrations/add-product-exclude-from-sales.postgres.sql
+```
+
+MySQL:
+
+```bash
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < backend/scripts/migrations/add-product-exclude-from-sales.sql
+```

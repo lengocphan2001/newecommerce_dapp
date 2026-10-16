@@ -284,6 +284,7 @@ const Products: React.FC = () => {
       indirectCommissionRateF2: 0,
       commissionBasePercent: 95,
       isPromisingProduct: false,
+      excludeFromSales: false,
       ...(Object.keys(defaultCommissionByPackage).length ? { commissionConfigByPackage: defaultCommissionByPackage } : {}),
     });
     setThumbnailFileList([]);
@@ -318,6 +319,7 @@ const Products: React.FC = () => {
       indirectCommissionRateF2: product.indirectCommissionRateF2 ?? 0,
       commissionBasePercent: product.commissionBasePercent ?? 95,
       isPromisingProduct: (product as any).isPromisingProduct === true,
+      excludeFromSales: product.excludeFromSales === true,
       featuredOnHome: product.featuredOnHome ?? false,
       groupCommissionMinSales: product.groupCommissionMinSales ?? undefined,
       managementRateF1: product.managementRateF1 ?? undefined,
@@ -515,6 +517,7 @@ const Products: React.FC = () => {
         <Space>
           <span>{text}</span>
           {(record as any).isPromisingProduct && <Tag color="purple">Triển vọng</Tag>}
+          {record.excludeFromSales && <Tag color="orange">Không tính doanh số</Tag>}
         </Space>
       ),
     },
@@ -929,6 +932,9 @@ const Products: React.FC = () => {
                         <Switch checkedChildren="Có" unCheckedChildren="Không" />
                       </Form.Item>
                       <Form.Item name="isPromisingProduct" label="Sản phẩm triển vọng" valuePropName="checked" tooltip="Bật = Sản phẩm triển vọng được áp dụng cơ chế đồng chia và hàng đợi quỹ đặc biệt">
+                        <Switch checkedChildren="Có" unCheckedChildren="Không" />
+                      </Form.Item>
+                      <Form.Item name="excludeFromSales" label="Không tính doanh số" valuePropName="checked" tooltip="Bật = Đơn mua sản phẩm này không được cộng doanh số (cá nhân, nhánh, nhóm). Hoa hồng vẫn tính như bình thường">
                         <Switch checkedChildren="Có" unCheckedChildren="Không" />
                       </Form.Item>
                       <Form.Item name="salePercentage" label="Giảm giá (%)" rules={[{ type: 'number', min: 0, max: 100 }]} tooltip="VD: 20 = giảm 20%">

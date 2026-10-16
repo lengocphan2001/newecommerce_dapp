@@ -165,6 +165,10 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   isPromisingProduct: boolean;
 
+  /** true = đơn mua sản phẩm này không được cộng doanh số (cá nhân, nhánh, nhóm). Hoa hồng không đổi. Default false. */
+  @Column({ type: 'boolean', default: false })
+  excludeFromSales: boolean;
+
   /** Direct: commission % for buyer package TV (0–100). Referrer gets this % of (price × qty). */
   @Column({
     type: 'decimal',
