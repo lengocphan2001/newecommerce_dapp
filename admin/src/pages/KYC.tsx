@@ -2,6 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Space, Modal, Form, Input, Switch, message, Image } from 'antd';
 import { CheckOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { kycService, Kyc } from '../services/kycService';
+import { downloadExcel } from '../utils/excel';
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Chờ duyệt',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
+};
 
 const KYC: React.FC = () => {
   const [kycs, setKycs] = useState<Kyc[]>([]);
@@ -17,21 +30,57 @@ const KYC: React.FC = () => {
   }, []);
 
   const handleExport = async () => {
+    if (filteredKycs.length === 0) {
+      message.warning('Không có yêu cầu KYC nào để xuất');
+      return;
+    }
     setExporting(true);
     try {
-      const response = await kycService.exportToExcel();
-      const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: 'text/csv;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'kyc-export.csv');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      message.success('KYC data exported successfully');
+      await downloadExcel<Kyc>({
+        fileName: `kyc-requests-${new Date().toISOString().slice(0, 10)}`,
+        sheetName: 'KYC Requests',
+        titleLines: [
+          'Danh sách yêu cầu KYC',
+          `${filteredKycs.length} yêu cầu${searchText.trim() ? ` • Lọc theo "${searchText.trim()}"` : ''} • Xuất lúc ${new Date().toLocaleString('vi-VN')}`,
+        ],
+        columns: [
+          { header: 'STT', width: 6, value: (_r, i) => i + 1 },
+          { header: 'KYC ID', width: 38, value: (r) => r.id },
+          { header: 'User ID', width: 38, value: (r) => r.userId },
+          { header: 'Username', width: 18, value: (r) => r.user?.username },
+          { header: 'Họ tên', width: 24, value: (r) => r.user?.fullName },
+          { header: 'Email', width: 28, value: (r) => r.user?.email },
+          { header: 'Số điện thoại', width: 16, value: (r) => r.user?.phone },
+          { header: 'Quốc gia', width: 14, value: (r) => r.user?.country },
+          { header: 'Ví', width: 44, value: (r) => r.user?.walletAddress },
+          { header: 'Loại giấy tờ', width: 16, value: (r) => r.documentType },
+          { header: 'Số CCCD', width: 20, value: (r) => r.documentNumber },
+          {
+            header: 'Ảnh CCCD mặt trước',
+            width: 46,
+            value: (r) => r.frontImage,
+            link: (r) => r.frontImage,
+          },
+          {
+            header: 'Ảnh CCCD mặt sau',
+            width: 46,
+            value: (r) => r.backImage,
+            link: (r) => r.backImage,
+          },
+          { header: 'Ngân hàng', width: 22, value: (r) => r.bankName },
+          { header: 'Số tài khoản', width: 22, value: (r) => r.bankAccountNumber },
+          { header: 'Chủ tài khoản', width: 24, value: (r) => r.bankAccountHolder },
+          { header: 'Chi nhánh', width: 22, value: (r) => r.bankBranch },
+          { header: 'Trạng thái', width: 14, value: (r) => STATUS_LABELS[r.status] || r.status },
+          { header: 'Ghi chú', width: 32, value: (r) => r.notes },
+          { header: 'Ngày gửi', width: 20, value: (r) => formatDateTime(r.createdAt) },
+          { header: 'Cập nhật', width: 20, value: (r) => formatDateTime(r.updatedAt) },
+        ],
+        rows: filteredKycs,
+      });
+      message.success('Đã xuất file Excel yêu cầu KYC');
     } catch (error: any) {
-      message.error(error?.response?.data?.message || 'Failed to export KYC');
+      message.error(error?.message || 'Xuất Excel thất bại');
     } finally {
       setExporting(false);
     }
@@ -185,13 +234,13 @@ const KYC: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' , gap: 12 }}>
         <h1 style={{ margin: 0 }}>KYC Verification</h1>
         <Space>
           <Input.Search
             allowClear
             placeholder="Search ID, user, document, status..."
-            style={{ width: 320 }}
+            style={{ width: '100%', maxWidth: 320 }}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onSearch={(value) => setSearchText(value)}
@@ -207,6 +256,7 @@ const KYC: React.FC = () => {
         </Space>
       </div>
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={filteredKycs}
         loading={loading}
@@ -224,15 +274,15 @@ const KYC: React.FC = () => {
             <div style={{ marginBottom: 20 }}>
               <p><strong>Document Type:</strong> {selectedKyc.documentType}</p>
               <p><strong>Document Number:</strong> {selectedKyc.documentNumber}</p>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px' }}>
                 {selectedKyc.frontImage && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 200 }}>
                     <p>Front Image</p>
                     <Image src={selectedKyc.frontImage} width="100%" />
                   </div>
                 )}
                 {selectedKyc.backImage && (
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: '1 1 220px', minWidth: 200 }}>
                     <p>Back Image</p>
                     <Image src={selectedKyc.backImage} width="100%" />
                   </div>

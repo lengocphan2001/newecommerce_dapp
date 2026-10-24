@@ -11,3 +11,181 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/*
+ * Responsive rules for the admin panel.
+ *
+ * The layout is built for a wide desktop viewport, so these rules adapt the
+ * shared antd chrome (tables, modals, cards, forms) to tablets and phones.
+ * Breakpoints match antd's own: lg = 992px, md = 768px, sm = 576px.
+ */
+
+/* Nothing may push the page wider than the viewport. */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Tables always scroll inside their own container, never the page. */
+.ant-table-wrapper {
+  max-width: 100%;
+}
+
+/* Give touch devices momentum scrolling inside table bodies. */
+.ant-table-content,
+.ant-table-body {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tablets and below: the sidebar is a drawer, so reclaim horizontal padding. */
+@media (max-width: 991px) {
+  .admin-content {
+    margin: 12px 8px !important;
+    padding: 12px !important;
+  }
+
+  .ant-card-body {
+    padding: 16px 12px;
+  }
+
+  /* Page wrappers add their own 24px inside the already padded Content. */
+  .admin-page {
+    padding: 0 !important;
+  }
+
+  /* Antd's Space is nowrap by default, which pushes toolbars off screen. */
+  .ant-space-horizontal {
+    flex-wrap: wrap;
+  }
+
+  .ant-descriptions-bordered .ant-descriptions-item-label,
+  .ant-descriptions-bordered .ant-descriptions-item-content {
+    padding: 8px 12px;
+  }
+
+  /* Dialogs are declared with desktop pixel widths, so cap them here. */
+  .ant-modal {
+    max-width: calc(100vw - 32px);
+    margin: 16px auto;
+  }
+
+  .ant-modal-body {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+  }
+
+  .ant-drawer-content-wrapper {
+    max-width: 100vw;
+  }
+}
+
+/* Phones: tighten typography and let dialogs use the full width. */
+@media (max-width: 767px) {
+  .admin-content {
+    margin: 8px 4px !important;
+    padding: 12px 8px !important;
+  }
+
+  .ant-modal {
+    max-width: calc(100vw - 16px);
+    margin: 8px auto;
+    top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .ant-modal-body {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+  }
+
+  .ant-table {
+    font-size: 13px;
+  }
+
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td {
+    padding: 8px 8px;
+  }
+
+  .ant-page-header,
+  .ant-typography h2 {
+    font-size: 20px;
+  }
+
+  /* Stacked form labels read better than a narrow two-column grid. */
+  .ant-form-horizontal .ant-form-item-label {
+    flex: 0 0 100%;
+    max-width: 100%;
+    text-align: left;
+    padding-bottom: 4px;
+  }
+
+  .ant-form-horizontal .ant-form-item-control {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
+  /* Toolbar controls sized for the desktop go full width instead of clipping. */
+  .admin-toolbar .ant-select,
+  .admin-toolbar .ant-picker,
+  .admin-toolbar .ant-input-affix-wrapper,
+  .admin-toolbar .ant-input-search,
+  .admin-toolbar .ant-input-number {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .admin-toolbar .ant-space-item {
+    width: 100%;
+  }
+
+  /* Antd statistic numbers overflow narrow cards otherwise. */
+  .ant-statistic-content {
+    font-size: 20px;
+  }
+
+  /* Tabs scroll instead of wrapping into an unusable stack. */
+  .ant-tabs-nav-wrap {
+    overflow-x: auto;
+  }
+}
+
+/* Touch targets: antd's small buttons are below the 44px guideline. */
+@media (pointer: coarse) {
+  .ant-btn {
+    min-height: 36px;
+  }
+
+  .ant-table-tbody .ant-btn-sm,
+  .ant-table-tbody .ant-btn-link {
+    min-height: 32px;
+  }
+}
+
+/* Phone-only sizing for the heavier widgets. */
+@media (max-width: 767px) {
+  /* Graph canvases carry a 600px desktop floor, taller than a phone screen. */
+  .admin-flow-canvas {
+    height: 65vh !important;
+    min-height: 340px !important;
+  }
+
+  /* Charts stay readable at a shorter height. */
+  .admin-chart {
+    height: 220px !important;
+  }
+
+  /* Pagination controls overflow a phone-width table footer otherwise. */
+  .ant-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 8px;
+  }
+
+  .ant-table-pagination {
+    margin: 12px 0 !important;
+  }
+}

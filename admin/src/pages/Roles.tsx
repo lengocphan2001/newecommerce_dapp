@@ -147,7 +147,7 @@ const Roles: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between' , gap: 12 }}>
         <h2>Role Management</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
           Create Role
@@ -155,6 +155,7 @@ const Roles: React.FC = () => {
       </div>
 
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={roles}
         loading={loading}

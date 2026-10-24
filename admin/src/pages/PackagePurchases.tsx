@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Button, Tag, Space, message, Typography, Select, Popconfirm } from 'antd';
 import { ReloadOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { packagePurchaseService, PackagePurchase } from '../services/packagePurchaseService';
+import { formatDateTime } from '../utils/format';
 
 const { Title, Text } = Typography;
 
@@ -61,7 +62,7 @@ const PackagePurchasesPage: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v: string) => formatDateTime(v),
     },
     {
       title: 'User',
@@ -108,7 +109,7 @@ const PackagePurchasesPage: React.FC = () => {
       dataIndex: 'paidAt',
       key: 'paidAt',
       width: 160,
-      render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v: string) => formatDateTime(v),
     },
     {
       title: 'Actions',
@@ -144,16 +145,16 @@ const PackagePurchasesPage: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 , gap: 12 }}>
         <div>
           <Title level={2}>Package Purchases</Title>
-          <Text type="secondary">Confirm user package payments to activate their package (CTV, NPP, TV).</Text>
+          <Text type="secondary">Confirm user package payments to activate their package (CTV, ĐT, TV).</Text>
         </div>
         <Space>
           <Select
             placeholder="Filter by status"
             allowClear
-            style={{ width: 140 }}
+            style={{ width: '100%', maxWidth: 140 }}
             value={statusFilter || undefined}
             onChange={(v) => setStatusFilter(v || '')}
             options={[
@@ -166,6 +167,7 @@ const PackagePurchasesPage: React.FC = () => {
       </div>
       <Card>
         <Table
+          scroll={{ x: 'max-content' }}
           dataSource={purchases}
           columns={columns}
           rowKey="id"

@@ -5,13 +5,21 @@ import { useRouter } from "next/navigation";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
 import { api } from "@/app/services/api";
+import { formatAmount } from "@/app/utils/format";
+import { useCartStockCheck } from "@/app/utils/useCartStockCheck";
 
 export default function CartPage() {
   const { items, updateQuantity, removeItem, totalAmount, totalItems, clearCart } = useShoppingCart();
   const router = useRouter();
   const { t } = useI18n();
-  const [referralInfo, setReferralInfo] = useState<{ packageType?: string } | null>(null);
+  const [referralInfo, setReferralInfo] = useState<{ packageType?: string; accumulatedPurchases?: string | number } | null>(null);
   const [promoCode, setPromoCode] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const stockProblems = useCartStockCheck();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     // Obtiene el perfil en lugar de la información de referidos ya que es mucho más liviano y solo necesitamos el packageType para el descuento
@@ -20,24 +28,76 @@ export default function CartPage() {
     });
   }, []);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
-  const formatVND = (usdt: number) => {
-    // Approximate conversion: 1 USDT = 25,000 VNĐ
-    return Math.round(usdt * 25000).toLocaleString("vi-VN");
-  };
+  const formatPrice = (price: number) => formatAmount(price, 2, 4);
 
-  const getRankName = (packageType?: string) => {
-    return packageType || 'NONE';
+  const getRankName = (packageType?: string, accumulatedPurchases?: string | number) => {
+    const total = Number(accumulatedPurchases) || 0;
+    if (total >= 600) {
+      return 'Đại lý';
+    }
+    const type = String(packageType || '').toUpperCase();
+    if (type === 'NPP' || type === 'DT') return 'Đối Tác';
+    if (type === 'CTV') return 'CTV';
+    if (type === 'TV') return 'Thành Viên';
+    return type || 'NONE';
   };
 
   // Final total
   const finalTotal = totalAmount;
+
+  if (!mounted) {
+    return (
+      <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-md mx-auto shadow-xl bg-white">
+        <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-emerald-100 shadow-[0_1px_3px_rgba(16,185,129,0.05)]">
+          <div className="w-10 h-10 flex items-center justify-center">
+            <div className="w-6 h-6 bg-gray-100 rounded-full animate-pulse"></div>
+          </div>
+          <h1 className="text-lg font-bold tracking-tight text-center flex-1 text-slate-900">{t("cartTitle")}</h1>
+          <div className="w-10"></div>
+        </header>
+        <main className="flex-1 overflow-y-auto pb-44 bg-gray-50/50 flex items-center justify-center">
+          <div className="size-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </main>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -106,7 +166,7 @@ export default function CartPage() {
                     <p className="text-slate-800 font-bold text-base leading-tight">{t("cashback2Percent")}</p>
                   </div>
                   <p className="text-slate-500 text-xs font-medium leading-normal">
-                    {t("affiliateLevel")} <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType)}</span>
+                    {t("affiliateLevel")} <span className="text-yellow-600 font-bold">{getRankName(referralInfo.packageType, referralInfo.accumulatedPurchases)}</span>
                   </p>
                 </div>
                 <a
@@ -155,6 +215,13 @@ export default function CartPage() {
                         </div>
                       )}
                       <p className="text-slate-500 text-xs mt-1 font-medium">{t("unit")}</p>
+                      {stockProblems.has(item.productId) && (
+                        <p className="text-red-600 text-xs mt-1 font-semibold">
+                          {stockProblems.get(item.productId)! <= 0
+                            ? t("outOfStock")
+                            : t("stockOnlyLeft").replace("{count}", String(stockProblems.get(item.productId)))}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => removeItem(item.productId)}
@@ -165,8 +232,7 @@ export default function CartPage() {
                   </div>
                   <div className="flex items-end justify-between mt-2">
                     <div className="flex flex-col">
-                      <span className="text-emerald-700 font-extrabold text-lg">{formatPrice(item.price)} PV</span>
-                      <span className="text-[11px] text-slate-500 font-medium">~{formatVND(item.price)} VNĐ</span>
+                      <span className="text-emerald-700 font-extrabold text-lg">{formatVnd(item.price * usdtToVnd)}</span>
                     </div>
                     <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-1">
                       <button
@@ -183,7 +249,11 @@ export default function CartPage() {
                       />
                       <button
                         onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                        className="size-7 flex items-center justify-center rounded bg-primary text-black shadow-sm hover:bg-primary/80 transition-colors"
+                        disabled={
+                          typeof item.stock === "number" &&
+                          items.filter((i) => i.productId === item.productId).reduce((sum, i) => sum + i.quantity, 0) >= item.stock
+                        }
+                        className="size-7 flex items-center justify-center rounded bg-primary text-black shadow-sm hover:bg-primary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <span className="material-symbols-outlined text-sm">add</span>
                       </button>
@@ -200,7 +270,7 @@ export default function CartPage() {
         <div className="px-4 py-4 bg-white border-t border-gray-100">
           <div className="flex justify-between items-center text-sm">
             <span className="text-slate-500">{t("subtotal")}</span>
-            <span className="font-semibold text-slate-900">{formatPrice(totalAmount)} PV</span>
+            <span className="font-semibold text-slate-900">{formatVnd(totalAmount * usdtToVnd)}</span>
           </div>
         </div>
       </main>
@@ -212,14 +282,17 @@ export default function CartPage() {
             <div className="flex flex-col">
               <span className="text-xs text-slate-500 font-medium mb-1">{t("totalPayment")}</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-slate-900 tracking-tight">{formatPrice(finalTotal)}</span>
-                <span className="text-base font-bold text-emerald-600">PV</span>
+                <span className="text-3xl font-black text-slate-900 tracking-tight">{formatVnd(finalTotal * usdtToVnd)}</span>
               </div>
             </div>
           </div>
+          {stockProblems.size > 0 && (
+            <p className="text-sm text-red-600 font-medium">{t("cartStockProblem")}</p>
+          )}
           <button
             onClick={() => router.push("/home/checkout")}
-            className="group w-full bg-primary hover:bg-primary-dark active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_12px_24px_rgba(16,185,129,0.35)]"
+            disabled={stockProblems.size > 0}
+            className="disabled:opacity-50 disabled:cursor-not-allowed group w-full bg-primary hover:bg-primary-dark active:scale-[0.98] transition-all duration-200 text-black font-extrabold text-lg py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_12px_24px_rgba(16,185,129,0.35)]"
           >
             {t("proceedToPayment")}
             <span className="material-symbols-outlined text-black font-bold group-hover:translate-x-1 transition-transform">arrow_forward</span>

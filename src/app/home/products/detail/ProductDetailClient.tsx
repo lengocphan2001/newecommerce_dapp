@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/app/services/api";
 import { useShoppingCart } from "@/app/contexts/ShoppingCartContext";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { formatAmount } from "@/app/utils/format";
 
 interface Category {
   id: string;
@@ -64,7 +65,7 @@ export default function ProductDetailClient() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const { addItem, totalItems } = useShoppingCart();
+  const { addItem, totalItems, items: cartItems } = useShoppingCart();
   const sliderRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
 
@@ -186,16 +187,58 @@ export default function ProductDetailClient() {
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
+  const [usdtToVnd, setUsdtToVnd] = useState<number>(25000);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBankingConfig()
+      .then((config) => {
+        if (cancelled) return;
+        const adminRate = config?.usdtPriceVnd;
+        if (typeof adminRate === "number" && adminRate > 0) {
+          setUsdtToVnd(adminRate);
+        } else {
+          fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd")
+            .then((r) => r.json())
+            .then((data: { tether?: { vnd?: number } }) => {
+              if (cancelled) return;
+              const rate = data?.tether?.vnd;
+              if (typeof rate === "number" && rate > 0) {
+                setUsdtToVnd(rate);
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const formatVnd = (amount: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
-  const handleAddToCart = (e?: React.MouseEvent) => {
-    if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
+  const formatPrice = (price: number) => formatAmount(price, 2, 4);
+
+  /** false khi hết hàng hoặc giỏ đã đủ tồn kho; khi đó không thêm gì cả. */
+  const handleAddToCart = (e?: React.MouseEvent): boolean => {
+    if (!product || product.stock <= 0 || product.tags?.includes('COMING_SOON')) return false;
     const buttonElement = e?.currentTarget as HTMLElement;
+
+    const inCart = cartItems
+      .filter((i) => i.productId === product.id)
+      .reduce((sum, i) => sum + i.quantity, 0);
+    const adding = selectedCombo ? selectedCombo.quantity : 1;
+    if (inCart + adding > product.stock) {
+      alert(t("stockLimitReached"));
+      return false;
+    }
 
     if (selectedCombo) {
       // Add combo: add item once per quantity in the combo
@@ -207,9 +250,10 @@ export default function ProductDetailClient() {
           price: parseFloat((selectedCombo.price / selectedCombo.quantity).toFixed(6)),
           thumbnailUrl: product.thumbnailUrl,
           properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
+          stock: product.stock,
         }, buttonElement);
       }
-      return;
+      return true;
     }
 
     const finalPrice = product.salePercentage && product.salePercentage > 0
@@ -222,12 +266,14 @@ export default function ProductDetailClient() {
       price: finalPrice,
       thumbnailUrl: product.thumbnailUrl,
       properties: Object.keys(selectedProperties).length > 0 ? selectedProperties : undefined,
+      stock: product.stock,
     }, buttonElement);
+    return true;
   };
 
   const handleBuyNow = () => {
-    if (!product || product.stock === 0 || product.tags?.includes('COMING_SOON')) return;
-    handleAddToCart();
+    if (!product || product.stock <= 0 || product.tags?.includes('COMING_SOON')) return;
+    if (!handleAddToCart()) return;
     router.push('/home/cart');
   };
 
@@ -240,10 +286,10 @@ export default function ProductDetailClient() {
   if (loading) {
     return (
       <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-20 bg-background text-text-main font-display antialiased">
-        <div className="animate-pulse space-y-4 p-4">
-          <div className="aspect-square bg-gray-200 rounded"></div>
-          <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        <div className="space-y-4 p-4">
+          <div className="aspect-square skeleton-shimmer rounded-xl"></div>
+          <div className="h-6 skeleton-shimmer rounded w-3/4"></div>
+          <div className="h-4 skeleton-shimmer rounded w-1/2"></div>
         </div>
       </div>
     );
@@ -280,6 +326,16 @@ export default function ProductDetailClient() {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pb-32 bg-background text-text-main font-display antialiased">
+      {/* Floating Back Button */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-md z-40 px-4 pointer-events-none">
+        <button
+          onClick={() => router.back()}
+          className="pointer-events-auto flex size-10 items-center justify-center rounded-full bg-black/30 hover:bg-black/45 text-white backdrop-blur-sm shadow-md active:scale-90 transition-all duration-150"
+        >
+          <span className="material-symbols-outlined text-xl font-medium">arrow_back</span>
+        </button>
+      </div>
+
       {orderSuccess && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-6 text-center max-w-sm w-full shadow-2xl border border-emerald-100 flex flex-col items-center gap-4 animate-scale-up">
@@ -380,11 +436,11 @@ export default function ProductDetailClient() {
             {product.salePercentage && product.salePercentage > 0 ? (
               <div className="flex flex-col">
                 <span className="text-sm text-gray-400 line-through">
-                  ${formatPrice(product.price)}
+                  {formatVnd(product.price * usdtToVnd)}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-3xl font-bold text-red-600">
-                    ${formatPrice(product.price * (1 - product.salePercentage / 100))}
+                    {formatVnd(product.price * (1 - product.salePercentage / 100) * usdtToVnd)}
                   </span>
                   <span className="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded">
                     -{product.salePercentage}%
@@ -392,7 +448,7 @@ export default function ProductDetailClient() {
                 </div>
               </div>
             ) : (
-              <span className="text-3xl font-bold text-primary-dark">${formatPrice(product.price)}</span>
+              <span className="text-3xl font-bold text-primary-dark">{formatVnd(product.price * usdtToVnd)}</span>
             )}
           </div>
         </div>
@@ -417,6 +473,15 @@ export default function ProductDetailClient() {
             <span className="text-sm text-text-main border-l border-gray-300 pl-1.5 ml-1.5 font-medium">{rating}</span>
             <span className="text-sm text-text-sub border-l border-gray-300 pl-1.5 ml-1.5">{t("sold")} {soldCount > 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount}</span>
           </div>
+          {!product.tags?.includes('COMING_SOON') && (
+            product.stock > 0 ? (
+              <span className="text-sm text-green-600 font-medium">
+                {t("stockAvailable").replace("{count}", product.stock.toString())}
+              </span>
+            ) : (
+              <span className="text-sm text-red-600 font-medium">{t("outOfStock")}</span>
+            )
+          )}
         </div>
 
         {/* Dynamic Properties Selection */}
@@ -464,10 +529,10 @@ export default function ProductDetailClient() {
               >
                 <span className="font-medium">{lang === 'vi' ? 'Đơn lẻ' : 'Single'}</span>
                 <span className="text-xs mt-0.5">
-                  ${formatPrice(
-                    product.salePercentage && product.salePercentage > 0
+                  {formatVnd(
+                    (product.salePercentage && product.salePercentage > 0
                       ? product.price * (1 - product.salePercentage / 100)
-                      : product.price
+                      : product.price) * usdtToVnd
                   )}
                 </span>
               </button>
@@ -488,7 +553,7 @@ export default function ProductDetailClient() {
                         ? `Mua ${combo.quantity} sản phẩm`
                         : `Buy ${combo.quantity} items`)}
                   </span>
-                  <span className="text-xs mt-0.5">${formatPrice(combo.price)}</span>
+                  <span className="text-xs mt-0.5">{formatVnd(combo.price * usdtToVnd)}</span>
                   {/* Savings badge */}
                   {(() => {
                     const basePrice = product.salePercentage && product.salePercentage > 0
@@ -497,7 +562,7 @@ export default function ProductDetailClient() {
                     const saved = basePrice * combo.quantity - combo.price;
                     return saved > 0 ? (
                       <span className="text-[10px] mt-0.5 text-green-600 font-medium">
-                        {lang === 'vi' ? 'Tiết kiệm' : 'Save'} ${formatPrice(saved)}
+                        {lang === 'vi' ? 'Tiết kiệm' : 'Save'} {formatVnd(saved * usdtToVnd)}
                       </span>
                     ) : null;
                   })()}
@@ -576,7 +641,7 @@ export default function ProductDetailClient() {
         <div className="max-w-md mx-auto flex gap-2">
           <button
             onClick={handleAddToCart}
-            disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
+            disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
             className="flex-1 flex items-center justify-center gap-2 bg-yellow-50 text-primary-dark font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-yellow-100 transition-colors"
           >
             <span className="material-symbols-outlined text-xl">add_shopping_cart</span>
@@ -584,7 +649,7 @@ export default function ProductDetailClient() {
           </button>
           <button
             onClick={handleBuyNow}
-            disabled={product.stock === 0 || !!product.tags?.includes('COMING_SOON')}
+            disabled={product.stock <= 0 || !!product.tags?.includes('COMING_SOON')}
             className="flex-1 flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:bg-primary-dark transition-colors"
           >
             <span className="material-symbols-outlined text-xl">shopping_bag</span>
@@ -622,13 +687,13 @@ export default function ProductDetailClient() {
                     <div className="mt-1 flex items-baseline justify-between flex-wrap gap-1">
                       {relatedProduct.salePercentage && relatedProduct.salePercentage > 0 ? (
                         <div className="flex flex-col">
-                          <span className="text-[10px] text-gray-400 line-through">${formatPrice(relatedProduct.price)}</span>
+                          <span className="text-[10px] text-gray-400 line-through">{formatVnd(relatedProduct.price * usdtToVnd)}</span>
                           <span className="text-sm font-bold text-red-600">
-                            ${formatPrice(relatedProduct.price * (1 - relatedProduct.salePercentage / 100))}
+                            {formatVnd(relatedProduct.price * (1 - relatedProduct.salePercentage / 100) * usdtToVnd)}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-sm font-bold text-primary-dark">${formatPrice(relatedProduct.price)}</span>
+                        <span className="text-sm font-bold text-primary-dark">{formatVnd(relatedProduct.price * usdtToVnd)}</span>
                       )}
                       <span className="text-[10px] text-text-sub">{t("sold")} {getFakeSold(relatedProduct.id)}</span>
                     </div>

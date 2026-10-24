@@ -774,7 +774,7 @@ const MatrixPool: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
+    <div className="admin-page" style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
       <Card
         title={
           <Space>
@@ -937,7 +937,7 @@ const MatrixPool: React.FC = () => {
           <div>
             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>User ID (nhận thưởng)</div>
             <Input
-              style={{ width: 280 }}
+              style={{ width: '100%', maxWidth: 280 }}
               placeholder="UUID user nhận matrix"
               value={reverseUserId}
               onChange={(e) => setReverseUserId(e.target.value)}
@@ -946,7 +946,7 @@ const MatrixPool: React.FC = () => {
           <div>
             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Order ID cần hoàn tác</div>
             <Input
-              style={{ width: 280 }}
+              style={{ width: '100%', maxWidth: 280 }}
               placeholder="UUID order"
               value={reverseOrderId}
               onChange={(e) => setReverseOrderId(e.target.value)}
@@ -955,7 +955,7 @@ const MatrixPool: React.FC = () => {
           <div>
             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Lý do (optional)</div>
             <Input
-              style={{ width: 300 }}
+              style={{ width: '100%', maxWidth: 300 }}
               placeholder="vd: cộng nhầm / cần rollback"
               value={reverseReason}
               onChange={(e) => setReverseReason(e.target.value)}
@@ -969,7 +969,7 @@ const MatrixPool: React.FC = () => {
           <div>
             <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>Cây (level)</div>
             <Select
-              style={{ width: 160 }}
+              style={{ width: '100%', maxWidth: 160 }}
               value={treeLevel}
               onChange={setTreeLevel}
               options={levels.map((l) => ({ value: l, label: `Tree ${l}` }))}
@@ -1008,7 +1008,7 @@ const MatrixPool: React.FC = () => {
               User ID thêm vào cây
             </div>
             <Input
-              style={{ width: 280 }}
+              style={{ width: '100%', maxWidth: 280 }}
               placeholder="UUID user"
               value={addUserId}
               onChange={(e) => setAddUserId(e.target.value)}
@@ -1070,7 +1070,7 @@ const MatrixPool: React.FC = () => {
       >
         <Space wrap style={{ marginBottom: 16 }}>
           <Select
-            style={{ width: 160 }}
+            style={{ width: '100%', maxWidth: 160 }}
             value={treeLevel}
             onChange={setTreeLevel}
             options={levels.map((l) => ({ value: l, label: `Tree ${l}` }))}
@@ -1099,19 +1099,19 @@ const MatrixPool: React.FC = () => {
       >
         <Space wrap style={{ marginBottom: 12 }}>
           <Input
-            style={{ width: 260 }}
+            style={{ width: '100%', maxWidth: 260 }}
             placeholder="Lọc theo User ID"
             value={historyUserId}
             onChange={(e) => setHistoryUserId(e.target.value)}
           />
           <Input
-            style={{ width: 260 }}
+            style={{ width: '100%', maxWidth: 260 }}
             placeholder="Lọc theo Order ID"
             value={historyOrderId}
             onChange={(e) => setHistoryOrderId(e.target.value)}
           />
           <Select
-            style={{ width: 160 }}
+            style={{ width: '100%', maxWidth: 160 }}
             value={historyType}
             onChange={(v) => setHistoryType(v)}
             options={[
@@ -1235,7 +1235,7 @@ const MatrixPool: React.FC = () => {
       {!loading && treeData && (
         <Card style={{ marginTop: 16 }}>
           <Title level={5}>Level {treeLevel}</Title>
-          <div ref={reactFlowContainerRef} style={{ width: '100%', height: '75vh' }}>
+          <div ref={reactFlowContainerRef} className="admin-flow-canvas" style={{ width: '100%', height: '75vh' }}>
             <ReactFlowProvider>
               <ReactFlow
                 nodes={nodes}

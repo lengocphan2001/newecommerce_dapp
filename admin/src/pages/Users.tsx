@@ -19,11 +19,13 @@ import {
   Alert,
   Spin,
   Switch,
+  Upload,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, KeyOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, DownloadOutlined, KeyOutlined, UploadOutlined } from '@ant-design/icons';
 import { userService, User } from '../services/userService';
 import { adminService } from '../services/adminService';
 import { packagesService, Package } from '../services/packagesService';
+import { formatDateTime } from '../utils/format';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -65,6 +67,8 @@ function buildEditFormValues(u: Record<string, unknown>) {
     pvWalletBalance: toNum(u.pvWalletBalance),
     withdrawWalletBalance: toNum(u.withdrawWalletBalance),
     reconsumptionWalletBalance: toNum(u.reconsumptionWalletBalance),
+    customMaxCommission: u.customMaxCommission !== undefined && u.customMaxCommission !== null ? toNum(u.customMaxCommission) : undefined,
+    manualRank: u.manualRank ?? 'NONE',
   };
 }
 
@@ -86,11 +90,13 @@ const Users: React.FC = () => {
   const [deductWithdrawReason, setDeductWithdrawReason] = useState('');
   const [deductWithdrawLoading, setDeductWithdrawLoading] = useState(false);
   const [generatingCredentials, setGeneratingCredentials] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [generatingPasswordForUser, setGeneratingPasswordForUser] = useState<string | null>(null);
   const [packagesByCode, setPackagesByCode] = useState<Record<string, Package>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [packagesForEdit, setPackagesForEdit] = useState<Package[]>([]);
+  const [resettingWallet, setResettingWallet] = useState(false);
   const [editWalletReconciliation, setEditWalletReconciliation] = useState<{
     paidCommissionToWithdrawWallet: number;
     matrixPoolNetAmount: number;
@@ -237,6 +243,8 @@ const Users: React.FC = () => {
           pvWalletBalance: values.pvWalletBalance,
           withdrawWalletBalance: values.withdrawWalletBalance,
           reconsumptionWalletBalance: values.reconsumptionWalletBalance,
+          customMaxCommission: values.customMaxCommission !== undefined && values.customMaxCommission !== '' && values.customMaxCommission !== null ? Number(values.customMaxCommission) : null,
+          manualRank: values.manualRank,
         };
 
         if (values.referralUserId !== undefined) {
@@ -300,6 +308,42 @@ const Users: React.FC = () => {
     } catch (error) {
       console.error(error);
       message.error('Failed to export users');
+    }
+  };
+
+  const handleImportCsv = async (file: File) => {
+    setImporting(true);
+    try {
+      const res = await adminService.importUsers(file);
+      const { total, created, updated, failed } = res.data;
+      Modal.info({
+        title: 'Kết quả Import Users',
+        content: (
+          <div>
+            <p>Tổng số dòng xử lý: <strong>{total}</strong></p>
+            <p style={{ color: '#16a34a' }}>Tạo mới: <strong>{created}</strong></p>
+            <p style={{ color: '#1d4ed8' }}>Cập nhật: <strong>{updated}</strong></p>
+            {failed.length > 0 && (
+              <div>
+                <p style={{ color: '#ef4444', marginTop: 8 }}>Thất bại ({failed.length}):</p>
+                <div style={{ maxHeight: 200, overflowY: 'auto', background: '#f3f4f6', padding: 8, borderRadius: 4 }}>
+                  {failed.map((msg, i) => (
+                    <div key={i} style={{ fontSize: 12, color: '#ef4444' }}>{msg}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ),
+        okText: 'Đóng',
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error(error);
+      const msg = error?.response?.data?.message || error?.message || 'Failed to import CSV';
+      message.error(typeof msg === 'string' ? msg : 'Failed to import CSV');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -409,6 +453,20 @@ const Users: React.FC = () => {
     }
   };
 
+  const handleResetAllWithdrawWallet = async () => {
+    try {
+      setResettingWallet(true);
+      const res: any = await adminService.resetAllWithdrawWallet();
+      const affected = res?.data?.affected ?? res?.affected ?? 0;
+      message.success(`Đã reset ví rút về 0 cho ${affected} user`);
+      fetchUsers(searchText || undefined);
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Reset thất bại');
+    } finally {
+      setResettingWallet(false);
+    }
+  };
+
   const handleDeductWithdrawWallet = async () => {
     if (!userDetail?.user?.id) return;
     const amt = Number(deductWithdrawAmount ?? 0);
@@ -499,6 +557,43 @@ const Users: React.FC = () => {
     return `$${max.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} USDT`;
   };
 
+  const renderPackageTag = (packageType: string, totalPurchaseAmount?: number | string) => {
+    const total = Number(totalPurchaseAmount) || 0;
+    if (total >= 600) {
+      return <Tag color="gold" style={{ fontWeight: 'bold' }}>Đại lý</Tag>;
+    }
+    const pt = String(packageType || '').toUpperCase();
+    if (pt === 'NPP' || pt === 'DT') {
+      return <Tag color="blue">ĐT (Đối tác)</Tag>;
+    }
+    if (pt === 'CTV') {
+      return <Tag color="green">CTV</Tag>;
+    }
+    if (pt === 'TV') {
+      return <Tag color="default">Thành Viên</Tag>;
+    }
+    return <Tag color="default">{packageType || 'User'}</Tag>;
+  };
+
+  const renderRankTag = (rank?: string) => {
+    if (!rank || rank === 'NONE' || rank === 'C0') {
+      return <Tag color="default">NONE</Tag>;
+    }
+    const colorMap: Record<string, string> = {
+      DAILY: 'blue',
+      C1: 'orange',
+      C2: 'cyan',
+      C3: 'gold',
+      C4: 'purple',
+      C5: 'magenta',
+      C6: 'red',
+      C7: 'volcano',
+      C8: 'geekblue',
+      C9: 'gold',
+    };
+    return <Tag color={colorMap[rank] || 'purple'} style={{ fontWeight: 'bold' }}>{rank}</Tag>;
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -582,6 +677,12 @@ const Users: React.FC = () => {
       },
     },
     {
+      title: 'Cấp bậc Đại lý',
+      dataIndex: 'manualRank',
+      key: 'manualRank',
+      render: (manualRank: string) => renderRankTag(manualRank),
+    },
+    {
       title: 'Actions',
       key: 'actions',
       render: (_: any, record: User) => (
@@ -610,7 +711,7 @@ const Users: React.FC = () => {
           </Button>
           <Select
             defaultValue={record.status || 'ACTIVE'}
-            style={{ width: 120 }}
+            style={{ width: '100%', maxWidth: 120 }}
             onChange={(value) => handleUpdateStatus(record.id, value)}
           >
             <Select.Option value="ACTIVE">Active</Select.Option>
@@ -633,7 +734,7 @@ const Users: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16 }}>
         <Title level={2}>Users Management</Title>
         <Space>
           <Input.Search
@@ -641,9 +742,21 @@ const Users: React.FC = () => {
             onSearch={onSearch}
             onChange={(e) => setSearchText(e.target.value)}
             value={searchText}
-            style={{ width: 300 }}
+            style={{ width: '100%', maxWidth: 300 }}
             allowClear
           />
+          <Upload
+            accept=".csv"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              handleImportCsv(file);
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />} loading={importing}>
+              Import CSV
+            </Button>
+          </Upload>
           <Button icon={<DownloadOutlined />} onClick={handleExport}>
             Export Users
           </Button>
@@ -654,6 +767,26 @@ const Users: React.FC = () => {
           >
             Generate Login Credentials
           </Button>
+          <Popconfirm
+            title="Reset toàn bộ ví rút về 0?"
+            description={
+              <span>
+                Hành động này sẽ đặt <b>withdrawWalletBalance = 0</b> cho <b>tất cả user</b>.<br />
+                Không thể hoàn tác. Bạn có chắc chắn không?
+              </span>
+            }
+            onConfirm={handleResetAllWithdrawWallet}
+            okText="Xác nhận reset"
+            okButtonProps={{ danger: true }}
+            cancelText="Huỷ"
+          >
+            <Button
+              danger
+              loading={resettingWallet}
+            >
+              Reset ví rút về 0 (All)
+            </Button>
+          </Popconfirm>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
             Add User
           </Button>
@@ -694,6 +827,7 @@ const Users: React.FC = () => {
         message="Generate Login Credentials sẽ tạo lại username + mật khẩu cho TẤT CẢ user và gửi email đồng loạt tới các địa chỉ email hợp lệ."
       />
       <Table
+        scroll={{ x: 'max-content' }}
         columns={columns}
         dataSource={filteredUsers}
         loading={loading}
@@ -839,10 +973,28 @@ const Users: React.FC = () => {
                           .filter((p) => p?.code)
                           .map((p) => (
                             <Select.Option key={p.code} value={p.code}>
-                              {p.code}
+                              {p.code === 'DT' || p.code === 'NPP' ? 'ĐT (Đối tác)' : p.code === 'TV' ? 'Thành Viên' : p.code}
                             </Select.Option>
                           ))}
                       </Select>
+                    </Form.Item>
+                    <Form.Item name="manualRank" label="Cấp bậc đại lý (Manual Rank)">
+                      <Select placeholder="Chọn cấp bậc">
+                        <Select.Option value="NONE">NONE</Select.Option>
+                        <Select.Option value="DAILY">DAILY</Select.Option>
+                        <Select.Option value="C1">C1</Select.Option>
+                        <Select.Option value="C2">C2</Select.Option>
+                        <Select.Option value="C3">C3</Select.Option>
+                        <Select.Option value="C4">C4</Select.Option>
+                        <Select.Option value="C5">C5</Select.Option>
+                        <Select.Option value="C6">C6</Select.Option>
+                        <Select.Option value="C7">C7</Select.Option>
+                        <Select.Option value="C8">C8</Select.Option>
+                        <Select.Option value="C9">C9</Select.Option>
+                      </Select>
+                    </Form.Item>
+                    <Form.Item name="customMaxCommission" label="Custom Max Commission Limit (override)">
+                      <InputNumber min={0} style={{ width: '100%' }} placeholder="Keep empty to calculate automatically" />
                     </Form.Item>
                     <Card
                       size="small"
@@ -857,7 +1009,7 @@ const Users: React.FC = () => {
                         <Text type="secondary">
                           Commission PAID hiển thị sau khi trừ 12%, loại trừ payout USDT on-chain; cộng matrix ròng và trừ số đã rút được duyệt.
                         </Text>
-                        <Descriptions size="small" bordered column={1}>
+                        <Descriptions size="small" bordered column={{ xs: 1, sm: 1, md: 1 }}>
                           <Descriptions.Item label="Commission PAID (net, đã trừ 12%)">
                             <span style={{ color: '#389e0d', fontWeight: 600 }}>
                               ${toNum(editWalletReconciliation?.paidCommissionToWithdrawWallet).toFixed(8)} USDT
@@ -982,10 +1134,13 @@ const Users: React.FC = () => {
         {userDetail && (
           <Tabs defaultActiveKey="basic">
             <TabPane tab="Basic Info" key="basic">
-              <Descriptions bordered column={2}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                 <Descriptions.Item label="ID">{userDetail.user.id}</Descriptions.Item>
                 <Descriptions.Item label="Email">{userDetail.user.email}</Descriptions.Item>
                 <Descriptions.Item label="Full Name">{userDetail.user.fullName}</Descriptions.Item>
+                <Descriptions.Item label="Package Type">
+                  {renderPackageTag(userDetail.user.packageType, userDetail.user.totalPurchaseAmount)}
+                </Descriptions.Item>
                 <Descriptions.Item label="Username">{userDetail.user.username || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Phone">{userDetail.user.phone || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Country">{userDetail.user.country || 'N/A'}</Descriptions.Item>
@@ -993,11 +1148,6 @@ const Users: React.FC = () => {
                   {userDetail.user.walletAddress || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Chain ID">{userDetail.user.chainId || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Package Type">
-                  <Tag color={userDetail.user.packageType === 'NPP' ? 'blue' : userDetail.user.packageType === 'CTV' ? 'green' : 'default'}>
-                    {userDetail.user.packageType}
-                  </Tag>
-                </Descriptions.Item>
                 <Descriptions.Item label="Status">
                   <Tag color={userDetail.user.status === 'ACTIVE' ? 'green' : 'red'}>
                     {userDetail.user.status}
@@ -1011,19 +1161,22 @@ const Users: React.FC = () => {
                   ) : 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Created At">
-                  {new Date(userDetail.user.createdAt).toLocaleString()}
+                  {formatDateTime(userDetail.user.createdAt)}
                 </Descriptions.Item>
                 <Descriptions.Item label="Updated At">
-                  {new Date(userDetail.user.updatedAt).toLocaleString()}
+                  {formatDateTime(userDetail.user.updatedAt)}
                 </Descriptions.Item>
               </Descriptions>
 
               <Divider />
 
               <Title level={5}>Financial Information</Title>
-              <Descriptions bordered column={2}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                 <Descriptions.Item label="Ví tiêu dùng (Deposit Wallet)">
-                  <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
+                  <span style={{ color: '#52c41a', fontWeight: 600 }}>${userDetail.user.reconsumptionWalletBalance ?? 0} USDT</span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Ví nạp tiền (Banking Wallet)">
+                  <span style={{ color: '#fa8c16', fontWeight: 600 }}>${userDetail.user.walletBalance ?? 0} USDT</span>
                 </Descriptions.Item>
                 {/* Mostramos el balance actual de PV en la descripción de finanzas del usuario */}
                 <Descriptions.Item label="Ví nạp PV (PV Wallet)">
@@ -1040,6 +1193,9 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Tối đa được nhận (Effective Threshold)">
                   {(() => {
+                    if (userDetail.user.customMaxCommission !== null && userDetail.user.customMaxCommission !== undefined && Number(userDetail.user.customMaxCommission) > 0) {
+                      return `$${Number(userDetail.user.customMaxCommission).toLocaleString()} USDT (Custom)`;
+                    }
                     const code = String(userDetail?.user?.packageType || '').toUpperCase();
                     if (!code || code === 'NONE') return 'N/A';
                     const pkg = packagesByCode[code];
@@ -1053,7 +1209,7 @@ const Users: React.FC = () => {
                       step={0.01}
                       value={fakeCommissionValue}
                       onChange={(v) => setFakeCommissionValue(v ?? 0)}
-                      style={{ width: 140 }}
+                      style={{ width: '100%', maxWidth: 140 }}
                     />
                     <Button type="primary" size="small" loading={savingFakeCommission} onClick={handleSaveFakeCommission}>
                       Save
@@ -1069,6 +1225,26 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Right Branch Total">
                   ${userDetail.user.rightBranchTotal} USDT
+                </Descriptions.Item>
+                <Descriptions.Item label="Doanh số tính thưởng (Nhánh yếu tháng này)">
+                  <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>
+                    ${Math.min(
+                      Number(userDetail.treeStats?.left?.monthlyVolume || 0),
+                      Number(userDetail.treeStats?.right?.monthlyVolume || 0)
+                    ).toLocaleString()} USDT
+                  </span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Doanh số tích lũy (Nhánh yếu tích lũy)">
+                  <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                    ${Number(userDetail.treeStats?.weakBranchTotalVolume || 0).toLocaleString()} USDT
+                  </span>
+                </Descriptions.Item>
+                <Descriptions.Item label="Doanh số chênh lệch">
+                  <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
+                    ${Math.abs(
+                      Number(userDetail.user.leftBranchTotal || 0) - Number(userDetail.user.rightBranchTotal || 0)
+                    ).toLocaleString()} USDT
+                  </span>
                 </Descriptions.Item>
               </Descriptions>
 
@@ -1134,7 +1310,7 @@ const Users: React.FC = () => {
               <Divider />
 
               <Title level={5}>Referral Information</Title>
-              <Descriptions bordered column={2}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                 <Descriptions.Item label="Referral User (Username)">
                   {userDetail.user.referralUser || 'N/A'}
                 </Descriptions.Item>
@@ -1157,6 +1333,7 @@ const Users: React.FC = () => {
 
             <TabPane tab="Addresses" key="addresses">
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.addresses || []}
                 rowKey={(row: any) => row.id || row.userId}
                 pagination={false}
@@ -1180,7 +1357,7 @@ const Users: React.FC = () => {
 
             <TabPane tab="Commissions" key="commissions">
               <Card title="Commission Statistics" style={{ marginBottom: 16 }}>
-                <Descriptions bordered column={2}>
+                <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
                   <Descriptions.Item label="Direct Commission">
                     ${userDetail.commissionStats?.direct || '0.00'}
                   </Descriptions.Item>
@@ -1199,6 +1376,7 @@ const Users: React.FC = () => {
                 </Descriptions>
               </Card>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.commissions || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1223,13 +1401,13 @@ const Users: React.FC = () => {
                   },
                   { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag color={status === 'PAID' ? 'green' : 'orange'}>{status}</Tag> },
                   { title: 'Order ID', dataIndex: 'orderId', key: 'orderId' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>
 
             <TabPane tab="Orders" key="orders">
-              <Descriptions bordered column={1} style={{ marginBottom: 16 }}>
+              <Descriptions bordered column={{ xs: 1, sm: 1, md: 1 }} style={{ marginBottom: 16 }}>
                 <Descriptions.Item label="Total Purchase">
                   {(() => {
                     const amount = userDetail.user?.totalPurchaseAmount ?? 0;
@@ -1247,6 +1425,7 @@ const Users: React.FC = () => {
                 </Descriptions.Item>
               </Descriptions>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.orders || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1269,7 +1448,7 @@ const Users: React.FC = () => {
                     }
                   },
                   { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Tag>{status}</Tag> },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>
@@ -1277,6 +1456,7 @@ const Users: React.FC = () => {
             <TabPane tab="Referral Levels" key="referrals">
               <Title level={5}>F1 Members (Direct) ({userDetail.f1?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.f1PurchaseDetails || userDetail.f1 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1284,7 +1464,12 @@ const Users: React.FC = () => {
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount || record.totalPurchases),
+                  },
                   {
                     title: 'Total Purchases',
                     dataIndex: 'totalPurchases',
@@ -1304,6 +1489,7 @@ const Users: React.FC = () => {
                 expandable={{
                   expandedRowRender: (record: any) => (
                     <Table
+                      scroll={{ x: 'max-content' }}
                       dataSource={record.purchases || []}
                       rowKey={(row: any) => row.orderId}
                       pagination={false}
@@ -1314,7 +1500,7 @@ const Users: React.FC = () => {
                           title: 'Purchase Time',
                           dataIndex: 'purchasedAt',
                           key: 'purchasedAt',
-                          render: (date: string) => (date ? new Date(date).toLocaleString() : '-'),
+                          render: (date: string) => formatDateTime(date),
                         },
                         {
                           title: 'Order Amount',
@@ -1361,6 +1547,7 @@ const Users: React.FC = () => {
 
               <Title level={5}>F2 Members ({userDetail.f2?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.f2 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1368,14 +1555,20 @@ const Users: React.FC = () => {
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
                 style={{ marginBottom: 24 }}
               />
 
               <Title level={5}>F3 Members ({userDetail.f3?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.f3 || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
@@ -1383,57 +1576,108 @@ const Users: React.FC = () => {
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
                   { title: 'Email', dataIndex: 'email', key: 'email' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>
 
             <TabPane tab="Binary Tree" key="tree">
-              <Card title="Tree Statistics" style={{ marginBottom: 16 }}>
-                <Descriptions bordered column={2}>
-                  <Descriptions.Item label="Left Branch Count">
-                    {userDetail.treeStats?.left?.count || 0}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Left Branch Volume">
-                    ${userDetail.treeStats?.left?.volume || '0.00'} USDT
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Right Branch Count">
-                    {userDetail.treeStats?.right?.count || 0}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Right Branch Volume">
-                    ${userDetail.treeStats?.right?.volume || '0.00'} USDT
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Total Members">
-                    {userDetail.treeStats?.total || 0}
-                  </Descriptions.Item>
-                </Descriptions>
-              </Card>
+              {(() => {
+                const leftVolumeVal = Number(userDetail.treeStats?.left?.volume || 0);
+                const rightVolumeVal = Number(userDetail.treeStats?.right?.volume || 0);
+                const leftMonthlyVal = Number(userDetail.treeStats?.left?.monthlyVolume || 0);
+                const rightMonthlyVal = Number(userDetail.treeStats?.right?.monthlyVolume || 0);
+
+                const weakBranchMonthlyVal = Math.min(leftMonthlyVal, rightMonthlyVal);
+                const weakBranchAccumulatedVal = Number(userDetail.treeStats?.weakBranchTotalVolume || 0);
+                const targetVolumeVal = Math.abs(leftVolumeVal - rightVolumeVal);
+
+                return (
+                  <Card title="Tree Statistics" style={{ marginBottom: 16 }}>
+                    <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }}>
+                      <Descriptions.Item label="Left Branch Count">
+                        {userDetail.treeStats?.left?.count || 0}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Left Branch Volume (Total)">
+                        ${leftVolumeVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Right Branch Count">
+                        {userDetail.treeStats?.right?.count || 0}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Right Branch Volume (Total)">
+                        ${rightVolumeVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Left Branch Monthly Volume">
+                        ${leftMonthlyVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Right Branch Monthly Volume">
+                        ${rightMonthlyVal.toLocaleString()} USDT
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Total Members">
+                        {userDetail.treeStats?.total || 0}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Doanh số tính thưởng (Nhánh yếu tháng này)">
+                        <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>
+                          ${weakBranchMonthlyVal.toLocaleString()} USDT
+                        </span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Doanh số tích lũy (Nhánh yếu tích lũy)">
+                        <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                          ${weakBranchAccumulatedVal.toLocaleString()} USDT
+                        </span>
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Doanh số chênh lệch (Lớn - Nhỏ)">
+                        <span style={{ color: '#722ed1', fontWeight: 'bold' }}>
+                          ${targetVolumeVal.toLocaleString()} USDT
+                        </span>
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+                );
+              })()}
 
               <Title level={5}>Left Branch Members ({userDetail.treeStats?.left?.members?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.treeStats?.left?.members || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
                 columns={[
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
                 style={{ marginBottom: 24 }}
               />
 
               <Title level={5}>Right Branch Members ({userDetail.treeStats?.right?.members?.length || 0})</Title>
               <Table
+                scroll={{ x: 'max-content' }}
                 dataSource={userDetail.treeStats?.right?.members || []}
                 rowKey="id"
                 pagination={{ pageSize: 10 }}
                 columns={[
                   { title: 'Username', dataIndex: 'username', key: 'username' },
                   { title: 'Full Name', dataIndex: 'fullName', key: 'fullName' },
-                  { title: 'Package Type', dataIndex: 'packageType', key: 'packageType' },
-                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => new Date(date).toLocaleString() },
+                  {
+                    title: 'Package Type',
+                    dataIndex: 'packageType',
+                    key: 'packageType',
+                    render: (val: string, record: any) => renderPackageTag(val, record.totalPurchaseAmount),
+                  },
+                  { title: 'Created At', dataIndex: 'createdAt', key: 'createdAt', render: (date: string) => formatDateTime(date) },
                 ]}
               />
             </TabPane>

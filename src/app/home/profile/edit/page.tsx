@@ -58,7 +58,7 @@ export default function EditProfilePage() {
 
       if (typeof api !== "undefined") {
         try {
-          const info = await api.getReferralInfo();
+          const info = await api.getReferralInfo(true);
           setFormData((prev) => ({
             ...prev,
             displayName: info.fullName || storedName || "Nguyễn Văn A",

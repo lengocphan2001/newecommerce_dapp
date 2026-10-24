@@ -29,8 +29,10 @@ export interface User {
   // Balance de la billetera PV para compras y depósitos de USDT convertidos
   pvWalletBalance?: number;
   withdrawWalletBalance?: number;
+  customMaxCommission?: number | null;
   kycStatus?: 'UNVERIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   kycSubmittedAt?: string | null;
+  manualRank?: string;
   createdAt?: string;
 }
 

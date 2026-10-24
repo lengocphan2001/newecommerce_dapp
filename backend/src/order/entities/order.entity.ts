@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Commission } from '../../affiliate/entities/commission.entity';
 import { User } from '../../user/entities/user.entity';
@@ -21,10 +22,13 @@ export enum OrderStatus {
 }
 
 @Entity('orders')
+@Index('IDX_orders_status_created_at', ['status', 'createdAt'])
+@Index('IDX_orders_created_at', ['createdAt'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ nullable: true })
   userId: string | null; // User đặt hàng (có thể null nếu là khách vãng lai mua hàng không đăng nhập)
 
@@ -63,6 +67,30 @@ export class Order {
   shippingFee?: number;
 
   @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    default: 0,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  vatAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 8,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
+  })
+  vatRate: number;
+
+  @Column({
     type: 'enum',
     enum: OrderStatus,
     default: OrderStatus.PENDING,
@@ -86,9 +114,35 @@ export class Order {
   @Column({ default: false })
   isReconsumption: boolean; // Đánh dấu đơn hàng tái tiêu dùng
 
-  /** Payment method: 'wallet' | 'banking' | 'deposit_wallet' | 'usdt' */
+  /** Payment method: 'wallet' | 'banking' | 'deposit_wallet' | 'pv_wallet' | 'withdraw_wallet' | 'usdt' | 'cod' */
   @Column({ nullable: true, default: 'wallet' })
   paymentMethod: string;
+
+  /**
+   * Người đã trả tiền khi thanh toán bằng ví nội bộ. Khác userId khi mua hộ
+   * (sponsor trả tiền). Null với đơn cũ và đơn không trả bằng ví.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  paidByUserId: string | null;
+
+  /**
+   * Đơn ví tiêu dùng: phần đã trừ từ reconsumptionWalletBalance, phần còn lại
+   * của totalAmount trừ từ walletBalance. Null với đơn cũ và đơn ví khác.
+   */
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) => (value == null ? null : parseFloat(value)),
+    },
+  })
+  paidFromReconsumptionAmount: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string;
 
   @CreateDateColumn()
   createdAt: Date;

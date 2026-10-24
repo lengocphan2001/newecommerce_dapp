@@ -17,7 +17,7 @@ export default function AccountPage() {
   const [verifying, setVerifying] = useState(false);
 
   const refreshVerified = () => {
-    api.getReferralInfo().then((res: { emailVerified?: boolean }) => {
+    api.getReferralInfo(true).then((res: { emailVerified?: boolean }) => {
       setEmailVerified(!!res.emailVerified);
     }).catch(() => setEmailVerified(null));
   };

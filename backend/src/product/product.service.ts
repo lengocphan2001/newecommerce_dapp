@@ -23,12 +23,20 @@ export class ProductService {
     return this.productRepository.save(product);
   }
 
+  async reorder(ids: string[]) {
+    for (let i = 0; i < ids.length; i++) {
+      await this.productRepository.update(ids[i], { sortOrder: i + 1 });
+    }
+    return { success: true };
+  }
+
   async findAll(query: any) {
     // Build query with relations
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
-      .orderBy('product.pushedAt', 'DESC')
+      .orderBy('product.sortOrder', 'ASC')
+      .addOrderBy('product.pushedAt', 'DESC')
       .addOrderBy('product.createdAt', 'DESC');
 
     // Filter by category if provided
@@ -64,11 +72,8 @@ export class ProductService {
       });
     }
 
-    // Filter by productTypes if provided (check if productTypes array contains the requested type)
-    if (
-      query.productType &&
-      (query.productType === 'STRATEGIC' || query.productType === 'COMMON')
-    ) {
+    // Filter by productTypes if provided — accepts any string code (not just STRATEGIC/COMMON)
+    if (query.productType && typeof query.productType === 'string' && query.productType.trim()) {
       allProducts = allProducts.filter((product) => {
         const types = product.productTypes || [];
         return Array.isArray(types) && types.includes(query.productType);
@@ -123,6 +128,23 @@ export class ProductService {
       if (r.thumbnailUrl) {
         out[r.id] = r.thumbnailUrl;
       }
+    }
+    return out;
+  }
+
+  /** Tồn kho hiện tại theo id (tối đa 50), để giỏ hàng kiểm tra trước khi đặt. */
+  async findStockMapByIds(ids: string[]): Promise<Record<string, number>> {
+    const unique = [...new Set(ids.filter(Boolean))].slice(0, 50);
+    if (unique.length === 0) {
+      return {};
+    }
+    const rows = await this.productRepository.find({
+      where: { id: In(unique) },
+      select: ['id', 'stock'],
+    });
+    const out: Record<string, number> = {};
+    for (const r of rows) {
+      out[r.id] = Number(r.stock) || 0;
     }
     return out;
   }
@@ -296,6 +318,7 @@ export class ProductService {
     const iMgmtF2 = idx('Management F2 (%)');
     const iMgmtF3 = idx('Management F3 (%)');
     const iMgmtMinSales = idx('Management Min Sales ($)');
+    const iIndirectF2 = idx('Indirect Commission F2 (%)');
     const iReconThreshold = idx('Reconsumption Threshold ($)');
     const iReconRequired = idx('Reconsumption Required ($)');
     const iCfgByPkg = idx('Commission Config By Package (JSON)');
@@ -376,6 +399,7 @@ export class ProductService {
         setNum('managementRateF2', get(iMgmtF2));
         setNum('managementRateF3', get(iMgmtF3));
         setNum('managementMinSales', get(iMgmtMinSales));
+        setNum('indirectCommissionRateF2', get(iIndirectF2));
         setNum('reconsumptionThreshold', get(iReconThreshold));
         setNum('reconsumptionRequired', get(iReconRequired));
 

@@ -17,23 +17,88 @@ import {
   Tabs,
   Card,
   Tag,
+  Alert,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, UpCircleOutlined, DownloadOutlined, UploadOutlined, MenuOutlined } from '@ant-design/icons';
 import { Editor } from '@tinymce/tinymce-react';
 import { productService, Product } from '../services/productService';
 import { categoryService, Category } from '../services/categoryService';
 import { packagesService, Package } from '../services/packagesService';
 import type { UploadFile } from 'antd/es/upload/interface';
 
+import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+
+import api from '../services/api';
+
 const availableTags = ['SALE', 'COMING_SOON', 'HOT', 'NEW', 'SOLD_OUT'];
 const { Title } = Typography;
+
+interface RowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+  'data-row-key': string;
+}
+
+const SortableRow: React.FC<RowProps> = ({ children, ...props }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props['data-row-key'],
+  });
+
+  const style: React.CSSProperties = {
+    ...props.style,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    cursor: 'move',
+    // Touch devices scroll the page instead of starting a drag without this.
+    touchAction: 'none',
+    ...(isDragging ? { position: 'relative', zIndex: 9999, background: '#fafafa' } : {}),
+  };
+
+  return (
+    <tr {...props} ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </tr>
+  );
+};
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchText, setSearchText] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [productTypeOptions, setProductTypeOptions] = useState<{ code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSortingMode, setIsSortingMode] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const onDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (active.id !== over?.id) {
+      const activeIndex = filteredProducts.findIndex((p) => p.id === active.id);
+      const overIndex = filteredProducts.findIndex((p) => p.id === over?.id);
+      
+      const newProducts = arrayMove(filteredProducts, activeIndex, overIndex);
+      setFilteredProducts(newProducts);
+      setProducts(newProducts);
+
+      setLoading(true);
+      try {
+        await productService.reorder(newProducts.map((p) => p.id));
+        message.success('Cập nhật thứ tự sản phẩm thành công');
+      } catch (error) {
+        message.error('Lỗi cập nhật thứ tự sản phẩm');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form] = Form.useForm();
@@ -46,6 +111,14 @@ const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    api.get('/admin/product-types').then(res => {
+      setProductTypeOptions(Array.isArray(res.data) ? res.data : []);
+    }).catch(() => {
+      setProductTypeOptions([
+        { code: 'STRATEGIC', name: 'Chiến lược' },
+        { code: 'COMMON',    name: 'Tiêu dùng'  },
+      ]);
+    });
   }, []);
 
   const fetchPackages = useCallback(async () => {
@@ -169,25 +242,49 @@ const Products: React.FC = () => {
   const handleCreate = () => {
     setEditingProduct(null);
     form.resetFields();
-    const defaultCommissionByPackage: Record<string, Record<string, number | null>> = {};
-    packages.forEach((p) => {
-      defaultCommissionByPackage[p.code] = {
-        directCommissionRate: (p.directCommissionRate ?? 0) * 100,
-        groupCommissionRate: (p.groupCommissionRate ?? 0) * 100,
-        groupCommissionMinSales: p.groupCommissionMinSales ?? 0,
-        managementRateF1: (p.managementRateF1 ?? 0) * 100,
-        managementRateF2: p.managementRateF2 != null ? p.managementRateF2 * 100 : null,
-        managementRateF3: p.managementRateF3 != null ? p.managementRateF3 * 100 : null,
-        managementMinSales: p.managementMinSales ?? 0,
-        reconsumptionThreshold: p.reconsumptionThreshold ?? 0,
-        reconsumptionRequired: p.reconsumptionRequired ?? 0,
-      };
-    });
+    const defaultCommissionByPackage: Record<string, Record<string, number | null>> = {
+      CTV: {
+        directCommissionRate: 15,
+        groupCommissionRate: 0,
+        groupCommissionMinSales: 2000,
+        managementRateF1: 0,
+        managementRateF2: null,
+        managementRateF3: null,
+        managementMinSales: 0,
+        reconsumptionThreshold: 50,
+        reconsumptionRequired: 15,
+      },
+      TV: {
+        directCommissionRate: 15,
+        groupCommissionRate: 0,
+        groupCommissionMinSales: 2000,
+        managementRateF1: 0,
+        managementRateF2: null,
+        managementRateF3: null,
+        managementMinSales: 0,
+        reconsumptionThreshold: 150,
+        reconsumptionRequired: 50,
+      },
+      NPP: {
+        directCommissionRate: 15,
+        groupCommissionRate: 0,
+        groupCommissionMinSales: 2000,
+        managementRateF1: 0,
+        managementRateF2: null,
+        managementRateF3: null,
+        managementMinSales: 0,
+        reconsumptionThreshold: 300,
+        reconsumptionRequired: 100,
+      },
+    };
     form.setFieldsValue({
       description: '',
       descriptionEn: '',
       useProductCommission: false,
+      indirectCommissionRateF2: 0,
+      commissionBasePercent: 95,
       isPromisingProduct: false,
+      excludeFromSales: false,
       ...(Object.keys(defaultCommissionByPackage).length ? { commissionConfigByPackage: defaultCommissionByPackage } : {}),
     });
     setThumbnailFileList([]);
@@ -219,7 +316,10 @@ const Products: React.FC = () => {
       commissionPercentManagementCTV: product.commissionPercentManagementCTV ?? undefined,
       commissionPercentManagementNPP: product.commissionPercentManagementNPP ?? undefined,
       useProductCommission: product.useProductCommission === true,
+      indirectCommissionRateF2: product.indirectCommissionRateF2 ?? 0,
+      commissionBasePercent: product.commissionBasePercent ?? 95,
       isPromisingProduct: (product as any).isPromisingProduct === true,
+      excludeFromSales: product.excludeFromSales === true,
       featuredOnHome: product.featuredOnHome ?? false,
       groupCommissionMinSales: product.groupCommissionMinSales ?? undefined,
       managementRateF1: product.managementRateF1 ?? undefined,
@@ -246,7 +346,12 @@ const Products: React.FC = () => {
         };
         if (raw && typeof raw === 'object') {
           for (const [code, c] of Object.entries(raw)) {
-            if (c && typeof c === 'object') push(code, c);
+            if (c && typeof c === 'object') {
+              push(code, c);
+              if (code === 'NPP') {
+                push('DT', c);
+              }
+            }
           }
         }
         packages.forEach((p) => {
@@ -344,7 +449,7 @@ const Products: React.FC = () => {
         };
         for (const [code, c] of Object.entries(commissionConfigByPackage) as [string, ConfigEntry][]) {
           if (!c || typeof c !== 'object') continue;
-          converted[code] = {
+          const entry = {
             directCommissionRate: c.directCommissionRate != null ? Number(c.directCommissionRate) / 100 : 0,
             groupCommissionRate: c.groupCommissionRate != null ? Number(c.groupCommissionRate) / 100 : 0,
             groupCommissionMinSales: c.groupCommissionMinSales ?? 0,
@@ -355,6 +460,10 @@ const Products: React.FC = () => {
             reconsumptionThreshold: c.reconsumptionThreshold ?? 0,
             reconsumptionRequired: c.reconsumptionRequired ?? 0,
           };
+          converted[code] = entry;
+          if (code === 'DT') {
+            converted['NPP'] = entry;
+          }
         }
         commissionConfigByPackage = Object.keys(converted).length ? converted : undefined;
       }
@@ -408,6 +517,7 @@ const Products: React.FC = () => {
         <Space>
           <span>{text}</span>
           {(record as any).isPromisingProduct && <Tag color="purple">Triển vọng</Tag>}
+          {record.excludeFromSales && <Tag color="orange">Không tính doanh số</Tag>}
         </Space>
       ),
     },
@@ -520,6 +630,19 @@ const Products: React.FC = () => {
     },
   ];
 
+  const tableColumns = isSortingMode
+    ? [
+        {
+          title: 'Sắp xếp',
+          key: 'sort',
+          width: 80,
+          align: 'center' as const,
+          render: () => <MenuOutlined style={{ cursor: 'move', color: '#1890ff', fontSize: 16 }} />,
+        },
+        ...columns.filter((col) => col.key !== 'actions'),
+      ]
+    : columns;
+
   return (
     <div style={{ width: '100%', overflow: 'hidden' }}>
       <div
@@ -534,40 +657,89 @@ const Products: React.FC = () => {
       >
         <h1 style={{ margin: 0, fontSize: 'clamp(20px, 4vw, 24px)' }}>Products Management</h1>
         <Space wrap>
-          <Input.Search
-            placeholder="Search products..."
-            allowClear
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 250 }}
-          />
-          <Upload
-            accept=".csv,text/csv"
-            showUploadList={false}
-            beforeUpload={(file) => {
-              handleImportCsv(file as any);
-              return false;
+          {!isSortingMode && (
+            <>
+              <Input.Search
+                placeholder="Search products..."
+                allowClear
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ width: '100%', maxWidth: 250 }}
+              />
+              <Upload
+                accept=".csv,text/csv"
+                showUploadList={false}
+                beforeUpload={(file) => {
+                  handleImportCsv(file as any);
+                  return false;
+                }}
+              >
+                <Button icon={<UploadOutlined />}>Import CSV</Button>
+              </Upload>
+              <Button icon={<DownloadOutlined />} onClick={handleExport}>
+                Export Products
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                Add Product
+              </Button>
+            </>
+          )}
+          <Button
+            type={isSortingMode ? "primary" : "default"}
+            danger={isSortingMode}
+            icon={<MenuOutlined />}
+            onClick={() => {
+              if (isSortingMode) {
+                // Refresh data when leaving sorting mode
+                fetchProducts();
+              }
+              setIsSortingMode(!isSortingMode);
             }}
           >
-            <Button icon={<UploadOutlined />}>Import CSV</Button>
-          </Upload>
-          <Button icon={<DownloadOutlined />} onClick={handleExport}>
-            Export Products
-          </Button>
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            Add Product
+            {isSortingMode ? "Thoát chế độ sắp xếp" : "Sắp xếp sản phẩm"}
           </Button>
         </Space>
       </div>
-      <div style={{ overflowX: 'auto', width: '100%' }}>
-        <Table
-          columns={columns}
-          dataSource={filteredProducts}
-          loading={loading}
-          rowKey="id"
-          pagination={{ pageSize: 10 }}
-          scroll={{ x: 'max-content' }}
+
+      {isSortingMode && (
+        <Alert
+          message="Chế độ sắp xếp sản phẩm đang bật"
+          description="Bạn có thể kéo thả trực tiếp các dòng sản phẩm để thay đổi vị trí của chúng. Phân trang, tìm kiếm và các thao tác chỉnh sửa tạm thời được ẩn để đảm bảo tính chính xác."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
         />
+      )}
+
+      <div style={{ overflowX: 'auto', width: '100%' }}>
+        {isSortingMode ? (
+          <DndContext sensors={sensors} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
+            <SortableContext items={filteredProducts.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+              <Table
+                components={{
+                  body: {
+                    row: SortableRow,
+                  },
+                }}
+                columns={tableColumns}
+                dataSource={filteredProducts}
+                loading={loading}
+                rowKey="id"
+                pagination={false}
+                scroll={{ x: 'max-content' }}
+              />
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <Table
+            columns={tableColumns}
+            dataSource={filteredProducts}
+            loading={loading}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            scroll={{ x: 'max-content' }}
+          />
+        )}
       </div>
       <Modal
         title={editingProduct ? 'Edit Product' : 'Create Product'}
@@ -624,7 +796,7 @@ const Products: React.FC = () => {
                         validateTrigger="onEditorChange"
                       >
                         <Editor
-                          apiKey='7tppn8rr2vnhb7xkh5zm1ydq00zyxuf4465khfc0mfuwxtbq'
+                          apiKey='edoe8bnux7xs8gkefbmty7k5fg2sgpl1207v0tpnc2vl6qzh'
                           init={{
                             height: 400,
                             menubar: true,
@@ -661,7 +833,7 @@ const Products: React.FC = () => {
                         />
                       </Form.Item>
                       <Form.Item name="brand" label="Thương hiệu (Tùy chọn)">
-                        <Input placeholder="VD: Shopii" />
+                        <Input placeholder="VD: Shoplife" />
                       </Form.Item>
                       <Form.Item name="origin" label="Xuất xứ (Tùy chọn)">
                         <Input placeholder="VD: Việt Nam" />
@@ -762,6 +934,9 @@ const Products: React.FC = () => {
                       <Form.Item name="isPromisingProduct" label="Sản phẩm triển vọng" valuePropName="checked" tooltip="Bật = Sản phẩm triển vọng được áp dụng cơ chế đồng chia và hàng đợi quỹ đặc biệt">
                         <Switch checkedChildren="Có" unCheckedChildren="Không" />
                       </Form.Item>
+                      <Form.Item name="excludeFromSales" label="Không tính doanh số" valuePropName="checked" tooltip="Bật = Đơn mua sản phẩm này không được cộng doanh số (cá nhân, nhánh, nhóm). Hoa hồng vẫn tính như bình thường">
+                        <Switch checkedChildren="Có" unCheckedChildren="Không" />
+                      </Form.Item>
                       <Form.Item name="salePercentage" label="Giảm giá (%)" rules={[{ type: 'number', min: 0, max: 100 }]} tooltip="VD: 20 = giảm 20%">
                         <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="VD: 20" />
                       </Form.Item>
@@ -781,9 +956,10 @@ const Products: React.FC = () => {
                         </Select>
                       </Form.Item>
                       <Form.Item name="productTypes" label="Phân loại sản phẩm (Tùy chọn)" rules={[]} initialValue={[]}>
-                        <Select mode="multiple" style={{ width: '100%' }} placeholder="Chọn loại (Chiến lược / Tiêu dùng)">
-                          <Select.Option value="STRATEGIC">Sản phẩm chiến lược</Select.Option>
-                          <Select.Option value="COMMON">Sản phẩm tiêu dùng</Select.Option>
+                        <Select mode="multiple" style={{ width: '100%' }} placeholder="Chọn loại sản phẩm">
+                          {productTypeOptions.map(pt => (
+                            <Select.Option key={pt.code} value={pt.code}>{pt.name}</Select.Option>
+                          ))}
                         </Select>
                       </Form.Item>
                       <Form.Item name="tags" label="Tags" rules={[]} initialValue={[]}>
@@ -798,12 +974,12 @@ const Products: React.FC = () => {
                         {(fields, { add, remove }) => (
                           <>
                             {fields.map(({ key, name, ...restField }) => (
-                              <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                              <Space key={key} wrap style={{ display: 'flex', marginBottom: 8 }} align="baseline">
                                 <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: 'Nhập tên thuộc tính' }]}>
                                   <Input placeholder="VD: Màu sắc" />
                                 </Form.Item>
                                 <Form.Item {...restField} name={[name, 'values']} rules={[{ required: true, message: 'Nhập giá trị' }]}>
-                                  <Select mode="tags" style={{ width: 200 }} placeholder="VD: Đỏ, Xanh" tokenSeparators={[',']} open={false} />
+                                  <Select mode="tags" style={{ width: '100%', maxWidth: 200 }} placeholder="VD: Đỏ, Xanh" tokenSeparators={[',']} open={false} />
                                 </Form.Item>
                                 <MinusCircleOutlined onClick={() => remove(name)} />
                               </Space>
@@ -827,10 +1003,10 @@ const Products: React.FC = () => {
                                   <InputNumber min={2} placeholder="3" style={{ width: 80 }} />
                                 </Form.Item>
                                 <Form.Item {...restField} name={[name, 'price']} label="Giá combo" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
-                                  <InputNumber min={0} step={0.01} precision={4} placeholder="25" style={{ width: 130 }} />
+                                  <InputNumber min={0} step={0.01} precision={4} placeholder="25" style={{ width: '100%', maxWidth: 130 }} />
                                 </Form.Item>
                                 <Form.Item {...restField} name={[name, 'label']} label="Nhãn (tùy chọn)" style={{ marginBottom: 0 }}>
-                                  <Input placeholder="Mua 3 giảm còn $25" style={{ width: 220 }} />
+                                  <Input placeholder="Mua 3 giảm còn $25" style={{ width: '100%', maxWidth: 220 }} />
                                 </Form.Item>
                                 <MinusCircleOutlined onClick={() => remove(name)} style={{ color: 'red' }} />
                               </Space>
@@ -849,6 +1025,14 @@ const Products: React.FC = () => {
                   label: 'Hoa hồng sản phẩm',
                   children: (
                     <>
+                      <Form.Item
+                        name="commissionBasePercent"
+                        label="% Giá trị sản phẩm tính hoa hồng (không bao gồm thuế)"
+                        tooltip="Tỷ lệ % giá trị của sản phẩm này (chưa thuế) được dùng làm căn cứ để tính hoa hồng (ví dụ: 85%, 90%, 95%). Mặc định 95%."
+                        style={{ marginBottom: 16 }}
+                      >
+                        <InputNumber style={{ width: '240px' }} min={0} max={100} placeholder="95" suffix="%" />
+                      </Form.Item>
                       <Form.Item
                         name="useProductCommission"
                         label="Loại hoa hồng"
@@ -869,11 +1053,19 @@ const Products: React.FC = () => {
                             </Typography.Text>
                           ) : (
                             <>
+                              <Form.Item
+                                name="indirectCommissionRateF2"
+                                label="Tỉ lệ hoa hồng gián tiếp F2 cho sản phẩm (%)"
+                                tooltip="Khi khách mua sản phẩm này và bật Hoa hồng sản phẩm, người giới thiệu F2 sẽ nhận tỉ lệ phần trăm này từ giá trị đơn (dưới dạng hoa hồng gián tiếp). Nếu không nhập hoặc bằng 0, F2 sẽ không nhận hoa hồng cho sản phẩm này."
+                                style={{ marginBottom: 16 }}
+                              >
+                                <InputNumber style={{ width: '240px' }} min={0} max={100} placeholder="0" suffix="%" />
+                              </Form.Item>
                               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
                                 Cấu hình hoa hồng theo từng gói – cùng form như trang Package. Chỉ chỉnh các gói có trong hệ thống.
                               </Typography.Text>
                               {packages.length === 0 ? (
-                                <Typography.Text type="secondary">Chưa có gói nào. Vào trang Package để tạo gói (TV, CTV, NPP...).</Typography.Text>
+                                <Typography.Text type="secondary">Chưa có gói nào. Vào trang Package để tạo gói (TV, CTV, ĐT...).</Typography.Text>
                               ) : (
                                 packages.map((pkg) => (
                                   <Card key={pkg.id} title={`${pkg.name} (${pkg.code})`} size="small" style={{ marginBottom: 16 }}>
@@ -941,7 +1133,7 @@ const Products: React.FC = () => {
                         validateTrigger="onEditorChange"
                       >
                         <Editor
-                          apiKey='7tppn8rr2vnhb7xkh5zm1ydq00zyxuf4465khfc0mfuwxtbq'
+                          apiKey='edoe8bnux7xs8gkefbmty7k5fg2sgpl1207v0tpnc2vl6qzh'
                           init={{
                             height: 400,
                             menubar: true,
@@ -978,7 +1170,7 @@ const Products: React.FC = () => {
                         />
                       </Form.Item>
                       <Form.Item name="brandEn" label="Brand (Optional)">
-                        <Input placeholder="e.g. Shopii" />
+                        <Input placeholder="e.g. Shoplife" />
                       </Form.Item>
                       <Form.Item name="originEn" label="Origin (Optional)">
                         <Input placeholder="e.g. Vietnam" />

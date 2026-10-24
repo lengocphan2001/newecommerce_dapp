@@ -7,7 +7,7 @@ import {
 import * as crypto from 'crypto';
 import { ethers } from 'ethers';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
   WalletDepositRequest,
   WalletDepositStatus,
@@ -22,6 +22,7 @@ import {
   WalletWithdrawStatus,
 } from './entities/wallet-withdraw-request.entity';
 import { UserBankAccount } from './entities/user-bank-account.entity';
+import { WalletSwap } from './entities/wallet-swap.entity';
 import {
   CreateBankAccountDto,
   UpdateBankAccountDto,
@@ -55,6 +56,9 @@ export class WalletService {
     private readonly withdrawRequestRepo: Repository<WalletWithdrawRequest>,
     @InjectRepository(UserBankAccount)
     private readonly userBankAccountRepo: Repository<UserBankAccount>,
+    @InjectRepository(WalletSwap)
+    private readonly walletSwapRepo: Repository<WalletSwap>,
+    private readonly dataSource: DataSource,
     private readonly notificationsGateway: NotificationsGateway,
     private readonly configService: ConfigService,
     private readonly web3Service: Web3Service,
@@ -139,7 +143,8 @@ export class WalletService {
     const qb = this.depositRequestRepo
       .createQueryBuilder('r')
       .where('r.userId = :userId', { userId })
-      .orderBy('r.createdAt', 'DESC');
+      .orderBy('r.createdAt', 'DESC')
+      .take(15);
     if (status) qb.andWhere('r.status = :status', { status });
     return qb.getMany();
   }
@@ -326,8 +331,18 @@ export class WalletService {
     if (!user) throw new NotFoundException('User not found');
 
     const amount = Number(dto.amount || 0);
-    if (!Number.isFinite(amount) || amount < 30) {
-      throw new BadRequestException('Số tiền rút tối thiểu là 30 USDT');
+    const banking = await this.bankingConfigRepo.findOne({
+      where: { isEnabled: true },
+    });
+    const rate =
+      banking?.usdtWithdrawPriceVnd != null &&
+      Number(banking.usdtWithdrawPriceVnd) > 0
+        ? Number(banking.usdtWithdrawPriceVnd)
+        : 24000;
+    const amountVnd = Math.round(amount * rate);
+
+    if (!Number.isFinite(amount) || amountVnd < 500000) {
+      throw new BadRequestException('Số tiền rút tối thiểu là 500.000 VND');
     }
     const currentBalance = Number(user.withdrawWalletBalance ?? 0);
     if (amount > currentBalance) {
@@ -370,17 +385,6 @@ export class WalletService {
       withdrawWalletBalance: currentBalance - amount,
     });
 
-    // Obtener la tasa de cambio actual desde la configuración para congelar el valor en VND del retiro en el momento de la transacción
-    const banking = await this.bankingConfigRepo.findOne({
-      where: { isEnabled: true },
-    });
-    const rate =
-      banking?.usdtWithdrawPriceVnd != null &&
-      Number(banking.usdtWithdrawPriceVnd) > 0
-        ? Number(banking.usdtWithdrawPriceVnd)
-        : 24000;
-    const amountVnd = Math.round(amount * rate);
-
     const request = this.withdrawRequestRepo.create({
       userId,
       amount,
@@ -410,6 +414,95 @@ export class WalletService {
     return saved;
   }
 
+  /**
+   * Chuyển số dư từ ví thưởng (withdrawWalletBalance) sang ví tiêu dùng
+   * (reconsumptionWalletBalance). Áp dụng ngay, không cần admin duyệt.
+   * Trừ, cộng và ghi lịch sử trong một transaction, trên dòng user đã khoá.
+   */
+  async swapRewardToConsumption(userId: string, rawAmount: number) {
+    const amount = Number(rawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Số tiền chuyển phải lớn hơn 0');
+    }
+
+    const banking = await this.bankingConfigRepo.findOne({
+      where: { isEnabled: true },
+    });
+    const rate =
+      banking?.usdtWithdrawPriceVnd != null &&
+      Number(banking.usdtWithdrawPriceVnd) > 0
+        ? Number(banking.usdtWithdrawPriceVnd)
+        : 24000;
+
+    return this.dataSource.transaction(async (manager) => {
+      // Khoá dòng user để hai yêu cầu cùng lúc không thể làm ví thưởng âm.
+      const locked = await manager
+        .getRepository(User)
+        .createQueryBuilder('u')
+        .select(['u.id', 'u.withdrawWalletBalance', 'u.reconsumptionWalletBalance'])
+        .where('u.id = :userId', { userId })
+        .setLock('pessimistic_write')
+        .getOne();
+      if (!locked) throw new NotFoundException('User not found');
+
+      const balance = Number(locked.withdrawWalletBalance ?? 0);
+      // Sai số float khi user bấm "Max" (số dư lưu 18 chữ số thập phân).
+      const EPSILON = 1e-9;
+      if (amount > balance + EPSILON) {
+        throw new BadRequestException('Số dư ví thưởng không đủ');
+      }
+      const moved = Math.min(amount, balance);
+      const remaining = balance - moved;
+
+      await manager.getRepository(User).update(userId, {
+        withdrawWalletBalance: remaining < EPSILON ? 0 : remaining,
+        reconsumptionWalletBalance:
+          Number(locked.reconsumptionWalletBalance ?? 0) + moved,
+      });
+
+      const swapRepo = manager.getRepository(WalletSwap);
+      const swap = await swapRepo.save(
+        swapRepo.create({
+          userId,
+          amount: moved,
+          rate,
+          amountVnd: Math.round(moved * rate),
+        }),
+      );
+
+      this.logger.log(
+        `[WALLET SWAP] user=${userId} amount=${moved} USDT reward->consumption`,
+      );
+      return swap;
+    });
+  }
+
+  /** Lịch sử chuyển ví thưởng sang ví tiêu dùng của user, mới nhất trước. */
+  async getMySwaps(userId: string, page = 1, limit = 20) {
+    const safeLimit = Math.min(Math.max(Math.floor(limit) || 20, 1), 100);
+    const safePage = Math.max(Math.floor(page) || 1, 1);
+    const [items, total] = await this.walletSwapRepo.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip: (safePage - 1) * safeLimit,
+      take: safeLimit,
+    });
+    const sumRow = await this.walletSwapRepo
+      .createQueryBuilder('s')
+      .select('COALESCE(SUM(s.amount), 0)', 'totalAmount')
+      .addSelect('COALESCE(SUM(s.amountVnd), 0)', 'totalAmountVnd')
+      .where('s.userId = :userId', { userId })
+      .getRawOne<{ totalAmount: string; totalAmountVnd: string }>();
+    return {
+      items,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalAmount: parseFloat(sumRow?.totalAmount || '0') || 0,
+      totalAmountVnd: parseFloat(sumRow?.totalAmountVnd || '0') || 0,
+    };
+  }
+
   async getMyWithdrawRequests(
     userId: string,
     status?: WalletWithdrawStatus,
@@ -417,7 +510,8 @@ export class WalletService {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .where('r.userId = :userId', { userId })
-      .orderBy('r.createdAt', 'DESC');
+      .orderBy('r.createdAt', 'DESC')
+      .take(15);
     if (status) qb.andWhere('r.status = :status', { status });
     return qb.getMany();
   }
@@ -426,12 +520,14 @@ export class WalletService {
     const qb = this.withdrawRequestRepo
       .createQueryBuilder('r')
       .leftJoinAndSelect('r.user', 'user')
+      .leftJoinAndSelect('user.kycRequests', 'kyc')
       .addSelect([
         'user.id',
         'user.username',
         'user.fullName',
         'user.email',
         'user.phone',
+        'user.packageType',
       ])
       .orderBy('r.createdAt', 'DESC');
     if (status) qb.andWhere('r.status = :status', { status });
@@ -450,7 +546,30 @@ export class WalletService {
         { keyword },
       );
     }
-    return qb.getMany();
+    const list = await qb.getMany();
+    return list.map((req) => {
+      const kycList = Array.isArray(req.user?.kycRequests) ? req.user.kycRequests : [];
+      const approvedKyc = kycList.find((k) => k.status === 'APPROVED');
+      const latestKyc = approvedKyc || kycList[0] || null;
+
+      return {
+        ...req,
+        kycInfo: latestKyc
+          ? {
+              id: latestKyc.id,
+              documentType: latestKyc.documentType,
+              documentNumber: latestKyc.documentNumber,
+              frontImage: latestKyc.frontImage,
+              backImage: latestKyc.backImage,
+              bankName: latestKyc.bankName,
+              bankAccountNumber: latestKyc.bankAccountNumber,
+              bankAccountHolder: latestKyc.bankAccountHolder,
+              status: latestKyc.status,
+              createdAt: latestKyc.createdAt,
+            }
+          : null,
+      };
+    });
   }
 
   async processWithdrawRequest(

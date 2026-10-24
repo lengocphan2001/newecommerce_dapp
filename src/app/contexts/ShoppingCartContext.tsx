@@ -9,6 +9,8 @@ export interface CartItem {
   quantity: number;
   thumbnailUrl?: string;
   properties?: { [key: string]: string }; // Selected properties (e.g., { "Color": "Red", "Size": "M" })
+  /** Tồn kho lần gần nhất biết được; giỏ hàng không cho vượt quá số này. */
+  stock?: number;
 }
 
 interface AnimationState {
@@ -21,9 +23,12 @@ interface AnimationState {
 
 interface ShoppingCartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">, buttonElement?: HTMLElement | null) => void;
+  /** false khi sản phẩm hết hàng hoặc giỏ đã có đủ số lượng tồn kho. */
+  addItem: (item: Omit<CartItem, "quantity">, buttonElement?: HTMLElement | null) => boolean;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
+  /** Cập nhật tồn kho mới nhất (productId → stock) cho các dòng trong giỏ. */
+  syncStock: (stockById: Record<string, number>) => void;
   clearCart: () => void;
   totalItems: number;
   totalAmount: number;
@@ -56,6 +61,14 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
   }, [items]);
 
   const addItem = useCallback((item: Omit<CartItem, "quantity">, buttonElement?: HTMLElement | null) => {
+    // Tổng số lượng của sản phẩm trong giỏ (mọi biến thể) không được vượt tồn kho.
+    if (typeof item.stock === "number") {
+      const inCart = items
+        .filter((i) => i.productId === item.productId)
+        .reduce((sum, i) => sum + i.quantity, 0);
+      if (item.stock <= 0 || inCart >= item.stock) return false;
+    }
+
     setItems((prev) => {
       // Match by both productId AND properties to allow same product with different variants
       const existing = prev.find((i) => {
@@ -74,7 +87,7 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
         return prev.map((i) => {
           const matches = i.productId === item.productId &&
             JSON.stringify(i.properties || {}) === JSON.stringify(item.properties || {});
-          return matches ? { ...i, quantity: i.quantity + 1 } : i;
+          return matches ? { ...i, quantity: i.quantity + 1, stock: item.stock ?? i.stock } : i;
         });
       }
       return [...prev, { ...item, quantity: 1 }];
@@ -129,7 +142,8 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
         setAnimation(null);
       }, 800);
     }
-  }, []);
+    return true;
+  }, [items]);
 
   const removeItem = useCallback((productId: string) => {
     setItems((prev) => prev.filter((i) => i.productId !== productId));
@@ -140,10 +154,27 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
       removeItem(productId);
       return;
     }
-    setItems((prev) =>
-      prev.map((i) => (i.productId === productId ? { ...i, quantity } : i))
-    );
+    setItems((prev) => {
+      const item = prev.find((i) => i.productId === productId);
+      let next = quantity;
+      if (item && typeof item.stock === "number") {
+        const otherVariants = prev
+          .filter((i) => i.productId === productId && i !== item)
+          .reduce((sum, i) => sum + i.quantity, 0);
+        next = Math.min(next, Math.max(0, item.stock - otherVariants));
+        if (next <= 0) return prev;
+      }
+      return prev.map((i) => (i.productId === productId ? { ...i, quantity: next } : i));
+    });
   }, [removeItem]);
+
+  const syncStock = useCallback((stockById: Record<string, number>) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        typeof stockById[i.productId] === "number" ? { ...i, stock: stockById[i.productId] } : i
+      )
+    );
+  }, []);
 
   const clearCart = useCallback(() => {
     setItems([]);
@@ -159,6 +190,7 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
         addItem,
         removeItem,
         updateQuantity,
+        syncStock,
         clearCart,
         totalItems,
         totalAmount,
@@ -172,9 +204,10 @@ export function ShoppingCartProvider({ children }: { children: React.ReactNode }
 
 const _fallbackCart: ShoppingCartContextType = {
   items: [],
-  addItem: () => {},
+  addItem: () => false,
   removeItem: () => {},
   updateQuantity: () => {},
+  syncStock: () => {},
   clearCart: () => {},
   totalItems: 0,
   totalAmount: 0,

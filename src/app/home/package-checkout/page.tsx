@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import TransactionProcessingModal, { ProcessingStep } from "@/app/components/TransactionProcessingModal";
 import { api } from "@/app/services/api";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { formatAmount, formatVnd } from "@/app/utils/format";
 
 function PackageCheckoutContent() {
   const router = useRouter();
@@ -89,10 +90,7 @@ function PackageCheckoutContent() {
     setError("");
   };
 
-  const formatPrice = (p: number) =>
-    Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 4 }).format(p);
-  const formatVnd = (v: number) =>
-    Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(v);
+  const formatPrice = (p: number) => formatAmount(p, 0, 4);
   if (!purchaseId || !amount || amount <= 0) {
     return null;
   }

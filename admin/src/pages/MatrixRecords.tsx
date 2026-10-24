@@ -109,19 +109,19 @@ const MatrixRecords: React.FC = () => {
       >
         <Space wrap style={{ marginBottom: 12 }}>
           <Input
-            style={{ width: 260 }}
+            style={{ width: '100%', maxWidth: 260 }}
             placeholder="Lọc theo User ID"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
           />
           <Input
-            style={{ width: 260 }}
+            style={{ width: '100%', maxWidth: 260 }}
             placeholder="Lọc theo Order ID"
             value={orderId}
             onChange={(e) => setOrderId(e.target.value)}
           />
           <Select
-            style={{ width: 160 }}
+            style={{ width: '100%', maxWidth: 160 }}
             value={type}
             onChange={(v) => setType(v)}
             options={[

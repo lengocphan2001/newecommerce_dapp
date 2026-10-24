@@ -13,14 +13,60 @@ import {
     InputNumber,
     Select,
 } from 'antd';
-import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined } from '@ant-design/icons';
+import { UploadOutlined, SaveOutlined, BankOutlined, SettingOutlined, WalletOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 import { bankingService, BankingConfig } from '../services/bankingService';
-import { systemConfigService } from '../services/systemConfigService';
+import { systemConfigService, WalletPaymentToggleKey, UserVisibilityToggleKey } from '../services/systemConfigService';
 import api from '../services/api';
 
 const { Title, Text } = Typography;
 
 const VIETQR_BANKS_API = 'https://api.vietqr.io/v2/banks';
+
+const WALLET_PAYMENT_TOGGLES: { key: WalletPaymentToggleKey; label: string; description: string }[] = [
+    {
+        key: 'depositWalletPaymentEnabled',
+        label: 'Ví tiêu dùng',
+        description: 'Cho phép người dùng thanh toán đơn hàng bằng ví tiêu dùng.',
+    },
+    {
+        key: 'pvWalletPaymentEnabled',
+        label: 'Ví nạp PV',
+        description: 'Cho phép người dùng thanh toán đơn hàng bằng ví nạp PV.',
+    },
+    {
+        key: 'withdrawWalletPaymentEnabled',
+        label: 'Ví thưởng',
+        description: 'Cho phép người dùng thanh toán đơn hàng bằng ví thưởng.',
+    },
+];
+
+const USER_VISIBILITY_TOGGLES: { key: UserVisibilityToggleKey; label: string; description: string }[] = [
+    {
+        key: 'userRewardHistoryVisible',
+        label: 'Lịch sử trả thưởng',
+        description: 'Danh sách mọi loại thưởng đã nhận (hoa hồng, đồng chia, lương tháng...).',
+    },
+    {
+        key: 'userOrderHistoryVisible',
+        label: 'Lịch sử mua hàng',
+        description: 'Danh sách và chi tiết đơn hàng của người dùng.',
+    },
+    {
+        key: 'userF1ListVisible',
+        label: 'Danh sách F1',
+        description: 'Danh sách người được giới thiệu trực tiếp và chi tiết từng F1.',
+    },
+    {
+        key: 'userSalesVisible',
+        label: 'Doanh số',
+        description: 'Doanh số tính thưởng, tích lũy, chênh lệch, doanh số đội nhóm và doanh số nhánh trên cây.',
+    },
+    {
+        key: 'userNetworkStructureVisible',
+        label: 'Cấu trúc mạng lưới',
+        description: 'Lối vào và màn hình sơ đồ cây nhị phân (dạng cây lẫn dạng danh sách).',
+    },
+];
 
 interface VietQRBank {
     id: number;
@@ -41,6 +87,20 @@ const BankingSettings: React.FC = () => {
     const [usdtQrPreview, setUsdtQrPreview] = useState<string | undefined>(undefined);
     const [bankList, setBankList] = useState<VietQRBank[]>([]);
     const [banksLoading, setBanksLoading] = useState(true);
+    const [walletToggles, setWalletToggles] = useState<Record<WalletPaymentToggleKey, boolean>>({
+        depositWalletPaymentEnabled: true,
+        pvWalletPaymentEnabled: true,
+        withdrawWalletPaymentEnabled: true,
+    });
+    const [savingToggle, setSavingToggle] = useState<WalletPaymentToggleKey | null>(null);
+    const [visibilityToggles, setVisibilityToggles] = useState<Record<UserVisibilityToggleKey, boolean>>({
+        userRewardHistoryVisible: true,
+        userOrderHistoryVisible: true,
+        userF1ListVisible: true,
+        userSalesVisible: true,
+        userNetworkStructureVisible: true,
+    });
+    const [savingVisibility, setSavingVisibility] = useState<UserVisibilityToggleKey | null>(null);
 
     useEffect(() => {
         fetchConfig();
@@ -90,14 +150,29 @@ const BankingSettings: React.FC = () => {
             const config = await systemConfigService.get();
             payoutForm.setFieldsValue({
                 minPayoutThreshold: config.minPayoutThreshold ?? 50,
+                indirectCommissionRateF2:
+                  config.indirectCommissionRateF2 ?? 5,
                 commissionDepositWalletPercent:
                   config.commissionDepositWalletPercent ?? 12,
                 commissionWithdrawWalletPercent:
                   config.commissionWithdrawWalletPercent ?? 80,
             });
+            setWalletToggles({
+                depositWalletPaymentEnabled: config.depositWalletPaymentEnabled ?? true,
+                pvWalletPaymentEnabled: config.pvWalletPaymentEnabled ?? true,
+                withdrawWalletPaymentEnabled: config.withdrawWalletPaymentEnabled ?? true,
+            });
+            setVisibilityToggles({
+                userRewardHistoryVisible: config.userRewardHistoryVisible ?? true,
+                userOrderHistoryVisible: config.userOrderHistoryVisible ?? true,
+                userF1ListVisible: config.userF1ListVisible ?? true,
+                userSalesVisible: config.userSalesVisible ?? true,
+                userNetworkStructureVisible: config.userNetworkStructureVisible ?? true,
+            });
         } catch {
             payoutForm.setFieldsValue({
               minPayoutThreshold: 50,
+              indirectCommissionRateF2: 5,
               commissionDepositWalletPercent: 12,
               commissionWithdrawWalletPercent: 80,
             });
@@ -159,6 +234,32 @@ const BankingSettings: React.FC = () => {
         return false;
     };
 
+    const handleToggleWalletPayment = async (key: WalletPaymentToggleKey, enabled: boolean) => {
+        setSavingToggle(key);
+        try {
+            const config = await systemConfigService.update({ [key]: enabled });
+            setWalletToggles((prev) => ({ ...prev, [key]: config[key] ?? enabled }));
+            message.success(enabled ? 'Đã bật thanh toán bằng ví' : 'Đã tắt thanh toán bằng ví');
+        } catch {
+            message.error('Không lưu được cài đặt thanh toán bằng ví');
+        } finally {
+            setSavingToggle(null);
+        }
+    };
+
+    const handleToggleVisibility = async (key: UserVisibilityToggleKey, visible: boolean) => {
+        setSavingVisibility(key);
+        try {
+            const config = await systemConfigService.update({ [key]: visible });
+            setVisibilityToggles((prev) => ({ ...prev, [key]: config[key] ?? visible }));
+            message.success(visible ? 'Đã hiện thông tin trên app người dùng' : 'Đã ẩn thông tin trên app người dùng');
+        } catch {
+            message.error('Không lưu được cài đặt hiển thị');
+        } finally {
+            setSavingVisibility(null);
+        }
+    };
+
     const handleSavePayout = async (values: any) => {
         const depositPercent = Number(values.commissionDepositWalletPercent ?? 0);
         const withdrawPercent = Number(values.commissionWithdrawWalletPercent ?? 0);
@@ -170,6 +271,7 @@ const BankingSettings: React.FC = () => {
         try {
             await systemConfigService.update({
               minPayoutThreshold: values.minPayoutThreshold,
+              indirectCommissionRateF2: Number(values.indirectCommissionRateF2 ?? 5),
               commissionDepositWalletPercent: depositPercent,
               commissionWithdrawWalletPercent: withdrawPercent,
             });
@@ -183,7 +285,7 @@ const BankingSettings: React.FC = () => {
 
     return (
         <div style={{ maxWidth: 600 }}>
-            <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
                 <BankOutlined style={{ fontSize: 24 }} />
                 <Title level={3} style={{ margin: 0 }}>Banking Payment Settings</Title>
             </div>
@@ -256,7 +358,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="1 USDT = X VND. Dùng cho checkout CK và quy đổi khi duyệt nạp tiền. Để trống = lấy giá live (CoinGecko) nếu app hỗ trợ."
                     >
                         <InputNumber
-                            style={{ width: 200 }}
+                            style={{ width: '100%', maxWidth: 200 }}
                             min={0}
                             step={100}
                             placeholder="VD: 25000"
@@ -270,7 +372,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="Tách biệt với tỷ giá nạp/checkout. Dùng để hiển thị quy đổi VND trong modal rút tiền ví. Để trống = không hiện ước tính VND khi rút."
                     >
                         <InputNumber
-                            style={{ width: 200 }}
+                            style={{ width: '100%', maxWidth: 200 }}
                             min={0}
                             step={100}
                             placeholder="VD: 24800 (khác tỷ giá nạp nếu cần)"
@@ -311,7 +413,7 @@ const BankingSettings: React.FC = () => {
                             <Button icon={<UploadOutlined />}>Upload USDT QR Image</Button>
                         </Upload>
                         {usdtQrPreview && (
-                            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}>
                                 <Image
                                     src={usdtQrPreview}
                                     width={160}
@@ -341,7 +443,7 @@ const BankingSettings: React.FC = () => {
                             <Button icon={<UploadOutlined />}>Upload QR Image</Button>
                         </Upload>
                         {qrPreview && (
-                            <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}>
                                 <Image
                                     src={qrPreview}
                                     width={160}
@@ -378,7 +480,71 @@ const BankingSettings: React.FC = () => {
                 </Form>
             </Card>
 
-            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+                <WalletOutlined style={{ fontSize: 24 }} />
+                <Title level={3} style={{ margin: 0 }}>Wallet Payment Settings</Title>
+            </div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                Bật/tắt việc mua hàng bằng từng loại ví. Áp dụng cho mọi đơn hàng (kể cả đặt hộ),
+                thay đổi có hiệu lực ngay. Số dư ví của người dùng không bị ảnh hưởng.
+            </Text>
+
+            <Card loading={loading}>
+                {WALLET_PAYMENT_TOGGLES.map((item, index) => (
+                    <React.Fragment key={item.key}>
+                        {index > 0 && <Divider style={{ margin: '12px 0' }} />}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                                <Text strong>{item.label}</Text>
+                                <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                                    {item.description}
+                                </Text>
+                            </div>
+                            <Switch
+                                checked={walletToggles[item.key]}
+                                loading={savingToggle === item.key}
+                                onChange={(checked) => handleToggleWalletPayment(item.key, checked)}
+                                checkedChildren="Bật"
+                                unCheckedChildren="Tắt"
+                            />
+                        </div>
+                    </React.Fragment>
+                ))}
+            </Card>
+
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+                <EyeInvisibleOutlined style={{ fontSize: 24 }} />
+                <Title level={3} style={{ margin: 0 }}>User App Visibility</Title>
+            </div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+                Hiện/ẩn thông tin trên app của tất cả người dùng. Khi ẩn, cả màn hình lẫn API phía người dùng
+                đều không trả dữ liệu này. Trang admin không bị ảnh hưởng.
+            </Text>
+
+            <Card loading={loading}>
+                {USER_VISIBILITY_TOGGLES.map((item, index) => (
+                    <React.Fragment key={item.key}>
+                        {index > 0 && <Divider style={{ margin: '12px 0' }} />}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                                <Text strong>{item.label}</Text>
+                                <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                                    {item.description}
+                                </Text>
+                            </div>
+                            <Switch
+                                checked={visibilityToggles[item.key]}
+                                loading={savingVisibility === item.key}
+                                onChange={(checked) => handleToggleVisibility(item.key, checked)}
+                                checkedChildren="Hiện"
+                                unCheckedChildren="Ẩn"
+                            />
+                        </div>
+                    </React.Fragment>
+                ))}
+            </Card>
+
+            <div style={{ marginTop: 32, marginBottom: 24, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
                 <SettingOutlined style={{ fontSize: 24 }} />
                 <Title level={3} style={{ margin: 0 }}>Payout Settings</Title>
             </div>
@@ -397,11 +563,27 @@ const BankingSettings: React.FC = () => {
                         tooltip="Users must accumulate at least this amount in pending commissions before automatic payout is triggered."
                     >
                         <InputNumber
-                            style={{ width: 200 }}
+                            style={{ width: '100%', maxWidth: 200 }}
                             min={0}
                             step={10}
                             precision={2}
                             addonBefore="$"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="indirectCommissionRateF2"
+                        label="Indirect Commission F2 (%)"
+                        rules={[{ required: true, message: 'Please enter indirect commission rate for F2' }]}
+                        tooltip="When a user's F2 buys, this percentage of order value is paid to the upline user (default 5%)."
+                    >
+                        <InputNumber
+                            style={{ width: '100%', maxWidth: 220 }}
+                            min={0}
+                            max={100}
+                            step={0.5}
+                            precision={2}
+                            addonAfter="%"
                         />
                     </Form.Item>
 
@@ -411,7 +593,7 @@ const BankingSettings: React.FC = () => {
                         rules={[{ required: true, message: 'Please enter deposit wallet percent' }]}
                     >
                         <InputNumber
-                            style={{ width: 220 }}
+                            style={{ width: '100%', maxWidth: 220 }}
                             min={0}
                             max={100}
                             step={1}
@@ -427,7 +609,7 @@ const BankingSettings: React.FC = () => {
                         tooltip="Total of Deposit % and Withdraw % must be <= 100. The remainder is platform fee."
                     >
                         <InputNumber
-                            style={{ width: 220 }}
+                            style={{ width: '100%', maxWidth: 220 }}
                             min={0}
                             max={100}
                             step={1}

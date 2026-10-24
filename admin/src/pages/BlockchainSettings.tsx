@@ -278,7 +278,7 @@ const BlockchainSettings: React.FC = () => {
         style={{ marginTop: 16 }}
       >
         {stats?.contractAddress ? (
-          <Descriptions bordered column={2} style={{ marginBottom: 16 }}>
+          <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }} style={{ marginBottom: 16 }}>
             <Descriptions.Item label="Contract Address" span={2}>
               <Space>
                 <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>

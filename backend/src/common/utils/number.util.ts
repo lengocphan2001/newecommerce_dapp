@@ -4,6 +4,15 @@
  */
 
 /**
+ * Round a money amount to 2 decimals, dropping float artefacts.
+ * Non-finite input becomes 0.
+ */
+export function roundMoney(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 100) / 100;
+}
+
+/**
  * Format a decimal number to string with proper precision
  * Removes floating-point precision artifacts like 0.020000000000000004
  * @param value - Number or string to format

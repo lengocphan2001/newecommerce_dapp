@@ -140,6 +140,9 @@ export class GoogleSheetsService {
         'Product IDs',
         'Shipping Address',
         'Transaction Hash',
+        'Shipping Fee',
+        'VAT Rate',
+        'VAT Amount',
         'Created At',
         'Updated At',
       ];
@@ -224,6 +227,9 @@ export class GoogleSheetsService {
         productIdsString,
         order.shippingAddress || '',
         order.transactionHash || '',
+        (order.shippingFee || 0).toString(),
+        (order.vatRate ?? 8).toString(),
+        (order.vatAmount || 0).toString(),
         order.createdAt?.toISOString() || new Date().toISOString(),
         new Date().toISOString(),
       ];

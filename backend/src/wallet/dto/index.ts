@@ -5,3 +5,4 @@ export * from './process-deposit-request.dto';
 export * from './bank-account.dto';
 export * from './create-withdraw-request.dto';
 export * from './process-withdraw-request.dto';
+export * from './create-wallet-swap.dto';

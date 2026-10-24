@@ -4,11 +4,13 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/app/i18n/I18nProvider";
+import { useUserVisibility } from "@/app/utils/useUserVisibility";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const { t } = useI18n();
   const [pressedHref, setPressedHref] = useState<string | null>(null);
+  const visibility = useUserVisibility();
 
   useEffect(() => {
     setPressedHref(null);
@@ -20,7 +22,7 @@ export default function BottomNav() {
     { href: "/home/wallets", label: t("navWallets"), icon: "account_balance_wallet", activePaths: ["/home/wallets"] },
     { href: "/home/affiliate", label: t("navAffiliate"), icon: "group_work", activePaths: ["/home/affiliate"] },
     { href: "/home/profile", label: t("navAccount"), icon: "person", activePaths: ["/home/profile", "/home/account"] },
-  ];
+  ].filter((item) => item.href !== "/home/orders" || visibility?.userOrderHistoryVisible);
 
   const isActive = (item: (typeof menuItems)[0]) => {
     const normalizedPathname = pathname.replace(/\/$/, "") || "/";
@@ -33,8 +35,8 @@ export default function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-lg border-t border-gray-200 z-[70] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
-      <div className="flex justify-between items-center max-w-md mx-auto px-4 pt-3 pb-5 safe-area-inset-bottom">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-4xl lg:max-w-5xl bg-white/95 backdrop-blur-lg border-t border-gray-200 z-[70] shadow-[0_-8px_30px_rgba(0,0,0,0.04)]">
+      <div className="flex justify-between items-center max-w-md md:max-w-4xl lg:max-w-5xl mx-auto px-4 pt-3 pb-5 safe-area-inset-bottom">
         {menuItems.map((item) => {
           const active = isActive(item) || pressedHref === item.href;
 

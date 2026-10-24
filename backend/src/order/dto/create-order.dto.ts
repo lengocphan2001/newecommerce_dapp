@@ -47,4 +47,12 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   paymentMethod?: string; // 'wallet' | 'banking' | 'deposit_wallet' | 'usdt'
+
+  @IsString()
+  @IsOptional()
+  buyerUsername?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

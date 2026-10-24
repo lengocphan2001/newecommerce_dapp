@@ -131,9 +131,43 @@ export class Product {
   @Column({ type: 'boolean', default: false })
   useProductCommission: boolean;
 
+  /** Tỷ lệ hoa hồng gián tiếp F2 cho sản phẩm (%) khi useProductCommission = true. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 0,
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 0),
+    },
+  })
+  indirectCommissionRateF2?: number;
+
+  /** Tỷ lệ % giá trị sản phẩm (không bao gồm thuế) dùng làm căn cứ tính hoa hồng (ví dụ 85%, 90%, 95%). Mặc định 95%. */
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    default: 95,
+    transformer: {
+      to: (v: number) => v,
+      from: (v: string) => (v != null ? parseFloat(v) : 95),
+    },
+  })
+  commissionBasePercent?: number;
+
+
+
   /** true = sản phẩm triển vọng được hưởng chính sách đồng chia đặc biệt và quỹ doanh số hàng đợi. Default false. */
   @Column({ type: 'boolean', default: false })
   isPromisingProduct: boolean;
+
+  /** true = đơn mua sản phẩm này không được cộng doanh số (cá nhân, nhánh, nhóm). Hoa hồng không đổi. Default false. */
+  @Column({ type: 'boolean', default: false })
+  excludeFromSales: boolean;
 
   /** Direct: commission % for buyer package TV (0–100). Referrer gets this % of (price × qty). */
   @Column({
@@ -363,6 +397,9 @@ export class Product {
       reconsumptionRequired?: number;
     }
   >;
+
+  @Column({ type: 'int', default: 0 })
+  sortOrder: number;
 
   @CreateDateColumn()
   createdAt: Date;

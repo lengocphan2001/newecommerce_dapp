@@ -51,6 +51,9 @@ export class User {
   walletAddress: string;
 
   @Column({ nullable: true })
+  taxId: string;
+
+  @Column({ nullable: true })
   chainId: string;
 
   @Column({ nullable: true })
@@ -73,6 +76,25 @@ export class User {
 
   @Column({ default: 'NONE' })
   packageType: string; // Loại gói user (dynamic code)
+
+  @Column({ default: 'NONE' })
+  manualRank: string; // Cấp bậc đại lý set thủ công (NONE, DAILY, C1, C2, C3, C4, C5, C6, C7, C8, C9)
+
+  /**
+   * Cấp bậc đại lý đang có hiệu lực (C0, DAILY, C1..C9), do việc đồng bộ bể
+   * đại lý ghi lại. Nhờ giá trị này, khi duyệt một đơn chỉ cần tính lại cấp
+   * của người mua và tuyến trên thay vì xếp hạng lại cả cây.
+   */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  agentRank: string | null;
+
+  /** Rank lãnh đạo do admin thiết lập hàng tháng dựa trên doanh số */
+  @Column({
+    type: 'enum',
+    enum: ['NONE', 'LEADER', 'MANAGER', 'DIRECTOR', 'DIAMOND'],
+    default: 'NONE',
+  })
+  rank: 'NONE' | 'LEADER' | 'MANAGER' | 'DIRECTOR' | 'DIAMOND';
 
   @Column({
     type: 'decimal',
@@ -110,6 +132,19 @@ export class User {
     },
   })
   fakeReceivedCommission: number; // Hoa hồng “ảo” do admin thêm, hiển thị = totalCommissionReceived + fakeReceivedCommission
+
+  @Column({
+    type: 'decimal',
+    precision: 36,
+    scale: 18,
+    nullable: true,
+    default: null,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | null) => (value ? parseFloat(value) : null),
+    },
+  })
+  customMaxCommission: number | null; // Cấu hình max out giới hạn hoa hồng nhận của user (nếu null thì tự tính)
 
   @Column({
     type: 'decimal',

@@ -45,7 +45,7 @@ export class HeapRewardPlacement {
   updatedAt: Date;
 
   @Column({ type: 'uuid', nullable: true })
-  triggerOrderId: string;
+  triggerOrderId?: string | null;
 
   @ManyToOne(() => Order, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'triggerOrderId' })
