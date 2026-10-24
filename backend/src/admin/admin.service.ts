@@ -2046,9 +2046,13 @@ export class AdminService {
   }
 
   // Minimal CSV parser for our own export format (commas + double quotes escaping).
+  // Excel \u1EDF locale vi-VN l\u01B0u CSV b\u1EB1ng d\u1EA5u ';', n\u00EAn d\u1EA5u ph\u00E2n c\u00E1ch \u0111\u01B0\u1EE3c \u0111o\u00E1n t\u1EEB d\u00F2ng header.
   private parseCsv(content: string): string[][] {
     const rows: string[][] = [];
     const text = content.replace(/^\uFEFF/, ''); // strip BOM if present
+    const headerLine = text.slice(0, text.indexOf('\n') === -1 ? undefined : text.indexOf('\n'));
+    const delimiter =
+      (headerLine.match(/;/g)?.length ?? 0) > (headerLine.match(/,/g)?.length ?? 0) ? ';' : ',';
 
     let row: string[] = [];
     let field = '';
@@ -2086,7 +2090,7 @@ export class AdminService {
         continue;
       }
 
-      if (ch === ',') {
+      if (ch === delimiter) {
         pushField();
         continue;
       }
@@ -2148,6 +2152,14 @@ export class AdminService {
     const iPasswordChangedAt = idx('Password Changed At');
     const iCreatedAt = idx('Created At');
     const iUpdatedAt = idx('Updated At');
+    const iManualRank = idx('Manual Rank');
+    const iSyncedAgentRank = idx('Synced Agent Rank');
+    const iLeaderRank = idx('Leader Rank');
+    const iTaxId = idx('Tax ID');
+    const iReconsumptionWalletBalance = idx('Reconsumption Wallet Balance');
+    const iPvWalletBalance = idx('PV Wallet Balance');
+    const iCustomMaxCommission = idx('Custom Max Commission');
+    const iPasswordHash = idx('Password Hash');
 
     if (iEmail === -1 || iFullName === -1) {
       throw new BadRequestException('CSV must at least contain "Email" and "Full Name" headers.');
@@ -2160,6 +2172,7 @@ export class AdminService {
     const defaultPassword = 'User@123456';
     const defaultPasswordHash = await bcrypt.hash(defaultPassword, 10);
 
+    const LEADER_RANKS: User['rank'][] = ['NONE', 'LEADER', 'MANAGER', 'DIRECTOR', 'DIAMOND'];
     const parseNum = (v: string): number => {
       const n = parseFloat(v);
       return isNaN(n) ? 0 : n;
@@ -2186,7 +2199,9 @@ export class AdminService {
       const row = rows[r];
       if (row.length < 2) continue;
 
-      const get = (i: number) => (i >= 0 && row[i] !== undefined ? row[i].trim() : '');
+      // Bỏ dấu ' mà export thêm trước ô bắt đầu bằng = + - @ (chống chạy công thức trong Excel).
+      const get = (i: number) =>
+        i >= 0 && row[i] !== undefined ? row[i].trim().replace(/^'(?=[=+\-@])/, '') : '';
 
       const email = get(iEmail);
       const fullName = get(iFullName);
@@ -2241,6 +2256,32 @@ export class AdminService {
         if (iTotalReconsumptionAmount >= 0) userEntity.totalReconsumptionAmount = parseNum(get(iTotalReconsumptionAmount));
         if (iLeftBranchTotal >= 0) userEntity.leftBranchTotal = parseNum(get(iLeftBranchTotal));
         if (iRightBranchTotal >= 0) userEntity.rightBranchTotal = parseNum(get(iRightBranchTotal));
+        if (iReconsumptionWalletBalance >= 0)
+          userEntity.reconsumptionWalletBalance = parseNum(get(iReconsumptionWalletBalance));
+        if (iPvWalletBalance >= 0) userEntity.pvWalletBalance = parseNum(get(iPvWalletBalance));
+        if (iCustomMaxCommission >= 0) {
+          const v = get(iCustomMaxCommission);
+          userEntity.customMaxCommission = v === '' ? null : parseNum(v);
+        }
+        if (iTaxId >= 0) userEntity.taxId = (get(iTaxId) || null) as any;
+        if (iManualRank >= 0) {
+          const manualRank = (get(iManualRank) || 'NONE').toUpperCase();
+          if (!MANUAL_RANK_VALUES.includes(manualRank)) {
+            throw new Error(`Manual Rank không hợp lệ: ${manualRank}`);
+          }
+          userEntity.manualRank = manualRank;
+        }
+        if (iSyncedAgentRank >= 0) userEntity.agentRank = get(iSyncedAgentRank) || null;
+        if (iLeaderRank >= 0) {
+          const leaderRank = (get(iLeaderRank) || 'NONE').toUpperCase();
+          if (!LEADER_RANKS.includes(leaderRank as User['rank'])) {
+            throw new Error(`Leader Rank không hợp lệ: ${leaderRank}`);
+          }
+          userEntity.rank = leaderRank as User['rank'];
+        }
+        // Chỉ nhận mã băm bcrypt; ô trống hoặc giá trị khác giữ nguyên mật khẩu hiện tại.
+        const passwordHash = iPasswordHash >= 0 ? get(iPasswordHash) : '';
+        if (/^\$2[aby]\$\d{2}\$.{53}$/.test(passwordHash)) userEntity.password = passwordHash;
 
         const createdDate = iCreatedAt >= 0 ? parseDate(get(iCreatedAt)) : null;
         if (createdDate) userEntity.createdAt = createdDate;

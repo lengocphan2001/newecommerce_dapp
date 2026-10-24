@@ -49,9 +49,11 @@ export class AdminController {
             ? ''
             : val.toISOString()
           : String(val);
-      if (s.includes(',') || s.includes('"') || s.includes('\n'))
-        return `"${s.replace(/"/g, '""')}"`;
-      return s;
+      // Excel chạy ô bắt đầu bằng = + - @ như công thức; dấu ' buộc nó hiển thị
+      // dạng chữ. Import bỏ dấu ' này đi nên dữ liệu không đổi khi nhập lại.
+      const safe = typeof val === 'string' && /^[=+\-@]/.test(s) ? `'${s}` : s;
+      if (/[",;\r\n]/.test(safe)) return `"${safe.replace(/"/g, '""')}"`;
+      return safe;
     };
 
     const headers = [
@@ -111,6 +113,9 @@ export class AdminController {
       'F1 Count',
       'F2 Count',
       'F3 Count',
+      'Tax ID',
+      'Leader Rank',
+      'Password Hash',
     ];
 
     /** Số tiền trong CSV: luôn 4 chữ số thập phân để Excel không làm tròn. */
@@ -176,15 +181,20 @@ export class AdminController {
       metrics?.f1Count ?? 0,
       metrics?.f2Count ?? 0,
       metrics?.f3Count ?? 0,
+      escapeCsv(user.taxId),
+      escapeCsv(user.rank || 'NONE'),
+      // Mã băm bcrypt, không phải mật khẩu gốc: cần để user nhập lại vẫn đăng nhập được.
+      escapeCsv(user.password),
     ];
 
     // Doanh số, hoa hồng và tuyến dưới được tính một lần cho tất cả user trước
     // khi ghi dòng đầu tiên: tính theo từng user sẽ thành N+1 truy vấn đệ quy.
     const metricsByUser = await this.adminService.buildUserExportMetrics();
 
-    res.header('Content-Type', 'text/csv');
+    res.header('Content-Type', 'text/csv; charset=utf-8');
     res.header('Content-Disposition', 'attachment; filename="users.csv"');
-    res.write(headers.join(','));
+    // BOM để Excel đọc đúng tiếng Việt.
+    res.write('﻿' + headers.join(','));
 
     const BATCH_SIZE = 500;
     for (let skip = 0; ; skip += BATCH_SIZE) {
